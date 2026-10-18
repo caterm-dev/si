@@ -96,6 +96,10 @@ docs/                  Architecture, manual checks, and roadmap
 
 The Swift package and Xcode app compile the same core source files. There is no separate copy of the engine to keep in sync.
 
+## Website
+
+The static landing page supports English and Simplified Chinese, with an accessible scripted input demonstration. Build it with `node scripts/build-website.mjs`; see [website development and GitHub Pages deployment](docs/WEBSITE.md) for preview, localization, download updates, and custom-domain setup.
+
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture](docs/ARCHITECTURE.md). Keep code, UI copy, documentation, issue reports, and pull requests in English. Language data and user input naturally retain their original scripts.

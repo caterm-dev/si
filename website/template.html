@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f8f7f2">
+    <meta name="description" content="{{description}}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{title}}">
+    <meta property="og:description" content="{{description}}">
+    <title>{{title}}</title>
+    <link rel="icon" href="{{base}}assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="{{base}}assets/style.css">
+    <link rel="alternate" hreflang="en" href="{{base}}">
+    <link rel="alternate" hreflang="zh-CN" href="{{base}}zh/">
+    <link rel="alternate" hreflang="x-default" href="{{base}}">
+    <script src="{{base}}assets/demo.js" defer></script>
+</head>
+<body>
+    <a class="skip-link" href="#main">{{skip}}</a>
+    <header class="site-header wrap">
+        <a class="wordmark" href="{{home}}" aria-label="SI"><span class="logo">SI</span><span>SI<span class="wordmark-dot">.</span></span></a>
+        <nav class="main-nav" aria-label="{{navigationLabel}}">
+            <a href="#idea">{{navAbout}}</a>
+            <a href="#download">{{navDownload}}</a>
+            <a class="source-link" href="https://github.com/caterm-dev/si">{{navSource}}</a>
+        </nav>
+        <nav class="languages" aria-label="{{languageLabel}}">
+            <a href="{{base}}" lang="en" hreflang="en" {{enCurrent}}>EN</a>
+            <span aria-hidden="true">/</span>
+            <a href="{{base}}zh/" lang="zh-CN" hreflang="zh-CN" {{zhCurrent}}>中文</a>
+        </nav>
+    </header>
+    <main id="main">
+        <section class="hero wrap" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>{{eyebrow}}</p>
+                <h1 id="hero-title">{{heroLine1}}<br><span>{{heroLine2}}</span></h1>
+                <p class="hero-intro">{{intro}}</p>
+                <div class="hero-actions"><a class="button button-primary" href="#download">{{primaryCta}}<span aria-hidden="true">↓</span></a><a class="text-link" href="#demo">{{secondaryCta}}</a></div>
+                <p class="requirement">{{requirement}}</p>
+            </div>
+            <div class="hero-art" aria-hidden="true">
+                <span class="art-character art-character-cn">你</span><span class="art-character art-character-en">a</span>
+                <div class="art-line"></div><span class="art-caption">中文 + English</span>
+                <span class="art-symbol">↳</span>
+            </div>
+        </section>
+        <section id="demo" class="demo-section wrap" aria-labelledby="demo-title">
+            <div class="section-heading"><div><p class="eyebrow">{{demoLabel}}</p><h2 id="demo-title">{{demoTitle}}</h2></div><p class="demo-note">{{demoNote}}</p></div>
+            <div class="demo-stage" data-demo data-pause-label="{{pause}}" data-play-label="{{play}}" data-key-hint="{{keyHint}}" data-result-hint="{{resultHint}}">
+                <div class="demo-visual">
+                    <div class="orbit orbit-one" aria-hidden="true"></div><div class="orbit orbit-two" aria-hidden="true"></div>
+                    <div class="note-window" role="img" aria-label="{{demoEditorLabel}}" aria-describedby="demo-description">
+                        <div class="window-bar" aria-hidden="true"><div class="traffic-lights"><i></i><i></i><i></i></div><span>{{windowTitle}}</span><span class="window-mark">SI</span></div>
+                        <div class="editor" aria-hidden="true">
+                            <p class="editor-subtitle">{{windowSubtitle}}</p>
+                            <div class="editor-line"><span data-committed></span><span class="composition" data-composition>shi</span><span class="caret"></span></div>
+                            <div class="candidates" data-candidates><div class="candidate candidate-selected"><span><small>1</small>是</span><em>{{chinese}}</em></div><div class="candidate"><span><small>2</small>时</span><em>{{chinese}}</em></div><div class="candidate"><span><small>3</small>ship</span><em>{{english}}</em></div><div class="candidate"><span><small>4</small>shirt</span><em>{{english}}</em></div><div class="candidate candidate-literal"><span><small>5</small>shi</span><em>{{asTyped}}</em></div></div>
+                            <div class="candidate-templates" hidden><template data-scene-candidates="0"><div class="candidate candidate-selected"><span><small>1</small>是</span><em>{{chinese}}</em></div><div class="candidate"><span><small>2</small>时</span><em>{{chinese}}</em></div><div class="candidate"><span><small>3</small>ship</span><em>{{english}}</em></div><div class="candidate"><span><small>4</small>shirt</span><em>{{english}}</em></div><div class="candidate candidate-literal"><span><small>5</small>shi</span><em>{{asTyped}}</em></div></template><template data-scene-candidates="1"><div class="candidate candidate-selected"><span><small>1</small>你好</span><em>{{chinese}}</em></div><div class="candidate candidate-literal"><span><small>2</small>nihao</span><em>{{asTyped}}</em></div></template><template data-scene-candidates="2"><div class="candidate candidate-selected"><span><small>1</small>world</span><em>{{english}}</em></div><div class="candidate candidate-literal"><span><small>2</small>world</span><em>{{asTyped}}</em></div></template></div>
+                            <p class="editor-hint"><span data-key-hint>{{keyHint}}</span><kbd data-space-key>space</kbd></p>
+                        </div>
+                        <div class="window-footer" aria-hidden="true"><span>{{enabledLanguages}}</span><span><i></i>{{chinese}}<b>+</b><i></i>{{english}}</span></div>
+                    </div>
+                    <span class="stage-caption" aria-hidden="true">SI / 中文 + English</span>
+                </div>
+                <div class="demo-story">
+                    <div class="scene-controls" role="group" aria-label="{{sceneGroup}}">
+                        <button class="scene-button" type="button" disabled data-scene="0" aria-pressed="true"><span class="scene-number">01</span><span><strong data-scene-title>{{scene1Title}}</strong><span data-scene-description>{{scene1Body}}</span></span><span class="scene-progress" aria-hidden="true"></span></button>
+                        <button class="scene-button" type="button" disabled data-scene="1" aria-pressed="false"><span class="scene-number">02</span><span><strong data-scene-title>{{scene2Title}}</strong><span data-scene-description>{{scene2Body}}</span></span><span class="scene-progress" aria-hidden="true"></span></button>
+                        <button class="scene-button" type="button" disabled data-scene="2" aria-pressed="false"><span class="scene-number">03</span><span><strong data-scene-title>{{scene3Title}}</strong><span data-scene-description>{{scene3Body}}</span></span><span class="scene-progress" aria-hidden="true"></span></button>
+                    </div>
+                    <div class="playback-controls" hidden data-playback><button class="playback-button" data-toggle type="button" aria-label="{{pause}}"><span data-toggle-icon aria-hidden="true">Ⅱ</span><span data-toggle-label>{{pause}}</span></button><button class="replay-button" data-replay type="button" aria-label="{{replay}}"><span aria-hidden="true">↻</span></button></div>
+                    <p class="sr-only" data-scene-status aria-live="polite" aria-atomic="true"></p>
+                </div>
+            </div>
+            <p id="demo-description" class="sr-only">{{demoAccessible}}</p>
+        </section>
+        <section id="idea" class="idea-section wrap" aria-labelledby="idea-title">
+            <div class="idea-heading"><p class="eyebrow">{{aboutEyebrow}}</p><h2 id="idea-title" class="multiline">{{aboutTitle}}</h2><span class="idea-flower" aria-hidden="true">✳</span></div>
+            <div class="features"><article><span class="feature-index">01 /</span><h3>{{feature1Title}}</h3><p>{{feature1Body}}</p></article><article><span class="feature-index">02 /</span><h3>{{feature2Title}}</h3><p>{{feature2Body}}</p></article><article><span class="feature-index">03 /</span><h3>{{feature3Title}}</h3><p>{{feature3Body}}</p></article></div>
+        </section>
+        <aside class="preview-note wrap"><span class="preview-icon" aria-hidden="true">↗</span><div><h3>{{previewLabel}}</h3><p>{{previewBody}}</p><a class="text-link" href="https://github.com/caterm-dev/si/blob/main/docs/ROADMAP.md">{{roadmapLink}}</a></div></aside>
+        <section id="download" class="download-section" aria-labelledby="download-title"><div class="download-inner wrap"><div><p class="eyebrow">{{downloadEyebrow}}</p><h2 id="download-title">{{downloadTitle}}</h2><p class="download-intro">{{downloadBody}}</p><a class="install-link" href="https://github.com/caterm-dev/si#install-for-local-development">{{installLink}}</a></div><div class="download-panel"><p class="release-label"><span class="status-dot" aria-hidden="true"></span>{{releaseLabel}}</p><p>{{releaseStatus}}</p><div class="download-actions"><a class="button button-light" href="https://github.com/caterm-dev/si/releases">{{releasesCta}}</a><a class="text-link" href="https://github.com/caterm-dev/si#get-started">{{buildCta}}</a></div></div></div></section>
+    </main>
+    <footer class="site-footer wrap"><a class="wordmark" href="{{home}}" aria-label="SI"><span class="logo">SI</span></a><p>{{footerLine}}</p><div><a href="https://github.com/caterm-dev/si/blob/main/LICENSE">{{license}}</a><a href="https://github.com/caterm-dev/si/issues">{{feedback}}</a></div></footer>
+</body>
+</html>

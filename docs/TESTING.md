@@ -32,3 +32,7 @@ Install with `./scripts/install.sh`, log out and back in if needed, add SI in Ke
 Run relevant cases in TextEdit (plain text), Safari or Chrome text fields, a code editor, Terminal, and office apps. Check secure text fields using dummy data only; macOS may choose a different input source for those fields.
 
 Record the macOS version, host application/version, enabled languages, synthetic input, expected behavior, and actual output. System registration, key routing, actor-boundary assumptions, and host-app compatibility require this manual verification before release.
+
+## Website verification
+
+For the independent static landing page, use the build, browser, localization, accessibility, and deployment checks in [WEBSITE.md](WEBSITE.md). These checks do not install or exercise the input method.
