@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible problem with SI.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: Please write in English and use non-sensitive example input.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: macOS version, SI revision, Xcode version, and host application/version.
+    validations:
+      required: true
+  - type: input
+    id: languages
+    attributes:
+      label: Enabled languages
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal input sequence and keys pressed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
