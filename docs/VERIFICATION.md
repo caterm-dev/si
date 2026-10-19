@@ -2,6 +2,16 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Top menu-bar template badge — 2026-10-20
+
+The user clarified that the missing background was in the top menu bar. Before this change, the source, Debug app, and installed normal/alternate TIFF files had matching hashes, and a read-only SI-bundle-filtered TIS query returned one SI source pointing to the installed `InputSourceIcon.tiff`. The installed metadata used `TISIconIsTemplate = false`. This rules out a missing file update, but does not identify the menu agent's actual rendering or cache state. The previous synthetic full-color preview was not evidence that the top menu bar rendered correctly.
+
+The generator now creates one `InputSourceIconTemplate.tiff`: an opaque rounded badge with transparent SI glyph cutouts, using Core Text with destination-out blending. Bundle metadata marks it as a template and removes the alternate color bitmap. The new filename distinguishes the alpha mask from the former resources without changing the input-source identifier, language registration, connection, or preferences. This follows AppKit's template-image processing model; it remains a targeted visual repair rather than a confirmed diagnosis of the original menu-bar failure.
+
+Generation and alpha inspection passed: the TIFF has 16×16 and 32×32 pixel representations with 16×16 point logical size, opaque badge interiors, transparent corners, and 42/160 sufficiently transparent letter pixels in the inspected inner regions. A simulated light/dark/selected tint preview at `.build/si-template-badge-preview.png` was visually inspected. This is alpha-mask compositing, not a system screenshot. The Debug app build succeeded with the existing AppIntents metadata warning. The built template hash matches the source, the built plist references it with template mode enabled and no alternate entry, and plist syntax/whitespace checks passed. No core tests, Release build, or benchmark was run for this asset/metadata change.
+
+The user authorized a targeted input-menu inspection, but the native tool returned a connection-availability notice without app state or an image. No other control backend was used. The template update has not been installed, and no process was terminated, input source changed, or login session restarted. Actual top-menu rendering, selected-state tinting, dark/light appearance, and the input-source picker still require checking after installation.
+
 ## Chinese vocabulary maintenance — 2026-10-19
 
 The initial Chinese import merges 8,757 annotated character readings and 76,827 base entries selected by upstream weight from Rime Ice revision `da1fbe602e38f26db846fa10120ee64c2b0324c0`, all 979 original SI entries, and three local additions. Deduplication produces 85,596 text/reading pairs and 84,880 distinct texts. This is a selected subset; the extension table and unannotated Tencent table are excluded. Source selection, weights, pins, SHA-256 values, original headers, GPLv3 license and THUOCL MIT notice are retained. The [Chinese workflow](CHINESE_VOCABULARY.md) adds source tracing, persistent reading corrections/exclusions, staged group refreshes and monthly upstream audits alongside English.

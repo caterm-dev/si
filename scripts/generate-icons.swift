@@ -1,15 +1,15 @@
 #!/usr/bin/env swift
-// Generates SI's original rounded input-source badge. Run from the repository root.
+// Generates SI's original input-source template badge. Run from the repository root.
 import AppKit
 import CoreText
 
 // Input-source icons use a 16-point canvas, with separate 1x/2x bitmap representations.
 // Center the visible glyphs rather than the font's line box (which includes baseline padding).
 let size = NSSize(width: 16, height: 16)
-func renderIcon(foreground: NSColor, background: NSColor) throws -> Data {
+func renderIcon() throws -> Data {
     let line = CTLineCreateWithAttributedString(NSAttributedString(string: "SI", attributes: [
         .font: NSFont.systemFont(ofSize: 11, weight: .bold),
-        .foregroundColor: foreground,
+        .foregroundColor: NSColor.black,
     ]))
     let inkBounds = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
     let representations: [NSBitmapImageRep] = try [1, 2].map { scale in
@@ -22,9 +22,12 @@ func renderIcon(foreground: NSColor, background: NSColor) throws -> Data {
         context.scaleBy(x: CGFloat(scale), y: CGFloat(scale))
         let badge = CGPath(roundedRect: CGRect(x: 0.5, y: 0.5, width: 15, height: 15),
                            cornerWidth: 4, cornerHeight: 4, transform: nil)
-        context.setFillColor(background.cgColor)
+        context.setFillColor(NSColor.black.cgColor)
         context.addPath(badge)
         context.fillPath()
+        // A template is an alpha mask: cut letters out instead of painting them opaque white.
+        // This keeps the badge and readable lettering when macOS tints the menu-bar image.
+        context.setBlendMode(.destinationOut)
         context.textPosition = CGPoint(x: (size.width - inkBounds.width) / 2 - inkBounds.minX,
                                        y: (size.height - inkBounds.height) / 2 - inkBounds.minY)
         CTLineDraw(line, context)
@@ -40,12 +43,6 @@ func renderIcon(foreground: NSColor, background: NSColor) throws -> Data {
 }
 let directory = URL(filePath: FileManager.default.currentDirectoryPath).appending(path: "mac/SI/Resources")
 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-let charcoal = NSColor(srgbRed: 0.15, green: 0.15, blue: 0.16, alpha: 1)
-for (filename, foreground, background) in [
-    ("InputSourceIcon.tiff", NSColor.white, charcoal),
-    ("InputSourceIconSelected.tiff", charcoal, NSColor.white),
-] {
-    let destination = directory.appending(path: filename)
-    try renderIcon(foreground: foreground, background: background).write(to: destination)
-    print("Generated \(destination.path)")
-}
+let destination = directory.appending(path: "InputSourceIconTemplate.tiff")
+try renderIcon().write(to: destination)
+print("Generated \(destination.path)")

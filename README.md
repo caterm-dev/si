@@ -93,7 +93,7 @@ This builds SI, stages and verifies an ad hoc signed copy, and installs it in `~
 4. Select **SI** in the input menu.
 5. Open **SI Settings…** from the input menu to choose enabled languages.
 
-SI uses a rounded charcoal badge with white lettering, with an alternate light badge for selected menu rows. Regenerate both original icon assets with `xcrun swift scripts/generate-icons.swift`.
+SI uses a rounded template badge with transparent SI lettering, allowing macOS to tint the background shape for the menu bar and selected menu rows. Regenerate the original asset with `xcrun swift scripts/generate-icons.swift`.
 
 You can also open the installed settings window with:
 
