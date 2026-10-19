@@ -1,0 +1,980 @@
+# Original SI entries and editorial scores, GPL-3.0-only.
+一	yi	100
+一下	yi xia	100
+一个	yi ge	100
+一些	yi xie	100
+一会儿	yi hui er	100
+一定	yi ding	100
+一样	yi yang	100
+一点	yi dian	100
+一直	yi zhi	100
+一般	yi ban	100
+一起	yi qi	100
+一边	yi bian	100
+七	qi	97
+万	wan	98
+三	san	100
+上	shang	100
+上下文	shang xia wen	100
+上午	shang wu	100
+上海	shang hai	100
+上班	shang ban	100
+上面	shang mian	100
+下	xia	100
+下午	xia wu	100
+下班	xia ban	100
+下面	xia mian	100
+不	bu	100
+不会	bu hui	100
+不客气	bu ke qi	100
+不是	bu shi	100
+不用	bu yong	100
+不能	bu neng	100
+不要	bu yao	100
+不过	bu guo	100
+与	yu	98
+专	zhuan	99
+且	qie	99
+世界	shi jie	100
+东	dong	100
+东京	dong jing	100
+东西	dong xi	100
+两	liang	100
+个	ge	100
+个性化	ge xing hua	100
+中	zhong	100
+中午	zhong wu	100
+中国	zhong guo	100
+中国人	zhong guo ren	100
+中文	zhong wen	100
+中英文	zhong ying wen	100
+中英混输	zhong ying hun shu	100
+临	lin	99
+为	wei	100
+为什么	wei shen me	100
+主	zhu	100
+久	jiu	98
+么	me	100
+之	zhi	98
+乐	le	99
+九	jiu	99
+也	ye	100
+习	xi	97
+书	shu	100
+买	mai	100
+了	le	100
+事	shi	98
+事情	shi qing	100
+二	er	99
+于	yu	100
+云	yun	100
+互	hu	98
+五	wu	99
+些	xie	98
+交	jiao	98
+京	jing	99
+亮	liang	98
+亲	qin	100
+人	ren	100
+人民	ren min	100
+什	shen	98
+什么	shen me	100
+什么时候	shen me shi hou	100
+仁	ren	98
+今	jin	100
+今天	jin tian	100
+今年	jin nian	100
+仍	reng	100
+从	cong	100
+他	ta	100
+他们	ta men	100
+他的	ta de	100
+付	fu	98
+代	dai	99
+代码	dai ma	100
+以	yi	99
+以前	yi qian	100
+以后	yi hou	100
+们	men	100
+件	jian	99
+价	jia	97
+份	fen	99
+休	xiu	99
+休息	xiu xi	100
+会	hui	100
+会议	hui yi	100
+传	chuan	100
+但	dan	100
+但是	dan shi	100
+位	wei	99
+低	di	98
+住	zhu	99
+体	ti	98
+作	zuo	100
+你	ni	100
+你们	ni men	100
+你们的	ni men de	100
+你好	ni hao	100
+你的	ni de	100
+侧	ce	99
+便	bian	97
+保	bao	98
+保存	bao cun	100
+信	xin	98
+修	xiu	100
+修改	xiu gai	100
+倍	bei	97
+倒	dao	98
+候	hou	99
+候选	hou xuan	100
+候选词	hou xuan ci	100
+假	jia	98
+偏好	pian hao	100
+做	zuo	99
+停	ting	99
+偶	ou	99
+像	xiang	97
+儿	er	98
+元	yuan	100
+兄	xiong	100
+先	xian	100
+先后	xian hou	100
+光	guang	100
+免	mian	99
+入	ru	99
+全	quan	100
+八	ba	98
+公	gong	99
+公交	gong jiao	100
+公司	gong si	100
+公园	gong yuan	100
+六	liu	100
+兰	lan	99
+共	gong	98
+关	guan	100
+关系	guan xi	100
+关闭	guan bi	100
+兴	xing	97
+养	yang	99
+内	nei	100
+册	ce	98
+再	zai	99
+再见	zai jian	100
+写	xie	100
+写信	xie xin	100
+冬	dong	98
+冰	bing	98
+决	jue	99
+冷	leng	100
+准	zhun	100
+几	ji	99
+出	chu	100
+分	fen	100
+分钟	fen zhong	100
+切	qie	100
+刊	kan	99
+则	ze	100
+创	chuang	99
+初	chu	98
+删除	shan chu	100
+判	pan	99
+别	bie	100
+到	dao	100
+前	qian	100
+前后	qian hou	100
+力	li	98
+办	ban	100
+功	gong	97
+功能	gong neng	100
+加	jia	99
+动	dong	99
+助	zhu	98
+劳	lao	99
+勤	qin	99
+包	bao	100
+包含	bao han	100
+化	hua	98
+北	bei	99
+北京	bei jing	100
+区	qu	99
+十	shi	97
+千	qian	98
+午	wu	97
+午饭	wu fan	100
+半	ban	99
+单	dan	99
+卖	mai	99
+南	nan	100
+却	que	99
+卸载	xie zai	100
+厅	ting	98
+压	ya	99
+厚	hou	98
+原	yuan	98
+原因	yuan yin	100
+去	qu	100
+去年	qu nian	100
+县	xian	98
+参	can	100
+又	you	99
+及	ji	98
+友	you	98
+双	shuang	100
+反	fan	100
+发	fa	100
+发布	fa bu	100
+取	qu	98
+取消	qu xiao	100
+变	bian	99
+口	kou	100
+句	ju	100
+另	ling	99
+只	zhi	99
+叫	jiao	99
+可	ke	100
+可以	ke yi	100
+可是	ke shi	100
+可能	ke neng	100
+台	tai	99
+号	hao	99
+吃	chi	100
+吃饭	chi fan	100
+各	ge	99
+合	he	97
+同	tong	100
+同学	tong xue	100
+名	ming	100
+后	hou	100
+向	xiang	99
+吕	lv	98
+吗	ma	100
+吧	ba	99
+含	han	99
+听	ting	100
+听歌	ting ge	100
+启动	qi dong	100
+呀	ya	100
+告	gao	99
+员	yuan	99
+呢	ne	100
+呢	ni	99
+周	zhou	100
+周末	zhou mo	100
+命	ming	98
+和	he	100
+咱	zan	100
+品	pin	99
+哈	ha	100
+哎	ai	98
+哦	o	100
+哪	na	98
+唱	chang	97
+商	shang	99
+啊	a	100
+善	shan	99
+喜欢	xi huan	100
+喝	he	99
+喝水	he shui	100
+嗯	en	100
+嘴	zui	99
+四	si	100
+回	hui	99
+因	yin	100
+因为	yin wei	100
+团	tuan	100
+国	guo	100
+图	tu	100
+圈	quan	98
+土	tu	99
+在	zai	100
+地	de	98
+地	di	100
+地铁	di tie	100
+场	chang	98
+坐	zuo	98
+块	kuai	99
+坡	po	99
+型	xing	99
+城	cheng	99
+城市	cheng shi	100
+堂	tang	100
+墙	qiang	99
+增	zeng	100
+声	sheng	99
+处	chu	99
+备份	bei fen	100
+复	fu	99
+复制	fu zhi	100
+夏	xia	99
+外	wai	100
+外面	wai mian	100
+多	duo	100
+夜	ye	98
+够	gou	100
+大	da	100
+大学	da xue	100
+大家	da jia	100
+天	tian	100
+天气	tian qi	100
+太	tai	100
+失败	shi bai	100
+头	tou	100
+套	tao	100
+女	nv	100
+奶	nai	100
+她	ta	99
+她们	ta men	99
+她的	ta de	99
+好	hao	100
+好吃	hao chi	100
+好玩	hao wan	100
+好用	hao yong	100
+好的	hao de	100
+好看	hao kan	100
+如	ru	100
+如果	ru guo	100
+妈	ma	98
+子	zi	98
+字	zi	100
+字体	zi ti	100
+字母	zi mu	100
+字符	zi fu	100
+字符串	zi fu chuan	100
+学	xue	100
+学习	xue xi	100
+学校	xue xiao	100
+学生	xue sheng	100
+孩	hai	98
+孩子	hai zi	100
+宁	ning	100
+它	ta	98
+它们	ta men	98
+它的	ta de	98
+安	an	100
+安全	an quan	100
+安装	an zhuang	100
+完	wan	100
+完成	wan cheng	100
+定	ding	100
+客	ke	97
+宣	xuan	99
+家	jia	100
+家人	jia ren	100
+容	rong	100
+密	mi	99
+密码	mi ma	100
+寒	han	98
+对	dui	100
+对不起	dui bu qi	100
+寻	xun	100
+导入	dao ru	100
+导出	dao chu	100
+封	feng	99
+将	jiang	100
+小	xiao	100
+小时	xiao shi	100
+少	shao	100
+就	jiu	100
+局	ju	99
+居	ju	98
+展	zhan	99
+山	shan	100
+岁	sui	99
+峰	feng	98
+州	zhou	99
+工	gong	100
+工作	gong zuo	100
+左右	zuo you	100
+巧	qiao	99
+差	cha	98
+已	yi	98
+已经	yi jing	100
+市	shi	95
+师	shi	94
+希	xi	99
+希望	xi wang	100
+带	dai	100
+帮	bang	100
+帮助	bang zhu	100
+常	chang	99
+干	gan	100
+平	ping	100
+年	nian	100
+并	bing	100
+广	guang	99
+序	xu	98
+应	ying	100
+应用	ying yong	100
+应用程序	ying yong cheng xu	100
+应该	ying gai	100
+底	di	97
+店	dian	98
+度	du	99
+建	jian	97
+开	kai	100
+开会	kai hui	100
+开发	kai fa	100
+开始	kai shi	100
+开源	kai yuan	100
+引	yin	98
+张	zhang	100
+强	qiang	100
+归	gui	99
+录	lu	99
+影	ying	98
+待	dai	98
+很	hen	100
+很多	hen duo	100
+很好	hen hao	100
+得	de	99
+得	dei	100
+微	wei	97
+心	xin	99
+必	bi	98
+忙	mang	100
+快	kuai	100
+念	nian	99
+怎	zen	100
+怎么	zen me	100
+怎么样	zen me yang	100
+怕	pa	100
+思	si	99
+急	ji	95
+恢复	hui fu	100
+您	nin	100
+情	qing	99
+想	xiang	100
+想要	xiang yao	100
+意	yi	97
+感	gan	99
+感觉	gan jue	100
+慢	man	100
+懂	dong	97
+成	cheng	100
+成功	cheng gong	100
+我	wo	100
+我们	wo men	100
+我们的	wo men de	100
+我想	wo xiang	100
+我是	wo shi	100
+我的	wo de	100
+我要	wo yao	100
+或	huo	100
+户	hu	100
+房	fang	98
+所	suo	100
+所以	suo yi	100
+手	shou	100
+手机	shou ji	100
+才	cai	100
+打	da	99
+打开	da kai	100
+批	pi	100
+找	zhao	100
+把	ba	100
+投	tou	99
+报	bao	99
+拍	pai	99
+招	zhao	98
+拼	pin	100
+拼音	pin yin	100
+拿	na	99
+持	chi	99
+按	an	99
+换	huan	100
+排	pai	100
+接	jie	100
+控	kong	99
+推	tui	99
+提	ti	99
+握	wo	99
+搜索	sou suo	100
+摆	bai	98
+摇	yao	98
+撤销	che xiao	100
+支持	zhi chi	100
+收	shou	99
+改	gai	100
+放	fang	99
+政	zheng	98
+教	jiao	100
+敢	gan	98
+散	san	99
+数	shu	99
+数字	shu zi	100
+数据	shu ju	100
+数据库	shu ju ku	100
+数据结构	shu ju jie gou	100
+数据表	shu ju biao	100
+整	zheng	99
+文	wen	100
+文件	wen jian	100
+文件名	wen jian ming	100
+文件夹	wen jian jia	100
+文化	wen hua	100
+文字	wen zi	100
+文本	wen ben	100
+文档	wen dang	100
+料	liao	99
+新	xin	100
+方	fang	100
+方法	fang fa	100
+旁	pang	100
+旅	lv	99
+无	wu	100
+日	ri	100
+日期	ri qi	100
+早	zao	100
+早上	zao shang	100
+早上好	zao shang hao	100
+早饭	zao fan	100
+时	shi	99
+时候	shi hou	100
+时间	shi jian	100
+明	ming	99
+明天	ming tian	100
+明年	ming nian	100
+星	xing	98
+星期	xing qi	100
+星期一	xing qi yi	100
+春	chun	100
+昨天	zuo tian	100
+是	shi	100
+显示	xian shi	100
+晚	wan	99
+晚上	wan shang	100
+晚上好	wan shang hao	100
+晚安	wan an	100
+晚饭	wan fan	100
+普	pu	100
+景	jing	97
+智能	zhi neng	100
+暖	nuan	100
+暗	an	98
+更	geng	100
+更新	geng xin	100
+曾	zeng	99
+最	zui	100
+月	yue	100
+月份	yue fen	100
+有	you	100
+朋	peng	100
+朋友	peng you	100
+服	fu	100
+望	wang	99
+期	qi	100
+木	mu	99
+未	wei	98
+末	mo	99
+本	ben	100
+本地	ben di	100
+朵	duo	99
+机	ji	100
+机会	ji hui	100
+机场	ji chang	100
+权	quan	99
+来	lai	100
+杯	bei	98
+松	song	99
+林	lin	100
+果	guo	98
+染	ran	99
+查	cha	100
+查找	cha zhao	100
+标点	biao dian	100
+栏	lan	98
+树	shu	97
+校	xiao	99
+样	yang	100
+根	gen	99
+桌	zhuo	100
+桥	qiao	100
+检查	jian cha	100
+棒	bang	99
+森	sen	100
+模	mo	100
+模式	mo shi	100
+次	ci	100
+欢	huan	99
+欢迎	huan ying	100
+欢迎使用	huan ying shi yong	100
+欧	ou	100
+歌	ge	98
+正	zheng	100
+此	ci	98
+步	bu	98
+母	mu	98
+每	mei	99
+每个	mei ge	100
+每天	mei tian	100
+每次	mei ci	100
+比	bi	100
+毛	mao	99
+气	qi	98
+水	shui	100
+永	yong	99
+求	qiu	100
+汉	han	100
+汉字	han zi	100
+江	jiang	98
+池	chi	98
+汤	tang	98
+汽车	qi che	100
+没	mei	100
+没关系	mei guan xi	100
+没有	mei you	100
+没问题	mei wen ti	100
+河	he	98
+法	fa	99
+泡	pao	99
+泥	ni	98
+洋	yang	98
+活	huo	99
+流	liu	98
+测	ce	100
+测试	ce shi	100
+浏览器	liu lan qi	100
+浩	hao	98
+海	hai	99
+消	xiao	97
+深	shen	100
+添加	tian jia	100
+清	qing	98
+温	wen	98
+湖	hu	99
+源码	yuan ma	100
+满	man	99
+漂	piao	99
+火	huo	98
+火车	huo che	100
+灯	deng	99
+灰	hui	98
+灵	ling	98
+点	dian	100
+点击	dian ji	100
+烧	shao	99
+热	re	100
+然	ran	100
+然后	ran hou	100
+照	zhao	99
+熊	xiong	99
+爬	pa	99
+爱	ai	100
+父	fu	97
+爸	ba	97
+片	pian	99
+版	ban	97
+版本	ban ben	100
+牛	niu	100
+物	wu	98
+特	te	100
+状	zhuang	99
+狗	gou	99
+独	du	98
+猫	mao	100
+王	wang	98
+玩	wan	97
+现	xian	99
+现在	xian zai	100
+班	ban	98
+球	qiu	98
+理	li	99
+生	sheng	100
+生活	sheng huo	100
+用	yong	100
+用户	yong hu	100
+田	tian	99
+由	you	97
+电	dian	99
+电脑	dian nao	100
+男	nan	98
+画	hua	97
+界	jie	97
+留	liu	99
+略	lve	100
+病	bing	99
+白	bai	99
+百	bai	100
+的	de	100
+皮	pi	99
+盘	pan	100
+目	mu	100
+目录	mu lu	100
+目标	mu biao	100
+直	zhi	97
+相	xiang	98
+省	sheng	98
+看	kan	100
+看书	kan shu	100
+真	zhen	100
+眼	yan	99
+着	zhe	99
+睡觉	shui jiao	100
+知	zhi	100
+知道	zhi dao	100
+短语	duan yu	100
+矮	ai	99
+研	yan	98
+破	po	100
+确	que	100
+确定	que ding	100
+碰	peng	99
+社	she	99
+票	piao	100
+离	li	96
+私	si	98
+秋	qiu	99
+种	zhong	98
+科	ke	98
+秒钟	miao zhong	100
+程	cheng	98
+程序	cheng xu	100
+稿	gao	98
+空	kong	100
+空格	kong ge	100
+穿	chuan	98
+窗	chuang	100
+窗口	chuang kou	100
+立	li	97
+站	zhan	100
+章	zhang	99
+笑	xiao	98
+笔	bi	99
+笨	ben	99
+第	di	99
+等	deng	100
+简	jian	96
+管	guan	99
+篇	pian	100
+米	mi	100
+类	lei	100
+粉	fen	98
+粘贴	zhan tie	100
+糖	tang	99
+系	xi	98
+系统	xi tong	100
+索	suo	99
+累	lei	99
+红	hong	100
+约	yue	98
+级	ji	96
+线	xian	97
+组	zu	100
+经	jing	100
+经验	jing yan	100
+结束	jie shu	100
+结构	jie gou	100
+结果	jie guo	100
+给	gei	100
+绿	lv	100
+编	bian	98
+编辑	bian ji	100
+网	wang	100
+网站	wang zhan	100
+网络	wang luo	100
+网页	wang ye	100
+美	mei	98
+老	lao	100
+老师	lao shi	100
+考	kao	100
+者	zhe	98
+而	er	100
+耐	nai	99
+聊	liao	100
+联	lian	99
+聪	cong	99
+胖	pang	99
+能	neng	100
+脑	nao	100
+脸	lian	98
+自	zi	99
+自动	zi dong	100
+自定义	zi ding yi	100
+自己	zi ji	100
+自然	zi ran	100
+自身	zi shen	100
+至	zhi	96
+船	chuan	99
+色	se	100
+节	jie	99
+花	hua	99
+苏	su	99
+英	ying	99
+英文	ying wen	100
+范	fan	98
+茶	cha	99
+荣	rong	99
+药	yao	99
+菜	cai	99
+蓝	lan	100
+蛋	dan	98
+行	xing	100
+街	jie	96
+衣	yi	96
+被	bei	100
+装	zhuang	100
+西	xi	100
+西安	xi an	100
+要	yao	100
+见	jian	100
+规	gui	98
+觉	jue	100
+角	jiao	97
+解	jie	98
+言	yan	100
+计划	ji hua	100
+认	ren	99
+认为	ren wei	100
+讨	tao	99
+让	rang	100
+讯	xun	99
+记	ji	97
+讲	jiang	99
+许	xu	99
+论	lun	100
+设	she	100
+设置	she zhi	100
+评	ping	99
+词	ci	99
+试	shi	96
+话	hua	100
+该	gai	99
+语	yu	99
+语境	yu jing	100
+语言	yu yan	100
+说	shuo	100
+请	qing	100
+请问	qing wen	100
+读	du	100
+读书	du shu	100
+课	ke	99
+谁	shui	99
+谈	tan	100
+谢	xie	99
+谢谢	xie xie	100
+豆	dou	99
+责	ze	99
+账号	zhang hao	100
+购	gou	98
+贵	gui	100
+费	fei	98
+赞	zan	99
+走	zou	100
+起	qi	99
+越	yue	99
+足	zu	99
+跑	pao	100
+跟	gen	100
+路	lu	100
+路径	lu jing	100
+身	shen	99
+车	che	100
+转	zhuan	100
+轮	lun	99
+软	ruan	100
+软件	ruan jian	100
+轻	qing	97
+载	zai	98
+输	shu	98
+输入	shu ru	100
+输入法	shu ru fa	100
+输入源	shu ru yuan	100
+边	bian	100
+达	da	98
+过	guo	99
+运	yun	99
+近	jin	97
+还	hai	100
+还	huan	98
+还有	hai you	100
+这	zhe	100
+这个	zhe ge	100
+这样	zhe yang	100
+这里	zhe li	100
+进	jin	99
+远	yuan	97
+连	lian	100
+追	zhui	100
+退	tui	100
+退出	tui chu	100
+送	song	100
+选	xuan	100
+选择	xuan ze	100
+选项	xuan xiang	100
+通	tong	99
+速	su	100
+造	zao	99
+道	dao	99
+那	na	100
+那个	na ge	100
+那样	na yang	100
+那里	na li	100
+部	bu	99
+都	dou	100
+酒	jiu	97
+采	cai	98
+里	li	100
+里面	li mian	100
+重做	chong zuo	100
+重启	chong qi	100
+重置	zhong zhi	100
+量	liang	99
+金	jin	98
+钟	zhong	99
+钱	qian	99
+铺	pu	99
+错	cuo	100
+错误	cuo wu	100
+长	chang	100
+长	zhang	98
+门	men	99
+问	wen	99
+问题	wen ti	100
+间	jian	98
+闹	nao	99
+队	dui	99
+阵	zhen	99
+阿	a	99
+陆	lu	98
+隆	long	99
+随	sui	100
+隐私	yin si	100
+隐藏	yin cang	100
+难	nan	99
+雨	yu	97
+雪	xue	99
+零	ling	100
+需	xu	100
+需要	xu yao	100
+静	jing	98
+非	fei	100
+靠	kao	99
+面	mian	100
+鞋	xie	97
+音	yin	99
+页	ye	99
+顶	ding	99
+项目	xiang mu	100
+顺	shun	100
+预览	yu lan	100
+题	ti	100
+颜色	yan se	100
+额	e	99
+风	feng	100
+飞	fei	99
+飞机	fei ji	100
+餐	can	99
+饭	fan	99
+饱	bao	97
+饿	e	100
+馆	guan	98
+首	shou	98
+香	xiang	96
+马	ma	99
+马上	ma shang	100
+高	gao	100
+高铁	gao tie	100
+鸡	ji	94
+麦	mai	98
+黑	hei	100
+龙	long	100

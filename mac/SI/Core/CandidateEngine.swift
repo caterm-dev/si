@@ -5,7 +5,10 @@ public struct CandidateEngine: Sendable {
 
     public init(providers: [any CandidateProvider]? = nil) {
         self.providers = providers
-        if providers == nil { EnglishLexicon.prepare() }
+        if providers == nil {
+            EnglishLexicon.prepare()
+            _ = PinyinDecoder.standard
+        }
     }
 
     public func candidates(for input: String, languages: Set<InputLanguage>,

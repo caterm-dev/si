@@ -4,7 +4,7 @@
 
 SI is an open-source macOS input method built around one idea: choose the languages you use in Settings, then type without switching between language modes. Candidates from enabled languages appear together, including ambiguous matches. The original text always remains available.
 
-> **Status: development preview.** SI includes InputMethodKit integration, a bounded Pinyin word-lattice decoder, continuous Chinese/English composition, editable personal phrases, and optional frequency/short-context learning. English uses a maintained multi-source vocabulary; Chinese coverage remains limited; production-level vocabulary coverage, sentence-level ranking, and broad host-app compatibility remain work in progress.
+> **Status: development preview.** SI includes InputMethodKit integration, a bounded Pinyin word-lattice decoder, continuous Chinese/English composition, editable personal phrases, and optional frequency/short-context learning. English and Chinese use maintained source vocabularies with explicit selection limits; production-level vocabulary coverage, sentence-level ranking, and broad host-app compatibility remain work in progress.
 
 ## How it works
 
@@ -24,14 +24,16 @@ Whole-composition candidates come first. Candidates marked **First N** in the in
 
 All processing is local. SI has no network client, analytics, keystroke logging, or cloud dependency. Language and learning settings are saved in UserDefaults. Personal learning is off by default; when explicitly enabled it retains aggregate input-to-candidate preferences on this Mac. See [personalization and privacy](docs/PRIVACY.md) for retained fields, expiry, pause, deletion, and storage limitations.
 
-## English vocabulary maintenance
+## Vocabulary maintenance
 
-English source lists are maintained separately and merged into one offline vocabulary shared by English lookup and mixed decoding. The checked-in SCOWL snapshot, original SI words, and SI terminology are pinned and attributed. Additions, spelling/case corrections, exclusions, source tracing, deterministic generation, and monthly upstream audits are documented in [English vocabulary maintenance](docs/ENGLISH_VOCABULARY.md).
+English and Chinese source lists are maintained separately and merged into offline vocabularies shared by the existing providers and mixed decoder. The checked-in SCOWL snapshot, original SI words, and SI terminology are pinned and attributed. Additions, spelling/case corrections, exclusions, source tracing, deterministic generation, and monthly upstream audits are documented in [English vocabulary maintenance](docs/ENGLISH_VOCABULARY.md). Chinese combines selected annotated Rime Ice characters/base words with all original SI entries and local additions; its [maintenance workflow and selection limits](docs/CHINESE_VOCABULARY.md) describe the pinned data, weighting, pronunciation checks and overrides.
 
 ```sh
 ./scripts/vocabulary.sh build --check
 ./scripts/vocabulary.sh stats
 ./scripts/vocabulary.sh explain subtitle
+./scripts/vocabulary.sh --language chinese build --check
+./scripts/vocabulary.sh --language chinese explain 字幕
 ```
 
 ## Personal learning
@@ -60,7 +62,7 @@ The manager supports search, editing, deletion, clear, and additive JSON import/
 
 - macOS 14 or later.
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.
-- No third-party runtime libraries or Apple Developer account are needed for an unsigned development build. English vocabulary data includes attributed SCOWL words.
+- No third-party runtime libraries or Apple Developer account are needed for an unsigned development build. Vocabulary data includes attributed SCOWL English words and selected Rime Ice Chinese entries.
 
 ## Get started
 
@@ -168,4 +170,4 @@ See the [roadmap](docs/ROADMAP.md) for planned work and [manual verification](do
 
 ## License
 
-SI is licensed under the GNU General Public License, version 3. See [LICENSE](LICENSE). The repository's existing license is preserved. The English vocabulary includes SCOWL data with its original notices; see [data provenance](docs/DICTIONARIES.md). Additional dictionaries or language models must have compatible licenses and documented provenance.
+SI is licensed under the GNU General Public License, version 3. See [LICENSE](LICENSE). The repository's existing license is preserved. The vocabularies include SCOWL and selected Rime Ice data with retained licenses and source attributions; see [data provenance](docs/DICTIONARIES.md). Additional dictionaries or language models must have compatible licenses and documented provenance.

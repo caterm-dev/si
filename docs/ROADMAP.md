@@ -9,6 +9,7 @@ SI is currently a development preview. Checked items have implementations; unche
 - [x] Unified candidate engine with ambiguity preservation and literal fallback.
 - [x] Offline English and Chinese vocabularies, with documented origins and coverage limits.
 - [x] Multi-source English vocabulary maintenance, pinned imports, local overrides, source tracing and scheduled upstream audits.
+- [x] Selected annotated Rime Ice Chinese character/base vocabulary, preserved SI entries, explicit weighting, local overrides and shared upstream audits.
 - [x] Native marked text, candidate presentation, and commit/cancel integration.
 - [x] English settings UI with a live candidate preview.
 - [x] Shared-core tests, build scripts, installation instructions, and CI configuration.

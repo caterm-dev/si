@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Maintain SI's checked-in English vocabulary. Python 3.9+, standard library only."""
+"""Maintain SI's checked-in vocabularies (English by default). Python 3.9+, standard library only."""
 
 import argparse
 import hashlib
@@ -70,10 +70,10 @@ def parse_words(data, label):
     return words
 
 
-def configuration(root, pending=None, refreshing=None):
+def configuration(root, pending=None, refreshing=None, data_dir=DATA):
     pending = pending or {}
-    config = read_json(root, DATA / "sources.json", pending)
-    lock = read_json(root, DATA / "sources.lock.json", pending)
+    config = read_json(root, data_dir / "sources.json", pending)
+    lock = read_json(root, data_dir / "sources.lock.json", pending)
     if config.get("schema_version") != 1 or lock.get("schema_version") != 1:
         raise VocabularyError("Unsupported source/lock schema")
     ids, priorities = set(), set()
@@ -95,15 +95,15 @@ def configuration(root, pending=None, refreshing=None):
             raise VocabularyError(sid + ": empty license")
         if "upstream" in source:
             upstream = source["upstream"]
-            if upstream["format"] not in ("scowl", "wordlist", "rime"):
+            if upstream["format"] not in ("scowl", "wordlist", "rime", "rime-pinyin"):
                 raise VocabularyError(sid + ": unsupported importer")
             if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", upstream["repository"]):
                 raise VocabularyError(sid + ": invalid GitHub repository")
             minimum, maximum = upstream["minimum_words"], upstream["maximum_words"]
-            if type(minimum) is not int or type(maximum) is not int or not 1 <= minimum <= maximum <= 200000:
+            if type(minimum) is not int or type(maximum) is not int or not 1 <= minimum <= maximum <= (2000000 if upstream["format"] == "rime-pinyin" else 200000):
                 raise VocabularyError(sid + ": invalid word-count bounds")
-            if type(upstream.get("minimum_length", 2)) is not int or not 2 <= upstream.get("minimum_length", 2) <= 64:
-                raise VocabularyError(sid + ": minimum_length must be in 2...64")
+            if type(upstream.get("minimum_length", 2)) is not int or not (1 if upstream["format"] == "rime-pinyin" else 2) <= upstream.get("minimum_length", 2) <= 64:
+                raise VocabularyError(sid + ": invalid minimum_length")
             if sid == refreshing:
                 continue
             item = lock["sources"].get(sid, {})
@@ -111,8 +111,10 @@ def configuration(root, pending=None, refreshing=None):
                 raise VocabularyError(sid + ": missing pinned revision")
             if item.get("upstream") != source["upstream"]:
                 raise VocabularyError(sid + ": import settings changed; run refresh")
-            for field, path in (("snapshot_sha256", source["path"]),
-                                ("license_sha256", source["license_file"])):
+            paths = [("snapshot_sha256", source["path"]), ("license_sha256", source["license_file"])]
+            if source.get("attribution_file"):
+                paths.append(("attribution_sha256", source["attribution_file"]))
+            for field, path in paths:
                 if digest(read_bytes(root, path, pending)) != item.get(field):
                     raise VocabularyError(f"{sid}: {field} mismatch; use refresh, not snapshot edits")
     upstream_ids = {s["id"] for s in config["sources"] if "upstream" in s}
@@ -386,25 +388,30 @@ def refresh(root, source_id, revision=None, latest=False, accept_license_change=
     return summary
 
 
-def audit(root, download=fetch):
-    config, lock = configuration(root)
-    results = []
+def audit(root, download=fetch, data_dir=DATA, language="english"):
+    config, lock = configuration(root, data_dir=data_dir)
+    results, revisions = [], {}
     for source in config["sources"]:
         if "upstream" not in source:
             continue
         current = lock["sources"][source["id"]]["revision"]
-        latest = latest_revision(source, download)
+        key = (source["upstream"]["repository"], source["upstream"]["ref"])
+        if key not in revisions:
+            revisions[key] = latest_revision(source, download)
+        latest = revisions[key]
+        language_option = " --language chinese" if language == "chinese" else ""
         results.append({
             "source": source["id"], "pinned_revision": current, "latest_revision": latest,
             "update_available": current != latest,
             "compare_url": f'https://github.com/{source["upstream"]["repository"]}/compare/{current}...{latest}',
-            "refresh_command": f"python3 scripts/vocabulary.py refresh {source['id']} --revision {latest}",
+            "refresh_command": f"python3 scripts/vocabulary.py{language_option} refresh {source['id']} --revision {latest}",
         })
     return {"schema_version": 1, "sources": results}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--language", choices=("english", "chinese"), default="english")
     sub = parser.add_subparsers(dest="command", required=True)
     build = sub.add_parser("build", help="Validate and generate the unified vocabulary, offline")
     build.add_argument("--check", action="store_true")
@@ -421,6 +428,10 @@ def main():
     check.add_argument("--report", type=Path)
     args = parser.parse_args()
     try:
+        if args.language == "chinese":
+            import chinese_vocabulary
+            chinese_vocabulary.execute(ROOT, args)
+            return
         if args.command in ("build", "stats"):
             outputs, summary = compile_vocabulary(ROOT)
             if args.command == "build":
@@ -456,4 +467,5 @@ def main():
 
 
 if __name__ == "__main__":
+    sys.modules.setdefault("vocabulary", sys.modules[__name__])
     main()

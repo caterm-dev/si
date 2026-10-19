@@ -1,6 +1,6 @@
 # English vocabulary maintenance
 
-SI maintains English source files separately and queries one generated vocabulary. Source boundaries are for attribution, updates, and editorial control; they do not create input modes or Settings toggles. Chinese data is unchanged by this pipeline.
+SI maintains English source files separately and queries one generated vocabulary. Source boundaries are for attribution, updates, and editorial control; they do not create input modes or Settings toggles. Chinese data has a separate [maintenance configuration](CHINESE_VOCABULARY.md), selected with `--language chinese`; existing commands still default to English.
 
 ## Current sources
 
@@ -66,7 +66,7 @@ Rules match case-insensitively. Replacements can correct spelling or casing and 
 
 ## Refresh an upstream source
 
-The monthly GitHub Actions workflow and its manual **Run workflow** action run an **audit**. They compare tracked upstream branches against pinned revisions, show comparison links and refresh commands in the job summary, and retain a JSON artifact. The workflow uses its read-only GitHub token for API quotas; local public-source checks fall back to Git ref discovery if the API is rate limited. The audit does not execute upstream exporters, change repository contents, open PRs, or update an installed input method. Scheduling begins only after the workflow reaches the default branch and Actions is enabled; it is not a timer installed on this Mac.
+The monthly GitHub Actions workflow audits both English and Chinese; its manual **Run workflow** action also runs an **audit**. They compare tracked upstream branches against pinned revisions, show comparison links and refresh commands in the job summary, and retain a JSON artifact. The workflow uses its read-only GitHub token for API quotas; local public-source checks fall back to Git ref discovery if the API is rate limited. The audit does not execute upstream exporters, change repository contents, open PRs, or update an installed input method. Scheduling begins only after the workflow reaches the default branch and Actions is enabled; it is not a timer installed on this Mac.
 
 ```sh
 ./scripts/vocabulary.sh audit --report .build/vocabulary-upstream-audit.json

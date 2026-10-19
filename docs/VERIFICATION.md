@@ -2,6 +2,40 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Chinese vocabulary maintenance — 2026-10-19
+
+The initial Chinese import merges 8,757 annotated character readings and 76,827 base entries selected by upstream weight from Rime Ice revision `da1fbe602e38f26db846fa10120ee64c2b0324c0`, all 979 original SI entries, and three local additions. Deduplication produces 85,596 text/reading pairs and 84,880 distinct texts. This is a selected subset; the extension table and unannotated Tencent table are excluded. Source selection, weights, pins, SHA-256 values, original headers, GPLv3 license and THUOCL MIT notice are retained. The [Chinese workflow](CHINESE_VOCABULARY.md) adds source tracing, persistent reading corrections/exclusions, staged group refreshes and monthly upstream audits alongside English.
+
+Validation on Apple Silicon macOS 27.0.1, Xcode 27.1, Swift 6.4:
+
+- `./scripts/test.sh`: all 174 tests passed (125 core, 19 presentation, 12 storage, 18 settings). Focused coverage includes original text/reading/score preservation, imported polyphonic readings, mixed `字幕subtitle`, disabled languages, literal retention, dense completion alternatives, Chinese abbreviations inside English words and exhaustive terminal ranking across 16,384 synthetic combinations in two insertion orders.
+- `python3 -m unittest discover -s Tests/VocabularyTests -v`: all 25 English/Chinese maintenance tests passed. Chinese checks include explicit readings, normalization, bounded frequency mapping, persistent corrections, checksums/headers, malformed or unannotated rows, unchanged files after a failed second table in a group, and language-specific audit commands.
+- Both language `build --check` commands passed. A real pinned `refresh rime-ice` reproduced the selected snapshots and generated outputs. The real upstream audit confirmed both pins matched `main` at the time of checking. The workflow YAML was checked locally; the changed workflow has not been run on GitHub.
+- Debug and Release app builds succeeded, with the existing skipped AppIntents metadata extraction warning. Both generated vocabulary notices were verified byte-for-byte in each app bundle.
+- Local documentation links, shell syntax and whitespace checks passed.
+
+The Release benchmark at `2026-10-19T14:26:40Z` used the existing thirteen synthetic scenarios, 5,000 aggregate preferences, 1,000 personal phrases, 10 warmups and 200 iterations. The before run in this session used the maintained English vocabulary and original 979 Chinese entries. The final run uses the expanded Chinese vocabulary, grouped reading indexes, separate bounded terminal completion states and incremental terminal selection.
+
+| Scenario | Before median (ms) | Final median (ms) | Final p95 (ms) |
+| --- | ---: | ---: | ---: |
+| short | 0.200 | 5.337 | 5.491 |
+| ambiguous | 0.269 | 1.670 | 1.697 |
+| partial | 0.861 | 2.362 | 2.533 |
+| phrase construction | 9.290 | 24.494 | 24.733 |
+| mixed | 3.255 | 10.484 | 10.583 |
+| long ambiguous composition | 11.922 | 165.244 | 167.211 |
+| literal fallback beyond decoder limit | 0.009 | 0.009 | 0.011 |
+| personal phrase prefix at full capacity | 1.999 | 10.705 | 11.105 |
+| dense known composition | 7.130 | 21.603 | 22.910 |
+| dense prefix with unknown tail | 8.626 | 112.417 | 118.509 |
+| bounded long personal expansions | 11.368 | 30.577 | 30.892 |
+| learned tokens in longer composition | 16.665 | 81.887 | 82.796 |
+| bounded Unicode personal expansions | 32.464 | 103.673 | 114.476 |
+
+The index-only change preserved all thirteen original candidate fingerprints before importing data. For the expanded vocabulary, incremental terminal selection preserved all thirteen fingerprints relative to full terminal sorting, while reducing that run's maximum resident set size from 579,452,928 to 225,181,696 bytes (552.61 to 214.75 MiB). Final peak memory footprint was 218,219,144 bytes, with 121.41 seconds elapsed for the measured CLI. These are process-level synthetic measurements, not app memory, cold-start measurements or native key-to-screen latency. The larger vocabulary costs substantially more than the original seed; the long ambiguous case still takes about 165 ms median, and the full-capacity prefix case returns 9,154 candidates. Broader data import and native responsiveness remain unvalidated.
+
+No input method was installed, input sources changed, user phrases/learning archives read, or native host apps operated for this change. Host typing, focus/shortcuts, broad-prefix paging, startup, VoiceOver and appearance require the relevant [manual checks](TESTING.md) before release. No commit or push was performed.
+
 ## English vocabulary maintenance — 2026-10-19
 
 This checkpoint adds a maintained English vocabulary; the earlier registration, candidate-window and performance checkpoints below remain historical evidence.

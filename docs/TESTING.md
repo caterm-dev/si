@@ -4,6 +4,7 @@
 
 ```sh
 ./scripts/vocabulary.sh build --check
+./scripts/vocabulary.sh --language chinese build --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 ./scripts/test.sh
 ./scripts/build.sh
@@ -11,7 +12,7 @@ python3 -m unittest discover -s Tests/VocabularyTests -v
 ./scripts/benchmark.sh --resources > .build/candidate-benchmark.json 2> .build/resource-usage.log
 ```
 
-The vocabulary checks run offline and verify deterministic generation, source precedence, durable exclusions/corrections, checksums, rejected imports, and failure preservation. Network refresh/audit checks are separate maintainer actions; their workflow does not install SI. See [English vocabulary maintenance](ENGLISH_VOCABULARY.md).
+The vocabulary checks run offline and verify deterministic generation, source precedence, durable exclusions/corrections, checksums, rejected imports, and failure preservation. Network refresh/audit checks are separate maintainer actions; their workflow does not install SI. See [English vocabulary maintenance](ENGLISH_VOCABULARY.md) and [Chinese vocabulary maintenance](CHINESE_VOCABULARY.md).
 
 The package uses Swift Testing for ambiguity, language filtering, deterministic ranking, deduplication, literal preservation, syllable boundaries, initials, partial input, phrase construction, continuous mixed input, composition edits, and stale selections. Additional targets cover learning feedback, decay, expiry, bounded storage, restart, file permissions, malformed data, write failures, deletion ordering, opt-in/pause, secure-event suppression, and settings persistence. These tests do not launch InputMethodKit or register an input source.
 
@@ -43,6 +44,7 @@ Install with `./scripts/install.sh`, log out and back in if needed, add SI in Ke
 
 - Open SI Settings from the input menu. Both languages should initially be enabled.
 - Type `subtitle`, `SUBTITLE`, `subtit`, and `nihaosubtitle`. Verify exact/completed English candidates, preserved capitalization, mixed output and the exact literal candidate. Try a broad prefix such as `a` and confirm native paging can reach the original text. Check Return, punctuation and application shortcuts with the expanded vocabulary.
+- Type `zimu`, `shujuku`, `rengongzhineng`, and `zimusubtitle`; verify imported Chinese words, mixed output, exact spelling, disabled-language filtering and numbered paging. Compare `xing` and `hang` for `行`, and `lü`, `lv`, `lu:` in core tests. With synthetic `le` → `了` learning, `nihaotitle` must still prefer `你好title` over both English and Chinese-abbreviation splits. Check the broad prefixes `a`, `y`, and `sh` for paging and responsiveness.
 - Type `shi`. Verify Chinese candidates, English completions, and original input coexist. Scroll to the original input if needed.
 - Type `he`. Verify the English exact match and the Chinese alternatives are both available.
 - Commit `nihao` as `你好`, then `world` as `world`, without changing any language setting.
