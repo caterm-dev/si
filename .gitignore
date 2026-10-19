@@ -29,3 +29,7 @@ build/
 .idea/
 .vscode/
 *~
+
+# Python vocabulary-maintenance caches
+__pycache__/
+*.pyc

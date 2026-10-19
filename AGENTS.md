@@ -4,13 +4,13 @@ These instructions apply to the entire repository. Follow more specific instruct
 
 ## Project and product contract
 
-SI is a macOS input method using Swift, AppKit, InputMethodKit, and SwiftUI. It is currently a development scaffold with original demonstration vocabularies, not a production Pinyin decoder.
+SI is a macOS input method using Swift, AppKit, InputMethodKit, and SwiftUI. It is currently a development preview with original limited vocabularies, bounded Pinyin/mixed decoding, personal phrases, caret editing, and opt-in frequency/short-context learning. Production vocabulary coverage and host-app compatibility remain unproven.
 
 - Expose one input source. Settings select a set of enabled languages; there is no active-language mode or language-switch shortcut. Shift and Caps Lock must not become language toggles.
 - Query every enabled provider for a composition. Keep ambiguous matches from different languages available; ranking must not silently suppress another enabled language.
 - Preserve the exact original input as an explicit candidate for every nonempty composition, including unknown words, capitalization, identifiers, and input with all languages disabled. Empty input yields no candidates.
 - Keep candidate ordering deterministic. Candidate identity includes language, so identical text from different languages remains distinguishable. Presentation paging must not truncate the engine's merged results.
-- Do not present roadmap items, such as continuous mixed-language segmentation or contextual learning, as implemented features.
+- Do not present unchecked roadmap items, such as internal pair/sentence context, fuzzy decoding, or broad vocabulary coverage, as implemented features. Keep implemented capabilities and their limits distinct.
 
 Read `README.md`, `CONTRIBUTING.md`, and the relevant sections of `docs/ARCHITECTURE.md` before changing behavior. Use `docs/TESTING.md` for integration checks and `docs/ROADMAP.md` for planned capabilities. Inspect the implementation when documentation and code disagree; report or resolve discrepancies relevant to the task.
 
@@ -22,9 +22,11 @@ Read `README.md`, `CONTRIBUTING.md`, and the relevant sections of `docs/ARCHITEC
 | `mac/SI/InputMethod/` | InputMethodKit events, marked text, candidate presentation, and client commits |
 | `mac/SI/App/` | Application lifecycle, retained IMKServer, and Settings presentation |
 | `mac/SI/Settings/` | SwiftUI settings, enabled-language persistence, and candidate preview |
+| `mac/SI/Storage/` | Actor-isolated private learning archive and revision-ordered writes |
 | `mac/Support/Info.plist` | Input-source registration and bundle metadata |
 | `mac/SI.xcodeproj/` | macOS app target and shared SI scheme |
-| `Package.swift`, `Tests/SICoreTests/` | Shared-core package and Swift Testing tests |
+| `Package.swift`, `Tests/` | Shared core/storage/settings models and Swift Testing tests |
+| `Tools/SIBenchmark/` | Synthetic Release-mode candidate-generation measurements |
 | `scripts/` | Supported build, test, icon-generation, and local-install entry points |
 
 - The Swift package and Xcode app compile the same core files. Do not create a second engine implementation for the app, preview, or tests.
@@ -36,9 +38,12 @@ Read `README.md`, `CONTRIBUTING.md`, and the relevant sections of `docs/ARCHITEC
 ## Input-method correctness
 
 - Treat key handling as a host-application contract. Returning `true` consumes an event; returning `false` lets it continue. Avoid dropped keys, duplicate commits, and accidental insertion of control characters.
-- Preserve the documented distinctions between Space committing a selection, Return committing literal text, Escape cancelling, and punctuation or shortcuts committing literal text before passing through. Update documentation and relevant tests when intentionally changing these behaviors.
+- Preserve Space/native selection (including prefix confirmation), Return committing exact remaining spelling, Escape cancelling, and shortcuts retaining literal text. Punctuation/Tab follow `PunctuationBehavior`; never duplicate a key when inserting a replacement. English/code safeguards apply in both candidate-confirming policies. Outside composition, punctuation passes through.
+- Prefix commits consume exact source-character boundaries, including normalized ü/u: spellings and trailing syllable separators, and leave the rest marked/editable. Do not append an English space while a remainder is pending. Whole candidates precede prefixes; frequent short words must not displace complete compositions.
+- Keep continuation costs separate from presentation scores. Apply whole/prefix and eligible previous-word preferences before their presentation limits, using only consumed source spelling for prefixes. Preserve bounded terminal base/personalized alternatives and two distinct prefix results per language combination/span; low-cost direct paths must not erase higher-scoring equivalent composed candidates.
 - Keep buffer, marked text, selected candidate, and candidate-window visibility consistent after edits, commits, cancellation, configuration changes, and focus changes. Stale selections must not replace current input.
 - Use UTF-16 offsets for AppKit/InputMethodKit `NSRange` values. Do not substitute Swift character counts for UTF-16 lengths. Keep user-visible deletion character-aware.
+- Preserve composition-caret editing, including scalars that join into graphemes. Left/Right and Home/End edit marked text; Up/Down and page keys navigate native candidates. Navigation outside composition must break previous-word context.
 - Candidate labels are presentation data. Commit only candidate text, without language labels or other UI decoration.
 - Retain the `IMKServer` for the process lifetime. Closing Settings must not terminate the input-method server.
 - Keep the Objective-C name `SIInputController`, the controller entry in `Info.plist`, the connection name, and bundle settings consistent. Registration changes require explicit consideration of existing installations.
@@ -50,11 +55,18 @@ Read `README.md`, `CONTRIBUTING.md`, and the relevant sections of `docs/ARCHITEC
 - Keep the keystroke path responsive. Do not add synchronous file access, dictionary loading, model initialization, or other expensive work to each key event.
 - If asynchronous candidate generation is introduced, reject results from obsolete compositions or client sessions, and prevent delayed results from restoring cancelled state. Add focused regression coverage.
 - Do not invent a latency target or claim a performance improvement without measurements. Use synthetic input for profiling.
+- Comparison/hash optimizations must preserve canonical identity, deterministic order, and exact committed bytes. Preserve the guarded ASCII/CJK comparison path and Unicode fallback; do not normalize output text or assume normalization stops at token boundaries.
 
 ## Privacy, dependencies, and data
 
-- Input is sensitive. Do not log, persist, or transmit composition text, committed text, surrounding client text, or keystrokes. Do not add analytics or remote inference. Use synthetic examples in tests and reports.
-- The current design stores enabled-language preferences only. User dictionaries or local learning require an explicit retention and deletion design within the requested scope; do not add them as incidental improvements.
+- Input is sensitive. Do not log or transmit composition text, committed text, surrounding client text, or keystrokes. Do not persist chronological input history or arbitrary literal input. Do not add analytics or remote inference. Use synthetic examples in tests and reports.
+- Explicitly enabled personal learning may persist bounded aggregate input-to-language-candidate preferences locally. It is off by default, decays with time, expires after 90 days without use, and is capped at 5,000 entries. Preserve pause, per-entry deletion, clear, secure-event suppression, and storage-error feedback. Never treat enabling a language as consent to learning.
+- Previous-word pairs require a separate opt-in and share learning capacity/expiry. Keep the prior candidate client-local for at most five minutes, exclude personal/literal candidates, and clear eligibility on focus/cancel/host boundaries, language changes, consent changes, and clear. Do not read surrounding document text. Preserve schema-1 learning migration to schema 2.
+- Explicit personal phrases retain until user deletion, with a 1,000-entry cap. Keep them separate from learned preferences and exclude them from automatic learning/context. Imports must validate atomically, preserve local data, respect size/capacity limits, and not apply over intervening edits or clear. Export requires a user-selected destination; exported text is personal data.
+- Exclude every derived path containing personal phrases or unrecognized verbatim spans from learning/context. Learn only consumed spelling after prefix selection, never the pending remainder. Delimiter confirmations do not train.
+- Reuse existing single-language frequency records for token ranking without automatically saving decomposed sentence tokens. Length-weighted token and whole-input preferences share a 32-point cap using their maximum, with at most 12 additional previous-word points. Preserve base and personalized search beams; pause, secure input, deletion, expiry, and clear must also stop token effects.
+- Preserve bounded lattice states, cached immutable candidate IDs, fractional ranking, explicit transition costs, personal-node fanout, and the 4,096-byte constructed-output bound. All direct lexical/personal matches and exact literal fallback remain independently available.
+- Keep persistence off the main actor and key-event path. Older queued writes must not undo newer deletions. User dictionaries and any extension to retained data require an explicit retention/deletion design within the requested scope.
 - SI does not request Accessibility or Input Monitoring permission or use a global event tap. Do not add these to work around a local integration bug.
 - App Sandbox is currently disabled for the legacy InputMethodKit connection. Do not enable it as an unrelated hardening change; any change must validate server/client communication.
 - Preserve the repository's GPLv3 license. Before introducing a third-party engine, dictionary, model, or large dependency, follow the discussion requirement in `CONTRIBUTING.md` unless the user has already explicitly authorized that choice. Document origin, version, license compatibility, redistribution rights, and any generated-data steps. Do not assume installed system dictionaries can be redistributed.
@@ -68,6 +80,7 @@ The documented toolchain is macOS 14+, Xcode 26+, and Swift 6.2+. The package te
 ./scripts/test.sh --filter InputSessionTests  # Focused composition tests
 ./scripts/build.sh                       # Debug app, signing disabled
 ./scripts/build.sh Release               # Release app; also built by CI
+./scripts/benchmark.sh                   # Synthetic in-process engine timings
 ```
 
 - For code changes, run `./scripts/test.sh` and `./scripts/build.sh`; use the Release build when changing release configuration or preparing distribution. CI runs core tests and a Release build.

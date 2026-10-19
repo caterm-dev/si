@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "scowl": {
+      "download_sha256": "aaecc7a54af576057e30b22a19b78bad011f2181f7e368ff3b736fbecbdfd4d0",
+      "filtering": {
+        "collapsed_case_variants": 89,
+        "unsupported_rows": 7805
+      },
+      "license_sha256": "71bffd4b74ad47fff01c8b3c666e77da92737854e568850d8728024e0a53f304",
+      "revision": "1e5b7d3a72f47a71da5d28686c1dd4b397178485",
+      "snapshot_sha256": "37b05241bf2f881dcec186875b9cb3b0779c08542d0b7e2fad3824caf6366eaf",
+      "upstream": {
+        "format": "scowl",
+        "maximum_words": 100000,
+        "minimum_length": 2,
+        "minimum_words": 10000,
+        "ref": "v2",
+        "repository": "en-wl/wordlist",
+        "size": 50
+      }
+    }
+  }
+}

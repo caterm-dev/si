@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "scowl",
+      "priority": 10,
+      "path": "Data/English/sources/scowl.txt",
+      "license_file": "Data/English/licenses/SCOWL.txt",
+      "license_id": "SCOWL permissive (see full notice)",
+      "origin": "https://github.com/en-wl/wordlist",
+      "upstream": {
+        "repository": "en-wl/wordlist",
+        "ref": "v2",
+        "format": "scowl",
+        "size": 50,
+        "minimum_words": 10000,
+        "maximum_words": 100000,
+        "minimum_length": 2
+      },
+      "completion_score": 75
+    },
+    {
+      "id": "si-original",
+      "priority": 100,
+      "path": "Data/English/sources/si-original.txt",
+      "license_file": "Data/English/licenses/SI.txt",
+      "license_id": "GPL-3.0-only",
+      "origin": "SI original authored English vocabulary",
+      "completion_score": 85
+    },
+    {
+      "id": "si-terms",
+      "priority": 200,
+      "path": "Data/English/sources/si-terms.txt",
+      "license_file": "Data/English/licenses/SI.txt",
+      "license_id": "GPL-3.0-only",
+      "origin": "SI authored terminology and coverage additions",
+      "completion_score": 85
+    }
+  ]
+}

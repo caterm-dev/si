@@ -1,0 +1,48 @@
+name: English vocabulary upstream audit
+
+on:
+  schedule:
+    - cron: '23 3 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vocabulary-upstream-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate checked-in vocabulary and maintenance tools
+        run: |
+          python3 -m unittest discover -s Tests/VocabularyTests -v
+          ./scripts/vocabulary.sh build --check
+      - name: Check upstream revisions without changing vocabulary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/vocabulary.sh audit --report .build/vocabulary-upstream-audit.json
+      - name: Add audit to job summary
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads(Path('.build/vocabulary-upstream-audit.json').read_text())
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              for source in report['sources']:
+                  status = 'Update available' if source['update_available'] else 'Up to date'
+                  summary.write(f"- {source['source']}: {status}. [Compare revisions]({source['compare_url']}).\n")
+                  if source['update_available']:
+                      summary.write(f"\nRefresh after reviewing the source: `{source['refresh_command']}`\n\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: english-vocabulary-upstream-audit
+          path: .build/vocabulary-upstream-audit.json

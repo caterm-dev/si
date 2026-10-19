@@ -24,6 +24,10 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
+      - name: Validate English vocabulary
+        run: |
+          python3 -m unittest discover -s Tests/VocabularyTests -v
+          ./scripts/vocabulary.sh build --check
       - name: Test shared core
         run: ./scripts/test.sh
       - name: Build input method

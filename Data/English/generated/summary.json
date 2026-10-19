@@ -1,0 +1,13 @@
+{
+  "inactive_overrides": [],
+  "inputs_sha256": "c9aabf91ea3f0ee3219b7b0a499d905f6c3e35cede0965cb2a081b8d7923a952",
+  "merged_words": 61216,
+  "overlapping_spellings": 616,
+  "schema_version": 1,
+  "source_words": {
+    "scowl": 61172,
+    "si-original": 638,
+    "si-terms": 22
+  },
+  "words_sha256": "23fc9809b49724376e960fa879664eedc67528b798bc392bb5d5cb25750b4a37"
+}

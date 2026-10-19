@@ -2,10 +2,22 @@
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 destination="$HOME/Library/Input Methods/SI.app"
-if pgrep -x SI >/dev/null; then
-    printf 'SI is running. Select another input source, log out, then retry installation.\n' >&2
-    exit 1
-fi
+ensure_si_stopped() {
+    local status=0
+    pgrep -x SI >/dev/null || status=$?
+    case "$status" in
+        0)
+            printf 'SI is running. Stop any Xcode run. If the installed input method is running, select another input source and log out before retrying.\n' >&2
+            exit 1
+            ;;
+        1) ;;
+        *)
+            printf 'Cannot check whether SI is running. Run this installer in your normal logged-in Terminal session.\n' >&2
+            exit 1
+            ;;
+    esac
+}
+ensure_si_stopped
 "$repo_root/scripts/build.sh" Debug
 source_app="$repo_root/.build/xcode/Build/Products/Debug/SI.app"
 mkdir -p "$(dirname "$destination")"
@@ -20,9 +32,10 @@ for library in "$staging/SI.app/Contents/MacOS/"*.dylib; do
 done
 /usr/bin/codesign --force --sign - "$staging/SI.app"
 /usr/bin/codesign --verify --strict "$staging/SI.app"
+ensure_si_stopped
 if [[ -e "$destination" ]]; then
     identifier="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$destination/Contents/Info.plist")"
-    if [[ "$identifier" != 'com.caterm.si' ]]; then
+    if [[ "$identifier" != 'com.caterm.inputmethod.si' && "$identifier" != 'com.caterm.si' ]]; then
         printf 'Refusing to replace an app with a different bundle identifier: %s\n' "$destination" >&2
         exit 1
     fi
@@ -43,4 +56,6 @@ else
     mv "$staging/SI.app" "$destination"
 fi
 printf 'Installed: %s\n' "$destination"
-printf 'Log out and back in, then add SI in System Settings > Keyboard > Text Input.\n'
+xcrun swift "$repo_root/scripts/register-input-source.swift" --register "$destination"
+printf 'Add SI in System Settings > Keyboard > Text Input > Edit > + > English.\n'
+printf 'If SI is not listed, reopen System Settings; log out and back in only if it is still missing.\n'

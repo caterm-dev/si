@@ -17,6 +17,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         self.server = server
+        Task {
+            async let learning: Void = PersonalizationSettings.shared.start()
+            async let phrases: Void = UserDictionarySettings.shared.start()
+            _ = await (learning, phrases)
+        }
         if ProcessInfo.processInfo.arguments.contains("--settings") {
             showSettings()
         }
@@ -29,7 +34,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Task {
+            async let learning: Void = PersonalizationSettings.shared.flush()
+            async let phrases: Void = UserDictionarySettings.shared.flush()
+            _ = await (learning, phrases)
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     func showSettings() {
+        NSApplication.shared.setActivationPolicy(.accessory)
         if settingsWindow == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 560, height: 700),

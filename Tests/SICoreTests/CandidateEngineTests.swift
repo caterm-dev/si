@@ -5,6 +5,12 @@ struct CandidateEngineTests {
     private let engine = CandidateEngine()
     private let languages = Set(InputLanguage.allCases)
 
+    @Test func malformedProvidersCannotReviveDisabledLanguagesOrDuplicateLiteralIdentity() {
+        let candidates = CandidateEngine(providers: [MalformedProvider()]).candidates(for: "x", languages: [.english])
+        #expect(candidates.count == 1)
+        #expect(candidates.first?.text == "x" && candidates.first?.isLiteral == true)
+    }
+
     @Test func ambiguousInputKeepsBothLanguagesAndLiteral() {
         let candidates = engine.candidates(for: "shi", languages: languages)
         #expect(candidates.contains { $0.text == "是" && $0.language == .simplifiedChinese })
@@ -64,5 +70,15 @@ private struct FixedProvider: CandidateProvider {
     let language: InputLanguage
     func candidates(for input: String) -> [InputCandidate] {
         [InputCandidate(text: "same", language: language, score: 100)]
+    }
+}
+
+private struct MalformedProvider: CandidateProvider {
+    let language = InputLanguage.english
+    func candidates(for input: String) -> [InputCandidate] {
+        [InputCandidate(text: "disabled", language: .simplifiedChinese, score: 999),
+         InputCandidate(text: input, language: nil, score: 999),
+         InputCandidate(text: "", language: .english, score: 999),
+         InputCandidate(text: "invalid mixed", language: .english, score: 999, isMixed: true)]
     }
 }

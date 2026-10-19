@@ -1,27 +1,22 @@
 import Foundation
 
-/// A small, original vocabulary for exercising the pipeline, not a full dictionary.
 public struct EnglishCandidateProvider: CandidateProvider {
     public let language = InputLanguage.english
-    private let words = [
-        "a", "an", "and", "app", "apple", "are", "as", "at", "be", "build",
-        "can", "code", "day", "developer", "do", "for", "good", "great",
-        "ha", "had", "happy", "he", "hello", "help", "her", "hi", "home",
-        "I", "in", "input", "is", "it", "language", "mac", "me", "my",
-        "name", "new", "no", "of", "on", "open", "or", "project", "see",
-        "she", "ship", "shirt", "should", "so", "source", "swift", "test",
-        "the", "there", "this", "time", "to", "today", "we", "with", "work",
-        "world", "write", "yes", "you", "your",
-    ]
 
     public init() {}
 
     public func candidates(for input: String) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let key = input.lowercased()
-        return words.filter { $0.lowercased().hasPrefix(key) }.map { word in
-            let text = input.first?.isUppercase == true ? word.capitalized : word
-            return InputCandidate(text: text, language: language, score: word.lowercased() == key ? 110 : 60)
+        return EnglishLexicon.matches(for: key).map { word in
+            InputCandidate(text: Self.adjustedCase(word, input: input), language: language,
+                           score: word.lowercased() == key ? 110 : EnglishLexicon.completionScore(for: word), hasCompletion: word.lowercased() != key)
         }
+    }
+
+    static func adjustedCase(_ word: String, input: String) -> String {
+        if input == input.uppercased() { return word.uppercased() }
+        if input.first?.isUppercase == true { return word.prefix(1).uppercased() + word.dropFirst() }
+        return word
     }
 }

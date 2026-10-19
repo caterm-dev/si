@@ -1,0 +1,23 @@
+# SI-maintained terminology and explicit coverage regressions. GPL-3.0-only.
+AppKit
+Codable
+codebase
+Hashable
+IMKCandidates
+IMKServer
+InputMethodKit
+keycap
+macOS
+MainActor
+NSObject
+NSRange
+Sendable
+subtitle
+subtitles
+SwiftUI
+TextEdit
+tokenization
+tokenizer
+Unicode
+UTF
+Xcode

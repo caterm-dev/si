@@ -11,6 +11,8 @@ Thanks for helping build SI. The product principle is simple: users enable langu
 
 The Swift package tests the same core files compiled by the macOS app. Use Swift 6 language mode. Keep language providers independent of AppKit and SwiftUI. Add focused tests for candidate ranking, ambiguity, state transitions, or regressions when behavior changes.
 
+For English vocabulary changes, follow [the maintenance workflow](docs/ENGLISH_VOCABULARY.md). Keep source snapshots, overrides, licenses and generated outputs together, and run `./scripts/vocabulary.sh build --check` plus the Python maintenance tests before the shared-core checks.
+
 ## Pull requests
 
 - Describe the user-visible problem, resulting behavior, and validation performed.
