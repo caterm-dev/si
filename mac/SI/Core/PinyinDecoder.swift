@@ -35,9 +35,11 @@ public struct PinyinDecoder: Sendable {
         let learnedSum: Double
         let consumedLetters: Int
         let supportsByteComparison: Bool
+        let englishWordEnd: Int
+        let splitsEnglishWord: Bool
 
         var learningBonus: Double {
-            personal || verbatim || consumedLetters == 0 ? 0 : min(32, learnedSum / Double(consumedLetters))
+            personal || verbatim || splitsEnglishWord || consumedLetters == 0 ? 0 : min(32, learnedSum / Double(consumedLetters))
         }
         var searchCost: Double { cost - learningBonus * 10 }
     }
@@ -45,17 +47,26 @@ public struct PinyinDecoder: Sendable {
         let state: Int
         let text: String
         let supportsByteComparison: Bool
+        let englishWordEnd: Int
+        let splitsEnglishWord: Bool
 
-        init(state: Int, path: Path) {
+        init(state: Int, path: Path, continuing: Bool = false) {
             self.state = state
             text = path.text
             supportsByteComparison = path.supportsByteComparison
+            englishWordEnd = continuing ? path.englishWordEnd : 0
+            splitsEnglishWord = continuing && path.splitsEnglishWord
         }
 
-        static func == (left: Self, right: Self) -> Bool { left.state == right.state && left.text == right.text }
+        static func == (left: Self, right: Self) -> Bool {
+            left.state == right.state && left.englishWordEnd == right.englishWordEnd
+                && left.splitsEnglishWord == right.splitsEnglishWord && left.text == right.text
+        }
 
         func hash(into hasher: inout Hasher) {
             hasher.combine(state)
+            hasher.combine(englishWordEnd)
+            hasher.combine(splitsEnglishWord)
             // Both branches hash the same canonical UTF-8 bytes, including cross-branch equivalents.
             var canonical = supportsByteComparison ? text : text.precomposedStringWithCanonicalMapping
             canonical.withUTF8 { hasher.combine(bytes: UnsafeRawBufferPointer($0)) }
@@ -128,6 +139,12 @@ public struct PinyinDecoder: Sendable {
         let count = reading.letters.count
         let terminalRanking = learning.ranking(for: input, now: now, context: context)
         let outgoing = edges(for: reading, languages: languages, dictionary: dictionary, learning: learning, now: now)
+        // Only exact lexical English spans protect a boundary; completions and personal/raw nodes do not.
+        let hasTokenBonuses = outgoing.contains { $0.contains { $0.learningBonus > 0 } }
+        let englishEnds = hasTokenBonuses ? outgoing.map { edges in
+            edges.filter { $0.languages == 2 && !$0.personal && !$0.completion && !$0.verbatim }
+                .map(\.end).max() ?? 0
+        } : Array(repeating: 0, count: count)
         var exactReachable = Array(repeating: false, count: count + 1)
         exactReachable[0] = true
         for start in 0..<count where exactReachable[start] {
@@ -141,7 +158,7 @@ public struct PinyinDecoder: Sendable {
         var prefixRankings: [Int: LearningProfile.Ranking] = [:]
         paths[0] = [Path(text: "", cost: 0, languages: 0, lastLanguage: 0, segments: 0, directScore: 0,
                          personal: false, verbatim: false, completion: false, learnedSum: 0, consumedLetters: 0,
-                         supportsByteComparison: true)]
+                         supportsByteComparison: true, englishWordEnd: 0, splitsEnglishWord: false)]
         for start in 0..<count where !paths[start].isEmpty {
             var options = outgoing[start]
             let needsUnknown = options.contains(where: \.completion)
@@ -162,6 +179,13 @@ public struct PinyinDecoder: Sendable {
                 for path in paths[start] {
                     guard path.text.utf8.count + edge.text.utf8.count <= Self.maximumOutputBytes else { continue }
                     let transition = path.lastLanguage == 0 || path.lastLanguage == edge.languages ? 0.0 : 4.0
+                    let excludesLearning = path.personal || path.verbatim || edge.personal || edge.verbatim
+                    let splitsEnglishWord = !excludesLearning && (path.splitsEnglishWord
+                        || (path.lastLanguage == 2 && start < path.englishWordEnd))
+                    // Reusing word preferences must not invent a token boundary inside an exact English word.
+                    // Whole-input preferences still apply to a deliberately selected alternative segmentation.
+                    let englishWordEnd = edge.languages == 2 && !excludesLearning && !splitsEnglishWord
+                        ? max(path.englishWordEnd, englishEnds[start]) : 0
                     let text = path.text + edge.text
                     paths[edge.end].append(Path(text: text, cost: path.cost + edge.cost + transition,
                                                languages: path.languages | edge.languages, lastLanguage: edge.languages,
@@ -170,7 +194,8 @@ public struct PinyinDecoder: Sendable {
                                                verbatim: path.verbatim || edge.verbatim, completion: path.completion || edge.completion,
                                                learnedSum: path.learnedSum + edge.learningBonus * Double(edge.end - start),
                                                consumedLetters: edge.end,
-                                               supportsByteComparison: path.supportsByteComparison && supportsBytes))
+                                               supportsByteComparison: path.supportsByteComparison && supportsBytes,
+                                               englishWordEnd: englishWordEnd, splitsEnglishWord: splitsEnglishWord))
                 }
             }
             // Keep incoming paths bounded before each subsequent position is expanded.
@@ -320,7 +345,7 @@ public struct PinyinDecoder: Sendable {
         let personalized = select(paths, personalized: true)
         var seen = Set<PathIdentity>()
         return (base + personalized).sorted(by: preferred).filter {
-            seen.insert(PathIdentity(state: state($0), path: $0)).inserted
+            seen.insert(PathIdentity(state: state($0), path: $0, continuing: true)).inserted
         }
     }
 
@@ -396,7 +421,7 @@ public struct PinyinDecoder: Sendable {
         if left.searchCost != right.searchCost { return left.searchCost < right.searchCost }
         if left.verbatim != right.verbatim { return !left.verbatim }
         if left.personal != right.personal { return !left.personal }
-        return Self.textPrecedes(left, right)
+        return Self.continuationPrecedes(left, right)
     }
 
     private func select(_ paths: [Path], personalized: Bool) -> [Path] {
@@ -408,14 +433,23 @@ public struct PinyinDecoder: Sendable {
             if left != right { return left < right }
             if $0.verbatim != $1.verbatim { return !$0.verbatim }
             if $0.personal != $1.personal { return !$0.personal }
-            return Self.textPrecedes($0, $1)
+            return Self.continuationPrecedes($0, $1)
         }.filter {
             let key = state($0)
             guard counts[key, default: 0] < Self.beamWidth,
-                  seen.insert(PathIdentity(state: key, path: $0)).inserted else { return false }
+                  seen.insert(PathIdentity(state: key, path: $0, continuing: true)).inserted else { return false }
             counts[key, default: 0] += 1
             return true
         }
+    }
+
+    private static func continuationPrecedes(_ left: Path, _ right: Path) -> Bool {
+        if left.englishWordEnd == right.englishWordEnd && left.splitsEnglishWord == right.splitsEnglishWord {
+            return textPrecedes(left, right)
+        }
+        if !textEquals(left, right) { return textPrecedes(left, right) }
+        if left.splitsEnglishWord != right.splitsEnglishWord { return !left.splitsEnglishWord }
+        return left.englishWordEnd < right.englishWordEnd
     }
 
     private static func textPrecedes(_ left: Path, _ right: Path) -> Bool {

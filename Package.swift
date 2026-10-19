@@ -11,6 +11,8 @@ let package = Package(
     targets: [
         .target(name: "SICore", path: "mac/SI/Core"),
         .target(name: "SIStorage", dependencies: ["SICore"], path: "mac/SI/Storage"),
+        .target(name: "SIPresentation", dependencies: ["SICore"], path: "mac/SI/InputMethod",
+                exclude: ["SIInputController.swift"]),
         .target(name: "SISettings", dependencies: ["SICore", "SIStorage"], path: "mac/SI/Settings",
                 exclude: ["SettingsView.swift", "CandidatePreviewView.swift", "PersonalizationView.swift",
                           "LearnedPreferencesView.swift", "UserDictionarySection.swift", "UserDictionaryView.swift",
@@ -18,6 +20,7 @@ let package = Package(
         .testTarget(name: "SICoreTests", dependencies: ["SICore"], path: "Tests/SICoreTests"),
         .testTarget(name: "SIStorageTests", dependencies: ["SIStorage", "SICore"], path: "Tests/SIStorageTests"),
         .testTarget(name: "SISettingsTests", dependencies: ["SISettings", "SIStorage", "SICore"], path: "Tests/SISettingsTests"),
+        .testTarget(name: "SIPresentationTests", dependencies: ["SIPresentation", "SICore"], path: "Tests/SIPresentationTests"),
         .executableTarget(name: "SIBenchmark", dependencies: ["SICore"], path: "Tools/SIBenchmark"),
     ]
 )

@@ -7,12 +7,19 @@ import InputMethodKit
 // The legacy superclass is not Sendable. All mutable state remains main-actor isolated.
 final class SIInputController: IMKInputController, @unchecked Sendable {
     private var session = InputSession()
-    private var selectedText: String?
+    private var selection = CandidateSelection()
+    private var candidateAnchor = CandidateAnchor()
     private var explicitlyNavigated = false
-    private lazy var candidatePanel: IMKCandidates? = {
-        let panel = IMKCandidates(server: server(), panelType: kIMKSingleColumnScrollingCandidatePanel)
-        panel?.setAttributes([IMKCandidatesSendServerKeyEventFirst as String: NSNumber(value: true)])
-        panel?.setSelectionKeys([18, 19, 20, 21, 23, 22, 26, 28, 25].map { NSNumber(value: $0) })
+    private lazy var candidatePanel: CandidatePanel = {
+        let panel = CandidatePanel()
+        panel.list.onSelect = { [weak self] id in
+            guard let self, let client = self.client(),
+                  let candidate = self.session.candidates.first(where: { $0.id == id }) else { return }
+            self.commitCandidate(candidate, to: client)
+        }
+        panel.list.onMovePage = { [weak self] offset in
+            self?.moveCandidateSelection(by: offset * CandidateSelection.pageSize)
+        }
         return panel
     }()
 
@@ -37,6 +44,15 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             commitLiteral(to: client)
             return false
+        }
+
+        if !session.buffer.isEmpty,
+           let action = CandidateSelection.action(keyCode: event.keyCode, characters: event.characters) {
+            switch action {
+            case .move(let distance): moveCandidateSelection(by: distance, to: client)
+            case .choose(let number): commitCandidate(selection.candidate(number: number), to: client)
+            }
+            return true
         }
 
         switch event.keyCode {
@@ -77,12 +93,9 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             if event.keyCode == 115 { session.moveToStart() } else { session.moveToEnd() }
             update(client)
             return true
-        case 125, 126, 116, 121: // Explicit selection; returning false is not a navigation command.
-            guard !session.buffer.isEmpty else { session.breakContext(); return false }
-            let pageSize = candidatePanel?.selectionKeys()?.count ?? 9
-            let distance = event.keyCode == 116 || event.keyCode == 121 ? pageSize : 1
-            moveCandidateSelection(by: event.keyCode == 126 || event.keyCode == 116 ? -distance : distance)
-            return true
+        case 125, 126, 116, 121: // Navigation outside composition belongs to the host.
+            session.breakContext()
+            return false
         default:
             break
         }
@@ -92,11 +105,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             || (text == "'" && !session.buffer.isEmpty) {
             session.append(text)
             update(client)
-            return true
-        }
-        // Resolve the native window's visible row, including its current scroll position.
-        if !session.buffer.isEmpty, text.count == 1, "123456789".contains(text), let number = Int(text) {
-            selectCandidate(atVisibleLine: number - 1, to: client)
             return true
         }
         let selected = currentCandidate
@@ -112,58 +120,34 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         return false
     }
 
-    nonisolated override func candidates(_ sender: Any!) -> [Any]! {
-        let strings = MainActor.assumeIsolated { session.candidates.map { candidateTitle(for: $0) } }
-        return strings
-    }
-
-    nonisolated override func candidateSelectionChanged(_ candidateString: NSAttributedString!) {
-        let text = candidateString?.string
-        MainActor.assumeIsolated {
-            selectedText = text
-        }
-    }
-
-    nonisolated override func candidateSelected(_ candidateString: NSAttributedString!) {
-        let text = candidateString?.string
-        MainActor.assumeIsolated { selectCandidateOnMain(text) }
-    }
-
-    private func selectCandidateOnMain(_ selected: String?) {
-        guard let client = client() else { return }
-        commitCandidate(named: selected, to: client)
-    }
-
-    private func commitCandidate(named title: String?, to client: any IMKTextInput) {
-        guard let title,
-              let candidate = session.candidates.first(where: { candidateTitle(for: $0) == title }) else { return }
+    private func commitCandidate(_ candidate: InputCandidate?, to client: any IMKTextInput) {
+        guard let candidate, session.candidates.contains(candidate) else { return }
         let commit = session.commitResult(candidate, reason: .explicitSelection)
         apply(commit, to: client)
         PersonalizationSettings.shared.record(commit)
     }
 
     private var currentCandidate: InputCandidate? {
-        guard !session.buffer.isEmpty else { return nil }
-        let title = selectedText ?? candidatePanel?.selectedCandidateString()?.string
-        return session.candidates.first { candidateTitle(for: $0) == title } ?? session.candidates.first
+        selection.selected
     }
 
-    private func moveCandidateSelection(by distance: Int) {
-        guard let panel = candidatePanel, let current = currentCandidate,
-              let index = session.candidates.firstIndex(where: { $0.id == current.id }) else { return }
-        let next = max(0, min(session.candidates.count - 1, index + distance))
-        let title = candidateTitle(for: session.candidates[next])
-        let identifier = panel.candidateStringIdentifier(title)
-        guard identifier != NSNotFound, panel.selectCandidate(withIdentifier: identifier) else { return }
-        selectedText = title
+    private func moveCandidateSelection(by distance: Int, to eventClient: (any IMKTextInput)? = nil) {
+        guard !session.buffer.isEmpty, let client = eventClient ?? client() else { return }
+        selection.move(by: distance)
         explicitlyNavigated = true
+        presentCandidates(to: client)
     }
 
-    private func selectCandidate(atVisibleLine line: Int, to client: any IMKTextInput) {
-        guard let panel = candidatePanel, panel.isVisible() else { return }
-        let identifier = panel.candidateIdentifier(atLineNumber: line)
-        guard identifier != NSNotFound, panel.selectCandidate(withIdentifier: identifier) else { return }
-        commitCandidate(named: panel.selectedCandidateString()?.string, to: client)
+    private func presentCandidates(to client: any IMKTextInput) {
+        let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+        let caret = candidateAnchor.resolve(cursorUTF16Offset: session.cursorUTF16Offset, screens: screens) { index in
+            var rect = NSRect.zero
+            // The SDK specifies inline-session-relative UTF-16 indexes, not document offsets.
+            _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
+            return rect
+        }
+        guard let caret else { candidatePanel.orderOut(nil); return }
+        candidatePanel.show(selection: selection, caret: caret, clientLevel: Int(client.windowLevel()), screens: screens)
     }
 
     nonisolated override func commitComposition(_ sender: Any!) {
@@ -178,7 +162,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         commitComposition(sender)
         MainActor.assumeIsolated {
             session.breakContext()
-            candidatePanel?.hide()
+            candidateAnchor.reset()
+            candidatePanel.orderOut(nil)
         }
         super.deactivateServer(sender)
     }
@@ -195,20 +180,16 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
     }
 
-    private func candidateTitle(for candidate: InputCandidate) -> String {
-        "\(candidate.text)    \(candidate.label)"
-    }
-
     private func update(_ client: any IMKTextInput) {
-        selectedText = nil
+        selection.update(session.candidates)
         explicitlyNavigated = false
         client.setMarkedText(session.buffer, selectionRange: NSRange(location: session.cursorUTF16Offset, length: 0),
                              replacementRange: NSRange(location: NSNotFound, length: 0))
         if session.buffer.isEmpty {
-            candidatePanel?.hide()
+            candidateAnchor.reset()
+            candidatePanel.orderOut(nil)
         } else {
-            candidatePanel?.update()
-            candidatePanel?.show(kIMKLocateCandidatesBelowHint)
+            presentCandidates(to: client)
         }
     }
 
@@ -220,9 +201,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func insert(_ text: String, into client: any IMKTextInput) {
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
-        selectedText = nil
+        selection.update([])
+        candidateAnchor.reset()
         explicitlyNavigated = false
-        candidatePanel?.hide()
+        candidatePanel.orderOut(nil)
     }
 
     private func apply(_ commit: InputCommit, suffix: String = "", to client: any IMKTextInput) {

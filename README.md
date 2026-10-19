@@ -20,7 +20,7 @@ Enable **English** and **Chinese (Simplified)** once. SI queries both providers 
 
 SI combines known words and syllables, including phrases not explicitly stored in the vocabulary. Apostrophes constrain syllable boundaries (`xi'an` distinguishes `西安` from `先`); stored phrases support initials (`srf` → `输入法`), mixed full/initial spellings (`nhao` → `你好`), and incomplete final spelling (`niha` → `你好`). Mixed decoding includes incomplete endings such as `nihaowor` → `你好world`. When no exact complete path exists, unrecognized spans can remain as typed, including their case. Such candidates are labelled **Chinese + As Typed** and are excluded from learning.
 
-Whole-composition candidates come first. Candidates labelled **First N characters** confirm only a prefix and leave the rest marked and editable; for example, select `你好` from `nihaopengyou`, then continue choosing `朋友`. Prefix choices are ordered by how much input they cover. Return always commits the exact remaining spelling. This is bounded lexical search rather than a production statistical language model.
+Whole-composition candidates come first. Candidates marked **First N** in the input window confirm only the first N typed characters and leave the rest marked and editable; for example, select `你好` from `nihaopengyou`, then continue choosing `朋友`. Prefix choices are ordered by how much input they cover. Return always commits the exact remaining spelling. This is bounded lexical search rather than a production statistical language model.
 
 All processing is local. SI has no network client, analytics, keystroke logging, or cloud dependency. Language and learning settings are saved in UserDefaults. Personal learning is off by default; when explicitly enabled it retains aggregate input-to-candidate preferences on this Mac. See [personalization and privacy](docs/PRIVACY.md) for retained fields, expiry, pause, deletion, and storage limitations.
 
@@ -39,6 +39,8 @@ English source lists are maintained separately and merged into one offline vocab
 Open **SI Settings → Personalization** and enable **Personal learning**. Repeatedly choosing a candidate raises its position for that spelling. Explicit selections count more than accepting the default with Space; recent preferences matter more, with a 14-day half-life and a bounded ranking bonus. Other enabled languages and the original input remain available.
 
 Saved single-language word choices also influence matching tokens inside longer compositions: learning `shi` → `时` can raise `我时` for `woshi`. Search keeps both a base-score beam and a personalized beam. Token preferences are averaged by the amount of input they cover and share the 32-point frequency cap with whole-input preferences; they are not added twice. This reuses existing aggregate records and does not split confirmed sentences into newly saved words. Personal/verbatim paths receive no learning bonus. Previous-word pairs still rerank generated candidates rather than internal tokens.
+
+Token learning does not boost paths that split a longer exact English word into smaller tokens: a saved `le` → `了` preference must not push `你好tit了` above `你好title` for `nihaotitle`. This also covers English completions that begin inside the word. Alternative segmentations remain selectable, and an explicitly learned preference for the entire candidate can still favor one. Chinese after a complete English word and explicit apostrophe boundaries keep ordinary token learning. This safeguard uses lexical boundaries; it does not provide sentence-level semantic ranking.
 
 Whole-input and previous-word preferences apply before complete/prefix presentation limits. Prefix choices use only their consumed spelling. This lets saved choices influence the bounded shortlist before it is shown, while preserving base-ranked complete alternatives. Paths lost at an earlier search position can still be absent; this is bounded decoding rather than exhaustive sentence search.
 
@@ -89,6 +91,8 @@ This builds SI, stages and verifies an ad hoc signed copy, and installs it in `~
 4. Select **SI** in the input menu.
 5. Open **SI Settings…** from the input menu to choose enabled languages.
 
+SI uses a rounded charcoal badge with white lettering, with an alternate light badge for selected menu rows. Regenerate both original icon assets with `xcrun swift scripts/generate-icons.swift`.
+
 You can also open the installed settings window with:
 
 ```sh
@@ -117,24 +121,28 @@ To uninstall, select another input source, remove SI in Keyboard settings, then 
 | Return / Enter | Commit the original text without adding a newline |
 | Left / Right | Move the composition caret by a whole character |
 | Home / End | Move to the start/end of the composition |
-| Up / Down, Page Up / Page Down | Navigate the native candidate window |
-| 1–9 | Select candidates on the current native candidate page |
+| Up / Down, Page Up / Page Down | Navigate SI's candidate window |
+| 1–9 | Select candidates on the current numbered page |
 | Delete / Forward Delete | Remove the previous/next composition character at the caret |
 | Escape | Cancel the composition |
 | Common punctuation / Tab | Apply the configured composition-boundary behavior |
 | A shortcut or code separator | Commit original spelling and pass the event through |
 
-Outside composition, control keys and punctuation pass through. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. The native candidate panel scrolls/pages through the full merged result; the engine does not discard another language's matches.
+Outside composition, control keys and punctuation pass through. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel pages through the full merged result, nine numbered choices at a time; the engine does not discard another language's matches.
 
 Number shortcuts select the currently visible candidate rows, including after scrolling or paging. Up/Down changes the highlighted choice, Page Up/Page Down moves by a page, and Space confirms the highlighted candidate. Left/Right edits the composition caret.
 
-**Typing → Punctuation during composition** defaults to **Smart Chinese Punctuation**: common punctuation confirms a whole Chinese or mixed candidate, converting `.,;:!?()[]` when its ending is Chinese. **Confirm Candidate** keeps punctuation unchanged; **Keep Typed Text** retains the previous literal passthrough behavior. Both candidate-confirming options keep unselected English words/completions, incomplete personal codes, and code separators literal. Actively selecting an English candidate allows punctuation to confirm it. Prefix rows require Space or native selection rather than punctuation. Shortcuts and Return always keep spelling. Tab/punctuation confirmations never train learning. Quotes are not automatically paired, and punctuation after an already committed word remains unchanged.
+The candidate window shows compact numbered rows without repeated language descriptions such as “Chinese + English”. Full language/source details remain in tooltips and accessibility labels. Small hints distinguish prefix choices, personal phrases, and typed text. Page controls appear only when more than one page is available; light and dark appearances use system colors.
+
+The panel anchors below the beginning of the marked composition, using the host's screen coordinates, and moves above it when space is limited. A temporary geometry failure can reuse the last valid position in that composition; without valid geometry it stays hidden. Host-specific positioning still requires manual verification.
+
+**Typing → Punctuation during composition** defaults to **Smart Chinese Punctuation**: common punctuation confirms a whole Chinese or mixed candidate, converting `.,;:!?()[]` when its ending is Chinese. **Confirm Candidate** keeps punctuation unchanged; **Keep Typed Text** retains the previous literal passthrough behavior. Both candidate-confirming options keep unselected English words/completions, incomplete personal codes, and code separators literal. Actively selecting an English candidate allows punctuation to confirm it. Prefix rows require Space, a number key, or mouse selection rather than punctuation. Shortcuts and Return always keep spelling. Tab/punctuation confirmations never train learning. Quotes are not automatically paired, and punctuation after an already committed word remains unchanged.
 
 ## Project layout
 
 ```text
 mac/SI/App/             App lifecycle and InputMethodKit server
-mac/SI/InputMethod/     Client events, marked text, and native candidate window
+mac/SI/InputMethod/     Client events, marked text, selection state, and AppKit candidate window
 mac/SI/Settings/        SwiftUI language settings and candidate preview
 mac/SI/Core/            UI-independent candidate engine and input session
 mac/SI/Storage/         Actor-isolated local learning and personal-phrase persistence
