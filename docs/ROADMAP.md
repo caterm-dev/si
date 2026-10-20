@@ -21,6 +21,7 @@ SI is currently a development preview. Checked items have implementations; unche
 - [ ] Broader original vocabulary coverage, fuzzy decoding, and independent quality evaluation.
 - [ ] English vocabulary, capitalization, completion, and correction improvements.
 - [x] Continuous mixed composition of known English words and Chinese readings.
+- [x] Continuous English lexical segmentation with spaced word candidates, preserved casing, and final-word completion.
 - [x] Incomplete final mixed-word prediction and bounded preservation of unrecognized spans.
 - [ ] Broader unknown-word/language-boundary detection beyond bounded lexical heuristics.
 - [x] Opt-in local frequency/recency learning with pause, per-entry deletion, clear, expiry, and bounded persistence.

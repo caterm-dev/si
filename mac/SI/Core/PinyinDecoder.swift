@@ -25,6 +25,8 @@ public struct PinyinDecoder: Sendable {
     }
     private struct Path {
         let text: String
+        // Only all-lexical English paths carry word spacing. Mixed/personal output keeps its exact bytes.
+        let englishText: String?
         let cost: Double
         let languages: Int
         let lastLanguage: Int
@@ -43,6 +45,7 @@ public struct PinyinDecoder: Sendable {
             personal || verbatim || splitsEnglishWord || consumedLetters == 0 ? 0 : min(32, learnedSum / Double(consumedLetters))
         }
         var searchCost: Double { cost - learningBonus * 10 }
+        var comparisonText: String { englishText ?? text }
     }
     private struct PathIdentity: Hashable {
         let state: Int
@@ -53,7 +56,7 @@ public struct PinyinDecoder: Sendable {
 
         init(state: Int, path: Path, continuing: Bool = false) {
             self.state = state
-            text = path.text
+            text = path.comparisonText
             supportsByteComparison = path.supportsByteComparison
             englishWordEnd = continuing ? path.englishWordEnd : 0
             splitsEnglishWord = continuing && path.splitsEnglishWord
@@ -204,7 +207,7 @@ public struct PinyinDecoder: Sendable {
         var paths = Array(repeating: [Path](), count: count + 1)
         var prefixes = Array(repeating: [PresentationPath](), count: count + 1)
         var prefixRankings: [Int: LearningProfile.Ranking] = [:]
-        paths[0] = [Path(text: "", cost: 0, languages: 0, lastLanguage: 0, segments: 0, directScore: 0,
+        paths[0] = [Path(text: "", englishText: "", cost: 0, languages: 0, lastLanguage: 0, segments: 0, directScore: 0,
                          personal: false, verbatim: false, completion: false, learnedSum: 0, consumedLetters: 0,
                          supportsByteComparison: true, englishWordEnd: 0, splitsEnglishWord: false)]
         for start in 0..<count where !paths[start].isEmpty {
@@ -236,7 +239,10 @@ public struct PinyinDecoder: Sendable {
                     let englishWordEnd = edge.languages == 2 && !excludesLearning && !splitsEnglishWord
                         ? max(path.englishWordEnd, englishEnds[start]) : 0
                     let text = path.text + edge.text
-                    paths[edge.end].append(Path(text: text, cost: path.cost + edge.cost + transition,
+                    let englishText = edge.languages == 2 && !edge.personal && !edge.verbatim
+                        ? path.englishText.map { $0.isEmpty ? edge.text : $0 + " " + edge.text } : nil
+                    guard englishText.map({ $0.utf8.count <= Self.maximumOutputBytes }) ?? true else { continue }
+                    paths[edge.end].append(Path(text: text, englishText: englishText, cost: path.cost + edge.cost + transition,
                                                languages: path.languages | edge.languages, lastLanguage: edge.languages,
                                                segments: path.segments + 1,
                                                directScore: edge.score, personal: path.personal || edge.personal,
@@ -417,12 +423,12 @@ public struct PinyinDecoder: Sendable {
     }
 
     private func eligible(_ path: Path) -> Bool {
-        path.languages != 2 || (path.personal && !path.verbatim)
+        path.languages != 2 || (!path.verbatim && (path.personal || (path.englishText != nil && path.segments > 1)))
     }
 
     private func candidate(_ path: Path, consumed: Int? = nil) -> InputCandidate {
         let score = baseScore(path, consumed: consumed)
-        return InputCandidate(text: path.text, language: path.languages == 2 ? .english : .simplifiedChinese,
+        return InputCandidate(text: path.comparisonText, language: path.languages == 2 ? .english : .simplifiedChinese,
                               score: Int(score), isMixed: path.languages == 3, isUserPhrase: path.personal,
                               hasLiteralSegments: path.verbatim, consumedInputCount: consumed, rankingScore: score,
                               hasCompletion: path.completion, tokenLearningBonus: path.segments > 1 ? path.learningBonus : 0)
@@ -571,13 +577,13 @@ public struct PinyinDecoder: Sendable {
     }
 
     private static func textPrecedes(_ left: Path, _ right: Path) -> Bool {
-        guard left.supportsByteComparison && right.supportsByteComparison else { return left.text < right.text }
-        return compareBytes(left.text, right.text) < 0
+        guard left.supportsByteComparison && right.supportsByteComparison else { return left.comparisonText < right.comparisonText }
+        return compareBytes(left.comparisonText, right.comparisonText) < 0
     }
 
     private static func textEquals(_ left: Path, _ right: Path) -> Bool {
-        guard left.supportsByteComparison && right.supportsByteComparison else { return left.text == right.text }
-        return compareBytes(left.text, right.text) == 0
+        guard left.supportsByteComparison && right.supportsByteComparison else { return left.comparisonText == right.comparisonText }
+        return compareBytes(left.comparisonText, right.comparisonText) == 0
     }
 
     private static func compareBytes(_ left: String, _ right: String) -> Int {
