@@ -10,11 +10,11 @@ struct LanguageSettingsTests {
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = LanguageSettings(defaults: defaults)
-        #expect(settings.punctuationBehavior == .smart)
+        #expect(settings.punctuationBehavior == .asTyped)
         settings.chineseEnabled = false
-        settings.punctuationBehavior = .asTyped
+        settings.punctuationBehavior = .smart
         let restarted = LanguageSettings(defaults: defaults)
-        #expect(restarted.punctuationBehavior == .asTyped)
+        #expect(restarted.punctuationBehavior == .smart)
         #expect(!restarted.chineseEnabled && restarted.englishEnabled)
         defaults.set("unknown-future-value", forKey: LanguageSettings.punctuationKey)
         #expect(LanguageSettings(defaults: defaults).punctuationBehavior == .asTyped)

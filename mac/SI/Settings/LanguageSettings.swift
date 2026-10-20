@@ -40,7 +40,7 @@ final class LanguageSettings {
         if let saved = defaults.string(forKey: Self.punctuationKey) {
             punctuationBehavior = PunctuationBehavior(rawValue: saved) ?? .asTyped
         } else {
-            punctuationBehavior = .smart
+            punctuationBehavior = .asTyped
         }
     }
 }

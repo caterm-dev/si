@@ -121,21 +121,26 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             update(client)
             return true
         }
-        // Periods separate literal domain/code components, even after candidate navigation.
-        // They need no full search; preserve the spelling and let the host insert the key once.
-        if text == "." {
-            commitLiteral(to: client)
-            return false
+        let punctuation = LanguageSettings.shared.punctuationBehavior
+        if !session.buffer.isEmpty, CompositionBoundary.keepsInComposition(text: text, behavior: punctuation) {
+            session.append(text)
+            update(client)
+            return true
         }
         resolveCandidates(to: client)
         let selected = currentCandidate
         let boundary = CompositionBoundary.resolve(text: text, selected: selected, explicitlySelected: explicitlyNavigated,
-                                                   behavior: LanguageSettings.shared.punctuationBehavior)
+                                                   behavior: punctuation)
         if let candidate = boundary.candidate {
             let commit = session.commitResult(candidate, reason: .passthrough)
             apply(commit, suffix: boundary.replacement ?? "", to: client)
             session.breakContext()
             return boundary.replacement != nil
+        }
+        if !session.buffer.isEmpty, boundary.continuesComposition {
+            session.append(text)
+            update(client)
+            return true
         }
         commitLiteral(to: client)
         return false

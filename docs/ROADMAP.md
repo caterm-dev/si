@@ -29,7 +29,7 @@ SI is currently a development preview. Checked items have implementations; unche
 - [x] Optional previous-word pair ranking across languages, with shared retention/deletion controls.
 - [ ] Broader sentence-level context scoring and input-quality evaluation.
 - [x] Composition-caret movement and whole-character forward/backward deletion with UTF-16 marked offsets.
-- [x] Configurable composition-boundary punctuation, conservative English/code passthrough, and no-learning delimiter commits.
+- [x] Editable punctuation/symbols by default, optional punctuation confirmation, and no-learning delimiter commits.
 - [ ] Real-host verification of punctuation, numbers, URLs, identifiers, and code entry.
 - [ ] Preserve exact literal text with a clear, discoverable selection path.
 

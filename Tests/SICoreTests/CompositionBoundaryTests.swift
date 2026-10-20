@@ -2,7 +2,7 @@ import Testing
 @testable import SICore
 
 struct CompositionBoundaryTests {
-    @Test func asciiPeriodPreservesUnselectedDomainLabelsExactlyOnce() throws {
+    @Test func asciiPeriodRemainsEditableWithoutConfirmingDomainLabels() throws {
         for behavior in PunctuationBehavior.allCases {
             for input in ["nihao", "shi", "example", "Gmail", "MyTool"] {
                 var session = InputSession()
@@ -11,15 +11,81 @@ struct CompositionBoundaryTests {
                 let boundary = CompositionBoundary.resolve(text: ".", selected: selected,
                                                            explicitlySelected: false, behavior: behavior)
                 #expect(boundary.candidate == nil && boundary.replacement == nil)
-                let commit = session.commitResult(boundary.candidate, reason: .passthrough)
-                // A nil replacement leaves the original period for the host, exactly once.
-                #expect(commit.text + (boundary.replacement ?? ".") == input + ".")
+                #expect(boundary.continuesComposition)
+                #expect(CompositionBoundary.keepsInComposition(text: ".", behavior: behavior))
+                session.append(".")
+                session.append("test")
+                #expect(session.buffer == input + ".test")
+                #expect(session.candidates.last?.text == session.buffer && session.candidates.last?.isLiteral == true)
+                let commit = session.commitResult(reason: .literal)
+                #expect(commit.text == input + ".test")
                 #expect(session.buffer.isEmpty)
                 var learning = LearningProfile()
                 #expect(learning.record(commit, learnContext: true) == false)
                 #expect(learning.entries.isEmpty)
             }
         }
+    }
+
+    @Test func defaultSymbolsRemainInCompositionAndExcludeControlKeys() {
+        let symbols = ".,;:!?()[]{}<>/\\@#$_=+-*%&|~`\"'，。；：！？（）【】「」￥≤©🙂❤️👩🏽‍💻"
+        for symbol in symbols {
+            let text = String(symbol)
+            #expect(CompositionBoundary.keepsInComposition(text: text, behavior: .asTyped))
+            let resolution = CompositionBoundary.resolve(text: text,
+                selected: InputCandidate(text: "你好", language: .simplifiedChinese, score: 100),
+                explicitlySelected: true, behavior: .asTyped)
+            #expect(resolution.continuesComposition && resolution.candidate == nil && resolution.replacement == nil)
+        }
+        for text in ["", " ", "\t", "\n", "\r", "\u{1b}", "1", "a", ".\n"] {
+            #expect(!CompositionBoundary.keepsInComposition(text: text, behavior: .asTyped))
+        }
+    }
+
+    @Test func symbolCompositionsKeepExactSpellingAcrossLanguagesAndExplicitConfirmation() throws {
+        for languages: Set<InputLanguage> in [[], [.english], [.simplifiedChinese], Set(InputLanguage.allCases)] {
+            for input in ["example.com", "user@example.com", "foo/bar", "My_Type+=Value", "nihao,world", "nihao。"] {
+                var session = InputSession()
+                session.configure(languages: languages)
+                for character in input { session.append(String(character)) }
+                #expect(session.buffer == input && session.cursorUTF16Offset == input.utf16.count)
+                let literal = try #require(session.candidates.last)
+                #expect(literal.isLiteral && literal.text == input)
+                let commit = session.commitResult(literal, reason: .explicitSelection)
+                #expect(commit.text == input && session.buffer.isEmpty)
+                var profile = LearningProfile()
+                let learned = profile.record(commit, learnContext: true)
+                #expect(!learned && profile.entries.isEmpty)
+            }
+        }
+    }
+
+    @Test func symbolsStayEditableAndObsoleteAsyncResultsCannotRestoreOldCandidates() throws {
+        var session = InputSession(candidateGeneration: .deferred)
+        session.append("nihao")
+        let staleRequest = try #require(session.pendingCandidateRequest)
+        let staleCandidate = try #require(staleRequest.generate().candidates.first { $0.text == "你好" })
+        session.append(".")
+        #expect(session.accept(staleRequest.generate()) == false)
+        session.append("test")
+        session.moveCursor(by: -4)
+        session.deleteBackward()
+        #expect(session.buffer == "nihaotest")
+        session.append("@")
+        session.deleteForward()
+        session.append("T")
+        #expect(session.buffer == "nihao@Test")
+        let current = try #require(session.pendingCandidateRequest)
+        #expect(session.accept(current.generatePreview()) == true)
+        #expect(session.candidates.last?.text == "nihao@Test")
+        #expect(session.commit(staleCandidate) == "nihao@Test")
+        let acceptedAfterCommit = session.accept(current.generate())
+        #expect(!acceptedAfterCommit && session.buffer.isEmpty)
+        session.append("example.com")
+        let cancelled = try #require(session.pendingCandidateRequest)
+        session.reset()
+        let acceptedAfterCancel = session.accept(cancelled.generate())
+        #expect(!acceptedAfterCancel && session.candidates.isEmpty)
     }
 
     @Test func asciiPeriodNeverConfirmsEvenAnActivelySelectedCandidate() {
