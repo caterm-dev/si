@@ -28,6 +28,8 @@ The initial SCOWL commit is `1e5b7d3a72f47a71da5d28686c1dd4b397178485`. The expo
 
 Python 3.9 or later is needed only for maintenance. No additional Python packages are required. Normal app builds use the checked-in generated Swift file without Python, downloads, or a separate runtime vocabulary loader.
 
+On first default-engine construction, the app prepares a shared immutable English Trie and entry metadata from those generated words. Prefix nodes store ranges rather than duplicate word lists; metadata caches word length, casing variants, completion score and mixed continuation cost. Restarting the process rebuilds these derived structures. The source format, completion priorities and deterministic lexical order remain unchanged; no input-result cache or serialized index is added. See [runtime indexing and limits](DICTIONARIES.md).
+
 ```sh
 ./scripts/vocabulary.sh build          # Validate sources and regenerate all outputs, offline
 ./scripts/vocabulary.sh build --check  # Fail if sources, locks, notices or generated outputs disagree

@@ -21,6 +21,7 @@ enum SIBenchmark {
         let operatingSystem: String
         let learnedPreferences: Int
         let personalPhrases: Int
+        let engineInitializationMilliseconds: Double
         let checksum: Int
         let measurements: [Measurement]
     }
@@ -30,7 +31,12 @@ enum SIBenchmark {
         let profile = LearningProfile(entries: (0..<LearningProfile.maximumEntries).map {
             LearnedPreference(input: "shi", text: "synthetic\($0)", language: .english, strength: 1, lastUsed: now)
         }, now: now)
+        let initializationClock = ContinuousClock()
+        let initializationStart = initializationClock.now
         let engine = CandidateEngine()
+        let initializationDuration = initializationStart.duration(to: initializationClock.now).components
+        let initializationMilliseconds = Double(initializationDuration.seconds) * 1_000
+            + Double(initializationDuration.attoseconds) / 1e15
         let tokenProfile = LearningProfile(entries: Array(profile.entries.dropLast()) + [
             LearnedPreference(input: "shi", text: "时", language: .simplifiedChinese, strength: 8, lastUsed: now),
         ], now: now)
@@ -62,13 +68,17 @@ enum SIBenchmark {
             ("bounded long personal expansions", String(repeating: "a", count: 20)),
             ("learned tokens in longer composition", "wo" + String(repeating: "shi", count: 5)),
             ("bounded Unicode personal expansions", String(repeating: "a", count: 20)),
+            ("English broad prefix", "a"), ("English prefix", "sub"),
+            ("English uppercase prefix", "SUB"), ("English exact", "subtitle"),
+            ("English missing prefix", "zzzzzz"),
         ]
         for (name, input) in cases {
+            let languages: Set<InputLanguage> = name.hasPrefix("English ") ? [.english] : Set(InputLanguage.allCases)
             let activeDictionary = name == "bounded long personal expansions" ? longDictionary
                 : name == "bounded Unicode personal expansions" ? unicodeDictionary : dictionary
             let activeProfile = name == "learned tokens in longer composition" ? tokenProfile : profile
             for _ in 0..<10 {
-                checksum += engine.candidates(for: input, languages: Set(InputLanguage.allCases), learning: activeProfile,
+                checksum += engine.candidates(for: input, languages: languages, learning: activeProfile,
                                                dictionary: activeDictionary).count
             }
             var times: [Double] = []
@@ -76,7 +86,7 @@ enum SIBenchmark {
             var lastCandidates: [InputCandidate] = []
             for _ in 0..<200 {
                 let start = clock.now
-                let candidates = engine.candidates(for: input, languages: Set(InputLanguage.allCases), learning: activeProfile,
+                let candidates = engine.candidates(for: input, languages: languages, learning: activeProfile,
                                                    dictionary: activeDictionary)
                 let duration = start.duration(to: clock.now).components
                 times.append(Double(duration.seconds) * 1_000 + Double(duration.attoseconds) / 1e15)
@@ -95,6 +105,7 @@ enum SIBenchmark {
         }
         let report = Report(measuredAt: now, operatingSystem: ProcessInfo.processInfo.operatingSystemVersionString,
                             learnedPreferences: profile.entries.count, personalPhrases: dictionary.entries.count,
+                            engineInitializationMilliseconds: initializationMilliseconds,
                             checksum: checksum, measurements: measurements)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

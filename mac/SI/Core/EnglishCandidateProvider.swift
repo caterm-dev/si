@@ -8,15 +8,12 @@ public struct EnglishCandidateProvider: CandidateProvider {
     public func candidates(for input: String) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let key = input.lowercased()
-        return EnglishLexicon.matches(for: key).map { word in
-            InputCandidate(text: Self.adjustedCase(word, input: input), language: language,
-                           score: word.lowercased() == key ? 110 : EnglishLexicon.completionScore(for: word), hasCompletion: word.lowercased() != key)
+        let length = key.utf8.count
+        let style = EnglishLexicon.CaseStyle(input: input)
+        return EnglishLexicon.matches(for: key).map { entry in
+            InputCandidate(text: entry.text(for: style), language: language,
+                           score: entry.length == length ? 110 : entry.completionScore,
+                           hasCompletion: entry.length != length)
         }
-    }
-
-    static func adjustedCase(_ word: String, input: String) -> String {
-        if input == input.uppercased() { return word.uppercased() }
-        if input.first?.isUppercase == true { return word.prefix(1).uppercased() + word.dropFirst() }
-        return word
     }
 }

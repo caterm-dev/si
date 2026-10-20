@@ -2,6 +2,36 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## English Trie and static entry metadata — 2026-10-20
+
+Direct English lookup and the shared mixed decoder now use one immutable compact ASCII Trie. Nodes contain child bitmaps, packed child IDs and ranges into the sorted vocabulary; they do not copy completion lists. Each entry caches canonical/initial-capital/uppercase text, byte length, completion score and continuation cost. Mixed lookup advances a cursor per source start, retaining the original edge order, explicit apostrophe constraints and two-letter completion minimum. Learning/context adjustments remain query-local. No word sources, candidate caps, ranking rules, personal data or persisted schema changed. These derived structures initialize once on first default-engine construction and rebuild after process restart; no input cache or serialized index was introduced.
+
+The performance measurements below were collected in the shared checkout with pre-existing continuation-pruning and deferred-typing changes. Those changes remain outside this commit. The committed benchmark has eighteen search cases; the local benchmark used for comparison additionally had two existing typing-edit cases.
+
+Validation on Apple Silicon macOS 27.0.1, Xcode 27.1, Swift 6.4:
+
+- The isolated staged snapshot passed all 178 tests (129 core, 12 storage, 18 settings and 19 presentation) and `./scripts/build.sh`. This verifies the committed English changes without the unrelated uncommitted work; the app build had only the existing AppIntents metadata warning.
+- In the shared checkout, `./scripts/test.sh` passed 191 methods: 136 core, 12 storage, 18 settings and 25 presentation. The final `./scripts/test.sh --filter EnglishVocabularyTests` passed seven methods, including one additional mixed-boundary regression and expanded exhaustive prefix coverage. It checks all 61,216 words and 140,688 nonempty prefixes against source-derived expectations, source-list reference candidates/metadata, casing (including Unicode input that lowercases to ASCII), exact/completion separation, invalid prefixes and mixed boundaries.
+- `./scripts/build.sh` passed. Its only warning was the existing skipped AppIntents metadata extraction. `./scripts/vocabulary.sh build --check`, local documentation links and whitespace checks passed. Existing unrelated work in the checkout was preserved.
+- Before/after `./scripts/benchmark.sh --resources` runs used the same vocabulary, 5,000 synthetic preferences, 1,000 personal phrases, 10 warmups and 200 iterations per search scenario. Five English-only engine cases extend the original thirteen search cases; the two existing typing-edit cases remain separate. All twenty output counts/fingerprints match before and after. Builds/tests finished before measurement. Reports are retained locally under `.build/english-trie/`.
+
+| Scenario | Before median (ms) | After median (ms) | After p95 (ms) |
+| --- | ---: | ---: | ---: |
+| English broad prefix | 1.314 | 0.914 | 0.980 |
+| English prefix | 0.163 | 0.112 | 0.119 |
+| English uppercase prefix | 0.143 | 0.111 | 0.128 |
+| English exact | 0.128 | 0.082 | 0.090 |
+| English missing prefix | 0.040 | 0.031 | 0.036 |
+| mixed | 5.953 | 5.910 | 6.058 |
+| dense known composition | 17.118 | 14.552 | 14.902 |
+| dense prefix with unknown tail | 101.874 | 108.671 | 110.397 |
+
+The first pair shows approximately 22–36% lower medians for these English-only engine scenarios, with limited benefit in several mixed/lattice workloads. Saved executables were then repeated in reverse order (after, then before), without builds/tests running. The English-only repeat medians were 1.309 → 0.930, 0.161 → 0.111, 0.140 → 0.110, 0.135 → 0.082 and 0.043 → 0.031 ms respectively. The unknown-tail repeat was 104.338 → 96.386 ms, so the initial slowdown was not consistent across runs; these two samples do not establish an improvement for that workload. All twenty output counts/fingerprints match across all four runs. The after-repeat benchmark produced complete JSON, but its `time -l` resource collector exited with a sandbox denial for `sysctl kern.clockrate`; resource comparisons here use the successful initial unsandboxed runs.
+
+The first measured default-engine initialization took 399.735 ms before and 427.235 ms after (about 28 ms extra). The reverse-order repeat measured 405.315 ms before and 416.358 ms after (about 11 ms extra). Initialization includes preparation of both languages and is one sample per process, not total application startup. CLI maximum resident set size rose from 226,164,736 to 235,831,296 bytes (about 9.22 MiB); peak footprint rose from 219,169,416 to 228,835,976 bytes. These are whole-process resource totals, not isolated index allocations or input-method app memory. Candidate-generation measurements exclude InputMethodKit, IPC, UI delivery and host-app latency.
+
+No installation, process termination, input-source change or host-app operation was performed. Actual host typing, shortcuts/focus, paging and appearance remain unverified; follow the existing manual checks before release. The Trie still enumerates complete direct matches and preserves exact literals and language ambiguity.
+
 ## Top menu-bar template badge — 2026-10-20
 
 The user clarified that the missing background was in the top menu bar. Before this change, the source, Debug app, and installed normal/alternate TIFF files had matching hashes, and a read-only SI-bundle-filtered TIS query returned one SI source pointing to the installed `InputSourceIcon.tiff`. The installed metadata used `TISIconIsTemplate = false`. This rules out a missing file update, but does not identify the menu agent's actual rendering or cache state. The previous synthetic full-color preview was not evidence that the top menu bar rendered correctly.

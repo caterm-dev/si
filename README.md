@@ -166,7 +166,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture](docs/ARCHITECTURE
 
 See the [roadmap](docs/ROADMAP.md) for planned work and [manual verification](docs/TESTING.md) for host-app checks. GitHub Actions builds the macOS app and runs core tests on pushes and pull requests.
 
-`./scripts/benchmark.sh` measures Release-mode candidate generation across thirteen synthetic scenarios with 5,000 saved preferences and 1,000 personal phrases, including relevant learned tokens and long Unicode/emoji expansions. It emits JSON with timings and synthetic candidate fingerprints; `--resources` separately reports CLI-process resource usage on stderr. This measures the in-process engine, not total key-to-screen latency. See [dictionary provenance and decoder limits](docs/DICTIONARIES.md) and the [latest verification checkpoint](docs/VERIFICATION.md).
+`./scripts/benchmark.sh` measures Release-mode candidate generation across eighteen synthetic scenarios with 5,000 saved preferences and 1,000 personal phrases, including five English lookup cases. It also records first-engine initialization, which prepares the shared English Trie and cached word metadata once per process. It emits JSON with timings and synthetic candidate fingerprints; `--resources` separately reports CLI-process resource usage on stderr. These are in-process measurements, not total key-to-screen latency. See [dictionary provenance and decoder limits](docs/DICTIONARIES.md) and the [latest verification checkpoint](docs/VERIFICATION.md).
 
 ## License
 

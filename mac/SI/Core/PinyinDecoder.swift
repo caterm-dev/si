@@ -303,6 +303,7 @@ public struct PinyinDecoder: Sendable {
         var result = Array(repeating: [Edge](), count: count)
         guard longest > 0 else { return result }
         for start in 0..<count {
+            var englishNode: Int? = english ? 0 : nil
             for end in (start + 1)...min(count, start + longest) {
                 let code = String(input.letters[start..<end])
                 if chinese {
@@ -323,16 +324,20 @@ public struct PinyinDecoder: Sendable {
                     result[start].append(Edge(end: end, text: phrase.text, languages: phrase.language == .english ? 2 : 1,
                                               cost: phrase.isPinned ? 1 : 4, score: phrase.isPinned ? 180 : 115, personal: true))
                 }
-                if english, input.respects([], from: start, to: end) {
-                    let typed = String(input.originalLetters[start..<end])
-                    if let word = EnglishLexicon.exactMatch(for: code) {
-                        result[start].append(Edge(end: end, text: EnglishCandidateProvider.adjustedCase(word, input: typed),
+                // Walk the same English prefix once, stopping permanently at a failed
+                // transition or an explicit syllable boundary inside this span.
+                if end > start + 1 && input.separators.contains(end - 1) { englishNode = nil }
+                if let node = englishNode {
+                    englishNode = EnglishLexicon.advance(node, byte: input.letters[end - 1].asciiValue!)
+                    if let next = englishNode, let entry = EnglishLexicon.exactMatch(at: next) {
+                        let style = EnglishLexicon.CaseStyle(input: String(input.originalLetters[start..<end]))
+                        result[start].append(Edge(end: end, text: entry.text(for: style),
                                                   languages: 2, cost: 8, score: 110))
                     }
                 }
             }
-            let suffix = String(input.letters[start..<count])
             if chinese {
+                let suffix = String(input.letters[start..<count])
                 for index in completions(for: suffix) {
                     let match = readings[index]
                     guard input.respectsCompletion(match.boundaries, from: start, to: count) else { continue }
@@ -344,12 +349,12 @@ public struct PinyinDecoder: Sendable {
                     }
                 }
             }
-            if english, suffix.count >= 2, input.respects([], from: start, to: count) {
-                let typed = String(input.originalLetters[start..<count])
-                for word in EnglishLexicon.completions(for: suffix) {
-                    let score = EnglishLexicon.completionScore(for: word)
-                    result[start].append(Edge(end: count, text: EnglishCandidateProvider.adjustedCase(word, input: typed),
-                                              languages: 2, cost: 24 + Double(85 - score) / 4, score: score, completion: true))
+            if count - start >= 2, count - start <= longest, let node = englishNode {
+                let style = EnglishLexicon.CaseStyle(input: String(input.originalLetters[start..<count]))
+                for entry in EnglishLexicon.completions(at: node) {
+                    result[start].append(Edge(end: count, text: entry.text(for: style),
+                                              languages: 2, cost: entry.completionCost,
+                                              score: entry.completionScore, completion: true))
                 }
             }
             if learning.hasTokenPreferences {

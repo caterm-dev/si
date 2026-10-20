@@ -2,6 +2,95 @@ import Testing
 @testable import SICore
 
 struct EnglishVocabularyTests {
+    @Test func directLookupPreservesReferenceCandidatesAndMetadata() {
+        let provider = EnglishCandidateProvider()
+        for input in ["a", "I", "he", "sub", "SUB", "Sub", "sUb", "swift", "SwiftUI", "SWIFTUI",
+                      "subtitle", "zzzzzz", "", "a1", "a'b", "é", "👩🏽‍💻", "K"] {
+            let key = input.lowercased()
+            let supported = !key.isEmpty && key.utf8.allSatisfy { $0 >= 97 && $0 <= 122 }
+            let expected: [InputCandidate] = supported ? EnglishLexiconData.words.filter { $0.lowercased().hasPrefix(key) }.map { word in
+                let text: String
+                if input == input.uppercased() { text = word.uppercased() }
+                else if input.first?.isUppercase == true { text = word.prefix(1).uppercased() + word.dropFirst() }
+                else { text = word }
+                let exact = word.lowercased() == key
+                return InputCandidate(text: text, language: .english,
+                                      score: exact ? 110 : EnglishLexiconData.completionScores[word.lowercased()] ?? 75,
+                                      hasCompletion: !exact)
+            } : []
+            #expect(provider.candidates(for: input) == expected)
+        }
+    }
+
+    @Test func everyWordHasExactTrieMetadataAndEveryPrefixKeepsItsFullRange() {
+        let words = EnglishLexiconData.words
+        var prefixRanges: [String: Range<Int>] = [:]
+        for (index, word) in words.enumerated() {
+            let key = word.lowercased()
+            var node = 0
+            for byte in key.utf8 {
+                guard let next = EnglishLexicon.advance(node, byte: byte) else {
+                    Issue.record("Missing trie path for a vocabulary entry")
+                    return
+                }
+                node = next
+            }
+            guard let entry = EnglishLexicon.exactMatch(at: node) else {
+                Issue.record("Missing exact vocabulary entry")
+                return
+            }
+            #expect(entry.text == word)
+            #expect(entry.length == key.utf8.count)
+            let score = EnglishLexiconData.completionScores[key] ?? 75
+            #expect(entry.completionScore == score)
+            #expect(entry.completionCost == 24 + Double(85 - score) / 4)
+            #expect(entry.text(for: .uppercase) == word.uppercased())
+            #expect(entry.text(for: .capitalized) == word.prefix(1).uppercased() + word.dropFirst())
+            for length in 1...key.count {
+                let prefix = String(key.prefix(length))
+                prefixRanges[prefix] = (prefixRanges[prefix]?.lowerBound ?? index)..<(index + 1)
+            }
+        }
+        for (prefix, range) in prefixRanges {
+            #expect(EnglishLexicon.matches(for: prefix).map(\.text) == Array(words[range]))
+        }
+    }
+
+    @Test func mixedTrieWalkRespectsEnglishBoundariesCaseAndCompletionMinimum() {
+        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好", score: 100)])
+        let languages = Set(InputLanguage.allCases)
+        for input in ["nihaoSwiftUI", "nihao'SwiftUI"] {
+            #expect(decoder.compositionCandidates(for: input, languages: languages, allowsVerbatim: false)
+                .contains { $0.text == "你好SwiftUI" && $0.isMixed && !$0.hasCompletion && !$0.isPartial })
+        }
+        #expect(!decoder.compositionCandidates(for: "nihaoswi'ftui", languages: languages, allowsVerbatim: false)
+            .contains { $0.text == "你好SwiftUI" && !$0.isPartial })
+        #expect(decoder.compositionCandidates(for: "nihaoSWI'", languages: languages, allowsVerbatim: false)
+            .contains { $0.text == "你好SWIFTUI" && $0.hasCompletion && !$0.isPartial })
+        #expect(!decoder.compositionCandidates(for: "nihaow", languages: languages, allowsVerbatim: false)
+            .contains { $0.text == "你好world" && !$0.isPartial })
+    }
+
+    @Test func trieCompletionsExcludeExactTerminalsAndKeepLexicalOrder() {
+        for prefix in ["a", "he", "sub", "subtit", "subtitle", "swiftui", "z"] {
+            var node = 0
+            for byte in prefix.utf8 {
+                guard let next = EnglishLexicon.advance(node, byte: byte) else {
+                    Issue.record("Missing test prefix")
+                    return
+                }
+                node = next
+            }
+            let expected = EnglishLexiconData.words.filter {
+                $0.lowercased().hasPrefix(prefix) && $0.lowercased() != prefix
+            }
+            #expect(EnglishLexicon.completions(at: node).map(\.text) == expected)
+        }
+        for byte: UInt8 in [0, 65, 96, 123, 255] {
+            #expect(EnglishLexicon.advance(0, byte: byte) == nil)
+        }
+    }
+
     @Test func expandedWordsAndTerminologyAreAvailableWithCaseAndLiteralPreserved() {
         let engine = CandidateEngine()
         for input in ["subtitle", "subtitles", "SUBTITLE", "Subtitle", "SwiftUI", "abandon"] {
