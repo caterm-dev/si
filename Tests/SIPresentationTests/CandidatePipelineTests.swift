@@ -5,6 +5,41 @@ import SICore
 
 @MainActor
 struct CandidatePipelineTests {
+    @Test func latestHintsRefreshWhileAnObsoleteFinalSearchIsStillBlocked() async throws {
+        let fullGate = Gate()
+        let previewGate = Gate()
+        var session = InputSession(candidateGeneration: .deferred)
+        let full = CandidatePipeline(generate: { await fullGate.generate($0) }) { result in
+            _ = session.accept(result)
+            fullGate.didReceive()
+        }
+        let preview = CandidatePipeline.preview { result in
+            _ = session.accept(result)
+            previewGate.didReceive()
+        }
+        session.append("ni")
+        let first = try #require(session.pendingCandidateRequest)
+        full.submit(first)
+        await fullGate.waitForStarts(1)
+        preview.submit(first)
+        await previewGate.waitForReceipts(1)
+        #expect(session.hasCandidatePreview && session.candidates.contains { $0.text == "你" })
+        session.append("hao")
+        let latest = try #require(session.pendingCandidateRequest)
+        full.submit(latest)
+        preview.submit(latest)
+        await previewGate.waitForReceipts(2)
+        #expect(fullGate.started == [first.id])
+        #expect(session.hasCandidatePreview && session.candidates.contains { $0.text == "你好" })
+        fullGate.release(first.id)
+        await fullGate.waitForStarts(2)
+        #expect(session.hasCandidatePreview && session.buffer == "nihao")
+        fullGate.release(latest.id)
+        await fullGate.waitForReceipts(2)
+        #expect(session.pendingCandidateRequest == nil && !session.hasCandidatePreview)
+        #expect(session.candidates.first?.text == "你好")
+    }
+
     @Test func rapidEditsRunOnlyTheInFlightAndLatestRequests() async throws {
         let gate = Gate()
         var received: [String] = []

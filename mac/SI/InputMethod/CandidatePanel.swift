@@ -20,11 +20,11 @@ final class CandidatePanel: NSPanel {
     }
 
     func show(selection: CandidateSelection, caret: NSRect, clientLevel: Int, screens: [CandidatePlacement.Screen],
-              isPending: Bool = false) {
+              isPending: Bool = false, refreshPendingRows: Bool = false) {
         guard !selection.candidates.isEmpty else { orderOut(nil); return }
         // A hidden panel belongs to a finished composition; never retain its old rows.
         if !isVisible && isPending { list.render(selection) }
-        list.render(selection, isPending: isPending)
+        list.render(selection, isPending: isPending, refreshPendingRows: refreshPendingRows)
         guard let frame = CandidatePlacement.frame(preferredSize: list.preferredSize, anchor: caret, screens: screens) else {
             orderOut(nil)
             return

@@ -7,6 +7,7 @@ public struct PinyinDecoder: Sendable {
     public static let maximumOutputBytes = 4_096
     private struct Reading: Sendable {
         let entries: [Int]
+        let previewEntries: [Int]
         let boundaries: Set<Int>
         let penalty: Int
     }
@@ -108,9 +109,15 @@ public struct PinyinDecoder: Sendable {
         var maximum = 0
         for group in groups {
             let entry = entries[group[0]]
+            // Source order is not frequency order. Prepare the bounded hint pool once,
+            // so a common syllable cannot lose its strongest words before path scoring.
+            let previewEntries = Array(group.sorted {
+                if entries[$0].score != entries[$1].score { return entries[$0].score > entries[$1].score }
+                return $0 < $1
+            }.prefix(16))
             maximum = max(maximum, entry.code.count)
             let index = readings.count
-            readings.append(Reading(entries: group, boundaries: entry.boundaries, penalty: 0))
+            readings.append(Reading(entries: group, previewEntries: previewEntries, boundaries: entry.boundaries, penalty: 0))
             exact[entry.code, default: []].append(index)
             full.append((entry.code, index))
             guard entry.syllables.count > 1 else { continue }
@@ -129,7 +136,8 @@ public struct PinyinDecoder: Sendable {
                 }
                 guard seen.insert(code).inserted else { continue }
                 exact[code, default: []].append(readings.count)
-                readings.append(Reading(entries: group, boundaries: boundaries, penalty: 18 + min(4, shortened * 2)))
+                readings.append(Reading(entries: group, previewEntries: previewEntries, boundaries: boundaries,
+                                        penalty: 18 + min(4, shortened * 2)))
             }
         }
         full.sort { $0.code == $1.code ? $0.reading < $1.reading : $0.code < $1.code }
@@ -141,7 +149,7 @@ public struct PinyinDecoder: Sendable {
         maximumCodeLength = maximum
     }
 
-    private func completions(for prefix: String) -> ArraySlice<Int> {
+    private func fullReadingRange(from lowerKey: String, to upperKey: String) -> ArraySlice<Int> {
         func lowerBound(_ key: String) -> Int {
             var lower = 0
             var upper = fullCodes.count
@@ -151,8 +159,12 @@ public struct PinyinDecoder: Sendable {
             }
             return lower
         }
+        return fullReadings[lowerBound(lowerKey)..<lowerBound(upperKey)]
+    }
+
+    private func completions(for prefix: String) -> ArraySlice<Int> {
         // Codes contain only a...z; exclude exact codes and include every longer full spelling.
-        return fullReadings[lowerBound(prefix + "a")..<lowerBound(prefix + "{")]
+        fullReadingRange(from: prefix + "a", to: prefix + "{")
     }
 
     public func candidates(for input: String) -> [InputCandidate] {
@@ -168,11 +180,13 @@ public struct PinyinDecoder: Sendable {
                                       dictionary: UserDictionary = UserDictionary(),
                                       learning: LearningProfile = LearningProfile(), now: Date = .now,
                                       context: CandidateContext? = nil,
-                                      includesPartials: Bool = true, allowsVerbatim: Bool = true) -> [InputCandidate] {
+                                      includesPartials: Bool = true, allowsVerbatim: Bool = true,
+                                      preview: Bool = false) -> [InputCandidate] {
         guard let reading = PinyinInput(input), !languages.isEmpty else { return [] }
         let count = reading.letters.count
         let terminalRanking = learning.ranking(for: input, now: now, context: context)
-        let outgoing = edges(for: reading, languages: languages, dictionary: dictionary, learning: learning, now: now)
+        let outgoing = edges(for: reading, languages: languages, dictionary: dictionary, learning: learning, now: now,
+                             preview: preview)
         // Only exact lexical English spans protect a boundary; completions and personal/raw nodes do not.
         let hasTokenBonuses = outgoing.contains { $0.contains { $0.learningBonus > 0 } }
         let englishEnds = hasTokenBonuses ? outgoing.map { edges in
@@ -258,7 +272,7 @@ public struct PinyinDecoder: Sendable {
             }
         }
 
-        var results = dictionary.candidates(for: input, languages: languages)
+        var results = preview ? [] : dictionary.candidates(for: input, languages: languages)
         // Direct lexical matches/completions are not restricted by the constructed-path beam.
         for edge in outgoing[0] where edge.end == count && edge.languages == 1 {
             results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: edge.score,
@@ -294,7 +308,7 @@ public struct PinyinDecoder: Sendable {
     }
 
     private func edges(for input: PinyinInput, languages: Set<InputLanguage>, dictionary: UserDictionary,
-                       learning: LearningProfile, now: Date) -> [[Edge]] {
+                       learning: LearningProfile, now: Date, preview: Bool) -> [[Edge]] {
         let count = input.letters.count
         let chinese = languages.contains(.simplifiedChinese)
         let english = languages.contains(.english)
@@ -307,10 +321,12 @@ public struct PinyinDecoder: Sendable {
             for end in (start + 1)...min(count, start + longest) {
                 let code = String(input.letters[start..<end])
                 if chinese {
-                    for index in exact[code] ?? [] {
+                    // Early hints bound lexical fanout in the same lattice; final search stays exhaustive at lookup.
+                    let matches = preview ? Array(fullReadingRange(from: code, to: code + "a").prefix(8)) : exact[code] ?? []
+                    for index in matches {
                         let match = readings[index]
                         guard input.respects(match.boundaries, from: start, to: end) else { continue }
-                        for index in match.entries {
+                        for index in preview ? match.previewEntries : match.entries {
                             let entry = entries[index]
                             let score = entry.score - match.penalty
                             result[start].append(Edge(end: end, text: entry.text, languages: 1,
@@ -338,10 +354,11 @@ public struct PinyinDecoder: Sendable {
             }
             if chinese {
                 let suffix = String(input.letters[start..<count])
-                for index in completions(for: suffix) {
+                let matches = completions(for: suffix)
+                for index in preview ? matches.prefix(8) : matches {
                     let match = readings[index]
                     guard input.respectsCompletion(match.boundaries, from: start, to: count) else { continue }
-                    for index in match.entries {
+                    for index in preview ? match.previewEntries : match.entries {
                         let entry = entries[index]
                         result[start].append(Edge(end: count, text: entry.text, languages: 1,
                                                   cost: 24 + Double(max(0, 100 - entry.score)) / 4,
@@ -351,7 +368,8 @@ public struct PinyinDecoder: Sendable {
             }
             if count - start >= 2, count - start <= longest, let node = englishNode {
                 let style = EnglishLexicon.CaseStyle(input: String(input.originalLetters[start..<count]))
-                for entry in EnglishLexicon.completions(at: node) {
+                let matches = EnglishLexicon.completions(at: node)
+                for entry in preview ? matches.prefix(8) : matches {
                     result[start].append(Edge(end: count, text: entry.text(for: style),
                                               languages: 2, cost: entry.completionCost,
                                               score: entry.completionScore, completion: true))
@@ -370,6 +388,28 @@ public struct PinyinDecoder: Sendable {
                             normalizedInput: edge.languages == 1 ? chineseKey : englishKey, text: edge.text,
                             language: edge.languages == 1 ? .simplifiedChinese : .english, now: now)
                     }
+                }
+            }
+        }
+        if preview {
+            for start in result.indices {
+                var counts: [Int: Int] = [:]
+                var spans: [Int: Set<Int>] = [:]
+                result[start] = result[start].sorted {
+                    // Prefer words that cover more spelling when reducing the provisional edge set.
+                    let a = ($0.cost - $0.learningBonus * 10) / Double($0.end - start)
+                    let b = ($1.cost - $1.learningBonus * 10) / Double($1.end - start)
+                    if a != b { return a < b }
+                    if $0.end != $1.end { return $0.end > $1.end }
+                    return $0.text < $1.text
+                }.filter {
+                    let key = $0.languages | ($0.completion ? 4 : 0)
+                    let spanKey = key | ($0.end << 3)
+                    guard counts[spanKey, default: 0] < 2,
+                          spans[key, default: []].contains($0.end) || spans[key, default: []].count < 2 else { return false }
+                    spans[key, default: []].insert($0.end)
+                    counts[spanKey, default: 0] += 1
+                    return true
                 }
             }
         }

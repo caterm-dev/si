@@ -11,6 +11,9 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private lazy var candidatePipeline = CandidatePipeline { [weak self] result in
         self?.receiveCandidates(result)
     }
+    private lazy var candidatePreviewPipeline = CandidatePipeline.preview { [weak self] result in
+        self?.receiveCandidates(result)
+    }
     private var selection = CandidateSelection()
     private var candidateAnchor = CandidateAnchor()
     private var explicitlyNavigated = false
@@ -23,7 +26,13 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             self.commitCandidate(candidate, to: client)
         }
         panel.list.onMovePage = { [weak self] offset in
-            self?.moveCandidateSelection(by: offset * CandidateSelection.pageSize)
+            guard let self else { return }
+            self.moveCandidateSelection(by: offset * self.selection.visiblePageSize)
+        }
+        panel.list.onToggleExpansion = { [weak self] in
+            guard let self, self.session.pendingCandidateRequest == nil, let client = self.client() else { return }
+            self.selection.setExpanded(!self.selection.isExpanded)
+            self.presentCandidates(to: client)
         }
         return panel
     }()
@@ -49,7 +58,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
 
         if !session.buffer.isEmpty,
-           let action = CandidateSelection.action(keyCode: event.keyCode, characters: event.characters) {
+           let action = CandidateSelection.action(keyCode: event.keyCode, characters: event.characters,
+                                                  pageSize: selection.visiblePageSize) {
             resolveCandidates(to: client)
             switch action {
             case .move(let distance): moveCandidateSelection(by: distance, to: client)
@@ -179,7 +189,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         guard let caret else { candidatePanel.orderOut(nil); return }
         candidatePanel.show(selection: selection, caret: caret, clientLevel: Int(client.windowLevel()), screens: screens,
-                            isPending: session.pendingCandidateRequest != nil)
+                            isPending: session.pendingCandidateRequest != nil, refreshPendingRows: session.hasCandidatePreview)
     }
 
     nonisolated override func commitComposition(_ sender: Any!) {
@@ -195,6 +205,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         MainActor.assumeIsolated {
             session.breakContext()
             candidatePipeline.invalidate()
+            candidatePreviewPipeline.invalidate()
             candidateClient = nil
             candidateAnchor.reset()
             candidatePanel.orderOut(nil)
@@ -216,19 +227,23 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func update(_ client: any IMKTextInput) {
         candidateClient = client
-        selection.update(session.candidates)
+        let rankingTime = Date.now
+        selection.update(session.candidates, prefixScore: { self.session.presentationScore(for: $0, now: rankingTime) })
         explicitlyNavigated = false
         client.setMarkedText(session.buffer, selectionRange: NSRange(location: session.cursorUTF16Offset, length: 0),
                              replacementRange: NSRange(location: NSNotFound, length: 0))
         if session.buffer.isEmpty {
             candidatePipeline.invalidate()
+            candidatePreviewPipeline.invalidate()
             candidateAnchor.reset()
             candidatePanel.orderOut(nil)
         } else if let request = session.pendingCandidateRequest {
             presentCandidates(to: client)
+            if !session.hasCandidatePreview { candidatePreviewPipeline.submit(request) }
             candidatePipeline.submit(request)
         } else {
             candidatePipeline.invalidate()
+            candidatePreviewPipeline.invalidate()
             presentCandidates(to: client)
         }
     }
@@ -241,6 +256,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func insert(_ text: String, into client: any IMKTextInput) {
         candidatePipeline.invalidate()
+        candidatePreviewPipeline.invalidate()
         candidateClient = nil
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         selection.update([])

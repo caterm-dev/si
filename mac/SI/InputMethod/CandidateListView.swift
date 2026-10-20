@@ -6,11 +6,15 @@ final class CandidateListView: NSView {
     private(set) var pageLabel = NSTextField(labelWithString: "")
     private(set) var previousButton = NSButton(title: "", target: nil, action: nil)
     private(set) var nextButton = NSButton(title: "", target: nil, action: nil)
+    private(set) var expandButton = NSButton(title: "", target: nil, action: nil)
+    private(set) var isExpanded = false
     private(set) var showsPagination = false
     private(set) var isUpdating = false
     var onSelect: ((String) -> Void)?
     var onMovePage: ((Int) -> Void)?
+    var onToggleExpansion: (() -> Void)?
     private let rowHeight: CGFloat = 30
+    private var pendingMinimumSize: NSSize?
 
     init() {
         super.init(frame: .zero)
@@ -26,7 +30,7 @@ final class CandidateListView: NSView {
         nextButton.setAccessibilityLabel("Next page")
         previousButton.toolTip = "Previous page"
         nextButton.toolTip = "Next page"
-        for button in [previousButton, nextButton] {
+        for button in [previousButton, nextButton, expandButton] {
             button.isBordered = false
             button.imagePosition = .imageOnly
             button.symbolConfiguration = .init(pointSize: 10, weight: .semibold)
@@ -36,19 +40,30 @@ final class CandidateListView: NSView {
         }
         previousButton.action = #selector(previousPage)
         nextButton.action = #selector(nextPage)
+        expandButton.action = #selector(toggleExpansion)
         addSubview(pageLabel)
     }
 
     required init?(coder: NSCoder) { nil }
 
-    func render(_ selection: CandidateSelection, isPending: Bool = false) {
+    func render(_ selection: CandidateSelection, isPending: Bool = false, refreshPendingRows: Bool = false) {
+        if !isPending { pendingMinimumSize = nil }
+        else if !rows.isEmpty { pendingMinimumSize = preferredSize }
         isUpdating = isPending
         // Keep the current card intact while a newer composition is being searched.
         // These rows are only a visual placeholder; they cannot confirm stale text.
-        if isPending, !rows.isEmpty {
+        if isPending, !refreshPendingRows, !rows.isEmpty {
             updateInteraction(selection)
             return
         }
+        isExpanded = selection.isExpanded
+        layer?.cornerRadius = isExpanded ? 10 : 21
+        let expansionLabel = isExpanded ? "Collapse candidates" : "Expand candidates"
+        expandButton.image = NSImage(systemSymbolName: isExpanded ? "chevron.up" : "chevron.down",
+                                     accessibilityDescription: expansionLabel)
+        expandButton.setAccessibilityLabel(expansionLabel)
+        expandButton.setAccessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+        expandButton.toolTip = expansionLabel
         rows.forEach { $0.removeFromSuperview() }
         rows = selection.visibleRange.enumerated().map { number, index in
             let row = CandidateRowButton()
@@ -62,7 +77,8 @@ final class CandidateListView: NSView {
         showsPagination = selection.pageCount > 1
         pageLabel.stringValue = "\(selection.page + 1) / \(max(1, selection.pageCount))"
         pageLabel.setAccessibilityLabel("Page \(selection.page + 1) of \(max(1, selection.pageCount))")
-        for control in [pageLabel, previousButton, nextButton] { control.isHidden = !showsPagination }
+        for control in [pageLabel, previousButton, nextButton] { control.isHidden = !isExpanded || !showsPagination }
+        expandButton.isHidden = rows.isEmpty
         updateInteraction(selection)
         needsLayout = true
         needsDisplay = true
@@ -72,37 +88,61 @@ final class CandidateListView: NSView {
         rows.forEach { $0.isEnabled = !isUpdating }
         previousButton.isEnabled = !isUpdating && selection.page > 0
         nextButton.isEnabled = !isUpdating && selection.page + 1 < selection.pageCount
+        expandButton.isEnabled = !isUpdating
         setAccessibilityHelp(isUpdating ? "Updating candidates" : nil)
     }
 
     var preferredSize: NSSize {
-        let textWidth = rows.map { row in
-            row.candidateLabel.intrinsicContentSize.width + 55
-                + (row.detailLabel.isHidden ? 0 : min(120, row.detailLabel.intrinsicContentSize.width + 10) + 10)
-        }.max() ?? 180
-        return NSSize(width: min(600, max(180, textWidth)),
-                      height: CGFloat(rows.count) * rowHeight + 12 + (showsPagination ? 29 : 0))
+        let content: NSSize
+        if !isExpanded {
+            content = NSSize(width: max(180, rows.map(compactWidth).reduce(0, +) + 38), height: 42)
+        } else {
+            let textWidth = rows.map(rowWidth).max() ?? 180
+            content = NSSize(width: min(600, max(180, textWidth)), height: CGFloat(rows.count) * rowHeight + 41)
+        }
+        return NSSize(width: max(content.width, pendingMinimumSize?.width ?? 0),
+                      height: max(content.height, pendingMinimumSize?.height ?? 0))
     }
+
+    private func rowWidth(_ row: CandidateRowButton) -> CGFloat {
+        row.candidateLabel.intrinsicContentSize.width + 55
+            + (row.detailLabel.isHidden ? 0 : min(120, row.detailLabel.intrinsicContentSize.width + 10) + 10)
+    }
+
+    private func compactWidth(_ row: CandidateRowButton) -> CGFloat { min(280, max(64, rowWidth(row))) }
 
     override func layout() {
         super.layout()
-        for (index, row) in rows.enumerated() {
-            row.frame = NSRect(x: 5, y: bounds.height - 5 - CGFloat(index + 1) * rowHeight,
-                               width: bounds.width - 10, height: rowHeight)
+        if isExpanded {
+            for (index, row) in rows.enumerated() {
+                row.frame = NSRect(x: 5, y: bounds.height - 5 - CGFloat(index + 1) * rowHeight,
+                                   width: bounds.width - 10, height: rowHeight)
+            }
+        } else {
+            let available = max(0, bounds.width - 38)
+            let total = max(1, rows.map(compactWidth).reduce(0, +))
+            var x: CGFloat = 5
+            for row in rows {
+                let width = available * compactWidth(row) / total
+                row.frame = NSRect(x: x, y: 6, width: width, height: rowHeight)
+                x += width
+            }
         }
-        pageLabel.frame = NSRect(x: 13, y: 7, width: max(0, bounds.width - 82), height: 16)
-        previousButton.frame = NSRect(x: bounds.width - 64, y: 3, width: 26, height: 24)
-        nextButton.frame = NSRect(x: bounds.width - 36, y: 3, width: 26, height: 24)
+        pageLabel.frame = NSRect(x: 13, y: 7, width: max(0, bounds.width - 108), height: 16)
+        previousButton.frame = NSRect(x: bounds.width - 90, y: 3, width: 26, height: 24)
+        nextButton.frame = NSRect(x: bounds.width - 62, y: 3, width: 26, height: 24)
+        expandButton.frame = NSRect(x: bounds.width - 32, y: isExpanded ? 3 : 6, width: 26, height: isExpanded ? 24 : 30)
     }
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.windowBackgroundColor.setFill()
-        let outline = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 10, yRadius: 10)
+        let radius: CGFloat = isExpanded ? 10 : 21
+        let outline = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
         outline.fill()
         NSColor.separatorColor.setStroke()
         outline.lineWidth = 0.5
         outline.stroke()
-        if showsPagination {
+        if isExpanded {
             let separator = NSBezierPath()
             separator.move(to: NSPoint(x: 11, y: 30))
             separator.line(to: NSPoint(x: bounds.width - 11, y: 30))
@@ -112,8 +152,9 @@ final class CandidateListView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard !isUpdating, abs(event.scrollingDeltaY) > 0.5, event.phase != .ended else { return }
-        onMovePage?(event.scrollingDeltaY > 0 ? -1 : 1)
+        let delta = abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) ? event.scrollingDeltaX : event.scrollingDeltaY
+        guard !isUpdating, abs(delta) > 0.5, event.phase != .ended else { return }
+        onMovePage?(delta > 0 ? -1 : 1)
     }
 
     @objc private func selectRow(_ sender: CandidateRowButton) {
@@ -122,4 +163,5 @@ final class CandidateListView: NSView {
     }
     @objc private func previousPage() { if !isUpdating { onMovePage?(-1) } }
     @objc private func nextPage() { if !isUpdating { onMovePage?(1) } }
+    @objc private func toggleExpansion() { if !isUpdating { onToggleExpansion?() } }
 }

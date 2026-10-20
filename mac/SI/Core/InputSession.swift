@@ -15,11 +15,24 @@ public struct CandidateRequest: Sendable {
         CandidateResult(requestID: id, candidates: engine.candidates(
             for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context))
     }
+
+    public func generatePreview() -> CandidateResult {
+        CandidateResult(requestID: id, candidates: engine.previewCandidates(
+            for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context),
+            isPreview: true)
+    }
 }
 
 public struct CandidateResult: Sendable {
     fileprivate let requestID: UUID
     public let candidates: [InputCandidate]
+    public let isPreview: Bool
+
+    fileprivate init(requestID: UUID, candidates: [InputCandidate], isPreview: Bool = false) {
+        self.requestID = requestID
+        self.candidates = candidates
+        self.isPreview = isPreview
+    }
 }
 
 public struct InputSession: Sendable {
@@ -34,6 +47,7 @@ public struct InputSession: Sendable {
     public var cursorUTF16Offset: Int { buffer.prefix(cursor).utf16.count }
     public private(set) var candidates: [InputCandidate] = []
     public private(set) var pendingCandidateRequest: CandidateRequest?
+    public private(set) var hasCandidatePreview = false
     private var languages: Set<InputLanguage> = Set(InputLanguage.allCases)
     private let engine: CandidateEngine
     private let candidateGeneration: CandidateGeneration
@@ -110,7 +124,14 @@ public struct InputSession: Sendable {
     }
 
     public mutating func commitResult(_ candidate: InputCandidate? = nil, reason: CommitReason, now: Date = .now) -> InputCommit {
-        let validCandidate = candidate.flatMap { value -> InputCandidate? in
+        var requestedCandidate = candidate
+        if hasCandidatePreview, let candidate {
+            if candidates.contains(candidate) {
+                resolveCandidates()
+                requestedCandidate = candidates.first { $0.id == candidate.id }
+            } else { requestedCandidate = nil }
+        }
+        let validCandidate = requestedCandidate.flatMap { value -> InputCandidate? in
             guard candidates.contains(value) else { return nil }
             if let count = value.consumedInputCount, count <= 0 || count >= buffer.count { return nil }
             return value
@@ -137,6 +158,7 @@ public struct InputSession: Sendable {
         cursor = 0
         candidates = []
         pendingCandidateRequest = nil
+        hasCandidatePreview = false
         recentContext = nil
     }
 
@@ -144,6 +166,12 @@ public struct InputSession: Sendable {
         guard recentContext != nil else { return }
         recentContext = nil
         refresh()
+    }
+
+    /// Presentation may feature prefixes across spans using the same consent/context-aware score.
+    public func presentationScore(for candidate: InputCandidate, now: Date = .now) -> Double {
+        let spelling = candidate.consumedInputCount.map { String(buffer.prefix($0)) } ?? buffer
+        return learning.rankingScore(for: candidate, input: spelling, now: now, context: currentContext(now: now))
     }
 
     private func currentContext(now: Date = .now) -> CandidateContext? {
@@ -156,11 +184,13 @@ public struct InputSession: Sendable {
         guard !buffer.isEmpty else {
             candidates = []
             pendingCandidateRequest = nil
+            hasCandidatePreview = false
             return
         }
         let request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
                                        dictionary: dictionary, now: now, context: currentContext(now: now))
         pendingCandidateRequest = request
+        hasCandidatePreview = false
         if candidateGeneration == .synchronous {
             _ = accept(request.generate())
         } else {
@@ -172,8 +202,10 @@ public struct InputSession: Sendable {
     @discardableResult
     public mutating func accept(_ result: CandidateResult) -> Bool {
         guard pendingCandidateRequest?.id == result.requestID else { return false }
+        if result.isPreview && hasCandidatePreview { return false }
         candidates = result.candidates
-        pendingCandidateRequest = nil
+        hasCandidatePreview = result.isPreview
+        if !result.isPreview { pendingCandidateRequest = nil }
         return true
     }
 

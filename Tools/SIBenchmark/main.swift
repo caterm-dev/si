@@ -27,6 +27,7 @@ enum SIBenchmark {
     }
 
     static func main() throws {
+        let previewsOnly = CommandLine.arguments.dropFirst().contains("--previews")
         let now = Date.now
         let profile = LearningProfile(entries: (0..<LearningProfile.maximumEntries).map {
             LearnedPreference(input: "shi", text: "synthetic\($0)", language: .english, strength: 1, lastUsed: now)
@@ -77,17 +78,28 @@ enum SIBenchmark {
             let activeDictionary = name == "bounded long personal expansions" ? longDictionary
                 : name == "bounded Unicode personal expansions" ? unicodeDictionary : dictionary
             let activeProfile = name == "learned tokens in longer composition" ? tokenProfile : profile
+            let generate: () -> [InputCandidate]
+            if previewsOnly {
+                var session = InputSession(engine: engine, candidateGeneration: .deferred)
+                session.configure(languages: languages, learning: activeProfile, dictionary: activeDictionary)
+                session.append(input)
+                let request = session.pendingCandidateRequest!
+                generate = { request.generatePreview().candidates }
+            } else {
+                generate = {
+                    engine.candidates(for: input, languages: languages, learning: activeProfile,
+                                      dictionary: activeDictionary)
+                }
+            }
             for _ in 0..<10 {
-                checksum += engine.candidates(for: input, languages: languages, learning: activeProfile,
-                                               dictionary: activeDictionary).count
+                checksum += generate().count
             }
             var times: [Double] = []
             var candidateCount = 0
             var lastCandidates: [InputCandidate] = []
             for _ in 0..<200 {
                 let start = clock.now
-                let candidates = engine.candidates(for: input, languages: languages, learning: activeProfile,
-                                                   dictionary: activeDictionary)
+                let candidates = generate()
                 let duration = start.duration(to: clock.now).components
                 times.append(Double(duration.seconds) * 1_000 + Double(duration.attoseconds) / 1e15)
                 checksum += candidates.count
@@ -95,7 +107,8 @@ enum SIBenchmark {
                 lastCandidates = candidates
             }
             times.sort()
-            measurements.append(Measurement(scenario: name, inputLength: input.count, iterations: times.count,
+            measurements.append(Measurement(scenario: previewsOnly ? "provisional " + name : name,
+                                            inputLength: input.count, iterations: times.count,
                                             candidates: candidateCount,
                                             candidateFingerprint: fingerprint(lastCandidates),
                                             maximumPersonalPhraseBytes: activeDictionary.entries.map { $0.text.utf8.count }.max() ?? 0,
@@ -106,7 +119,8 @@ enum SIBenchmark {
         // Compare the caller's edit path only. Deferred final resolution is outside this timed region;
         // its real search cost is measured by the candidate-generation scenarios above.
         let typingInput = "woaiSwiftshurufa"
-        for generation in [InputSession.CandidateGeneration.synchronous, .deferred] {
+        let generations: [InputSession.CandidateGeneration] = previewsOnly ? [] : [.synchronous, .deferred]
+        for generation in generations {
             var times: [Double] = []
             var lastCandidates: [InputCandidate] = []
             for iteration in -3..<20 {

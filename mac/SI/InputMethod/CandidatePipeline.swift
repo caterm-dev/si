@@ -9,6 +9,12 @@ private actor CandidateWorker {
     func generate(_ request: CandidateRequest) async -> CandidateResult { request.generate() }
 }
 
+// A full search must not hold early hints behind obsolete, expensive work.
+private actor CandidatePreviewWorker {
+    static let shared = CandidatePreviewWorker()
+    func generate(_ request: CandidateRequest) async -> CandidateResult { request.generatePreview() }
+}
+
 /// At most one running request and one latest replacement per client; no per-keystroke task backlog.
 @MainActor
 final class CandidatePipeline {
@@ -18,6 +24,10 @@ final class CandidatePipeline {
     private var pending: CandidateRequest?
     private var runningID: UUID?
     private var runner: Task<Void, Never>?
+
+    static func preview(receive: @escaping @MainActor (CandidateResult) -> Void) -> CandidatePipeline {
+        CandidatePipeline(generate: { await CandidatePreviewWorker.shared.generate($0) }, receive: receive)
+    }
 
     init(generate: @escaping Generator = { await CandidateWorker.shared.generate($0) },
          receive: @escaping @MainActor (CandidateResult) -> Void) {

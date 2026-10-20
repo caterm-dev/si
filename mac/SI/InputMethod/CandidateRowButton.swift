@@ -55,7 +55,7 @@ final class CandidateRowButton: NSButton {
 
     override func layout() {
         super.layout()
-        let detailWidth = detailLabel.isHidden ? 0 : min(120, detailLabel.intrinsicContentSize.width + 10)
+        let detailWidth = detailLabel.isHidden ? 0 : min(120, max(0, bounds.width - 80), detailLabel.intrinsicContentSize.width + 10)
         numberLabel.frame = NSRect(x: 9, y: (bounds.height - 16) / 2, width: 18, height: 16)
         detailLabel.frame = NSRect(x: bounds.width - detailWidth - 10, y: (bounds.height - 15) / 2,
                                    width: detailWidth, height: 15)

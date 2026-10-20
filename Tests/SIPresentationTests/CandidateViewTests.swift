@@ -5,9 +5,81 @@ import SICore
 
 @MainActor
 struct CandidateViewTests {
-    @Test func pendingSearchKeepsTheCardUntilCurrentCandidatesReplaceIt() throws {
+    @Test(arguments: [false, true])
+    func freshPendingHintsReplaceOldRowsWithoutShrinkingOrEnablingStaleActions(expanded: Bool) throws {
+        var selection = CandidateSelection()
+        selection.setExpanded(expanded)
+        selection.update((0..<9).map { InputCandidate(text: "Previous long synthetic candidate \($0)", language: .english, score: 100) })
+        let view = CandidateListView()
+        view.render(selection)
+        let old = view.rows[0]
+        let size = view.preferredSize
+        var selected: [String] = []
+        view.onSelect = { selected.append($0) }
+        for text in ["你", "你好", "你好朋友"] {
+            selection.update([InputCandidate(text: text, language: .simplifiedChinese, score: 100)])
+            view.render(selection, isPending: true, refreshPendingRows: true)
+            #expect(view.rows[0].candidateLabel.stringValue == text)
+            #expect(view.preferredSize == size)
+            #expect(view.isUpdating && !view.rows[0].isEnabled && !view.expandButton.isEnabled)
+            NSApplication.shared.sendAction(try #require(old.action), to: view, from: old)
+            NSApplication.shared.sendAction(try #require(view.rows[0].action), to: view, from: view.rows[0])
+        }
+        #expect(selected.isEmpty)
+        view.render(selection)
+        #expect(!view.isUpdating && view.rows[0].isEnabled)
+        #expect(view.preferredSize.width <= size.width && view.preferredSize.height <= size.height)
+        old.performClick(nil)
+        #expect(selected.isEmpty)
+        view.rows[0].performClick(nil)
+        #expect(selected == [selection.candidates[0].id])
+    }
+
+    @Test func compactRowsShareOneLineAndExpansionPreservesMouseAndNumberMapping() throws {
+        var selection = CandidateSelection()
+        selection.update((0..<22).map { InputCandidate(text: "测试候选\($0)", language: .simplifiedChinese, score: 100) })
+        let view = CandidateListView()
+        var clicked: String?
+        view.onSelect = { clicked = $0 }
+        view.onToggleExpansion = {
+            selection.setExpanded(!selection.isExpanded)
+            view.render(selection)
+        }
+        view.render(selection)
+        view.frame = NSRect(origin: .zero, size: view.preferredSize)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.rows.count == 3 && view.preferredSize.height == 42)
+        #expect(Set(view.rows.map { $0.frame.minY }).count == 1)
+        #expect(view.rows[0].frame.maxX <= view.rows[1].frame.minX)
+        #expect(view.rows.last!.frame.maxX <= view.expandButton.frame.minX)
+        #expect(view.pageLabel.isHidden && view.previousButton.isHidden && view.nextButton.isHidden)
+        #expect(view.expandButton.accessibilityLabel() == "Expand candidates")
+        view.rows[2].performClick(nil)
+        #expect(clicked == selection.candidate(number: 3)?.id)
+        selection.move(by: 7)
+        view.render(selection)
+        let selected = selection.selected
+        view.expandButton.performClick(nil)
+        #expect(selection.isExpanded && view.isExpanded && view.rows.count == 9)
+        #expect(selection.selected == selected)
+        #expect(view.rows[7].isCurrent)
+        #expect(view.expandButton.accessibilityLabel() == "Collapse candidates")
+        view.expandButton.performClick(nil)
+        #expect(!view.isExpanded && selection.selected == selected)
+        #expect(view.rows[1].isCurrent)
+        view.rows[1].performClick(nil)
+        #expect(clicked == selection.candidate(number: 2)?.id)
+        // Narrow host screens clip labels, without overlapping controls or changing commit identity.
+        view.frame.size.width = 220
+        view.layoutSubtreeIfNeeded()
+        #expect(view.rows.allSatisfy { $0.frame.minX >= 0 && $0.frame.maxX <= view.expandButton.frame.minX })
+    }
+
+    @Test(arguments: [false, true])
+    func pendingSearchKeepsTheCardUntilCurrentCandidatesReplaceIt(expanded: Bool) throws {
         let view = CandidateListView()
         var selection = CandidateSelection()
+        selection.setExpanded(expanded)
         selection.update((0..<12).map { InputCandidate(text: "旧候选\($0)", language: .simplifiedChinese, score: 100) })
         view.render(selection)
         let oldRows = view.rows
@@ -15,8 +87,10 @@ struct CandidateViewTests {
         let pageText = view.pageLabel.stringValue
         var selected: [String] = []
         var pageMoves: [Int] = []
+        var expansions = 0
         view.onSelect = { selected.append($0) }
         view.onMovePage = { pageMoves.append($0) }
+        view.onToggleExpansion = { expansions += 1 }
 
         // Deferred sessions expose only the current literal until their result arrives.
         for spelling in ["n", "ni", "nihao"] {
@@ -27,11 +101,14 @@ struct CandidateViewTests {
             #expect(view.pageLabel.stringValue == pageText)
             #expect(view.rows.allSatisfy { !$0.isEnabled })
             #expect(!view.previousButton.isEnabled && !view.nextButton.isEnabled)
+            #expect(!view.expandButton.isEnabled)
             // Also reject actions already queued before the controls were disabled.
             NSApplication.shared.sendAction(try #require(oldRows[0].action), to: view, from: oldRows[0])
             NSApplication.shared.sendAction(try #require(view.nextButton.action), to: view, from: view.nextButton)
+            NSApplication.shared.sendAction(try #require(view.expandButton.action), to: view, from: view.expandButton)
         }
         #expect(selected.isEmpty && pageMoves.isEmpty)
+        #expect(expansions == 0)
         #expect(view.accessibilityHelp() == "Updating candidates")
 
         selection.update([InputCandidate(text: "你好", language: .simplifiedChinese, score: 100)])
@@ -50,6 +127,7 @@ struct CandidateViewTests {
     @Test func firstPendingCompositionShowsItsLiteralWithoutEnablingSelection() {
         let view = CandidateListView()
         var selection = CandidateSelection()
+        selection.setExpanded(true)
         selection.update([InputCandidate(text: "Ni", language: nil, score: 0)])
         view.render(selection, isPending: true)
         #expect(view.rows.map { $0.candidateLabel.stringValue } == ["Ni"])
@@ -65,6 +143,7 @@ struct CandidateViewTests {
     @Test func aRemovedRowCannotSelectAReplacementCompositionsCandidate() {
         let view = CandidateListView()
         var selection = CandidateSelection()
+        selection.setExpanded(true)
         var selected: [String] = []
         view.onSelect = { selected.append($0) }
         selection.update([InputCandidate(text: "旧", language: .simplifiedChinese, score: 100)])
@@ -82,6 +161,7 @@ struct CandidateViewTests {
         var session = InputSession()
         session.append("shi")
         var selection = CandidateSelection()
+        selection.setExpanded(true)
         selection.update(session.candidates)
         let view = CandidateListView()
         let down = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
@@ -112,13 +192,12 @@ struct CandidateViewTests {
     }
 
     @Test func syntheticCandidateViewCanRenderForVisualInspection() throws {
+        var session = InputSession()
+        session.append("nengxiangbanfayouhuama")
         var selection = CandidateSelection()
-        selection.update([
-            InputCandidate(text: "你好 world", language: .english, score: 100, isMixed: true),
-            InputCandidate(text: "你好，世界", language: .simplifiedChinese, score: 100),
-            InputCandidate(text: "hello world", language: .english, score: 100),
-        ] + (0..<9).map { InputCandidate(text: "测试候选\($0 + 1)", language: .simplifiedChinese, score: 100) })
-        selection.move(by: 1)
+        selection.setExpanded(true)
+        selection.update(session.candidates, prefixScore: { session.presentationScore(for: $0) })
+        #expect(selection.candidates[2].text == "能")
         let view = CandidateListView()
         view.render(selection)
         let light = try snapshot(view, appearance: .aqua)
@@ -127,9 +206,10 @@ struct CandidateViewTests {
             let location = URL(filePath: path)
             try light.write(to: location)
             try dark.write(to: location.deletingPathExtension().appendingPathExtension("dark.png"))
-            selection.update(Array(selection.candidates.prefix(3)))
+            selection.setExpanded(false)
             view.render(selection)
             try snapshot(view, appearance: .aqua).write(to: location.deletingPathExtension().appendingPathExtension("compact.png"))
+            try snapshot(view, appearance: .darkAqua).write(to: location.deletingPathExtension().appendingPathExtension("compact.dark.png"))
         }
     }
 
@@ -167,6 +247,7 @@ struct CandidateViewTests {
     @Test func compactSinglePageHidesFooterAndPageButtonsStillNavigate() {
         let candidates = (0..<11).map { InputCandidate(text: "词\($0)", language: .simplifiedChinese, score: 100) }
         var selection = CandidateSelection()
+        selection.setExpanded(true)
         selection.update(Array(candidates.prefix(3)))
         let view = CandidateListView()
         view.render(selection)
@@ -187,6 +268,7 @@ struct CandidateViewTests {
 
     @Test func renderedNumbersHighlightAndKeyboardChoiceStayInSync() throws {
         var selection = CandidateSelection()
+        selection.setExpanded(true)
         selection.update((0..<22).map { InputCandidate(text: "测试\($0)", language: .simplifiedChinese, score: 100) })
         let view = CandidateListView()
         view.render(selection)
@@ -210,6 +292,7 @@ struct CandidateViewTests {
 
     @Test func mouseActionUsesTheSameCandidateIdentityAsItsNumber() throws {
         var selection = CandidateSelection()
+        selection.setExpanded(true)
         selection.update((0..<20).map { InputCandidate(text: "word\($0)", language: .english, score: 100) })
         selection.movePage(by: 1)
         let view = CandidateListView()
@@ -223,6 +306,7 @@ struct CandidateViewTests {
 
     @Test func clearingTheViewRemovesStaleRowsAndFocusStaysWithHost() {
         var selection = CandidateSelection()
+        selection.setExpanded(true)
         selection.update([InputCandidate(text: "你好", language: .simplifiedChinese, score: 100)])
         let view = CandidateListView()
         view.render(selection)

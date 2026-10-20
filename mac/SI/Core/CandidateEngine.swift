@@ -24,6 +24,32 @@ public struct CandidateEngine: Sendable {
                 + PinyinDecoder.standard.compositionCandidates(for: input, languages: languages, dictionary: dictionary,
                                                                learning: learning, now: now, context: context)
         }
+        return merge(generated, input: input, languages: languages, learning: learning, now: now, context: context)
+    }
+
+    /// Provisional hints share the normal lookup/lattice/merge, with smaller lexical budgets.
+    /// Custom providers have no bounded-preview contract, so they run only in the final search.
+    func previewCandidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile,
+                           dictionary: UserDictionary, now: Date, context: CandidateContext?) -> [InputCandidate] {
+        guard !input.isEmpty else { return [] }
+        guard providers == nil else { return [InputCandidate(text: input, language: nil, score: 0)] }
+        var generated: [InputCandidate] = []
+        if languages.contains(.english) {
+            let key = input.lowercased()
+            let style = EnglishLexicon.CaseStyle(input: input)
+            generated = EnglishLexicon.matches(for: key).prefix(8).map {
+                InputCandidate(text: $0.text(for: style), language: .english,
+                               score: $0.text.lowercased() == key ? 110 : $0.completionScore,
+                               hasCompletion: $0.text.lowercased() != key)
+            }
+        }
+        generated += PinyinDecoder.standard.compositionCandidates(for: input, languages: languages,
+            dictionary: dictionary, learning: learning, now: now, context: context, preview: true)
+        return merge(generated, input: input, languages: languages, learning: learning, now: now, context: context)
+    }
+
+    private func merge(_ generated: [InputCandidate], input: String, languages: Set<InputLanguage>,
+                       learning: LearningProfile, now: Date, context: CandidateContext?) -> [InputCandidate] {
         // Personal entries may share text with a built-in candidate. Keep the stronger derivation.
         var best: [String: (candidate: InputCandidate, score: Double)] = [:]
         best.reserveCapacity(generated.count)
