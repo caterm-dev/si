@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>SI</title>
+    <welcome file="Welcome.txt" mime-type="text/plain"/>
+    <license file="LICENSE.txt" mime-type="text/plain"/>
+    <conclusion file="Conclusion.txt" mime-type="text/plain"/>
+    <domains enable_anywhere="false" enable_currentUserHome="true" enable_localSystem="false"/>
+    <options customize="never"/>
+    <volume-check script="true">
+        <allowed-os-versions><os-version min="14.0"/></allowed-os-versions>
+    </volume-check>
+    <choices-outline><line choice="si"/></choices-outline>
+    <choice id="si" title="SI" visible="false">
+        <pkg-ref id="com.caterm.si.installer"/>
+    </choice>
+    <pkg-ref id="com.caterm.si.installer" onConclusion="RequireLogout">SI-component.pkg</pkg-ref>
+</installer-gui-script>

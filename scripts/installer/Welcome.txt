@@ -1,0 +1,7 @@
+Install SI for this user
+
+SI is a development-preview macOS input method. This installer places SI in ~/Library/Input Methods. It does not enable or select an input source.
+
+Save your work before continuing. At the end, click Log Out to finish registration, then log back in. This ends your current login session; it does not restart or shut down your Mac.
+
+For an upgrade, select another input source and stop any Xcode run first. If SI is still running, log out and back in with another input source selected, then run this installer again. The installer will refuse to replace a running SI and saves a backup of an existing SI installation.

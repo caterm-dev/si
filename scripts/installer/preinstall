@@ -1,0 +1,40 @@
+#!/bin/bash
+set -euo pipefail
+
+# The distribution permits only CurrentUserHomeDirectory. Never run as root.
+if [[ "$(id -u)" -eq 0 || -z "${HOME:-}" || "$HOME" == / ]]; then
+    printf 'Install SI for the current user through the macOS Installer. System-wide installation is not supported.\n' >&2
+    exit 1
+fi
+destination="$HOME/Library/Input Methods/SI.app"
+if [[ -L "$HOME/Library" || -L "$HOME/Library/Input Methods" || -L "$destination" ]]; then
+    printf 'Refusing to install through a symbolic link. Review the Input Methods folder first.\n' >&2
+    exit 1
+fi
+ensure_si_stopped() {
+    local status=0
+    pgrep -x SI >/dev/null || status=$?
+    case "$status" in
+        1) ;;
+        0)
+            printf 'SI is running. Select another input source, stop any Xcode run, and log out and back in before retrying.\n' >&2
+            exit 1
+            ;;
+        *) printf 'Cannot check whether SI is running. Installation stopped.\n' >&2; exit 1 ;;
+    esac
+}
+ensure_si_stopped
+if [[ -e "$destination" ]]; then
+    identifier="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$destination/Contents/Info.plist")"
+    if [[ "$identifier" != com.caterm.inputmethod.si && "$identifier" != com.caterm.si ]]; then
+        printf 'Refusing to replace an app with a different bundle identifier.\n' >&2
+        exit 1
+    fi
+    backup_root="$HOME/Library/Application Support/SI/Backups"
+    mkdir -p "$backup_root"
+    backup="$(mktemp -d "$backup_root/Installer.XXXXXX")"
+    /usr/bin/ditto "$destination" "$backup/SI.app"
+    printf 'Previous installation saved at: %s/SI.app\n' "$backup"
+fi
+# A process that restarted while the backup was copied must also stop installation.
+ensure_si_stopped

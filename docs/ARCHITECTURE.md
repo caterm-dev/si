@@ -93,6 +93,10 @@ App Sandbox is disabled because the legacy InputMethodKit server uses interproce
 
 The Xcode Run scheme passes `--settings`; normal system launches keep the process in the background. The installed app exposes Settings through the input menu and on reopening the app.
 
+## Distribution tooling
+
+`scripts/package-dmg.sh` and `scripts/release.sh` share `scripts/release.py` and the existing SI Xcode target. Packaging builds Release for Universal or a selected architecture, signs a staged copy, and wraps it in a native Installer package inside the DMG. `scripts/installer/Distribution.xml` restricts installation to the current user's home domain and requests `RequireLogout`; macOS Installer owns the final Log Out button and normal save/cancel handling. Its preinstall script rejects a running SI or foreign bundle and copies existing SI to the established backup directory. Bundle relocation is disabled so other built/installed copies cannot redirect the payload. Native strict-ID matching is disabled only to permit the legacy `com.caterm.si` migration; preinstall explicitly permits only that ID and the current SI ID. Publication requires Application/Installer signing, notarization and a clean checkout, includes corresponding committed source, and verifies anonymous R2 downloads before conditionally promoting an independent SI architecture channel. All build/release files stay under `.build/` by default. Running packaging does not install, launch or log out; installation/logout requires the user to run the package and click through macOS Installer. No in-app updater or network processing is added. See [RELEASING.md](RELEASING.md).
+
 ## Extending language support
 
 1. Add a stable language identifier and English display name to `InputLanguage`.

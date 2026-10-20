@@ -1,0 +1,12 @@
+SI has been installed.
+
+Save any remaining work, then click Log Out to finish input-method registration. Log back in to continue. macOS handles the logout and any application save prompts.
+
+After logging back in:
+1. Open System Settings > Keyboard > Text Input > Edit > +.
+2. Under English, add SI, then select SI in the input menu.
+3. Open SI Settings from the input menu to choose your enabled languages.
+
+For upgrades, your settings, saved phrases and learning preferences are retained. If an older SI source is stale, remove it in Keyboard settings and add SI again.
+
+Previous app backups are kept in ~/Library/Application Support/SI/Backups until you remove them. Selecting languages does not enable personal learning.

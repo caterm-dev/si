@@ -124,6 +124,17 @@ The corrected bundle/input-source identifier is `com.caterm.inputmethod.si`. The
 
 To uninstall, select another input source, remove SI in Keyboard settings, then move `~/Library/Input Methods/SI.app` to Trash and log out. Installer backups, when present, are stored in `~/Library/Application Support/SI/Backups/` until you remove them.
 
+## Package and publish a DMG
+
+```sh
+./scripts/package-dmg.sh --dry-run   # Inspect Universal Release packaging
+./scripts/package-dmg.sh             # Local ad hoc signed preview
+./scripts/release.sh --dry-run       # Requires signing/notarization configuration
+./scripts/release.sh                 # Sign, notarize, verify and publish to R2
+```
+
+Publication uses Caterm's public R2 bucket and download domain under the separate `si/` prefix. It requires a clean committed checkout, Developer ID Application and Installer identities, a notarytool Keychain profile, and an AWS CLI profile. Open `Install SI.pkg` inside the DMG to install in `~/Library/Input Methods`; the native macOS Installer ends with **Log Out** to finish registration. Save your work, click the button and log back in; a full Mac restart is not required by this installer. Existing apps are backed up and a running SI blocks replacement. See [release configuration, artifacts and retry behavior](docs/RELEASING.md). Adding these scripts does not mean a public release has been published or host compatibility has been verified.
+
 ## Keyboard behavior
 
 | Key | During composition |
