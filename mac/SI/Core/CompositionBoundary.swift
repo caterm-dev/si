@@ -1,9 +1,9 @@
 import Foundation
 
 public enum CompositionBoundary {
-    private static let supported = Set(".,;:!?()[]\"，。；：！？（）【】「」")
+    private static let supported = Set(",;:!?()[]\"，。；：！？（）【】「」")
     private static let chinese: [String: String] = [
-        ".": "。", ",": "，", ";": "；", ":": "：", "!": "！", "?": "？",
+        ",": "，", ";": "；", ":": "：", "!": "！", "?": "？",
         "(": "（", ")": "）", "[": "【", "]": "】",
     ]
 

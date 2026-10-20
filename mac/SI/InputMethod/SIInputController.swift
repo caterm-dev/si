@@ -121,6 +121,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             update(client)
             return true
         }
+        // Periods separate literal domain/code components, even after candidate navigation.
+        // They need no full search; preserve the spelling and let the host insert the key once.
+        if text == "." {
+            commitLiteral(to: client)
+            return false
+        }
         resolveCandidates(to: client)
         let selected = currentCandidate
         let boundary = CompositionBoundary.resolve(text: text, selected: selected, explicitlySelected: explicitlyNavigated,

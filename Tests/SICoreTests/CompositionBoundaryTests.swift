@@ -2,8 +2,60 @@ import Testing
 @testable import SICore
 
 struct CompositionBoundaryTests {
+    @Test func asciiPeriodPreservesUnselectedDomainLabelsExactlyOnce() throws {
+        for behavior in PunctuationBehavior.allCases {
+            for input in ["nihao", "shi", "example", "Gmail", "MyTool"] {
+                var session = InputSession()
+                session.append(input)
+                let selected = try #require(session.candidates.first)
+                let boundary = CompositionBoundary.resolve(text: ".", selected: selected,
+                                                           explicitlySelected: false, behavior: behavior)
+                #expect(boundary.candidate == nil && boundary.replacement == nil)
+                let commit = session.commitResult(boundary.candidate, reason: .passthrough)
+                // A nil replacement leaves the original period for the host, exactly once.
+                #expect(commit.text + (boundary.replacement ?? ".") == input + ".")
+                #expect(session.buffer.isEmpty)
+                var learning = LearningProfile()
+                #expect(learning.record(commit, learnContext: true) == false)
+                #expect(learning.entries.isEmpty)
+            }
+        }
+    }
+
+    @Test func asciiPeriodNeverConfirmsEvenAnActivelySelectedCandidate() {
+        let candidates = [
+            InputCandidate(text: "你好", language: .simplifiedChinese, score: 100),
+            InputCandidate(text: "Mac", language: .english, score: 110),
+            InputCandidate(text: "hello中文", language: .simplifiedChinese, score: 90, isMixed: true),
+            InputCandidate(text: "Synthetic Name", language: .english, score: 115, isUserPhrase: true),
+        ]
+        for behavior in PunctuationBehavior.allCases {
+            for candidate in candidates {
+                for explicit in [false, true] {
+                    let boundary = CompositionBoundary.resolve(text: ".", selected: candidate,
+                                                               explicitlySelected: explicit, behavior: behavior)
+                    #expect(boundary.candidate == nil && boundary.replacement == nil)
+                }
+            }
+        }
+    }
+
+    @Test func fullwidthChinesePeriodStillConfirmsAndPassesThroughOnce() throws {
+        for behavior in [PunctuationBehavior.smart, .confirmCandidate] {
+            var session = InputSession()
+            session.append("nihao")
+            let selected = try #require(session.candidates.first { $0.text == "你好" })
+            let boundary = CompositionBoundary.resolve(text: "。", selected: selected,
+                                                       explicitlySelected: false, behavior: behavior)
+            #expect(boundary.candidate == selected && boundary.replacement == nil)
+            let commit = session.commitResult(boundary.candidate, reason: .passthrough)
+            #expect(commit.text + (boundary.replacement ?? "。") == "你好。")
+            #expect(session.buffer.isEmpty)
+        }
+    }
+
     @Test func smartChinesePunctuationConfirmsTheWholeCandidateExactlyOnce() throws {
-        for (typed, expected) in [(".", "。"), (",", "，"), ("!", "！"), ("?", "？"),
+        for (typed, expected) in [(",", "，"), ("!", "！"), ("?", "？"),
                                    (":", "："), (";", "；"), ("(", "（"), ("]", "】")] {
             var session = InputSession()
             session.append("nihao")
@@ -23,8 +75,8 @@ struct CompositionBoundaryTests {
         for candidate in [InputCandidate(text: "Mac", language: .english, score: 110),
                           InputCandidate(text: "computer", language: .english, score: 85, hasCompletion: true)] {
             for behavior in [PunctuationBehavior.smart, .confirmCandidate] {
-                #expect(CompositionBoundary.resolve(text: ".", selected: candidate, explicitlySelected: false, behavior: behavior).candidate == nil)
-                #expect(CompositionBoundary.resolve(text: ".", selected: candidate, explicitlySelected: true, behavior: behavior).candidate == candidate)
+                #expect(CompositionBoundary.resolve(text: ",", selected: candidate, explicitlySelected: false, behavior: behavior).candidate == nil)
+                #expect(CompositionBoundary.resolve(text: ",", selected: candidate, explicitlySelected: true, behavior: behavior).candidate == candidate)
             }
         }
         let chinese = InputCandidate(text: "你好", language: .simplifiedChinese, score: 100)
