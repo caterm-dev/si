@@ -81,7 +81,7 @@ public struct LearningProfile: Sendable, Equatable {
         guard Self.isValid(entry, now: now) else { return false }
         records[id] = entry
         if previous == nil { rankingInputs[input, default: 0] += 1 }
-        if previous == nil, context == nil, !candidate.isMixed { tokenInputs[input, default: 0] += 1 }
+        if previous == nil, Self.isTokenPreference(entry) { tokenInputs[input, default: 0] += 1 }
         return true
     }
 
@@ -131,7 +131,13 @@ public struct LearningProfile: Sendable, Equatable {
     func hasTokenPreferences(for normalizedInput: String) -> Bool { tokenInputs[normalizedInput] != nil }
 
     func tokenBonus(normalizedInput: String, text: String, language: InputLanguage, now: Date) -> Double {
-        weight(id: LearnedPreference.identity(input: normalizedInput, language: language, text: text), maximum: 32, now: now)
+        // A standalone Chinese character is too ambiguous to transfer into unrelated compositions.
+        guard language != .simplifiedChinese || text.count > 1 else { return 0 }
+        return weight(id: LearnedPreference.identity(input: normalizedInput, language: language, text: text), maximum: 32, now: now)
+    }
+
+    private static func isTokenPreference(_ entry: LearnedPreference) -> Bool {
+        entry.context == nil && entry.mixed != true && (entry.language != .simplifiedChinese || entry.text.count > 1)
     }
 
     private func weight(id: String, maximum: Double, now: Date) -> Double {
@@ -143,7 +149,7 @@ public struct LearningProfile: Sendable, Equatable {
         guard let entry = records.removeValue(forKey: id) else { return }
         if rankingInputs[entry.input] == 1 { rankingInputs.removeValue(forKey: entry.input) }
         else { rankingInputs[entry.input, default: 0] -= 1 }
-        guard entry.context == nil, entry.mixed != true else { return }
+        guard Self.isTokenPreference(entry) else { return }
         if tokenInputs[entry.input] == 1 { tokenInputs.removeValue(forKey: entry.input) }
         else { tokenInputs[entry.input, default: 0] -= 1 }
     }
@@ -162,7 +168,7 @@ public struct LearningProfile: Sendable, Equatable {
         rankingInputs.removeAll(keepingCapacity: true)
         for entry in records.values {
             rankingInputs[entry.input, default: 0] += 1
-            if entry.context == nil && entry.mixed != true { tokenInputs[entry.input, default: 0] += 1 }
+            if Self.isTokenPreference(entry) { tokenInputs[entry.input, default: 0] += 1 }
         }
     }
 

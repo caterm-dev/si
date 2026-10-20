@@ -3,6 +3,19 @@ import Testing
 @testable import SICore
 
 struct ContextLearningTests {
+    @Test func acceptingTheDefaultDoesNotCarryPreviousWordContextForward() throws {
+        var session = try sessionAfterOpen()
+        session.append("fi")
+        let file = try #require(session.candidates.first { $0.text == "file" })
+        let accepted = session.commitResult(file, reason: .defaultAcceptance)
+        var profile = LearningProfile()
+        let recorded = profile.record(accepted, learnContext: true)
+        #expect(!recorded && profile.entries.isEmpty)
+        session.append("open")
+        let open = try #require(session.candidates.first { $0.text == "open" })
+        #expect(session.commitResult(open, reason: .explicitSelection).context == nil)
+    }
+
     @Test func previousWordChangesRankingWithoutChangingAvailableCandidates() throws {
         let engine = CandidateEngine()
         let languages = Set(InputLanguage.allCases)

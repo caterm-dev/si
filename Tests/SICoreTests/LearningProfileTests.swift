@@ -64,13 +64,21 @@ struct LearningProfileTests {
         #expect(ranked == engine.candidates(for: "shi", languages: languages, learning: profile, now: now))
     }
 
-    @Test func explicitSelectionIsStrongerThanDefaultAcceptance() {
+    @Test func defaultAcceptanceDoesNotCreateOrReinforcePreferences() {
         let word = candidate("时")
         var explicit = LearningProfile()
         var implicit = LearningProfile()
         explicit.record(InputCommit(input: "shi", candidate: word, reason: .explicitSelection), now: now)
-        implicit.record(InputCommit(input: "shi", candidate: word, reason: .defaultAcceptance), now: now)
-        #expect(explicit.bonus(for: word, input: "shi", now: now) > implicit.bonus(for: word, input: "shi", now: now))
+        for _ in 0..<100 {
+            let recorded = implicit.record(InputCommit(input: "shi", candidate: word, reason: .defaultAcceptance), now: now)
+            #expect(!recorded)
+        }
+        #expect(implicit.entries.isEmpty)
+        let saved = explicit.entries
+        let previous = CandidateContext(candidate: candidate("你好"))
+        let recorded = explicit.record(InputCommit(input: "shi", candidate: word, reason: .defaultAcceptance, context: previous),
+                                       now: now.addingTimeInterval(60), learnContext: true)
+        #expect(!recorded && explicit.entries == saved)
     }
 
     @Test func literalCancellationAndHostBoundaryCommitsAreNotLearned() {

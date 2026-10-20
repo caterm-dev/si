@@ -23,7 +23,7 @@ The containing directory uses owner-only access (0700), and the file uses owner 
 
 ## When learning happens
 
-- An explicit candidate selection contributes weight 1; default acceptance contributes weight 0.15.
+- An explicit candidate selection (number, mouse, or navigation followed by Space) contributes weight 1. Accepting the default with Space contributes zero: it does not create, reinforce or refresh a saved preference, or become the preceding chosen word for later learning.
 - Literal candidates, candidates with unrecognized verbatim spans, personal phrases (including longer paths containing them), Return committing original text, cancelled compositions, and focus/shortcut boundaries do not contribute learning. Tab/punctuation commits do not train, whether they confirm a candidate or retain literal spelling.
 - macOS secure event input suppresses both learning updates and personalized ranking. This is a conservative process-wide check, not a general detector for every kind of sensitive field. Pause learning whenever input should not affect saved preferences.
 - Candidate preview never records preferences.
@@ -31,7 +31,7 @@ The containing directory uses owner-only access (0700), and the file uses owner 
 
 Ranking uses a 14-day half-life and logarithmic strength, with up to 32 points for frequency/recency and 12 additional points for an eligible previous-word pair. Whole/prefix preferences apply before bounded presentation selection, using only the relevant full or consumed spelling. This changes which bounded results survive; candidate merging retains all results produced by decoding and the literal fallback. Disabled languages cannot be revived by stored preferences. No active-language mode is inferred from recent choices.
 
-Existing single-language frequency records also influence matching tokens inside longer compositions before bounded search prunes alternatives. Their input-length-weighted average shares the same 32-point cap with whole-input preferences; both are never added together. This adds no retained fields, input history, or automatic token harvesting: confirming a composed candidate records only that consumed spelling/output as before. Personal/verbatim paths receive no token bonus. Pausing, deleting, clearing, expiry, and secure-event suppression apply to token ranking too. Previous-word records remain separate and are not treated as token frequency records.
+Existing single-language word records also influence matching tokens inside longer compositions before bounded search prunes alternatives. Chinese single-character output is excluded from this transfer, including for old records; it remains eligible for ranking its own full or explicitly consumed spelling. Chinese words with at least two characters and English words retain token learning. Their input-length-weighted average shares the same 32-point cap with whole-input preferences; both are never added together. This adds no retained fields, input history, or automatic token harvesting: confirming a composed candidate records only that consumed spelling/output as before. Personal/verbatim paths receive no token bonus. Pausing, deleting, clearing, expiry, and secure-event suppression apply to token ranking too. Previous-word records remain separate and are not treated as token frequency records.
 
 ## Optional previous-word context
 
@@ -41,7 +41,7 @@ The previous candidate is held in memory per InputMethodKit client for at most f
 
 ## Retention and controls
 
-- Turning **Personal learning** off pauses recording and personalized ranking. Existing preferences remain available for management and later reuse.
+- Turning **Personal learning** off pauses recording and personalized ranking. Existing preferences remain available for management and later reuse. Saved records do not distinguish past default acceptances from deliberate choices; the new recording rule does not automatically erase old records.
 - **Manage Saved Preferences… → Forget** removes a specific preference.
 - **Clear Saved Data…** removes all saved learning preferences after confirmation, without changing language settings.
 - Records become ineligible for ranking after 90 days without use. Physical cleanup occurs when data is loaded and at least once every 24 hours while SI is running.

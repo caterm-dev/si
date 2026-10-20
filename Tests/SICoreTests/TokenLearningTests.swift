@@ -7,30 +7,88 @@ struct TokenLearningTests {
     private let engine = CandidateEngine()
     private let languages = Set(InputLanguage.allCases)
 
-    @Test func standaloneChoiceGeneralizesInsideAnUnlearnedComposition() throws {
-        let profile = try learned(input: "shi", text: "时")
-        let base = engine.candidates(for: "woshi", languages: languages, now: now)
-        let ranked = engine.candidates(for: "woshi", languages: languages, learning: profile, now: now)
-        #expect(base.first?.text == "我是")
-        #expect(ranked.first?.text == "我时")
-        #expect(ranked.contains { $0.text == "我是" })
+    @Test(arguments: [1.0, 8, 1_000])
+    func legacySingleCharacterPreferencesDoNotDistortWritingRequests(strength: Double) throws {
+        let profile = LearningProfile(entries: [
+            LearnedPreference(input: "ba", text: "把", language: .simplifiedChinese, strength: strength, lastUsed: now),
+            LearnedPreference(input: "xie", text: "些", language: .simplifiedChinese, strength: strength, lastUsed: now),
+        ], now: now)
+        for enabled: Set<InputLanguage> in [[.simplifiedChinese], languages] {
+            for (input, expected) in [("bangwozaixie", "帮我再写"), ("bangwozaixieyige", "帮我再写一个")] {
+                for preview in [false, true] {
+                    let results = preview
+                        ? engine.previewCandidates(for: input, languages: enabled, learning: profile, dictionary: UserDictionary(), now: now, context: nil)
+                        : engine.candidates(for: input, languages: enabled, learning: profile, now: now)
+                    #expect(results.first?.text == expected)
+                    #expect(results.last?.text == input && results.last?.isLiteral == true)
+                }
+            }
+        }
+        #expect(engine.candidates(for: "xie", languages: [.simplifiedChinese], learning: profile, now: now).first?.text == "些")
+        #expect(profile.entries.count == 2)
+    }
+
+    @Test func singleCharacterRecordsStayLocalEvenWhenTheirCodeAlsoHasWordPreferences() throws {
+        let character = InputCandidate(text: "把", language: .simplifiedChinese, score: 100)
+        let word = InputCandidate(text: "把握", language: .simplifiedChinese, score: 84)
+        var profile = LearningProfile()
+        profile.record(InputCommit(input: "ba", candidate: character, reason: .explicitSelection), now: now)
+        profile.record(InputCommit(input: "ba", candidate: word, reason: .explicitSelection), now: now)
+        #expect(profile.tokenBonus(input: "ba", text: "把", language: .simplifiedChinese, now: now) == 0)
+        #expect(profile.tokenBonus(input: "ba", text: "把握", language: .simplifiedChinese, now: now) > 0)
+        #expect(LearningProfile(entries: profile.entries, now: now) == profile)
+        profile.remove(id: try #require(profile.entries.first { $0.text == "把" }?.id))
+        #expect(profile.hasTokenPreferences)
+        profile.record(InputCommit(input: "ba", candidate: character, reason: .explicitSelection), now: now)
+        profile.remove(id: try #require(profile.entries.first { $0.text == "把握" }?.id))
+        #expect(!profile.hasTokenPreferences)
+        #expect(profile.bonus(for: character, input: "ba", now: now) > 0)
+        #expect(LearningProfile(entries: profile.entries, now: now) == profile)
+        profile.prune(now: now)
+        #expect(!profile.hasTokenPreferences && profile.entries.count == 1)
+    }
+
+    @Test func explicitWholeAndPrefixChoicesCanStillOverrideTheBaseWritingCandidate() throws {
+        var profile = LearningProfile()
+        let alternative = try #require(engine.candidates(for: "bangwozaixie", languages: languages, now: now)
+            .first { $0.text == "帮我在写" && !$0.isPartial })
+        profile.record(InputCommit(input: "bangwozaixie", candidate: alternative, reason: .explicitSelection), now: now)
+        #expect(engine.candidates(for: "bangwozaixie", languages: languages, learning: profile, now: now).first?.text == "帮我在写")
+        var session = InputSession()
+        session.configure(languages: languages, learning: profile, now: now)
+        session.append("bangwozaixieyige")
+        let prefix = try #require(session.candidates.first { $0.text == "帮我在写" && $0.isPartial })
+        let commit = session.commitResult(prefix, reason: .explicitSelection, now: now)
+        #expect(commit.input == "bangwozaixie" && commit.remainingInput == "yige")
+        #expect(commit.text == "帮我在写")
+        profile.record(commit, now: now)
+        #expect(profile.entries.count == 1 && profile.entries.first?.input == "bangwozaixie")
+    }
+
+    @Test func standaloneWordChoiceGeneralizesInsideAnUnlearnedComposition() throws {
+        let profile = try learned(input: "shike", text: "食客")
+        let base = engine.candidates(for: "woshike", languages: languages, now: now)
+        let ranked = engine.candidates(for: "woshike", languages: languages, learning: profile, now: now)
+        #expect(base.first?.text != "我食客")
+        #expect(ranked.first?.text == "我食客")
+        #expect(ranked.contains { $0.text != "我食客" && !$0.isPartial && !$0.isLiteral })
         #expect(ranked.contains { $0.isMixed })
-        #expect(ranked.last?.text == "woshi" && ranked.last?.isLiteral == true)
-        #expect(ranked == engine.candidates(for: "woshi", languages: languages, learning: profile, now: now))
+        #expect(ranked.last?.text == "woshike" && ranked.last?.isLiteral == true)
+        #expect(ranked == engine.candidates(for: "woshike", languages: languages, learning: profile, now: now))
         #expect(profile.entries.count == 1)
     }
 
     @Test func preferenceParticipatesBeforeTheBeamDiscardsAnAlternative() throws {
         let alternatives = (0..<30).map {
-            PinyinLexiconEntry(syllables: ["xi"], text: String(UnicodeScalar(0x4e00 + $0)!), score: 100 - $0)
+            PinyinLexiconEntry(syllables: ["xi", "zi"], text: "字" + String(UnicodeScalar(0x4e00 + $0)!), score: 100 - $0)
         }
         let tiny = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["wo"], text: "我")] + alternatives)
-        let target = try #require(tiny.candidates(for: "xi").first { $0.text == alternatives.last?.text })
+        let target = try #require(tiny.candidates(for: "xizi").first { $0.text == alternatives.last?.text })
         var profile = LearningProfile()
-        for _ in 0..<8 { profile.record(InputCommit(input: "xi", candidate: target, reason: .explicitSelection), now: now) }
+        for _ in 0..<8 { profile.record(InputCommit(input: "xizi", candidate: target, reason: .explicitSelection), now: now) }
         let output = "我" + target.text
-        #expect(!tiny.candidates(for: "woxi").contains { $0.text == output })
-        let ranked = tiny.compositionCandidates(for: "woxi", languages: [.simplifiedChinese], learning: profile, now: now)
+        #expect(!tiny.candidates(for: "woxizi").contains { $0.text == output })
+        let ranked = tiny.compositionCandidates(for: "woxizi", languages: [.simplifiedChinese], learning: profile, now: now)
         #expect(ranked.first?.text == output)
         #expect(ranked.first?.tokenLearningBonus ?? 0 > 0)
     }
@@ -47,9 +105,11 @@ struct TokenLearningTests {
     }
 
     @Test func normalizedAliasesShareTokenPreferencesAndSyllableBoundariesStayDistinct() throws {
-        let profile = try learned(input: "lu:", text: "吕")
-        for input in ["wolv", "woLÜ", "wolu:"] {
-            #expect(engine.candidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now).first?.text == "我吕")
+        let profile = try learned(input: "lu:se", text: "绿色")
+        for input in ["wolvse", "woLÜse", "wolu:se"] {
+            let word = try #require(engine.candidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now)
+                .first { $0.text == "我绿色" && !$0.isPartial })
+            #expect(word.tokenLearningBonus > 0)
         }
         let cityProfile = try learned(input: "xi'an", text: "西安")
         let separated = try #require(engine.candidates(for: "woxi'an", languages: languages, learning: cityProfile, now: now)
@@ -61,62 +121,67 @@ struct TokenLearningTests {
     }
 
     @Test func repeatedTokensAndWholeInputPreferencesShareOneFrequencyCap() throws {
-        var profile = try learned(input: "shi", text: "时")
-        let input = String(repeating: "shi", count: 10)
+        var profile = try learned(input: "shike", text: "食客")
+        let input = String(repeating: "shike", count: 10)
         let repeated = try #require(engine.candidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now)
-            .first { $0.text == String(repeating: "时", count: 10) && !$0.isPartial })
+            .first { $0.text == String(repeating: "食客", count: 10) && !$0.isPartial })
         #expect(repeated.tokenLearningBonus == 32)
         #expect(profile.rankingScore(for: repeated, input: input, now: now, context: nil) - repeated.rankingScore == 32)
 
         let context = try #require(CandidateContext(candidate: InputCandidate(text: "你好", language: .simplifiedChinese, score: 100)))
-        let whole = InputCandidate(text: "我时", language: .simplifiedChinese, score: 90)
+        let whole = InputCandidate(text: "我食客", language: .simplifiedChinese, score: 90)
         for _ in 0..<8 {
-            profile.record(InputCommit(input: "woshi", candidate: whole, reason: .explicitSelection, context: context),
+            profile.record(InputCommit(input: "woshike", candidate: whole, reason: .explicitSelection, context: context),
                            now: now, learnContext: true)
         }
-        let ranked = try #require(engine.candidates(for: "woshi", languages: languages, learning: profile, now: now, context: context)
-            .first { $0.text == "我时" && !$0.isPartial })
-        let adjustment = profile.rankingScore(for: ranked, input: "woshi", now: now, context: context) - ranked.rankingScore
-        #expect(adjustment == 44)
+        let ranked = try #require(engine.candidates(for: "woshike", languages: languages, learning: profile, now: now, context: context)
+            .first { $0.text == "我食客" && !$0.isPartial })
+        let adjustment = profile.rankingScore(for: ranked, input: "woshike", now: now, context: context) - ranked.rankingScore
+        #expect(abs(adjustment - 44) < 0.0001)
     }
 
     @Test func pauseDeletionExpiryAndReloadRestoreTheExpectedRanking() throws {
-        var profile = try learned(input: "shi", text: "时")
+        var profile = try learned(input: "shike", text: "食客")
         let restored = LearningProfile(entries: profile.entries, now: now)
-        #expect(engine.candidates(for: "woshi", languages: languages, learning: restored, now: now).first?.text == "我时")
-        #expect(engine.candidates(for: "woshi", languages: languages, now: now).first?.text == "我是")
+        #expect(engine.candidates(for: "woshike", languages: languages, learning: restored, now: now).first?.text == "我食客")
+        #expect(engine.candidates(for: "woshike", languages: languages, now: now).first?.text != "我食客")
         let expired = now.addingTimeInterval(90 * 86_400)
-        #expect(engine.candidates(for: "woshi", languages: languages, learning: profile, now: expired).first?.text == "我是")
+        #expect(engine.candidates(for: "woshike", languages: languages, learning: profile, now: expired).first?.text != "我食客")
         var pruned = profile
         pruned.prune(now: expired)
         #expect(!pruned.hasTokenPreferences)
         profile.remove(id: try #require(profile.entries.first?.id))
         #expect(!profile.hasTokenPreferences)
-        #expect(engine.candidates(for: "woshi", languages: languages, learning: profile, now: now).first?.text == "我是")
+        #expect(engine.candidates(for: "woshike", languages: languages, learning: profile, now: now).first?.text != "我食客")
     }
 
     @Test func deduplicationChoosesTheStrongestDerivationAfterApplyingTheSharedCap() throws {
-        var profile = try learned(input: "shi", text: "是")
-        let tokenRanked = try #require(engine.candidates(for: "woshi", languages: languages, learning: profile, now: now)
-            .first { $0.text == "我是" && !$0.isPartial })
+        let tiny = PinyinDecoder(entries: [
+            PinyinLexiconEntry(syllables: ["wo"], text: "我"),
+            PinyinLexiconEntry(syllables: ["shi", "ke"], text: "食客"),
+            PinyinLexiconEntry(syllables: ["wo", "shi", "ke"], text: "我食客", score: 100),
+        ])
+        var profile = try learned(input: "shike", text: "食客")
+        let tokenRanked = try #require(tiny.compositionCandidates(for: "woshike", languages: [.simplifiedChinese], learning: profile, now: now)
+            .first { $0.text == "我食客" && !$0.isPartial })
         #expect(tokenRanked.tokenLearningBonus > 0)
         for _ in 0..<8 {
-            profile.record(InputCommit(input: "woshi", candidate: tokenRanked, reason: .explicitSelection), now: now)
+            profile.record(InputCommit(input: "woshike", candidate: tokenRanked, reason: .explicitSelection), now: now)
         }
-        let candidates = engine.candidates(for: "woshi", languages: languages, learning: profile, now: now)
-        let wholeRanked = try #require(candidates.first { $0.text == "我是" && !$0.isPartial })
+        let candidates = tiny.compositionCandidates(for: "woshike", languages: [.simplifiedChinese], learning: profile, now: now)
+        let wholeRanked = try #require(candidates.first { $0.text == "我食客" && !$0.isPartial })
         #expect(candidates.count { $0.id == wholeRanked.id } == 1)
         #expect(wholeRanked.rankingScore == 100)
         #expect(wholeRanked.tokenLearningBonus == 0)
-        #expect(profile.rankingScore(for: wholeRanked, input: "woshi", now: now, context: nil) == 132)
+        #expect(profile.rankingScore(for: wholeRanked, input: "woshike", now: now, context: nil) == 132)
     }
 
     @Test func deletingOnePreferenceDoesNotDropOtherPreferencesForTheSameCode() throws {
-        var profile = try learned(input: "shi", text: "时")
-        let word = InputCandidate(text: "事", language: .simplifiedChinese, score: 98)
-        profile.record(InputCommit(input: "shi", candidate: word, reason: .explicitSelection), now: now)
-        profile.remove(id: try #require(profile.entries.first { $0.text == "时" }?.id))
-        #expect(profile.tokenBonus(input: "shi", text: "事", language: .simplifiedChinese, now: now) > 0)
+        var profile = try learned(input: "shike", text: "食客")
+        let word = InputCandidate(text: "时刻", language: .simplifiedChinese, score: 98)
+        profile.record(InputCommit(input: "shike", candidate: word, reason: .explicitSelection), now: now)
+        profile.remove(id: try #require(profile.entries.first { $0.text == "食客" }?.id))
+        #expect(profile.tokenBonus(input: "shike", text: "时刻", language: .simplifiedChinese, now: now) > 0)
         let copy = profile
         profile.removeAll()
         #expect(!profile.hasTokenPreferences)
@@ -127,17 +192,17 @@ struct TokenLearningTests {
     @Test func contextualAndMixedRecordsCannotBecomeSingleTokenFrequencyRecords() {
         let context = CandidateContext(candidate: InputCandidate(text: "你好", language: .simplifiedChinese, score: 100))
         let profile = LearningProfile(entries: [
-            LearnedPreference(input: "shi", text: "时", language: .simplifiedChinese, strength: 8, lastUsed: now, context: context),
-            LearnedPreference(input: "shi", text: "时", language: .simplifiedChinese, strength: 8, lastUsed: now, isMixed: true),
+            LearnedPreference(input: "shike", text: "食客", language: .simplifiedChinese, strength: 8, lastUsed: now, context: context),
+            LearnedPreference(input: "shike", text: "食客", language: .simplifiedChinese, strength: 8, lastUsed: now, isMixed: true),
         ], now: now)
         #expect(!profile.hasTokenPreferences)
-        #expect(engine.candidates(for: "woshi", languages: languages, learning: profile, now: now).first?.text == "我是")
+        #expect(engine.candidates(for: "woshike", languages: languages, learning: profile, now: now).first?.text != "我食客")
     }
 
     @Test func personalAndVerbatimPathsNeverReceiveTokenBonusesOrGenerateTokenRecords() throws {
-        var profile = try learned(input: "shi", text: "时")
+        var profile = try learned(input: "shike", text: "食客")
         let dictionary = try UserDictionary(entries: [UserPhrase(input: "xm", text: "测试人名", language: .simplifiedChinese)])
-        for input in ["shixm", "shiQwErTy"] {
+        for input in ["shikexm", "shikeQwErTy"] {
             let candidates = engine.candidates(for: input, languages: languages, learning: profile, dictionary: dictionary, now: now)
             let privateCandidates = candidates.filter { $0.isUserPhrase || $0.hasLiteralSegments }
             #expect(!privateCandidates.isEmpty)
@@ -148,18 +213,18 @@ struct TokenLearningTests {
                 #expect(!recorded)
             }
         }
-        let composed = try #require(engine.candidates(for: "woshi", languages: languages, learning: profile, now: now)
-            .first { $0.text == "我时" && !$0.isPartial })
-        profile.record(InputCommit(input: "woshi", candidate: composed, reason: .explicitSelection), now: now)
+        let composed = try #require(engine.candidates(for: "woshike", languages: languages, learning: profile, now: now)
+            .first { $0.text == "我食客" && !$0.isPartial })
+        profile.record(InputCommit(input: "woshike", candidate: composed, reason: .explicitSelection), now: now)
         #expect(profile.entries.count == 2)
-        #expect(profile.entries.filter { $0.input == "shi" }.count == 1)
+        #expect(profile.entries.filter { $0.input == "shike" }.count == 1)
     }
 
     @Test func prefixRankingUsesOnlyConsumedTokensAndStillFollowsWholeCandidates() throws {
-        let profile = try learned(input: "shi", text: "时")
-        let candidates = engine.candidates(for: "woshinihao", languages: languages, learning: profile, now: now)
-        let prefix = try #require(candidates.first { $0.text == "我时" && $0.consumedInputCount == 5 })
-        #expect(abs(prefix.tokenLearningBonus - 32 * 3 / 5) < 0.0001)
+        let profile = try learned(input: "shike", text: "食客")
+        let candidates = engine.candidates(for: "woshikenihao", languages: languages, learning: profile, now: now)
+        let prefix = try #require(candidates.first { $0.text == "我食客" && $0.consumedInputCount == 7 })
+        #expect(abs(prefix.tokenLearningBonus - 32 * 5 / 7) < 0.0001)
         let firstPrefix = try #require(candidates.firstIndex { $0.isPartial })
         #expect(candidates[..<firstPrefix].allSatisfy { !$0.isPartial })
         #expect(candidates[firstPrefix..<candidates.count - 1].allSatisfy { $0.isPartial })
@@ -168,15 +233,15 @@ struct TokenLearningTests {
     @Test func canonicallyEquivalentTextStaysDeduplicatedThroughRepeatedPruning() throws {
         let tiny = PinyinDecoder(entries: [
             PinyinLexiconEntry(syllables: ["wo"], text: "我"),
-            PinyinLexiconEntry(syllables: ["shi"], text: "é"),
-            PinyinLexiconEntry(syllables: ["shi"], text: "e\u{301}"),
+            PinyinLexiconEntry(syllables: ["shi"], text: "字é"),
+            PinyinLexiconEntry(syllables: ["shi"], text: "字e\u{301}"),
         ])
         let token = try #require(tiny.candidates(for: "shi").first)
         var profile = LearningProfile()
         profile.record(InputCommit(input: "shi", candidate: token, reason: .explicitSelection), now: now)
         let input = "wo" + String(repeating: "shi", count: 4)
         let candidates = tiny.compositionCandidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now)
-        #expect(candidates.count { $0.text == "我éééé" && !$0.isPartial } == 1)
+        #expect(candidates.count { $0.text == "我字é字é字é字é" && !$0.isPartial } == 1)
         #expect(Set(candidates.map(\.id)).count == candidates.count)
         #expect(candidates == tiny.compositionCandidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now))
     }

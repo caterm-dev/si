@@ -39,7 +39,7 @@ enum SIBenchmark {
         let initializationMilliseconds = Double(initializationDuration.seconds) * 1_000
             + Double(initializationDuration.attoseconds) / 1e15
         let tokenProfile = LearningProfile(entries: Array(profile.entries.dropLast()) + [
-            LearnedPreference(input: "shi", text: "时", language: .simplifiedChinese, strength: 8, lastUsed: now),
+            LearnedPreference(input: "shike", text: "食客", language: .simplifiedChinese, strength: 8, lastUsed: now),
         ], now: now)
         let dictionary = try UserDictionary(entries: (0..<UserDictionary.maximumEntries).map {
             try UserPhrase(input: "bench", text: "Synthetic phrase \($0)", language: .english)
@@ -67,7 +67,7 @@ enum SIBenchmark {
             ("dense known composition", String(repeating: "a", count: 64)),
             ("dense prefix with unknown tail", String(repeating: "a", count: 58) + "QwErTy"),
             ("bounded long personal expansions", String(repeating: "a", count: 20)),
-            ("learned tokens in longer composition", "wo" + String(repeating: "shi", count: 5)),
+            ("learned tokens in longer composition", "wo" + String(repeating: "shike", count: 3)),
             ("bounded Unicode personal expansions", String(repeating: "a", count: 20)),
             ("English broad prefix", "a"), ("English prefix", "sub"),
             ("English uppercase prefix", "SUB"), ("English exact", "subtitle"),

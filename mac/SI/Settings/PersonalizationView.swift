@@ -39,7 +39,7 @@ struct PersonalizationView: View {
         } header: {
             Text("Personalization")
         } footer: {
-            Text("Off by default. When enabled, SI saves which language candidates you choose and when you last used them, only on this Mac. Explicit choices count more than accepting the default. Turning this off pauses learning and personalized ranking; saved data remains until you delete it. Preferences expire after 90 days without use, with a maximum of 5,000 entries. Original text, shortcuts, and cancelled input are never learned.")
+            Text("Off by default. When enabled, SI saves deliberate choices made with number keys, the mouse, or navigation followed by Space, only on this Mac. Simply pressing Space to accept the default does not train learning. Chinese single-character preferences apply only to the same spelling; words with two or more characters can also influence longer compositions. Turning this off pauses learning and personalized ranking; saved data remains until you delete it. Preferences expire after 90 days without use, with a maximum of 5,000 entries. Original text, shortcuts, and cancelled input are never learned.")
         }
         .confirmationDialog("Clear all saved learning data?", isPresented: $showsClearConfirmation) {
             Button("Clear Saved Data", role: .destructive) { personalization.clear() }

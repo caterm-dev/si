@@ -64,10 +64,10 @@ struct MixedWordBoundaryTests {
         #expect(profile.rankingScore(for: prefix, input: "nihaotitleshurufa", now: now, context: nil) == prefix.rankingScore)
     }
 
-    @Test(arguments: [("nihaotitlele", "你好title了"), ("nihaotit'le", "你好tit了")])
+    @Test(arguments: [("nihaotitlele", "你好title乐观"), ("nihaotit'le", "你好tit乐观")])
     func chineseAfterAnEnglishWordOrExplicitBoundaryStillUsesTokenLearning(input: String, text: String) throws {
         let profile = LearningProfile(entries: [
-            LearnedPreference(input: "le", text: "了", language: .simplifiedChinese, strength: 8, lastUsed: now),
+            LearnedPreference(input: "le", text: "乐观", language: .simplifiedChinese, strength: 8, lastUsed: now),
         ], now: now)
         let candidates = CandidateEngine().candidates(for: input, languages: languages, learning: profile, now: now)
         let candidate = try #require(candidates.first { $0.text == text && !$0.isPartial })

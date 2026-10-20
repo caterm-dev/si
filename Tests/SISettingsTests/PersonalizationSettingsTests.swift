@@ -6,33 +6,56 @@ import SIStorage
 
 @MainActor
 struct PersonalizationSettingsTests {
+    @Test func defaultAcceptanceDoesNotPersistNewOrUpdatedPreferences() async throws {
+        let fixture = try Fixture()
+        defer { fixture.cleanUp() }
+        let settings = fixture.settings()
+        await settings.start()
+        settings.isEnabled = true
+        let word = InputCandidate(text: "时", language: .simplifiedChinese, score: 99)
+        let accepted = InputCommit(input: "shi", candidate: word, reason: .defaultAcceptance)
+        for _ in 0..<100 { settings.record(accepted) }
+        #expect(settings.entries.isEmpty)
+        settings.record(commit())
+        let saved = settings.entries
+        for _ in 0..<100 { settings.record(accepted) }
+        #expect(settings.entries == saved)
+        await settings.flush()
+        let restarted = fixture.settings()
+        await restarted.start()
+        #expect(restarted.entries == saved)
+    }
+
     @Test func tokenRankingSurvivesRestartAndStopsOnPauseSecureInputAndClear() async throws {
         let fixture = try Fixture()
         defer { fixture.cleanUp() }
         let settings = fixture.settings()
         await settings.start()
         settings.isEnabled = true
-        for _ in 0..<8 { settings.record(commit()) }
+        let chosen = InputCommit(input: "shike", candidate: InputCandidate(text: "食客", language: .simplifiedChinese, score: 96),
+                                 reason: .explicitSelection)
+        for _ in 0..<8 { settings.record(chosen) }
         await settings.flush()
         let permission = LearningPermission()
         let restarted = PersonalizationSettings(defaults: fixture.defaults, store: LearningStore(url: fixture.url),
                                                 allowsLearning: { permission.allowed })
         await restarted.start()
         let engine = CandidateEngine()
+        let base = engine.candidates(for: "woshike", languages: [.simplifiedChinese]).first?.text
         func first() -> String? {
-            engine.candidates(for: "woshi", languages: [.simplifiedChinese], learning: restarted.rankingProfile).first?.text
+            engine.candidates(for: "woshike", languages: [.simplifiedChinese], learning: restarted.rankingProfile).first?.text
         }
-        #expect(first() == "我时")
+        #expect(first() == "我食客")
         restarted.isEnabled = false
-        #expect(first() == "我是")
+        #expect(first() == base)
         restarted.isEnabled = true
         permission.allowed = false
-        #expect(first() == "我是")
+        #expect(first() == base)
         permission.allowed = true
-        #expect(first() == "我时")
+        #expect(first() == "我食客")
         restarted.clear()
         await restarted.flush()
-        #expect(first() == "我是")
+        #expect(first() == base)
     }
 
     @Test func clearingOrTogglingConsentDiscardsAnExistingSessionContext() async throws {
