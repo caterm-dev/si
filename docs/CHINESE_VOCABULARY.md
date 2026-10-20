@@ -10,8 +10,8 @@ The initial import pins Rime Ice commit `da1fbe602e38f26db846fa10120ee64c2b0324c
 | --- | ---: | --- |
 | `rime-ice-characters` | 8,757 | Explicit readings in `cn_dicts/8105.dict.yaml`, including its additions and polyphonic readings |
 | `rime-ice-base` | 76,827 | Explicit readings in `cn_dicts/base.dict.yaml` with upstream weight at least 10,000 |
-| `si-original` | 979 | Every original SI text/reading and its editorial score |
-| `si-terms` | 3 | Original SI additions for vocabulary maintenance and mixed input |
+| `si-original` | 979 | Every original SI text/reading, without an authored weight |
+| `si-terms` | 3 | Unweighted original SI additions for vocabulary maintenance and mixed input |
 
 The initial merged result contains **85,596 text/reading pairs**, representing 84,880 distinct texts. A polyphonic word can have several entries. Current counts and hashes are in [the generated summary](../Data/Chinese/generated/summary.json); use `stats` after updates.
 
@@ -41,15 +41,15 @@ Use the shared vocabulary command with the language option **before** its subcom
 
 A group refresh resolves one latest revision for both Rime Ice tables and stages their snapshots, license, headers, lock and merged outputs before validation/writes. A failed download, malformed table, empty/out-of-bounds result, checksum failure or unaccepted license change leaves existing files intact. A specific source ID can also be refreshed on its own. License changes require inspection and the explicit `--accept-license-change` option; accepting a changed notice does not establish its suitability.
 
-`Data/Chinese/sources.json` registers sources, priorities, selection and score mapping. `sources.lock.json` pins revisions, upstream download hashes, normalized snapshot hashes, license/header hashes and filtering counts. Sources, locks, generated outputs and notices must be reviewed together. The monthly vocabulary workflow audits both English and Chinese and retains comparison links and JSON reports. It does not update repository files, install SI, or read personal dictionaries. The workflow must reach the default branch with Actions enabled before its schedule applies.
+`Data/Chinese/sources.json` registers sources, priorities, selection and weight provenance. `sources.lock.json` pins revisions, upstream download hashes, normalized snapshot hashes, license/header hashes and filtering counts. Sources, locks, generated outputs and notices must be reviewed together. The monthly vocabulary workflow audits both English and Chinese and retains comparison links and JSON reports. It does not update repository files, install SI, or read personal dictionaries. The workflow must reach the default branch with Actions enabled before its schedule applies.
 
 ## Add, correct or exclude entries
 
-Edit [si-terms.tsv](../Data/Chinese/sources/si-terms.tsv) for original local additions. Rows contain Han text, space-separated Pinyin and an editorial score, separated by actual Tab characters:
+Edit [si-terms.tsv](../Data/Chinese/sources/si-terms.tsv) for original local additions. Rows contain Han text and space-separated Pinyin, separated by one actual Tab character. A third weight/score column is rejected:
 
 ```text
-字幕	zi mu	100
-词库维护	ci ku wei hu	100
+字幕	zi mu
+词库维护	ci ku wei hu
 ```
 
 Use `v` for ü; explicit `ü` and `u:` spellings normalize to the same lookup reading. The text is preserved exactly. There must be one syllable per Han character, no tone numbers, no empty syllables and at most 64 normalized letters. Unsupported text/reading pairs in upstream tables are counted and filtered, never silently auto-pronounced. Invalid or duplicate local entries fail validation. Polyphonic readings remain distinct.
@@ -62,14 +62,18 @@ Use [overrides.json](../Data/Chinese/overrides.json) for lasting changes to an u
   "rules": [
     {"text": "示例", "reading": "shi lie", "action": "exclude", "reason": "Incorrect reading"},
     {"text": "词库", "reading": "ci gu", "action": "replace", "reason": "Correct pronunciation",
-     "replacement": {"text": "词库", "reading": "ci ku", "score": 100}}
+     "replacement": {"text": "词库", "reading": "ci ku"}}
   ]
 }
 ```
 
-Rules require a reason and a unique original text/reading. Exclusions run last as well, so replacements cannot reintroduce an excluded pair. Inactive rules are reported and retained for future upstream versions. The generated provenance table records every contributing source. Source priority resolves duplicate pairs; SI originals retain their original scores, and local additions/overrides win. Personal phrases and learning data are separate and unchanged.
+Rules require a reason and a unique original text/reading. Exclusions run last as well, so replacements cannot reintroduce an excluded pair. Inactive rules are reported and retained for future upstream versions. The generated provenance table records every contributing source. Source priority resolves competing upstream frequencies. Original/local spelling coverage never overrides an upstream weight. Corrections preserve the existing upstream weight and may not assign a score or weight; genuinely unweighted additions remain explicitly unweighted. Personal phrases and learning data are separate and unchanged.
 
-Imported weights map to a bounded score: `min(score_max, score_min + decimal_magnitude(max(1, weight)))`, currently 92–99. Exact English matches remain 110; SI original scores are preserved. The mapping is an editorial ranking input, not a probability. The full spelling, initials, mixed full/initial readings and incomplete final syllable continue to use the shared bounded decoder.
+Imported integer weights are preserved exactly in generated data and provenance, including zero; `-` explicitly identifies entries without an upstream weight. The old decimal-magnitude buckets and all per-entry SI editorial scores are removed. The original/local files retain spelling coverage only. `explain` reports source weights rather than invented source scores. Exact English matches remain 110; English source priorities and explicit personal phrase preferences are separate from these Chinese built-in data changes. The full spelling, initials, mixed full/initial readings and incomplete final syllable continue to use the shared bounded decoder.
+
+At initialization, the shared decoder derives a continuous lexical score `100 + log2(max(1, weight) / maximum_upstream_weight)` using one maximum across the complete compiled Chinese vocabulary. There is no integer rounding, decimal bucket, per-reading rescaling or per-word manual override. Raw weight ratios remain exact in the data; score differences encode their base-2 logarithm, so doubling a positive weight adds one lexical point. The common 100-point origin aligns this evidence with existing search/learning costs; final presentation scores are not linear frequency ratios. Zero and absent weights use the same one-count floor only for finite logarithmic calculation, without changing their stored value. A wholly unweighted isolated lexicon has equal priors. Injected score-based lexicons remain available for isolated algorithm tests, not as production vocabulary data.
+
+The 85,596 text/readings are retained. Of the 979 original spellings, 10 have no weight in the selected upstream tables and therefore remain unweighted coverage. This change does not import additional tables or increase the upstream base cutoff selection. It does not add grammatical or semantic context; source-derived frequency can still prefer `在` over `再`, or `明` over `名`, in an otherwise unnatural sentence. See [current verification](VERIFICATION.md) for those explicit quality limits.
 
 ## Runtime and validation
 

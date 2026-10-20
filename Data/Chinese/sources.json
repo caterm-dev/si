@@ -18,8 +18,6 @@
       "origin": "https://github.com/iDvel/rime-ice/blob/main/cn_dicts/8105.dict.yaml",
       "path": "Data/Chinese/sources/rime-ice-characters.tsv",
       "priority": 10,
-      "score_max": 99,
-      "score_min": 92,
       "upstream": {
         "format": "rime-pinyin",
         "license_path": "LICENSE",
@@ -42,8 +40,6 @@
       "origin": "https://github.com/iDvel/rime-ice/blob/main/cn_dicts/base.dict.yaml",
       "path": "Data/Chinese/sources/rime-ice-base.tsv",
       "priority": 20,
-      "score_max": 99,
-      "score_min": 92,
       "upstream": {
         "format": "rime-pinyin",
         "license_path": "LICENSE",
@@ -64,7 +60,7 @@
       "origin": "SI original authored Pinyin entries",
       "path": "Data/Chinese/sources/si-original.tsv",
       "priority": 100,
-      "weight_kind": "score"
+      "weight_kind": "unweighted"
     },
     {
       "id": "si-terms",
@@ -73,7 +69,7 @@
       "origin": "SI authored Chinese vocabulary additions",
       "path": "Data/Chinese/sources/si-terms.tsv",
       "priority": 200,
-      "weight_kind": "score"
+      "weight_kind": "unweighted"
     }
   ]
 }

@@ -2,6 +2,16 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Upstream Chinese weights without authored overrides — 2026-10-20
+
+Chinese generated data now preserves all upstream integer weights and ratios instead of decimal-magnitude score buckets. The 979 original and three local entries retain only spelling/readings; their manual score columns are removed, and unweighted sources cannot overwrite upstream weights. Override corrections may preserve a weight while changing spelling/readings, but cannot assign scores. All 85,596 entries remain. Ten original spellings have no selected upstream frequency and retain unweighted coverage.
+
+The decoder caches a shared continuous `100 + log2(max(1, weight) / maximum_upstream_weight)` scale once during initialization. The one-count floor keeps zero/unweighted calculation finite without altering raw provenance; final scores are logarithmic rather than proportional. Fractional weights propagate through provisional pools, continuation costs and direct presentation. English ranking policies, explicit personal phrases and opt-in learning remain independent. No new dictionary/model was imported and no sentence-context model was added.
+
+With empty learning, both searches rank synthetic `添加过那么多` first, ahead of `添加国那么多`; raw weights are 7,307,184 and 3,063,867. `你说的这个` also ranks first. Upstream priors cannot establish all grammar: `帮我在写` precedes `帮我再写`; the intended longer `帮我再写一个` remains within four choices, and `能想办法优化吗` is third. Nine of the ten everyday sentence fixtures currently rank first; all ten remain within five. The remaining fixture prefers `这个文件明包含英文` over intended `这个文件名包含英文`. These supersede the earlier authored-score first-choice observations. Tests now distinguish source-derived ranking from unchanged learning/selection invariants instead of restoring manual word scores to satisfy former rankings.
+
+All 221 Swift tests (159 core, 31 presentation, 19 settings, 12 storage), 28 vocabulary maintenance tests, both language generation checks and the Debug app build passed. An exhaustive source comparison verified all 85,584 selected upstream weights exactly and the unchanged 85,596 text/reading identities; 12 entries retain unweighted coverage. No installation, process restart or live host-input verification was performed. Existing user phrases and learned preferences were not read, modified or cleared for this change.
+
 ## Conservative learning after writing-request investigation — 2026-10-20
 
 Accepting the default with Space no longer creates, reinforces or refreshes a preference, and does not become previous-word context. Deliberate number/mouse choices and navigation followed by Space still train. Chinese single-character preferences remain available for their own full/consumed spelling but no longer transfer into other compositions. The token index and lookup apply this rule consistently on recording, reload, deletion and pruning, including when single-character and word records share a spelling. Multi-character Chinese words and English words retain token ranking, the length-weighted shared 32-point frequency cap, and the existing English-boundary safeguards. No decoder beams, vocabulary, commit text, retention limits or archive schema changed.

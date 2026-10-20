@@ -2,7 +2,7 @@ import Testing
 @testable import SICore
 
 struct PinyinPreviewQualityTests {
-    @Test func writingRequestKeepsItsWholeReadingWhileTyping() throws {
+    @Test func writingRequestRetainsItsWholeCandidateAcrossSearchStages() throws {
         for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             var session = InputSession(candidateGeneration: .deferred)
             session.configure(languages: languages)
@@ -12,17 +12,16 @@ struct PinyinPreviewQualityTests {
                 let preview = request.generatePreview()
                 let final = request.generate()
                 for result in [preview, final] {
-                    #expect(result.candidates.first?.text == expected)
-                    #expect(result.candidates.first?.isPartial == false)
-                    #expect(result.candidates.first?.hasCompletion == false)
+                    let candidate = try #require(result.candidates.prefix(4).first { $0.text == expected })
+                    #expect(!candidate.isPartial && !candidate.hasCompletion)
                     #expect(result.candidates.last?.text == session.buffer)
                     #expect(result.candidates.last?.isLiteral == true)
                 }
                 #expect(session.accept(preview) == true)
                 #expect(session.accept(final) == true)
-                #expect(session.candidates.first?.text == expected)
+                #expect(session.candidates.prefix(4).contains { $0.text == expected })
             }
-            let selected = try #require(session.candidates.first)
+            let selected = try #require(session.candidates.first { $0.text == "帮我再写一个" })
             let commit = session.commitResult(selected, reason: .explicitSelection)
             #expect(commit.text == "帮我再写一个" && commit.input == "bangwozaixieyige")
             #expect(session.buffer.isEmpty)

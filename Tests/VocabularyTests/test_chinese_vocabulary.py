@@ -17,7 +17,7 @@ class ChineseVocabularyTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.save("LICENSE", b"Fixture GPL notice\n")
         self.sources = [self.source("base", 10, "字\tzi\t100\n行\thang\t98\n行\txing\t99\n"),
-                        self.source("si-original", 20, "字\tzi\t101\n")]
+                        self.source("si-original", 20, "字\tzi\n")]
         self.configure()
         self.save(chinese.DATA / "sources.lock.json", {"schema_version": 1, "sources": {}})
         self.rules([])
@@ -30,7 +30,8 @@ class ChineseVocabularyTests(unittest.TestCase):
     def source(self, sid, priority, text):
         self.save(sid + ".tsv", text.encode())
         return {"id": sid, "priority": priority, "path": sid + ".tsv", "license_file": "LICENSE",
-                "license_id": "fixture", "origin": "authored fixture", "weight_kind": "score"}
+                "license_id": "fixture", "origin": "authored fixture",
+                "weight_kind": "unweighted" if sid == "si-original" else "frequency"}
 
     def configure(self):
         self.save(chinese.DATA / "sources.json", {"schema_version": 1, "sources": self.sources})
@@ -45,7 +46,7 @@ class ChineseVocabularyTests(unittest.TestCase):
         outputs, summary = chinese.compile_vocabulary(self.root)
         self.assertEqual(summary["merged_entries"], 3)
         self.assertEqual(summary["distinct_texts"], 2)
-        self.assertIn("字\tzi\t101\tbase,si-original\n".encode(), outputs[chinese.MERGED])
+        self.assertIn("字\tzi\t100\tbase,si-original\n".encode(), outputs[chinese.MERGED])
         self.assertIn("行\thang\t98".encode(), outputs[chinese.MERGED])
         self.assertIn("行\txing\t99".encode(), outputs[chinese.MERGED])
         self.assertEqual(outputs, chinese.compile_vocabulary(self.root)[0])
@@ -72,13 +73,13 @@ class ChineseVocabularyTests(unittest.TestCase):
     def test_exclusions_and_reading_corrections_survive_upstream_changes(self):
         self.rules([{"text": "行", "reading": "hang", "action": "exclude", "reason": "Synthetic exclusion"},
                     {"text": "字", "reading": "zi", "action": "replace",
-                     "replacement": {"text": "字", "reading": "zi", "score": 105}, "reason": "Editorial preference"}])
+                     "replacement": {"text": "字", "reading": "zhi"}, "reason": "Synthetic reading correction"}])
         for weight in [98, 100]:
             self.save("base.tsv", f"字\tzi\t100\n行\thang\t{weight}\n行\txing\t99\n".encode())
             merged = chinese.compile_vocabulary(self.root)[0][chinese.MERGED]
             self.assertNotIn("行\thang\t".encode(), merged)
             self.assertIn("行\txing\t".encode(), merged)
-            self.assertIn("字\tzi\t105\tbase,si-original,si-overrides".encode(), merged)
+            self.assertIn("字\tzhi\t100\tbase,si-original,si-overrides".encode(), merged)
 
     def test_invalid_local_entries_and_overrides_do_not_generate_outputs(self):
         for data in ["字\tzi\t100\n字\tZI\t99\n", "字幕\tzi\t100\n", "字\tzi\t-1\n"]:
@@ -87,12 +88,33 @@ class ChineseVocabularyTests(unittest.TestCase):
                 chinese.compile_vocabulary(self.root)
             self.assertFalse((self.root / chinese.GENERATED).exists())
 
-    def test_frequency_mapping_is_bounded_monotonic_and_not_raw_frequency_scores(self):
-        source = {"weight_kind": "frequency", "score_min": 92, "score_max": 99}
-        values = [chinese.score_for(weight, source) for weight in [0, 1, 9, 10, 10000, 100000, 10**14]]
-        self.assertEqual(values, sorted(values))
-        self.assertEqual(values[-1], 99)
-        self.assertEqual(chinese.score_for(10000, source), 96)
+    def test_upstream_weights_remain_exact_and_local_coverage_cannot_override_them(self):
+        self.save("base.tsv", "国\tguo\t3063867\n过\tguo\t7307184\n零\tling\t0\n字\tzi\t999999999999999\n".encode())
+        self.save("si-original.tsv", "国\tguo\n过\tguo\n词\tci\n".encode())
+        outputs, _ = chinese.compile_vocabulary(self.root)
+        merged = outputs[chinese.MERGED].decode()
+        self.assertIn("国\tguo\t3063867\tbase,si-original\n", merged)
+        self.assertIn("过\tguo\t7307184\tbase,si-original\n", merged)
+        self.assertIn("字\tzi\t999999999999999\tbase\n", merged)
+        self.assertIn("零\tling\t0\tbase\n", merged)
+        self.assertIn("词\tci\t-\tsi-original\n", merged)
+        self.assertIn(b"upstreamWeight: UInt64", outputs[chinese.GENERATED])
+
+    def test_editorial_scores_are_rejected_in_sources_and_corrections(self):
+        self.sources[0]["weight_kind"] = "score"
+        self.configure()
+        with self.assertRaises(common.VocabularyError):
+            chinese.compile_vocabulary(self.root)
+        self.sources[0]["weight_kind"] = "frequency"
+        self.configure()
+        self.save("si-original.tsv", "字\tzi\t101\n".encode())
+        with self.assertRaises(common.VocabularyError):
+            chinese.compile_vocabulary(self.root)
+        self.save("si-original.tsv", "字\tzi\n".encode())
+        self.rules([{"text": "字", "reading": "zi", "action": "replace", "reason": "Forbidden score",
+                     "replacement": {"text": "字", "reading": "zi", "score": 105}}])
+        with self.assertRaises(common.VocabularyError):
+            chinese.compile_vocabulary(self.root)
 
     def remote(self):
         source = self.sources[0]
@@ -124,7 +146,7 @@ class ChineseVocabularyTests(unittest.TestCase):
         self.assertEqual(summary["merged_entries"], 3)
         result = (self.root / chinese.MERGED).read_text()
         self.assertNotIn("行\thang\t", result)
-        self.assertIn("字\tzi\t101", result)
+        self.assertIn("字\tzi\t100", result)
         lock = json.loads((self.root / chinese.DATA / "sources.lock.json").read_text())
         self.assertEqual(lock["sources"]["base"]["revision"], "2" * 40)
         self.assertIn(b"New attribution", (self.root / "attribution.txt").read_bytes())

@@ -1,4 +1,4 @@
-# SI-authored additions: Han text, space-separated Pinyin, score.
-中英混输	zhong ying hun shu	100
-候选窗口	hou xuan chuang kou	100
-词库维护	ci ku wei hu	100
+# SI-authored spelling coverage, without editorial weights. GPL-3.0-only.
+中英混输	zhong ying hun shu
+候选窗口	hou xuan chuang kou
+词库维护	ci ku wei hu

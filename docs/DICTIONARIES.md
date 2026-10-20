@@ -16,7 +16,7 @@ English exact matches score 110. Original SI and terminology completions score 8
 
 ## Chinese
 
-Each entry specifies syllables, output text, and an initial ranking score. The compact source uses `reading|alternative alternative`; alternatives have decreasing scores starting at 100. These are editorial preferences, not measured word frequencies. `v` denotes ü; the decoder also normalizes ü and `u:` spellings when called directly.
+Generated entries specify syllables, exact output text and the original upstream integer weight. Original/local source files contain only text/readings and cannot assign weights; they preserve coverage without overriding upstream frequencies. Decoder initialization caches continuous `100 + log2(max(1, weight) / maximum_upstream_weight)` lexical scores on one global scale. Raw ratios remain unchanged; fractional score differences represent their logarithm. Zero and absent weights use a common one-count computational floor, not an authored per-word preference. `v` denotes ü; the decoder also normalizes ü and `u:` spellings when called directly. See [weight provenance and maintenance](CHINESE_VOCABULARY.md).
 
 The decoder supports:
 
@@ -29,7 +29,7 @@ The decoder supports:
 - Bounded preservation of unrecognized spans, including original casing, when no exact non-abbreviated complete path exists. These paths are labelled Chinese + As Typed and cannot train learning or previous-word context.
 - Prefix confirmation using exact source-character boundaries, leaving the remainder marked and editable. Whole candidates precede prefixes; longer prefixes precede shorter ones.
 
-Direct Chinese entries score around 100, English exact matches 110, English completions 75 or 85, Chinese completions around 84, and stored-phrase abbreviations around 78. Constructed paths use fractional ranking below direct exact matches, with costs for segmentation, completion, language transitions, and verbatim spans. Fractional ranking preserves small differences on long compositions. These are editorial scores for the optional learning bonus, not a trained probabilistic model.
+Direct Chinese scores depend on upstream weight; final-word completion subtracts 16 and stored-reading abbreviations retain their spelling penalty. English exact matches remain 110 and completions 75/85. Constructed paths use fractional ranking with costs for segmentation, completion, language transitions, and verbatim spans. These global search policies and bounded learning bonuses do not replace upstream weights with manual per-word values. This remains a context-free lexical decoder rather than a trained sentence model.
 
 Manually saved [personal phrases](USER_PHRASES.md) join the merge at score 115 for full codes, 180 for preferred full codes, and 80 for prefixes. Saved codes also form intermediate lattice nodes. Paths containing any personal node remain excluded from automatic learning/context. Deduplication keeps the strongest derivation rather than whichever provider happened to run first. Mixed candidates carry an explicit mixed identity; Latin letters in a manually declared Chinese phrase do not change its saved language.
 
@@ -41,6 +41,6 @@ Single-language frequency preferences influence matching tokens before continuat
 
 Unknown-span boundaries use lexical heuristics, not a general language detector. Tone-number input and fuzzy Pinyin remain unsupported. Bounded beams can still omit intended constructed alternatives. The controller accepts ASCII letters and apostrophes; use `v` for ü when typing through SI. Number keys select candidates rather than tones.
 
-Ten held-out synthetic everyday sentences have top-choice regression coverage, including `mingtianwomenqubeijing` → `明天我们去北京`. The test verifies these sentences are not stored as whole entries. This small authored suite is a regression check, not independent accuracy evaluation.
+Ten held-out synthetic everyday sentences have candidate-reachability and top-choice-count regression coverage, including `mingtianwomenqubeijing` → `明天我们去北京`. With upstream weighting, nine currently rank first and all remain within the first five; `这个文件明包含英文` precedes intended `这个文件名包含英文`. The test verifies these sentences are not stored as whole entries. This small authored suite is a regression check, not independent accuracy evaluation, and does not justify reintroducing authored weights to hide that context limitation.
 
 Limited character and phrase coverage can cause an intended Chinese reading to be absent or a less natural constructed path to rank ahead. New original entries should have explicit readings, focused regression tests, and provenance if the source policy changes. Do not describe an expanded list as a production decoding engine without broader coverage and input-quality evaluation.

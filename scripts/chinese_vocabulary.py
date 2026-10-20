@@ -31,18 +31,21 @@ def identity(text, reading):
     return text, " ".join(syllables)
 
 
-def parse_snapshot(data, label, allow_empty=False):
+def parse_snapshot(data, label, allow_empty=False, *, unweighted=False):
     entries = {}
     for number, line in enumerate(data.decode("utf-8").splitlines(), 1):
         if not line or line.startswith("#"):
             continue
         columns = line.split("\t")
-        if len(columns) != 3 or not re.fullmatch(r"[0-9]{1,15}", columns[2]):
-            raise common.VocabularyError(f"{label}:{number}: expected text, Pinyin and integer weight")
+        if unweighted:
+            if len(columns) != 2:
+                raise common.VocabularyError(f"{label}:{number}: local entries require text and Pinyin, without a weight")
+        elif len(columns) != 3 or not re.fullmatch(r"[0-9]{1,15}", columns[2]):
+            raise common.VocabularyError(f"{label}:{number}: expected text, Pinyin and integer upstream weight")
         key = identity(columns[0], columns[1])
         if key in entries:
             raise common.VocabularyError(f"{label}:{number}: duplicate text/reading")
-        entries[key] = int(columns[2])
+        entries[key] = None if unweighted else int(columns[2])
     if not entries and not allow_empty:
         raise common.VocabularyError(label + ": empty Pinyin source")
     return entries
@@ -84,12 +87,10 @@ def import_rime(data, minimum_weight=0):
 def configuration(root, pending=None, refreshing=None):
     config, lock = common.configuration(root, pending, refreshing=refreshing, data_dir=DATA)
     for source in config["sources"]:
-        if source["weight_kind"] not in ("score", "frequency"):
+        if source["weight_kind"] not in ("unweighted", "frequency"):
             raise common.VocabularyError("Unknown Chinese weight kind")
-        if source["weight_kind"] == "frequency":
-            minimum, maximum = source["score_min"], source["score_max"]
-            if type(minimum) is not int or type(maximum) is not int or not 0 <= minimum <= maximum <= 100:
-                raise common.VocabularyError("Invalid Chinese score range")
+        if "score_min" in source or "score_max" in source:
+            raise common.VocabularyError("Chinese upstream weights must not be bucketed into editorial scores")
         if "upstream" in source:
             if source["upstream"]["format"] != "rime-pinyin":
                 raise common.VocabularyError("Chinese upstream sources must use rime-pinyin")
@@ -99,28 +100,21 @@ def configuration(root, pending=None, refreshing=None):
     return config, lock
 
 
-def score_for(weight, source):
-    if source["weight_kind"] == "score":
-        if not 0 <= weight <= 200:
-            raise common.VocabularyError("SI Pinyin scores must be in 0...200")
-        return weight
-    # Integer decimal magnitude: stable across machines, bounded below exact English matches.
-    return min(source["score_max"], source["score_min"] + len(str(max(1, weight))) - 1)
-
-
 def compile_vocabulary(root, pending=None):
     pending = pending or {}
     config, lock = configuration(root, pending)
     merged, counts, original = {}, {}, {}
     for source in sorted(config["sources"], key=lambda s: s["priority"]):
-        rows = parse_snapshot(common.read_bytes(root, source["path"], pending), source["id"], source.get("allow_empty", False))
+        rows = parse_snapshot(common.read_bytes(root, source["path"], pending), source["id"],
+                              source.get("allow_empty", False), unweighted=source["weight_kind"] == "unweighted")
         counts[source["id"]] = len(rows)
         for key, weight in rows.items():
-            score = score_for(weight, source)
-            origins = merged.get(key, {}).get("sources", [])
-            merged[key] = {"score": score, "sources": origins + [source["id"]], "weight": weight}
+            previous = merged.get(key, {"sources": [], "weight": None})
+            # Authored spelling coverage never replaces an upstream frequency, regardless of priority.
+            merged[key] = {"sources": previous["sources"] + [source["id"]],
+                           "weight": weight if weight is not None else previous["weight"]}
             if source["id"] == "si-original":
-                original[key] = score
+                original[key] = None
     overrides = common.read_json(root, DATA / "overrides.json", pending)
     if overrides.get("schema_version") != 1:
         raise common.VocabularyError("Unsupported Chinese overrides schema")
@@ -138,19 +132,22 @@ def compile_vocabulary(root, pending=None):
         if rule["action"] == "replace":
             replacement = rule["replacement"]
             new_key = identity(replacement["text"], replacement["reading"])
-            score = replacement["score"]
-            if type(score) is not int or not 0 <= score <= 200:
-                raise common.VocabularyError("Invalid Chinese override score")
+            if set(replacement) != {"text", "reading"}:
+                raise common.VocabularyError("Chinese corrections may change spelling/readings, not assign weights")
             origins = merged.get(new_key, old or {}).get("sources", [])
-            merged[new_key] = {"score": score, "sources": list(dict.fromkeys(origins + ["si-overrides"])), "weight": score}
+            weight = merged.get(new_key, old or {}).get("weight")
+            merged[new_key] = {"sources": list(dict.fromkeys(origins + ["si-overrides"])), "weight": weight}
     for rule in overrides["rules"]:
         if rule["action"] == "exclude":
             merged.pop(identity(rule["text"], rule["reading"]), None)
     if not merged:
         raise common.VocabularyError("Merged Chinese vocabulary is empty")
     keys = sorted(merged, key=lambda key: (key[1].replace(" ", ""), key[1], key[0]))
-    words = "".join(f"{text}\t{reading}\t{merged[text, reading]['score']}\n" for text, reading in keys)
-    originals = "".join(f"{text}\t{reading}\t{score}\n" for (text, reading), score in sorted(original.items()))
+    def weight_text(value):
+        return "-" if value is None else str(value)
+    words = "".join(f"{text}\t{reading}\t{weight_text(merged[text, reading]['weight'])}\n" for text, reading in keys)
+    originals = "".join(f"{text}\t{reading}\t{weight_text(merged.get((text, reading), {}).get('weight'))}\n"
+                        for text, reading in sorted(original))
     swift = '''// Generated by scripts/vocabulary.py --language chinese. Do not edit.
 // Sources, selection and licenses: Data/Chinese/ and ChineseVocabularyNotices.txt.
 enum ChineseLexiconData {
@@ -161,7 +158,7 @@ enum ChineseLexiconData {
         data.split(separator: "\\n").map { line in
             let fields = line.split(separator: "\\t")
             return PinyinLexiconEntry(syllables: fields[1].split(separator: " ").map(String.init),
-                                     text: String(fields[0]), score: Int(fields[2])!)
+                                     text: String(fields[0]), upstreamWeight: UInt64(fields[2]))
         }
     }
 
@@ -190,8 +187,9 @@ enum ChineseLexiconData {
                     + b"".join(common.read_bytes(root, s["path"], pending) + common.read_bytes(root, s["license_file"], pending)
                                + (common.read_bytes(root, s["attribution_file"], pending) if s.get("attribution_file") else b"")
                                for s in config["sources"]))}
-    table = "# text\treading\tscore\tsources\n"+"".join(
-        f"{text}\t{reading}\t{merged[text, reading]['score']}\t{','.join(merged[text, reading]['sources'])}\n" for text, reading in keys)
+    table = "# text\treading\tupstream_weight\tsources\n"+"".join(
+        f"{text}\t{reading}\t{weight_text(merged[text, reading]['weight'])}\t{','.join(merged[text, reading]['sources'])}\n"
+        for text, reading in keys)
     return {GENERATED: swift.encode(), MERGED: table.encode(), REPORT: common.json_bytes(summary),
             NOTICES: ("\n\n".join(notices)+"\n").encode()}, summary
 
@@ -261,9 +259,10 @@ def execute(root, args):
             raise common.VocabularyError("Chinese explain expects Han text")
         config, _ = configuration(root)
         rows, _ = compile_vocabulary(root)
-        origins = [{"source": s["id"], "reading": reading, "weight": weight, "score": score_for(weight, s)}
+        origins = [{"source": s["id"], "reading": reading, "weight": weight}
                    for s in config["sources"]
-                   for (text, reading), weight in parse_snapshot(common.read_bytes(root, s["path"], {}), s["id"], s.get("allow_empty", False)).items()
+                   for (text, reading), weight in parse_snapshot(common.read_bytes(root, s["path"], {}), s["id"],
+                       s.get("allow_empty", False), unweighted=s["weight_kind"] == "unweighted").items()
                    if text == args.word]
         merged = [line for line in rows[MERGED].decode().splitlines()[1:] if line.split("\t")[0] == args.word]
         print(common.json_bytes({"query": args.word, "sources": origins, "merged": merged}).decode(), end="")

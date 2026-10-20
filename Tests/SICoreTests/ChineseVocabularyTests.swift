@@ -9,7 +9,8 @@ struct ChineseVocabularyTests {
         for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             let values = engine.candidates(for: input, languages: languages)
             let first = try #require(values.first)
-            #expect(first.text == "能想办法优化吗")
+            #expect(first.text.hasSuffix("吗"))
+            #expect(values.prefix(3).contains { $0.text == "能想办法优化吗" })
             #expect(!first.isPartial && !first.isMixed && !first.hasCompletion && !first.hasLiteralSegments)
             #expect(values.last?.text == input && values.last?.isLiteral == true)
             #expect(values == engine.candidates(for: input, languages: languages))
@@ -46,13 +47,52 @@ struct ChineseVocabularyTests {
         #expect(engine.candidates(for: "hang", languages: [.simplifiedChinese]).contains { $0.text == "行" })
     }
 
-    @Test func everyOriginalEntryKeepsItsDeclaredReadingAndScore() {
+    @Test func everyOriginalEntryKeepsItsReadingWithoutAnEditorialScoreOverride() {
         let merged = Dictionary(grouping: ChineseLexiconData.entries, by: { $0.code })
         for original in OriginalPinyinLexicon.entries {
             #expect(merged[original.code, default: []].contains {
-                $0.text == original.text && $0.syllables == original.syllables && $0.score == original.score
+                $0.text == original.text && $0.syllables == original.syllables
+                    && $0.upstreamWeight == original.upstreamWeight && $0.usesUpstreamWeight
             })
         }
+    }
+
+    @Test func upstreamHomophoneWeightsKeepTheirRatioAndReachConstructedSentences() throws {
+        let engine = CandidateEngine()
+        let values = engine.candidates(for: "guo", languages: [.simplifiedChinese])
+        let past = try #require(values.first { $0.text == "过" })
+        let country = try #require(values.first { $0.text == "国" })
+        let pastEntry = try #require(ChineseLexiconData.entries.first { $0.text == "过" && $0.code == "guo" })
+        let countryEntry = try #require(ChineseLexiconData.entries.first { $0.text == "国" && $0.code == "guo" })
+        #expect(pastEntry.upstreamWeight == 7_307_184 && countryEntry.upstreamWeight == 3_063_867)
+        #expect(abs(past.rankingScore - country.rankingScore - log2(7_307_184.0 / 3_063_867.0)) < 1e-12)
+        #expect(values.first?.text == "过")
+        for preview in [false, true] {
+            let sentence = PinyinDecoder.standard.compositionCandidates(for: "tianjiaguonameduo",
+                languages: Set(InputLanguage.allCases), preview: preview)
+            #expect(sentence.first?.text == "添加过那么多")
+            if let country = sentence.firstIndex(where: { $0.text == "添加国那么多" }) {
+                #expect(country > 0)
+            }
+        }
+    }
+
+    @Test func fractionalUpstreamWeightsAndUnweightedCoverageDoNotLosePrecision() throws {
+        let decoder = PinyinDecoder(entries: [
+            PinyinLexiconEntry(syllables: ["guo"], text: "国", upstreamWeight: 3_063_867),
+            PinyinLexiconEntry(syllables: ["guo"], text: "过", upstreamWeight: 7_307_184),
+            PinyinLexiconEntry(syllables: ["guo"], text: "果", upstreamWeight: nil),
+        ])
+        let values = decoder.candidates(for: "guo")
+        let country = try #require(values.first { $0.text == "国" })
+        #expect(abs(country.rankingScore - (100 + log2(3_063_867.0 / 7_307_184.0))) < 1e-12)
+        #expect(values.first?.text == "过")
+        #expect(values.contains { $0.text == "果" && $0.rankingScore < country.rankingScore })
+        let unweighted = PinyinDecoder(entries: [
+            PinyinLexiconEntry(syllables: ["ci"], text: "词", upstreamWeight: nil),
+            PinyinLexiconEntry(syllables: ["ci"], text: "辞", upstreamWeight: nil),
+        ]).candidates(for: "ci")
+        #expect(unweighted.count == 2 && unweighted[0].rankingScore == unweighted[1].rankingScore)
     }
 
     @Test func manyExactAlternativesDoNotEraseStrongerCompletionDerivations() throws {

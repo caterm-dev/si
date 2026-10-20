@@ -14,12 +14,15 @@ struct TokenLearningTests {
             LearnedPreference(input: "xie", text: "些", language: .simplifiedChinese, strength: strength, lastUsed: now),
         ], now: now)
         for enabled: Set<InputLanguage> in [[.simplifiedChinese], languages] {
-            for (input, expected) in [("bangwozaixie", "帮我再写"), ("bangwozaixieyige", "帮我再写一个")] {
+            for input in ["bangwozaixie", "bangwozaixieyige"] {
                 for preview in [false, true] {
+                    let baseline = preview
+                        ? engine.previewCandidates(for: input, languages: enabled, learning: LearningProfile(), dictionary: UserDictionary(), now: now, context: nil)
+                        : engine.candidates(for: input, languages: enabled, now: now)
                     let results = preview
                         ? engine.previewCandidates(for: input, languages: enabled, learning: profile, dictionary: UserDictionary(), now: now, context: nil)
                         : engine.candidates(for: input, languages: enabled, learning: profile, now: now)
-                    #expect(results.first?.text == expected)
+                    #expect(results == baseline)
                     #expect(results.last?.text == input && results.last?.isLiteral == true)
                 }
             }
@@ -105,16 +108,23 @@ struct TokenLearningTests {
     }
 
     @Test func normalizedAliasesShareTokenPreferencesAndSyllableBoundariesStayDistinct() throws {
+        // Boundary eligibility is independent of the maintained vocabulary's changing frequency shortlist.
+        let decoder = PinyinDecoder(entries: [
+            PinyinLexiconEntry(syllables: ["wo"], text: "我"),
+            PinyinLexiconEntry(syllables: ["lv", "se"], text: "绿色"),
+            PinyinLexiconEntry(syllables: ["xian"], text: "先"),
+            PinyinLexiconEntry(syllables: ["xi", "an"], text: "西安", score: 99),
+        ])
         let profile = try learned(input: "lu:se", text: "绿色")
         for input in ["wolvse", "woLÜse", "wolu:se"] {
-            let word = try #require(engine.candidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now)
+            let word = try #require(decoder.compositionCandidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now)
                 .first { $0.text == "我绿色" && !$0.isPartial })
             #expect(word.tokenLearningBonus > 0)
         }
         let cityProfile = try learned(input: "xi'an", text: "西安")
-        let separated = try #require(engine.candidates(for: "woxi'an", languages: languages, learning: cityProfile, now: now)
+        let separated = try #require(decoder.compositionCandidates(for: "woxi'an", languages: languages, learning: cityProfile, now: now)
             .first { $0.text == "我西安" && !$0.isPartial })
-        let plain = try #require(engine.candidates(for: "woxian", languages: languages, learning: cityProfile, now: now)
+        let plain = try #require(decoder.compositionCandidates(for: "woxian", languages: languages, learning: cityProfile, now: now)
             .first { $0.text == "我西安" && !$0.isPartial })
         #expect(separated.tokenLearningBonus > 0)
         #expect(plain.tokenLearningBonus == 0)

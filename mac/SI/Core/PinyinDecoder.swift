@@ -16,7 +16,7 @@ public struct PinyinDecoder: Sendable {
         let text: String
         let languages: Int
         let cost: Double
-        let score: Int
+        let score: Double
         var personal = false
         var verbatim = false
         var abbreviated = false
@@ -31,7 +31,7 @@ public struct PinyinDecoder: Sendable {
         let languages: Int
         let lastLanguage: Int
         let segments: Int
-        let directScore: Int
+        let directScore: Double
         let personal: Bool
         let verbatim: Bool
         let completion: Bool
@@ -82,6 +82,7 @@ public struct PinyinDecoder: Sendable {
         let effectiveScore: Double
     }
     private let entries: [PinyinLexiconEntry]
+    private let lexicalScores: [Double]
     private let readings: [Reading]
     private let exact: [String: [Int]]
     private let fullCodes: [String]
@@ -110,12 +111,21 @@ public struct PinyinDecoder: Sendable {
         var exact: [String: [Int]] = [:]
         var full: [(code: String, reading: Int)] = []
         var maximum = 0
+        let positiveWeights = entries.compactMap(\.upstreamWeight).filter { $0 > 0 }
+        let maximumWeight = Double(positiveWeights.max() ?? 1)
+        // Preserve raw frequencies in the entries. A shared continuous log scale combines their
+        // relative evidence with bounded path/learning costs without decimal buckets or per-word edits.
+        let lexicalScores = entries.map { entry in
+            entry.usesUpstreamWeight
+                ? 100 + log2(Double(max(1, entry.upstreamWeight ?? 0)) / maximumWeight)
+                : Double(entry.score)
+        }
         for group in groups {
             let entry = entries[group[0]]
             // Source order is not frequency order. Prepare the bounded hint pool once,
             // so a common syllable cannot lose its strongest words before path scoring.
             let previewEntries = Array(group.sorted {
-                if entries[$0].score != entries[$1].score { return entries[$0].score > entries[$1].score }
+                if lexicalScores[$0] != lexicalScores[$1] { return lexicalScores[$0] > lexicalScores[$1] }
                 return $0 < $1
             }.prefix(16))
             maximum = max(maximum, entry.code.count)
@@ -145,6 +155,7 @@ public struct PinyinDecoder: Sendable {
         }
         full.sort { $0.code == $1.code ? $0.reading < $1.reading : $0.code < $1.code }
         self.entries = entries
+        self.lexicalScores = lexicalScores
         self.readings = readings
         self.exact = exact
         fullCodes = full.map(\.code)
@@ -281,8 +292,8 @@ public struct PinyinDecoder: Sendable {
         var results = preview ? [] : dictionary.candidates(for: input, languages: languages)
         // Direct lexical matches/completions are not restricted by the constructed-path beam.
         for edge in outgoing[0] where edge.end == count && edge.languages == 1 {
-            results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: edge.score,
-                                          isUserPhrase: edge.personal, hasCompletion: edge.completion))
+            results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: Int(edge.score),
+                                          isUserPhrase: edge.personal, rankingScore: edge.score, hasCompletion: edge.completion))
         }
         for path in paths[count] where eligible(path) {
             results.append(candidate(path))
@@ -334,7 +345,7 @@ public struct PinyinDecoder: Sendable {
                         guard input.respects(match.boundaries, from: start, to: end) else { continue }
                         for index in preview ? match.previewEntries : match.entries {
                             let entry = entries[index]
-                            let score = entry.score - match.penalty
+                            let score = lexicalScores[index] - Double(match.penalty)
                             result[start].append(Edge(end: end, text: entry.text, languages: 1,
                                                       cost: 8 + Double(max(0, 100 - score)) / 4, score: score,
                                                       abbreviated: match.penalty > 0))
@@ -367,8 +378,8 @@ public struct PinyinDecoder: Sendable {
                     for index in preview ? match.previewEntries : match.entries {
                         let entry = entries[index]
                         result[start].append(Edge(end: count, text: entry.text, languages: 1,
-                                                  cost: 24 + Double(max(0, 100 - entry.score)) / 4,
-                                                  score: entry.score - 16, completion: true))
+                                                  cost: 24 + max(0, 100 - lexicalScores[index]) / 4,
+                                                  score: lexicalScores[index] - 16, completion: true))
                     }
                 }
             }
@@ -378,7 +389,7 @@ public struct PinyinDecoder: Sendable {
                 for entry in preview ? matches.prefix(8) : matches {
                     result[start].append(Edge(end: count, text: entry.text(for: style),
                                               languages: 2, cost: entry.completionCost,
-                                              score: entry.completionScore, completion: true))
+                                              score: Double(entry.completionScore), completion: true))
                 }
             }
             if learning.hasTokenPreferences {
