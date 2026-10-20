@@ -25,10 +25,12 @@ CHANNEL_CACHE = "no-cache, max-age=0, must-revalidate"
 def arguments(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arch", choices=["arm64", "x86_64", "universal"], default="universal")
-    parser.add_argument("--sign", default=os.environ.get("SI_SIGN_IDENTITY"), metavar="IDENTITY")
+    parser.add_argument("--sign", default=os.environ.get("SI_SIGN_IDENTITY"), metavar="IDENTITY",
+                        help="Application identity; publication detects a unique valid code-signing identity")
     parser.add_argument("--installer-sign", default=os.environ.get("SI_INSTALLER_IDENTITY"), metavar="IDENTITY",
                         help="Developer ID Installer identity for the package inside the DMG")
-    parser.add_argument("--notarize-profile", default=os.environ.get("SI_NOTARY_PROFILE"), metavar="PROFILE")
+    parser.add_argument("--notarize-profile", default=os.environ.get("SI_NOTARY_PROFILE"), metavar="PROFILE",
+                        help="notarytool Keychain profile (publication default: caterm-notary)")
     parser.add_argument("--output-dir", type=Path, help="default: .build/releases/<version>/<arch>")
     parser.add_argument("--dry-run", action="store_true", help="print plan without writes or network requests")
     parser.add_argument("--publish", action="store_true", help="upload artifacts and promote the R2 channel")
@@ -44,15 +46,8 @@ def arguments(argv=None):
         parser.error("--sign requires Developer ID Application: Name (TEAMID)")
     if args.installer_sign and not re.fullmatch(r"Developer ID Installer: .+ \([A-Z0-9]{10}\)", args.installer_sign):
         parser.error("--installer-sign requires Developer ID Installer: Name (TEAMID)")
-    if args.installer_sign and (not args.sign or args.installer_sign[-12:] != args.sign[-12:]):
+    if args.sign and args.installer_sign and args.installer_sign[-12:] != args.sign[-12:]:
         parser.error("--installer-sign requires an Application identity from the same team")
-    if args.notarize_profile and not args.sign:
-        parser.error("--notarize-profile requires --sign")
-    if args.notarize_profile and not args.installer_sign:
-        parser.error("--notarize-profile requires --installer-sign (or SI_INSTALLER_IDENTITY)")
-    if args.publish and not (args.sign and args.installer_sign and args.notarize_profile):
-        parser.error("publication requires --sign, --installer-sign and --notarize-profile "
-                     "(or SI_SIGN_IDENTITY / SI_INSTALLER_IDENTITY / SI_NOTARY_PROFILE)")
     if not re.fullmatch(r"[0-9a-f]{32}", args.account_id):
         parser.error("--account-id must be a Cloudflare account ID")
     if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", args.bucket):
@@ -63,6 +58,52 @@ def arguments(argv=None):
     if not re.fullmatch(r"https://[A-Za-z0-9.-]+(?::[0-9]+)?(?:/[A-Za-z0-9_-]+)*", args.public_url):
         parser.error("--public-url must be an HTTPS URL without credentials, query or fragment")
     return args
+
+
+def keychain_identities(kind, policy):
+    try:
+        result = subprocess.run(["security", "find-identity", "-v", "-p", policy], check=True,
+                                capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ValueError("Cannot inspect Keychain signing identities; supply --sign and --installer-sign "
+                         "or SI_SIGN_IDENTITY and SI_INSTALLER_IDENTITY") from error
+    pattern = r'"(Developer ID ' + kind + r': [^"\n]+ \([A-Z0-9]{10}\))"'
+    return sorted(set(re.findall(pattern, result.stdout)))
+
+
+def resolve_signing(args):
+    if not (args.publish or args.sign or args.installer_sign or args.notarize_profile):
+        return  # Local packaging remains an ad hoc preview unless signing was requested.
+    if not args.sign:
+        # A basic-policy identity can fail code-signing validation. Select the app first,
+        # rather than switching teams just because another team has an Installer identity.
+        applications = keychain_identities("Application", "codesigning")
+        if args.installer_sign:
+            applications = [name for name in applications if name[-12:] == args.installer_sign[-12:]]
+        if not applications:
+            raise ValueError("No valid Developer ID Application identity found under the code-signing policy. "
+                             "Install a current certificate and its private key")
+        if len(applications) != 1:
+            raise ValueError("Multiple valid Application identities found; choose --sign:\n  " +
+                             "\n  ".join(applications))
+        args.sign = applications[0]
+    if not args.installer_sign:
+        # Installer identities use the basic policy, not the code-signing policy.
+        installers = [name for name in keychain_identities("Installer", "basic") if name[-12:] == args.sign[-12:]]
+        if not installers:
+            raise ValueError(f"No valid Developer ID Installer identity for signing team {args.sign[-11:-1]}. "
+                             f"Selected Application identity: {args.sign}. Install a Developer ID Installer "
+                             "certificate and its private key for this team; another team's certificate cannot be used")
+        if len(installers) != 1:
+            raise ValueError("Multiple matching Installer identities found; choose --installer-sign:\n  " +
+                             "\n  ".join(installers))
+        args.installer_sign = installers[0]
+    if args.publish and not args.notarize_profile:
+        args.notarize_profile = "caterm-notary"
+    print(f"Application signing: {args.sign}", flush=True)
+    print(f"Installer signing: {args.installer_sign}", flush=True)
+    if args.notarize_profile:
+        print(f"Notarization profile: {args.notarize_profile} (must belong to signing team {args.sign[-11:-1]})", flush=True)
 
 
 def run(command, dry=False, capture=False):
@@ -368,6 +409,7 @@ def publish(args, manifest, storage):
 
 def main(argv=None):
     args = arguments(argv)
+    resolve_signing(args)
     version = project_version(ROOT)
     revision = git(ROOT, "rev-parse", "HEAD")
     output = (args.output_dir or ROOT / ".build/releases" / version / args.arch).resolve()

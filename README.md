@@ -129,11 +129,11 @@ To uninstall, select another input source, remove SI in Keyboard settings, then 
 ```sh
 ./scripts/package-dmg.sh --dry-run   # Inspect Universal Release packaging
 ./scripts/package-dmg.sh             # Local ad hoc signed preview
-./scripts/release.sh --dry-run       # Requires signing/notarization configuration
+./scripts/release.sh --dry-run       # Detect signing identities and inspect publication
 ./scripts/release.sh                 # Sign, notarize, verify and publish to R2
 ```
 
-Publication uses Caterm's public R2 bucket and download domain under the separate `si/` prefix. It requires a clean committed checkout, Developer ID Application and Installer identities, a notarytool Keychain profile, and an AWS CLI profile. Open `Install SI.pkg` inside the DMG to install in `~/Library/Input Methods`; the native macOS Installer ends with **Log Out** to finish registration. Save your work, click the button and log back in; a full Mac restart is not required by this installer. Existing apps are backed up and a running SI blocks replacement. See [release configuration, artifacts and retry behavior](docs/RELEASING.md). Adding these scripts does not mean a public release has been published or host compatibility has been verified.
+Publication uses Caterm's public R2 bucket and download domain under the separate `si/` prefix. It selects a unique Developer ID Application identity valid under macOS's code-signing policy, then requires a valid Installer identity from that team. It never switches to another team to obtain a complete pair. The defaults are Caterm's `caterm-notary` notarization profile and `caterm-r2` AWS profile. The notarization profile must belong to the selected signing team; flags/environment override the defaults, and ambiguous or missing identities stop publication. A clean committed checkout is required. Open `Install SI.pkg` inside the DMG to install in `~/Library/Input Methods`; the native macOS Installer ends with **Log Out** to finish registration. Save your work, click the button and log back in; a full Mac restart is not required by this installer. Existing apps are backed up and a running SI blocks replacement. See [release configuration, artifacts and retry behavior](docs/RELEASING.md). Adding these scripts does not mean a public release has been published or host compatibility has been verified.
 
 ## Keyboard behavior
 

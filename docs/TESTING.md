@@ -56,6 +56,10 @@ Two additional measurements compare all edits in a 16-character synthetic burst 
 
 The app build validates the SwiftUI, AppKit, and InputMethodKit integration against the active SDK. GitHub Actions runs both checks on macOS. A local build does not validate the hosted workflow itself.
 
+Release signing discovery checks cover a unique complete same-team pair among unpaired certificates, missing/ambiguous pairs, explicit signer filtering, profile overrides, inaccessible Keychain, and unsigned local/offline explicit dry-run behavior. On October 20, 2026, all 157 shared-core and 35 script tests passed, along with Debug/Release builds. `./scripts/release.sh --arch arm64 --dry-run` successfully discovered the local complete pair and printed the Caterm profile defaults without building, signing, notarizing or uploading. Notarization-profile/team association and live publication remain unverified; the working tree still contains unrelated uncommitted work.
+
+Certificate-policy correction on October 20, 2026: 36 script tests and 157 shared-core tests passed, with successful Debug/Release builds. Discovery now selects the Application using `codesigning` policy before querying a same-team Installer with `basic` policy; a regression fixture ensures a basic-only pair from another team cannot replace that choice. The local release dry-run correctly stopped at a missing Installer identity for the selected valid Application team, before any build, signing, notarization or upload. No Keychain items were modified or deleted.
+
 ## Manual input-method verification
 
 Install with `./scripts/install.sh`, log out and back in if needed, add SI in Keyboard settings, and select it. Do not run a second copy from Xcode while using the installed input source.

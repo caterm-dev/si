@@ -52,14 +52,83 @@ class ReleaseTests(unittest.TestCase):
         self.manifest = self.directory / "manifest.json"
         self.manifest.write_text(json.dumps(self.content))
 
-    def test_publication_requires_signing_and_notarization(self):
+    def test_invalid_or_mismatched_signing_identities_are_rejected(self):
         with patch.dict("os.environ", {}, clear=True), contextlib.redirect_stderr(io.StringIO()):
-            for options in (["--publish"], ["--publish", "--sign", IDENTITY],
-                            ["--notarize-profile", "test"], ["--sign", "-"],
-                            ["--publish", "--sign", IDENTITY, "--notarize-profile", "test"],
+            for options in (["--sign", "-"], ["--installer-sign", IDENTITY],
                             ["--sign", IDENTITY, "--installer-sign", "Developer ID Installer: Other (1234567890)"]):
                 with self.subTest(options=options), self.assertRaises(SystemExit):
                     release.arguments(options)
+
+    def test_application_uses_codesigning_policy_before_matching_installer(self):
+        application_output = f'1) B "{IDENTITY}"\n4) D "Apple Development: Other"\n'
+        basic_output = (f'1) B "{IDENTITY}"\n2) C "{INSTALLER_IDENTITY}"\n'
+                        '3) D "Developer ID Application: Obsolete (1234567890)"\n'
+                        '4) E "Developer ID Installer: Obsolete (1234567890)"\n')
+        with patch.dict("os.environ", {}, clear=True):
+            args = release.arguments(["--publish", "--arch", "arm64"])
+        outputs = [release.subprocess.CompletedProcess([], 0, text, "") for text in (application_output, basic_output)]
+        with patch.object(release.subprocess, "run", side_effect=outputs) as run:
+            release.resolve_signing(args)
+            self.assertEqual(run.call_args_list[0].args[0], ["security", "find-identity", "-v", "-p", "codesigning"])
+            self.assertEqual(run.call_args_list[1].args[0], ["security", "find-identity", "-v", "-p", "basic"])
+        self.assertEqual((args.sign, args.installer_sign), (IDENTITY, INSTALLER_IDENTITY))
+        self.assertEqual(args.notarize_profile, "caterm-notary")
+
+    def test_missing_installer_never_selects_another_teams_basic_only_pair(self):
+        with patch.dict("os.environ", {}, clear=True):
+            args = release.arguments(["--publish"])
+        outputs = [f'"{IDENTITY}"\n',
+                   '"Developer ID Application: Obsolete (1234567890)"\n'
+                   '"Developer ID Installer: Obsolete (1234567890)"\n']
+        responses = [release.subprocess.CompletedProcess([], 0, text, "") for text in outputs]
+        with patch.object(release.subprocess, "run", side_effect=responses):
+            with self.assertRaisesRegex(ValueError, "No valid Developer ID Installer identity for signing team ABCDEFGHIJ"):
+                release.resolve_signing(args)
+        self.assertEqual(args.sign, IDENTITY)
+        self.assertIsNone(args.installer_sign)
+
+    def test_missing_or_ambiguous_keychain_pairs_stop_before_build(self):
+        with patch.dict("os.environ", {}, clear=True):
+            for output in ("0 valid identities found", f'"{IDENTITY}"\n',
+                           f'"{IDENTITY}"\n"{INSTALLER_IDENTITY}"\n'
+                           '"Developer ID Application: Other (1234567890)"\n'
+                           '"Developer ID Installer: Other (1234567890)"\n'):
+                args = release.arguments(["--publish"])
+                with patch.object(release.subprocess, "run", return_value=release.subprocess.CompletedProcess([], 0, output, "")):
+                    with self.assertRaises(ValueError):
+                        release.resolve_signing(args)
+
+    def test_explicit_signer_filters_discovery_and_preserves_profile(self):
+        with patch.dict("os.environ", {}, clear=True):
+            args = release.arguments(["--publish", "--sign", IDENTITY, "--notarize-profile", "chosen-notary"])
+        output = f'"{INSTALLER_IDENTITY}"\n"Developer ID Installer: Other (1234567890)"\n'
+        with patch.object(release.subprocess, "run", return_value=release.subprocess.CompletedProcess([], 0, output, "")):
+            release.resolve_signing(args)
+        self.assertEqual(args.installer_sign, INSTALLER_IDENTITY)
+        self.assertEqual(args.notarize_profile, "chosen-notary")
+
+    def test_local_unsigned_packaging_does_not_read_keychain_or_enable_notarization(self):
+        with patch.dict("os.environ", {}, clear=True):
+            args = release.arguments([])
+        with patch.object(release.subprocess, "run") as run:
+            release.resolve_signing(args)
+            run.assert_not_called()
+        self.assertIsNone(args.sign)
+        self.assertIsNone(args.notarize_profile)
+
+    def test_explicit_pair_needs_no_keychain_access(self):
+        with patch.object(release.subprocess, "run") as run:
+            release.resolve_signing(self.args)
+            run.assert_not_called()
+        self.assertEqual(self.args.notarize_profile, "test-notary")
+
+    def test_keychain_access_failure_never_falls_back_to_unsigned_publication(self):
+        with patch.dict("os.environ", {}, clear=True):
+            args = release.arguments(["--publish"])
+        with patch.object(release.subprocess, "run", side_effect=FileNotFoundError("security")):
+            with self.assertRaisesRegex(ValueError, "Cannot inspect Keychain"):
+                release.resolve_signing(args)
+        self.assertIsNone(args.sign)
 
     def test_prefix_cannot_escape_product_namespace(self):
         for prefix in ("", "../caterm", "/si", "si/", "si/../../channels"):

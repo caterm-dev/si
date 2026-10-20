@@ -25,6 +25,10 @@ Packaging itself never installs or launches SI or logs out. No logout/restart co
 
 Use Developer ID Application and Developer ID Installer certificates from the same team, already installed in Keychain, plus an existing `notarytool` Keychain profile. Configure these outside the repository; do not put passwords, private keys, certificates, or personal signing settings into tracked files.
 
+`./scripts/release.sh --arch arm64` reads public identity names using `security find-identity -v -p codesigning` to select a unique valid Developer ID Application identity. It then uses `security find-identity -v -p basic` to find an Installer identity belonging to that same team. Basic-policy validity alone does not establish suitability for signing an app. Expired/invalid Application identities excluded by macOS's code-signing policy cannot redirect automatic selection. A missing Installer identity produces a specific error naming the selected Application/team; the script never chooses another team's complete pair instead. Multiple valid Application identities require an explicit `--sign`, even if only one team has an Installer identity. Explicit `--installer-sign` constrains Application discovery to that team. Missing/ambiguous identities stop before building and never fall back to unsigned publication. Explicit flags override environment variables, which override automatic discovery. When both identities are explicit, discovery is skipped. No certificate/private-key data is read or copied by discovery, and no personal identity/team is hard-coded. The default notarization profile remains `caterm-notary`.
+
+The selected certificate names and notarization profile are printed before building. The profile must belong to the selected team; automatic certificate selection does not verify that association. If your matching pair belongs to a different team than Caterm's notarization credentials, supply the correct profile using `--notarize-profile` or `SI_NOTARY_PROFILE`. Plain local `package-dmg.sh` remains an ad hoc preview unless signing/notarization is explicitly requested. For explicit configuration:
+
 ```sh
 export SI_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID1234)'
 export SI_INSTALLER_IDENTITY='Developer ID Installer: Your Name (TEAMID1234)'
@@ -39,7 +43,7 @@ export SI_NOTARY_PROFILE='si-notary'
 
 The defaults share Caterm's public R2 account/bucket (`pub`), `caterm-r2` AWS profile, and `https://downloads.caterm.com` domain. All SI objects live under `si/`; Caterm release and channel paths are untouched. Install a current AWS CLI v2 supporting conditional `put-object` requests. The profile needs Object Read & Write access to the public bucket; no bucket administration is required. If needed, configure credentials interactively with `aws configure --profile caterm-r2`, using region `auto`. Never paste credentials into release command arguments.
 
-With signing variables configured:
+With a unique valid Application identity, its matching Installer identity, and Caterm's existing profiles (or explicit configuration above):
 
 ```sh
 ./scripts/release.sh --dry-run
@@ -76,7 +80,7 @@ Configuration overrides (flags or environment):
 | `--public-url` | `SI_R2_PUBLIC_URL` | `https://downloads.caterm.com` |
 | `--profile` | `SI_R2_PROFILE` | `caterm-r2` |
 
-Use `--profile ''` with standard AWS environment/default credentials in CI. The public URL must already serve the bucket anonymously, without an Access login or WAF challenge; the script does not change bucket/domain policies. `--dry-run` reads local metadata and prints a plan without creating files, contacting Apple/R2, signing, or building. It cannot verify credentials, certificates, notarization profiles, public access, or actual upload success.
+Use `--profile ''` with standard AWS environment/default credentials in CI. The public URL must already serve the bucket anonymously, without an Access login or WAF challenge; the script does not change bucket/domain policies. `--dry-run` reads local metadata and public Keychain identity names when automatic discovery is needed, then prints a plan without creating files, contacting Apple/R2, signing, or building. It cannot verify private-key signing access, notarization-profile/team association, service credentials, public access, or actual upload success. Supply both identities explicitly for an offline dry-run without Keychain access.
 
 After a real successful publication, update both website locales and the download URL as described in [WEBSITE.md](WEBSITE.md). A channel JSON is metadata for release tooling, not a built-in SI updater. Keep the website's unavailable-release status until an actual artifact has been published and verified.
 
