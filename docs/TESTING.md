@@ -6,6 +6,7 @@
 ./scripts/vocabulary.sh build --check
 ./scripts/vocabulary.sh --language chinese build --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
+python3 -m unittest discover -s Tests/ScriptTests -v
 ./scripts/test.sh
 ./scripts/build.sh
 ./scripts/benchmark.sh
@@ -13,6 +14,8 @@ python3 -m unittest discover -s Tests/VocabularyTests -v
 ```
 
 The vocabulary checks run offline and verify deterministic generation, source precedence, durable exclusions/corrections, checksums, rejected imports, and failure preservation. Network refresh/audit checks are separate maintainer actions; their workflow does not install SI. See [English vocabulary maintenance](ENGLISH_VOCABULARY.md) and [Chinese vocabulary maintenance](CHINESE_VOCABULARY.md).
+
+The reinstall script checks use isolated process-command and installer fixtures. They verify current-user/exact-name matching, graceful exit, forced-stop fallback, failure handling, argument validation, and installer status propagation without stopping SI or installing an app.
 
 The package uses Swift Testing for ambiguity, language filtering, deterministic ranking, deduplication, literal preservation, syllable boundaries, initials, partial input, phrase construction, continuous mixed input, composition edits, and stale selections. Additional targets cover learning feedback, decay, expiry, bounded storage, restart, file permissions, malformed data, write failures, deletion ordering, opt-in/pause, secure-event suppression, and settings persistence. These tests do not launch InputMethodKit or register an input source.
 
@@ -44,6 +47,7 @@ Install with `./scripts/install.sh`, log out and back in if needed, add SI in Ke
 
 - Stop any Xcode run before installing. The installer should report both `Installed:` and `Verified: one selectable SI keyboard input source (com.caterm.inputmethod.si)`. A copied/signed app alone is not registration evidence. Registration must leave the current and enabled input sources unchanged.
 - The default installation must build/sign the Release product. Use `./scripts/install.sh Debug` only for intentional debugging; preserve the running-process guard and backup/rollback behavior in both configurations.
+- For explicit stop-and-reinstall verification, finish any composition, select another input source, stop any Xcode run, then run `./scripts/reinstall.sh` (or `Debug`). Check SIGTERM precedes any needed SIGKILL, installation/registration succeeds, and enabled/selected input sources and saved settings remain unchanged. A process that restarts during the build must still trigger the installer's guard. This check stops SI and installs an app; do not run it as incidental test setup.
 - Run `xcrun swift scripts/register-input-source.swift --check "$HOME/Library/Input Methods/SI.app"` to query only SI's registration without enabling or selecting it. Close and reopen System Settings before falling back to logout if its input-source picker is stale.
 - Find SI under **English** in the input-source picker. The registration check must report English as the primary discovery language. With both languages enabled, verify `he` and `nihao` still offer Chinese and English matches as applicable; the system category must not filter SI's enabled providers. Existing SI sources keep the same identifier when this discovery category changes.
 - For an upgrade from `com.caterm.si`, verify the prior app is backed up, language/punctuation/learning-consent choices are preserved, and saved phrases/learning remain available. Check both initially disabled and explicitly enabled learning consent. A stale manually added source needs removal/re-adding by the user.
