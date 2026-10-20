@@ -1,0 +1,21 @@
+{
+  "version": "0.1.0",
+  "architecture": "arm64",
+  "assets": {
+    "SI-0.1.0-arm64.dmg": {
+      "sha256": "cb48f62b678a74f7e6f3960e2c9ca51da4f6da1d1924d2569693fe23630e0a58",
+      "size": 2155434,
+      "url": "https://downloads.caterm.com/si/releases/0.1.0/mac/arm64/SI-0.1.0-arm64.dmg"
+    },
+    "SI-0.1.0-arm64.dmg.sha256": {
+      "sha256": "3977f79bed40ff2ccd9d30c7134cdb538d3c322b87606595fd543e813b1624ee",
+      "size": 85,
+      "url": "https://downloads.caterm.com/si/releases/0.1.0/mac/arm64/SI-0.1.0-arm64.dmg.sha256"
+    },
+    "SI-0.1.0-source.tar.gz": {
+      "sha256": "1e0158973ba55f5b57e754e3e929f63f5201be0b03220dad600b03d17185262e",
+      "size": 3328477,
+      "url": "https://downloads.caterm.com/si/releases/0.1.0/mac/arm64/SI-0.1.0-source.tar.gz"
+    }
+  }
+}

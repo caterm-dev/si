@@ -140,6 +140,10 @@ h3 { font-size: 20px; font-weight: 550; margin: 0 0 11px; letter-spacing: -.5px;
 .button-light:hover { background: white; }
 .download-actions .text-link { font-size: 11px; }
 .download-actions .text-link:hover { color: white; }
+.download-panel > p.release-details { color: #f3efe3; font-family: var(--mono); font-size: 11px; margin-bottom: 16px; }
+.download-resources { display: flex; flex-wrap: wrap; gap: 12px 23px; margin-top: 22px; padding-top: 17px; border-top: 1px solid #55584c; font-size: 11px; color: #d1d2c7; }
+.download-resources a { text-decoration: underline; text-underline-offset: 4px; }
+.download-resources a:hover { color: white; }
 .download-section :focus-visible { outline-color: #f0c7a5; }
 .site-footer { display: flex; align-items: center; gap: 17px; padding-block: 30px; }
 .site-footer .logo { width: 30px; height: 30px; font-size: 17px; border-radius: 8px; }

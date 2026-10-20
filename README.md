@@ -185,7 +185,7 @@ The Swift package and Xcode app compile the same core source files. There is no 
 
 ## Website
 
-The static landing page supports English and Simplified Chinese, with an accessible scripted input demonstration. Build it with `node scripts/build-website.mjs`; see [website development and GitHub Pages deployment](docs/WEBSITE.md) for preview, localization, download updates, and custom-domain setup.
+The static landing page supports English and Simplified Chinese, with an accessible scripted input demonstration. Its download buttons use the published R2 image and provide the matching checksum and source archive. Build it with `node scripts/build-website.mjs`; see [website development and GitHub Pages deployment](docs/WEBSITE.md) for preview, localization, download updates, and custom-domain setup.
 
 ## Contributing
 
