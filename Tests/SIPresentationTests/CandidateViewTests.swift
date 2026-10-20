@@ -5,6 +5,33 @@ import SICore
 
 @MainActor
 struct CandidateViewTests {
+    @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
+    func singleLetterCandidateRemainsVisibleAndSelectable(appearance: NSAppearance.Name) throws {
+        var session = InputSession()
+        session.append("a")
+        var selection = CandidateSelection()
+        selection.update(session.candidates)
+        let view = CandidateListView()
+        var clicked: String?
+        view.onSelect = { clicked = $0 }
+        for expanded in [false, true] {
+            selection.setExpanded(expanded)
+            view.render(selection)
+            let image = try snapshot(view, appearance: appearance)
+            let first = try #require(view.rows.first)
+            #expect(first.candidateLabel.stringValue == "a")
+            #expect(!first.candidateLabel.isHidden)
+            #expect(first.candidateLabel.frame.width >= first.candidateLabel.intrinsicContentSize.width)
+            first.performClick(nil)
+            #expect(clicked == selection.candidate(number: 1)?.id)
+            #expect(selection.candidate(number: 1)?.text == "a")
+            if !expanded, let path = ProcessInfo.processInfo.environment["SI_SHORT_CANDIDATE_SNAPSHOT_PATH"] {
+                let suffix = appearance == .darkAqua ? "dark" : "light"
+                try image.write(to: URL(filePath: "\(path).\(suffix).png"))
+            }
+        }
+    }
+
     @Test(arguments: [false, true], [false, true])
     func scrollingNeverChangesCandidatePages(expanded: Bool, pending: Bool) throws {
         var selection = CandidateSelection()

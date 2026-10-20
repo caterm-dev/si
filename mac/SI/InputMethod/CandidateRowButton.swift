@@ -80,7 +80,6 @@ final class CandidateRowButton: NSButton {
         let trailing: CGFloat = detailWidth > 0 ? detailWidth + 20 : indicatorWidth > 0 ? indicatorWidth + 14 : 10
         numberLabel.frame = NSRect(x: 10, y: (bounds.height - 14) / 2, width: 11, height: 14)
         let textWidth = max(0, bounds.width - 22 - trailing)
-        candidateLabel.isHidden = isCompact && textWidth < 20
         candidateLabel.frame = NSRect(x: 22, y: (bounds.height - 22) / 2, width: textWidth, height: 22)
         detailLabel.frame = NSRect(x: bounds.width - detailWidth - 10, y: (bounds.height - 14) / 2,
                                    width: detailWidth, height: 14)
