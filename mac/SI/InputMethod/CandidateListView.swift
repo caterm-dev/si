@@ -164,9 +164,7 @@ final class CandidateListView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        let delta = abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) ? event.scrollingDeltaX : event.scrollingDeltaY
-        guard !isUpdating, abs(delta) > 0.5, event.phase != .ended else { return }
-        onMovePage?(delta > 0 ? -1 : 1)
+        // Wheel and trackpad gestures must not change the candidate page or selection.
     }
 
     @objc private func selectRow(_ sender: CandidateRowButton) {

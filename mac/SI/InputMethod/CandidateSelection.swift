@@ -10,6 +10,7 @@ struct CandidateSelection {
     }
 
     static let pageSize = 9
+    static let maximumCandidates = 27
     private(set) var isExpanded = false
     var visiblePageSize: Int { isExpanded ? Self.pageSize : 5 }
     private(set) var candidates: [InputCandidate] = []
@@ -37,7 +38,7 @@ struct CandidateSelection {
     }
 
     mutating func update(_ candidates: [InputCandidate], prefixScore: ((InputCandidate) -> Double)? = nil) {
-        // Feature two complete choices, then useful word/character prefixes, without dropping any result.
+        // Feature two complete choices, then useful word/character prefixes before shortlisting.
         let whole = candidates.indices.filter { !candidates[$0].isPartial && !candidates[$0].isLiteral }.prefix(2)
         let partialIndices = candidates.indices.filter { candidates[$0].isPartial }
         let scored: [(index: Int, score: Double)] = partialIndices.map {
@@ -48,10 +49,34 @@ struct CandidateSelection {
         }.prefix(7).map { $0.index }
         let featured = Array(whole) + prefixes
         let featuredIndices = Set(featured)
-        self.candidates = prefixes.isEmpty ? candidates
+        let ordered = prefixes.isEmpty ? candidates
             : (featured + candidates.indices.filter { !featuredIndices.contains($0) }).map { candidates[$0] }
+        self.candidates = Self.shortlist(ordered, engineCandidates: candidates)
         selectedIndex = 0
         if candidates.isEmpty { isExpanded = false }
+    }
+
+    private static func shortlist(_ ordered: [InputCandidate], engineCandidates: [InputCandidate]) -> [InputCandidate] {
+        guard ordered.count > maximumCandidates else { return ordered }
+        // Reserve the engine's first choice for each language identity, plus exact typed text.
+        var languages: Set<InputLanguage> = []
+        var includesMixed = false
+        var retainedIDs: Set<String> = []
+        for candidate in engineCandidates {
+            if candidate.isLiteral {
+                retainedIDs.insert(candidate.id)
+            } else if candidate.isMixed {
+                if !includesMixed { retainedIDs.insert(candidate.id) }
+                includesMixed = true
+            } else if let language = candidate.language, languages.insert(language).inserted {
+                retainedIDs.insert(candidate.id)
+            }
+        }
+        for candidate in ordered {
+            guard retainedIDs.count < maximumCandidates else { break }
+            retainedIDs.insert(candidate.id)
+        }
+        return ordered.filter { retainedIDs.contains($0.id) }
     }
 
     mutating func setExpanded(_ expanded: Bool) { isExpanded = expanded }

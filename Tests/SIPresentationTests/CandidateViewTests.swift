@@ -5,6 +5,32 @@ import SICore
 
 @MainActor
 struct CandidateViewTests {
+    @Test(arguments: [false, true], [false, true])
+    func scrollingNeverChangesCandidatePages(expanded: Bool, pending: Bool) throws {
+        var selection = CandidateSelection()
+        selection.setExpanded(expanded)
+        selection.update((0..<27).map { InputCandidate(text: "Synthetic \($0)", language: .english, score: 100) })
+        selection.movePage(by: 1)
+        let selected = selection.selected
+        let view = CandidateListView()
+        view.render(selection, isPending: pending)
+        var pageMoves: [Int] = []
+        view.onMovePage = {
+            pageMoves.append($0)
+            selection.movePage(by: $0)
+        }
+        for units in [CGScrollEventUnit.line, .pixel] {
+            for (vertical, horizontal): (Int32, Int32) in [(20, 0), (-20, 0), (0, 20), (0, -20)] {
+                let scroll = try #require(CGEvent(scrollWheelEvent2Source: nil, units: units, wheelCount: 2,
+                                                 wheel1: vertical, wheel2: horizontal, wheel3: 0))
+                let event = try #require(NSEvent(cgEvent: scroll))
+                view.scrollWheel(with: event)
+            }
+        }
+        #expect(pageMoves.isEmpty)
+        #expect(selection.selected == selected && selection.page == 1)
+    }
+
     @Test(arguments: [false, true])
     func freshPendingHintsReplaceOldRowsWithoutShrinkingOrEnablingStaleActions(expanded: Bool) throws {
         var selection = CandidateSelection()

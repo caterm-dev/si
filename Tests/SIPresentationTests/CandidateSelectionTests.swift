@@ -106,10 +106,10 @@ struct CandidateSelectionTests {
         #expect(selection.candidate(number: 7) == nil)
     }
 
-    @Test func navigationClampsAndEveryCandidateRemainsReachable() {
+    @Test func navigationClampsAndEveryShortlistedCandidateRemainsReachable() {
         var selection = CandidateSelection()
         selection.setExpanded(true)
-        let values = candidates(37)
+        let values = candidates(27)
         selection.update(values)
         var visited: [String] = []
         for _ in values.indices {
@@ -123,6 +123,51 @@ struct CandidateSelectionTests {
         #expect(selection.selected == values.first)
         #expect(selection.candidate(number: 0) == nil)
         #expect(selection.candidate(number: 10) == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func largeResultSetsKeepLanguageIdentitiesFeaturedPrefixesAndExactLiteral(expanded: Bool) throws {
+        let whole = candidates(900)
+        let chinese = InputCandidate(text: "word0", language: .simplifiedChinese, score: 0)
+        let mixed = InputCandidate(text: "你好world", language: .simplifiedChinese, score: 0, isMixed: true)
+        let literal = InputCandidate(text: "SyntheticID", language: nil, score: 0)
+        let prefixes = (0..<12).map {
+            InputCandidate(text: "前缀\($0)", language: .simplifiedChinese, score: $0, consumedInputCount: $0 + 1)
+        }
+        let values = whole + [chinese, mixed] + prefixes + [literal]
+        var selection = CandidateSelection()
+        selection.setExpanded(expanded)
+        selection.update(values)
+        let shortlist = selection.candidates
+        #expect(shortlist.count == 27)
+        #expect(selection.pageCount == (expanded ? 3 : 6))
+        #expect(Array(shortlist.prefix(9)) == Array(whole.prefix(2)) + Array(prefixes.reversed().prefix(7)))
+        #expect(shortlist.contains(whole[0]) && shortlist.contains(chinese) && shortlist.contains(mixed))
+        #expect(shortlist.last == literal)
+        #expect(Set(shortlist.map(\.id)).count == shortlist.count)
+        // Same text in two languages remains distinguishable; paging and digits use the shortlist.
+        for (index, candidate) in shortlist.enumerated() {
+            #expect(selection.selected == candidate)
+            #expect(selection.candidate(number: index % selection.visiblePageSize + 1) == candidate)
+            selection.move(by: 1)
+        }
+        #expect(selection.selected == literal)
+        selection.update(values)
+        #expect(selection.candidates == shortlist && selection.selectedIndex == 0)
+        #expect(values.count == 915)
+    }
+
+    @Test(arguments: [26, 27, 28, 900])
+    func shortlistKeepsRankedChoicesAndLiteralAcrossTheLimit(count: Int) {
+        let ranked = candidates(count - 1)
+        let literal = InputCandidate(text: "UnchangedID", language: nil, score: 0)
+        var selection = CandidateSelection()
+        selection.update(ranked + [literal])
+        #expect(selection.candidates == Array(ranked.prefix(min(count, 27) - 1)) + [literal])
+        selection.update([literal])
+        #expect(selection.candidates == [literal])
+        selection.update([])
+        #expect(selection.candidates.isEmpty)
     }
 
     @Test func editsAndCancellationDiscardOldSelection() {
