@@ -34,6 +34,8 @@ def arguments(argv=None):
     parser.add_argument("--output-dir", type=Path, help="default: .build/releases/<version>/<arch>")
     parser.add_argument("--dry-run", action="store_true", help="print plan without writes or network requests")
     parser.add_argument("--publish", action="store_true", help="upload artifacts and promote the R2 channel")
+    parser.add_argument("--no-bump", action="store_true",
+                        help="publish the current version without the default patch/build increment")
     # Non-secret defaults match Caterm's public bucket, under a separate SI prefix.
     parser.add_argument("--account-id", default=os.environ.get("SI_R2_ACCOUNT_ID", "8e5cfe29add1b0bcab4a4ba85161f859"))
     parser.add_argument("--bucket", default=os.environ.get("SI_R2_BUCKET", "pub"))
@@ -133,6 +135,91 @@ def project_version(root):
     version = versions.pop()
     version_number(version)
     return version
+
+
+def project_build(root):
+    project = (root / "mac/SI.xcodeproj/project.pbxproj").read_text()
+    builds = set(re.findall(r"CURRENT_PROJECT_VERSION = ([^;]+);", project))
+    if len(builds) != 1 or not re.fullmatch(r"[0-9]+", next(iter(builds), "")):
+        raise ValueError("Xcode configurations must have the same integer CURRENT_PROJECT_VERSION")
+    return int(builds.pop())
+
+
+def pending_path(root, architecture):
+    return root / ".build" / f"release-pending-{architecture}.json"
+
+
+def write_pending(path, content):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, prefix=".release-pending-", delete=False) as stream:
+        temporary = Path(stream.name)
+        try:
+            stream.write(json.dumps(content, indent=2) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    try:
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def planned_version(root, args, version, revision):
+    if args.no_bump:
+        return version
+    path = pending_path(root, args.arch)
+    if path.exists():
+        state = json.loads(path.read_text())
+        if state.get("version") == version:
+            if state.get("revision") == revision:
+                return version
+            # Recover if interrupted after the version commit but before recording its SHA.
+            if (state.get("revision") is None and state.get("base_revision") and
+                    git(root, "log", "-1", "--format=%P") == state["base_revision"] and
+                    git(root, "log", "-1", "--format=%s") == f"Bump version to {version}" and
+                    git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", revision) ==
+                    "mac/SI.xcodeproj/project.pbxproj"):
+                return version
+    major, minor, patch = version_number(version)
+    return f"{major}.{minor}.{patch + 1}"
+
+
+def prepare_version(root, args, version, revision):
+    validate_checkout(root, version, revision)
+    target = planned_version(root, args, version, revision)
+    state_path = pending_path(root, args.arch)
+    if target == version:
+        print(f"Using current release version: {version}", flush=True)
+    else:
+        project = root / "mac/SI.xcodeproj/project.pbxproj"
+        original = project.read_text()
+        build = project_build(root)
+        updated = re.sub(r"MARKETING_VERSION = [^;]+;", f"MARKETING_VERSION = {target};", original)
+        updated = re.sub(r"CURRENT_PROJECT_VERSION = [^;]+;", f"CURRENT_PROJECT_VERSION = {build + 1};", updated)
+        write_pending(state_path, {"version": target, "base_revision": revision, "revision": None})
+        project.write_text(updated)
+        try:
+            # Commit only version metadata; source archives must match the built version's commit.
+            if (git(root, "rev-parse", "HEAD") != revision or project.read_text() != updated or
+                    git(root, "diff", "--name-only", "HEAD") != "mac/SI.xcodeproj/project.pbxproj" or
+                    git(root, "ls-files", "--others", "--exclude-standard")):
+                raise ValueError("Checkout changed during version preparation; release stopped")
+            run(["git", "-C", root, "commit", "--only", "-m", f"Bump version to {target}",
+                 "--", "mac/SI.xcodeproj/project.pbxproj"])
+        except BaseException:
+            # Restore our edit only when no commit or intervening edit has changed it.
+            if git(root, "rev-parse", "HEAD") == revision and project.read_text() == updated:
+                project.write_text(original)
+                state_path.unlink(missing_ok=True)
+            raise
+        revision = git(root, "rev-parse", "HEAD")
+        version = target
+        print(f"Version: {version}; build: {build + 1}", flush=True)
+    validate_checkout(root, version, revision)
+    write_pending(state_path, {"version": version, "revision": revision})
+    return version, revision
 
 
 def validate_checkout(root, version, revision):
@@ -412,14 +499,22 @@ def main(argv=None):
     resolve_signing(args)
     version = project_version(ROOT)
     revision = git(ROOT, "rev-parse", "HEAD")
-    output = (args.output_dir or ROOT / ".build/releases" / version / args.arch).resolve()
     if args.dry_run:
+        if args.publish:
+            target = planned_version(ROOT, args, version, revision)
+            if target != version:
+                print(f"Would bump version: {version} -> {target}; build: {project_build(ROOT)} -> {project_build(ROOT) + 1}")
+                print(f"Would commit only mac/SI.xcodeproj/project.pbxproj as: Bump version to {target}")
+                version = target
+            else:
+                print(f"Would reuse current release version: {version}")
+        output = (args.output_dir or ROOT / ".build/releases" / version / args.arch).resolve()
         if args.publish and (output / "manifest.json").exists():
             print(f"Validate cached release: {output / 'manifest.json'}")
         else:
             package(args, ROOT, version, output)
         if args.publish:
-            print(f"Require clean checkout at {revision}; reuse verified cached release if present.")
+            print(f"Require clean checkout starting at {revision}; reuse verified cached release if present.")
             print(f"Archive corresponding source; upload DMG, SHA-256, source and manifest.json to "
                   f"R2 {args.bucket}/{args.prefix}/releases/{version}/mac/{args.arch}/")
             print(f"Verify public downloads, then conditionally promote "
@@ -438,13 +533,19 @@ def main(argv=None):
         except BlockingIOError as error:
             raise ValueError("Another SI packaging/release process is running") from error
         if args.publish:
+            version = project_version(ROOT)
+            revision = git(ROOT, "rev-parse", "HEAD")
             validate_checkout(ROOT, version, revision)
             storage = Storage(args)
             storage.preflight()
+            version, revision = prepare_version(ROOT, args, version, revision)
+            output = (args.output_dir or ROOT / ".build/releases" / version / args.arch).resolve()
             manifest = prepare_release(args, ROOT, version, revision, output)
             validate_checkout(ROOT, version, revision)
             publish(args, manifest, storage)
+            pending_path(ROOT, args.arch).unlink(missing_ok=True)
         else:
+            output = (args.output_dir or ROOT / ".build/releases" / version / args.arch).resolve()
             package(args, ROOT, version, output)
 
 

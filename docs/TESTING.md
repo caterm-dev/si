@@ -60,6 +60,8 @@ Release signing discovery checks cover a unique complete same-team pair among un
 
 Certificate-policy correction on October 20, 2026: 36 script tests and 157 shared-core tests passed, with successful Debug/Release builds. Discovery now selects the Application using `codesigning` policy before querying a same-team Installer with `basic` policy; a regression fixture ensures a basic-only pair from another team cannot replace that choice. The local release dry-run correctly stopped at a missing Installer identity for the selected valid Application team, before any build, signing, notarization or upload. No Keychain items were modified or deleted.
 
+Release-version fixtures use isolated temporary Git repositories to verify patch increments through `0.0.9` → `0.0.10`, synchronized Debug/Release build counters, version-only commits and matching source revisions, dirty/untracked-source rejection, commit-hook failure recovery, dry-run isolation, pending-release retries, interruption recovery after the version commit, preflight failure preservation, and same-version cross-architecture publication with `--no-bump`. Mocked publication verifies that a failed upload reuses the version/revision and a later new release increments again. On October 20, 2026, all 48 script tests and 157 shared-core tests passed; Debug/Release builds passed. Version commits occurred only in temporary test repositories. This checkout's version was not incremented, and no real release, notarization or upload was performed.
+
 ## Manual input-method verification
 
 Install with `./scripts/install.sh`, log out and back in if needed, add SI in Keyboard settings, and select it. Do not run a second copy from Xcode while using the installed input source.

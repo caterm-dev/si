@@ -130,10 +130,13 @@ To uninstall, select another input source, remove SI in Keyboard settings, then 
 ./scripts/package-dmg.sh --dry-run   # Inspect Universal Release packaging
 ./scripts/package-dmg.sh             # Local ad hoc signed preview
 ./scripts/release.sh --dry-run       # Detect signing identities and inspect publication
-./scripts/release.sh                 # Sign, notarize, verify and publish to R2
+./scripts/release.sh                 # Increment patch/build, commit versions, notarize and publish
+./scripts/release.sh --no-bump       # Publish/retry the current version without incrementing
 ```
 
 Publication uses Caterm's public R2 bucket and download domain under the separate `si/` prefix. It selects a unique Developer ID Application identity valid under macOS's code-signing policy, then requires a valid Installer identity from that team. It never switches to another team to obtain a complete pair. The defaults are Caterm's `caterm-notary` notarization profile and `caterm-r2` AWS profile. The notarization profile must belong to the selected signing team; flags/environment override the defaults, and ambiguous or missing identities stop publication. A clean committed checkout is required. Open `Install SI.pkg` inside the DMG to install in `~/Library/Input Methods`; the native macOS Installer ends with **Log Out** to finish registration. Save your work, click the button and log back in; a full Mac restart is not required by this installer. Existing apps are backed up and a running SI blocks replacement. See [release configuration, artifacts and retry behavior](docs/RELEASING.md). Adding these scripts does not mean a public release has been published or host compatibility has been verified.
+
+Each new release increments the last version component (`0.1.0` → `0.1.1`) and internal build number, then commits only the Xcode version file before building. Preflight failures leave versions unchanged; retries of a pending release at the same commit/architecture reuse its version. `--dry-run` prints the planned increment without changing files or Git history. See the release guide for `--no-bump`, retry state and multiple architectures.
 
 ## Keyboard behavior
 

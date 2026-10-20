@@ -50,15 +50,26 @@ With a unique valid Application identity, its matching Installer identity, and C
 ./scripts/release.sh
 ```
 
-Publication requires both Developer ID signing and notarization, plus a clean committed checkout. It records the exact Git revision and checks that the checkout/version have not changed after packaging. The script does not bump versions, commit, tag, push, deploy the website, or configure Cloudflare. Set `MARKETING_VERSION` consistently in both Xcode configurations and update `CURRENT_PROJECT_VERSION` before committing a new release. Versioned R2 files cannot change bytes; publish changed builds under a new version.
+Publication requires both Developer ID signing and notarization, plus a clean committed checkout. After certificate selection and R2 preflight pass, a new release automatically increments the patch component of `MARKETING_VERSION` (`0.1.0` → `0.1.1`, `0.0.9` → `0.0.10`) and the integer `CURRENT_PROJECT_VERSION` by one in both Debug and Release configurations. Major/minor components are retained. The script commits only `mac/SI.xcodeproj/project.pbxproj` with the message `Bump version to X.Y.Z`, then builds/archives that exact committed revision. Git author identity and any required commit signing must already work locally. A failed version commit restores the script's edit only if no intervening edit/commit changed it. The script does not tag, push, deploy the website, or configure Cloudflare.
 
-For the initial Universal version, the object layout is:
+`--dry-run` prints the proposed version/build increment and commit without editing files or Git history. Plain `package-dmg.sh` never increments or commits. Use `./scripts/release.sh --no-bump` to publish the current version without any increment, including when publishing another architecture of the same release:
+
+```sh
+./scripts/release.sh --arch arm64            # New patch version
+./scripts/release.sh --arch x86_64 --no-bump  # Same version for Intel
+```
+
+Pending version/revision metadata is stored under `.build/release-pending-<arch>.json` before building and removed only after successful publication/public verification. If a build, notarization or upload fails, rerunning the same architecture at the same clean commit automatically resumes that version instead of incrementing again. The marker also recovers an interruption between committing the version and recording its new SHA. Once publication succeeds, the next normal invocation increments again. A changed committed checkout starts a new patch; pending state from a different revision does not silently reuse old artifacts. Keep `.build/` for automatic retries. If the marker is lost, use `--no-bump` explicitly to retry the current version; never rebuild different bytes under an already published version. An explicit output directory must be fresh for a new release or contain only the matching cached release.
+
+Both Xcode configurations must have matching marketing versions and matching integer build numbers. Dirty tracked/staged/untracked source prevents automatic commits; commit your source changes first. Missing signing identities or a failed R2 preflight do not increment the version. A later failure retains the committed version for retry. Versioned R2 files cannot change bytes; publish changed builds under a new version.
+
+For version `0.1.1`, the Universal object layout is:
 
 ```text
-si/releases/0.1.0/mac/universal/SI-0.1.0-universal.dmg
-si/releases/0.1.0/mac/universal/SI-0.1.0-universal.dmg.sha256
-si/releases/0.1.0/mac/universal/SI-0.1.0-source.tar.gz
-si/releases/0.1.0/mac/universal/manifest.json
+si/releases/0.1.1/mac/universal/SI-0.1.1-universal.dmg
+si/releases/0.1.1/mac/universal/SI-0.1.1-universal.dmg.sha256
+si/releases/0.1.1/mac/universal/SI-0.1.1-source.tar.gz
+si/releases/0.1.1/mac/universal/manifest.json
 si/channels/mac/stable-universal.json
 ```
 
