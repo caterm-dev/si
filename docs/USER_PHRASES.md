@@ -4,7 +4,7 @@ Open **SI Settings → Personal Phrases → Manage Personal Phrases…**. Add an
 
 - Codes are case-insensitive ASCII letters with optional internal apostrophes, at most 64 normalized bytes. Leading/trailing or repeated apostrophes, digits, and unreachable codes are rejected. Chinese codes normalize ü/`u:` to `v`; type `v` through SI.
 - Phrase text is preserved exactly, including case, spaces, and emoji. Empty/whitespace-only text, line breaks, control characters, or more than 1,024 UTF-8 bytes are rejected. Unicode joiners are allowed for joined emoji and scripts.
-- A full-code match scores 115; **Prefer this phrase for its full code** raises it to 180. Prefix matches score 80. Other enabled-language candidates and literal input remain available.
+- Full-code matches use a local prior based on dictionary size; **Prefer this phrase for its full code** gives an exact full-code match explicit priority; its mass for constructed paths is doubled. Incomplete codes use the shared spelling channel. Direct and composed phrase paths share this scale. Other enabled-language candidates and literal input remain available.
 - Candidate labels identify personal phrases. Their language comes from the saved setting; it is not guessed from the output script.
 - Editing preserves the entry identifier. Identical code/language/text entries cannot be added twice; multiple different outputs for one code are allowed.
 - Personal phrases are independent of automatic learning. They do not create learning records or become prior-word context. Clearing learning data leaves phrases intact; clearing the phrase dictionary leaves unrelated learned preferences intact.

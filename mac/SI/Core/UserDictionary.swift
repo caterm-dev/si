@@ -36,6 +36,8 @@ public struct UserDictionary: Equatable, Sendable {
         }
     }
 
+    var phraseCount: Int { phrases.count }
+
     public var entries: [UserPhrase] {
         phrases.values.sorted {
             if $0.input != $1.input { return $0.input < $1.input }
@@ -105,13 +107,17 @@ public struct UserDictionary: Equatable, Sendable {
         guard !input.isEmpty else { return [] }
         let english = LearningProfile.normalizedInput(input, language: .english)
         let chinese = LearningProfile.normalizedInput(input, language: .simplifiedChinese)
+        let baseCost = log2(Double(max(1, phrases.count)))
         return phrases.values.compactMap { phrase in
             guard languages.contains(phrase.language) else { return nil }
             let code = phrase.language == .english ? english : chinese
             guard phrase.input.hasPrefix(code) else { return nil }
             let exact = phrase.input == code
+            let cost = baseCost + (exact && phrase.isPinned ? 0 : 1)
+                + (exact ? 0 : SpellingChannel.cost(fullLength: phrase.input.count, typedLength: code.count))
             return InputCandidate(text: phrase.text, language: phrase.language,
-                                  score: exact ? (phrase.isPinned ? 180 : 115) : 80, isUserPhrase: true, hasCompletion: !exact)
+                                  score: Int(-cost), isUserPhrase: true, rankingScore: -cost, hasCompletion: !exact,
+                                  isPreferred: exact && phrase.isPinned)
         }
     }
 }

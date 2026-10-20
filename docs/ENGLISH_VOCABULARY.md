@@ -4,7 +4,7 @@ SI maintains English source files separately and queries one generated vocabular
 
 ## Current sources
 
-| Source | Purpose | Pinned words | Completion score |
+| Source | Purpose | Pinned words | Legacy completion metadata |
 | --- | --- | ---: | ---: |
 | `scowl` | ESDB/SCOWL medium-size American English selection | 61,172 | 75 |
 | `si-original` | All words from SI's original English vocabulary | 638 | 85 |
@@ -33,7 +33,7 @@ All three imports retain only ASCII alphabetic spellings of 2–64 letters. CSpe
 
 Source priority chooses casing and completion score for duplicates: `cspell-companies` (1), `cspell-tools` (2), `rime-ice-english` (3), SCOWL (10), SI original (100), SI terminology (200), then explicit overrides. All 61,216 pre-existing spellings retain their prior casing and completion score at this import. This preserves ordinary `may`, `can` and `will` while adding previously absent names. The durable `gmail` override changes upstream `GMail` to `Gmail`. Contributions from every source remain traceable with `explain`.
 
-All new completions score 75; exact matches use the existing 110 score. These lists provide spellings, not measured input-method frequencies. Added words and abbreviations can change mixed segmentation, ranking and bounded unknown-span choices. For example, `QWERT` becomes a known prefix; privacy fixtures therefore use a synthetic span without that lexical prefix and check unknown text after a known product. Any generated path still containing an unrecognized span remains excluded from learning/context, and the complete exact input remains independently available.
+The 75/85 source fields remain legacy provenance metadata and do not affect runtime ranking. These lists provide spellings; wordfreq 3.1.1 supplies separately pinned frequency estimates. Added words and abbreviations can change mixed segmentation, ranking and bounded unknown-span choices. For example, `QWERT` becomes a known prefix; privacy fixtures therefore use a synthetic span without that lexical prefix and check unknown text after a known product. Any generated path still containing an unrecognized span remains excluded from learning/context, and the complete exact input remains independently available.
 
 The existing monthly upstream audit includes these registered sources automatically. Reproduce the pinned imports with:
 
@@ -58,19 +58,20 @@ Use the existing review/refresh workflow for updates; source-specific license ch
 
 Python 3.9 or later is needed only for maintenance. No additional Python packages are required. Normal app builds use the checked-in generated Swift file without Python, downloads, or a separate runtime vocabulary loader.
 
-On first default-engine construction, the app prepares a shared immutable English Trie and entry metadata from those generated words. Prefix nodes store ranges rather than duplicate word lists; metadata caches word length, casing variants, completion score and mixed continuation cost. Restarting the process rebuilds these derived structures. The source format, completion priorities and deterministic lexical order remain unchanged; no input-result cache or serialized index is added. See [runtime indexing and limits](DICTIONARIES.md).
+On first default-engine construction, the app prepares a shared immutable English Trie and entry metadata from those generated words. Prefix nodes store ranges rather than duplicate word lists; metadata caches word length, casing variants, measured frequency and geometric spelling-channel costs. A packed top-eight preview cache shares slices across single-child chains. Restarting the process rebuilds these derived structures. The source format, compatibility metadata and deterministic lexical order remain unchanged; no input-result cache or serialized index is added. See [runtime indexing and limits](DICTIONARIES.md).
 
 ```sh
 ./scripts/vocabulary.sh build          # Validate sources and regenerate all outputs, offline
 ./scripts/vocabulary.sh build --check  # Fail if sources, locks, notices or generated outputs disagree
 ./scripts/vocabulary.sh stats
 ./scripts/vocabulary.sh explain subtitle
+python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 ```
 
 The source files contain one word per line. Blank lines and comments beginning with `#` are allowed. Local duplicates, unsupported characters, empty sources, duplicate IDs/priorities, invalid override rules, changed upstream snapshots and license checksum mismatches fail validation. Source priority chooses the canonical casing and completion score for a repeated spelling; all contributing sources remain visible in the merged table. Priority does not select a language or suppress another enabled language.
 
-All English exact matches score 110. Completion scores are explicit editorial values, not corpus frequencies. Existing SI words and terminology retain their earlier score of 85; imported completions score 75 so a much larger word list does not displace established completions in bounded mixed search. Mixed continuation costs reflect the same completion preference. Frequency learning remains separate, opt-in, and unchanged. There is no global cap on direct English candidates.
+Runtime ranking uses the [unified log-probability model](UNIFIED_RANKING.md), with approved wordfreq 3.1.1 English frequencies restricted to these existing words. `EnglishFrequencyData.swift` is generated separately by `python3 scripts/ranking.py`, from the pinned cBpack and notices in `Data/Ranking/wordfreq-3.1.1/`. Run that command after changing the word vocabulary, then use `--check`; CI verifies both outputs. Missing corpus terms receive a documented floor. Rare/new product names can fall outside bounded mixed completion pools while direct matching, exact spelling and literal fallback remain available. The app adds no Python runtime or networking. There is no global cap on direct English candidates.
 
 ## Add or correct words
 

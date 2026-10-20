@@ -1,0 +1,227 @@
+[
+  {
+    "input": "abilit",
+    "expected": "ability",
+    "category": "regression"
+  },
+  {
+    "input": "danci",
+    "expected": "单词",
+    "category": "regression"
+  },
+  {
+    "input": "nengxiangbanfayouhuama",
+    "expected": "能想办法优化吗",
+    "category": "regression"
+  },
+  {
+    "input": "bangwozaixie",
+    "expected": "帮我再写",
+    "category": "regression"
+  },
+  {
+    "input": "bangwozaixieyige",
+    "expected": "帮我再写一个",
+    "category": "regression"
+  },
+  {
+    "input": "woxiangyaoyigehaoyongdeshurufa",
+    "expected": "我想要一个好用的输入法",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "mingtianwomenqubeijing",
+    "expected": "明天我们去北京",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "jintiantianqihenhao",
+    "expected": "今天天气很好",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "zhegeshurufakeyishuruzhongwenheyingwen",
+    "expected": "这个输入法可以输入中文和英文",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "qingbangwobaocunwenjian",
+    "expected": "请帮我保存文件",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "womenzaibendixuexi",
+    "expected": "我们在本地学习",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "tianjiayigezidingyiduanyu",
+    "expected": "添加一个自定义短语",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "guanbichuangkou",
+    "expected": "关闭窗口",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "qingjianchashurujieguo",
+    "expected": "请检查输入结果",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "zhegewenjianmingbaohanyingwen",
+    "expected": "这个文件名包含英文",
+    "category": "existing-sentences"
+  },
+  {
+    "input": "informatio",
+    "expected": "information",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "importan",
+    "expected": "important",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "compute",
+    "expected": "computer",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "beautiful",
+    "expected": "beautiful",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "developmen",
+    "expected": "development",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "questio",
+    "expected": "question",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "languag",
+    "expected": "language",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "programmin",
+    "expected": "programming",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "communicatio",
+    "expected": "communication",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "togethe",
+    "expected": "together",
+    "category": "evaluation-English"
+  },
+  {
+    "input": "shijian",
+    "expected": "时间",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "gongzuo",
+    "expected": "工作",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "shenghuo",
+    "expected": "生活",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "xuexi",
+    "expected": "学习",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "pengyou",
+    "expected": "朋友",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "xinxijishu",
+    "expected": "信息技术",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "gaojixuanxiang",
+    "expected": "高级选项",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "dakaishurufa",
+    "expected": "打开输入法",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "bangwojianchayixia",
+    "expected": "帮我检查一下",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "zhegefangfahenhao",
+    "expected": "这个方法很好",
+    "category": "evaluation-Chinese"
+  },
+  {
+    "input": "woaiSwiftshurufa",
+    "expected": "我爱Swift输入法",
+    "category": "evaluation-mixed"
+  },
+  {
+    "input": "nihaoworld",
+    "expected": "你好world",
+    "category": "evaluation-mixed"
+  },
+  {
+    "input": "qingyongPython",
+    "expected": "请用Python",
+    "category": "evaluation-mixed"
+  },
+  {
+    "input": "womenxuexiEnglish",
+    "expected": "我们学习English",
+    "category": "evaluation-mixed"
+  },
+  {
+    "input": "wozaiGitHub",
+    "expected": "我在GitHub",
+    "category": "evaluation-mixed"
+  },
+  {
+    "input": "nihaotitle",
+    "expected": "你好title",
+    "category": "evaluation-mixed"
+  },
+  {
+    "input": "nihaoabilit",
+    "expected": "你好ability",
+    "category": "evaluation-mixed"
+  },
+  {
+    "input": "helloworld",
+    "expected": "hello world",
+    "category": "evaluation-English-sentences"
+  },
+  {
+    "input": "iwanttobuild",
+    "expected": "I want to build",
+    "category": "evaluation-English-sentences"
+  },
+  {
+    "input": "thankyou",
+    "expected": "thank you",
+    "category": "evaluation-English-sentences"
+  }
+]

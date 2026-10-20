@@ -26,6 +26,7 @@ jobs:
           python3 -m unittest discover -s Tests/VocabularyTests -v
           ./scripts/vocabulary.sh build --check
           ./scripts/vocabulary.sh --language chinese build --check
+          python3 scripts/ranking.py --check
       - name: Check upstream revisions without changing vocabulary
         env:
           GITHUB_TOKEN: ${{ github.token }}

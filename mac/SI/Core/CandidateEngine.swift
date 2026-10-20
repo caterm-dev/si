@@ -37,9 +37,10 @@ public struct CandidateEngine: Sendable {
         if languages.contains(.english) {
             let key = input.lowercased()
             let style = EnglishLexicon.CaseStyle(input: input)
-            generated = EnglishLexicon.matches(for: key).prefix(8).map {
+            generated = EnglishLexicon.previewMatches(for: key).map {
                 InputCandidate(text: $0.text(for: style), language: .english,
-                               score: $0.text.lowercased() == key ? 110 : $0.completionScore,
+                               score: Int(-$0.cost(typedLength: key.utf8.count) * LexicalLanguageModel.pointsPerBit),
+                               rankingScore: -$0.cost(typedLength: key.utf8.count) * LexicalLanguageModel.pointsPerBit,
                                hasCompletion: $0.text.lowercased() != key)
             }
         }
@@ -59,8 +60,10 @@ public struct CandidateEngine: Sendable {
             if let count = candidate.consumedInputCount, count <= 0 || count >= input.count { continue }
             let spelling = candidate.consumedInputCount.map { String(input.prefix($0)) } ?? input
             let score = learning.rankingScore(for: candidate, input: spelling, now: now, context: context)
-            if let previous = best[candidate.id], previous.score > score
-                || (previous.score == score && !candidate.isUserPhrase) { continue }
+            if let previous = best[candidate.id],
+               (previous.candidate.isPreferred && !candidate.isPreferred)
+                || (previous.candidate.isPreferred == candidate.isPreferred
+                    && (previous.score > score || (previous.score == score && !candidate.isUserPhrase))) { continue }
             best[candidate.id] = (candidate, score)
         }
         let merged = best.values
@@ -69,7 +72,8 @@ public struct CandidateEngine: Sendable {
                 if $0.candidate.isPartial, $0.candidate.consumedInputCount != $1.candidate.consumedInputCount {
                     return ($0.candidate.consumedInputCount ?? 0) > ($1.candidate.consumedInputCount ?? 0)
                 }
-                if $0.score != $1.score { return $0.score > $1.score }
+                if $0.candidate.isPreferred != $1.candidate.isPreferred { return $0.candidate.isPreferred }
+            if $0.score != $1.score { return $0.score > $1.score }
                 return $0.candidate.id < $1.candidate.id
             }
             .map(\.candidate)

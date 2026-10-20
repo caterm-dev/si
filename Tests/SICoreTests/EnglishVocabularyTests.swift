@@ -1,7 +1,19 @@
+import Foundation
 import Testing
 @testable import SICore
 
 struct EnglishVocabularyTests {
+    private static let frequencies = EnglishFrequencyData.centibels.map { pow(10, -Double($0) / 100) }
+    private static let total = frequencies.reduce(0, +) + 1e-9
+    private static let indices = Dictionary(uniqueKeysWithValues: EnglishLexiconData.words.enumerated().map { ($0.element, $0.offset) })
+
+    private func referenceScore(_ word: String, input: String) -> Double {
+        let probability = Self.frequencies[Self.indices[word]!] / Self.total / 2
+        let missing = word.utf8.count - input.lowercased().utf8.count
+        let channel = exp2(-Double(missing + 1)) / (1 - exp2(-Double(word.utf8.count)))
+        return log2(probability * channel)
+    }
+
     @Test func technologySourcesProvideCanonicalExactWordsCompletionsAndMixedTokens() {
         let engine = CandidateEngine()
         for (input, expected) in [("gmail", "Gmail"), ("GMAIL", "GMAIL"), ("github", "GitHub"),
@@ -12,7 +24,7 @@ struct EnglishVocabularyTests {
             #expect(result.last?.text == input && result.last?.isLiteral == true)
         }
         let completion = EnglishCandidateProvider().candidates(for: "gm")
-        #expect(completion.contains { $0.text == "Gmail" && $0.hasCompletion && $0.score == 75 })
+        #expect(completion.contains { $0.text == "Gmail" && $0.hasCompletion && $0.rankingScore.isFinite })
         for (input, expected) in [("nihaogmail", "你好Gmail"), ("nihaoGMAIL", "你好GMAIL")] {
             let result = engine.candidates(for: input, languages: Set(InputLanguage.allCases))
             #expect(result.contains { $0.text == expected && $0.isMixed && !$0.isPartial && !$0.hasLiteralSegments })
@@ -41,10 +53,13 @@ struct EnglishVocabularyTests {
                 else { text = word }
                 let exact = word.lowercased() == key
                 return InputCandidate(text: text, language: .english,
-                                      score: exact ? 110 : EnglishLexiconData.completionScores[word.lowercased()] ?? 75,
+                                      score: Int(referenceScore(word, input: input)), rankingScore: referenceScore(word, input: input),
                                       hasCompletion: !exact)
             } : []
-            #expect(provider.candidates(for: input) == expected)
+            let actual = provider.candidates(for: input)
+            #expect(actual.map(\.id) == expected.map(\.id))
+            #expect(actual.map(\.hasCompletion) == expected.map(\.hasCompletion))
+            for (a, e) in zip(actual, expected) { #expect(abs(a.rankingScore - e.rankingScore) < 1e-10) }
         }
     }
 
@@ -67,9 +82,8 @@ struct EnglishVocabularyTests {
             }
             #expect(entry.text == word)
             #expect(entry.length == key.utf8.count)
-            let score = EnglishLexiconData.completionScores[key] ?? 75
-            #expect(entry.completionScore == score)
-            #expect(entry.completionCost == 24 + Double(85 - score) / 4)
+            #expect(entry.probability > 0 && entry.probability < 1)
+            #expect(entry.cost(typedLength: key.count).isFinite)
             #expect(entry.text(for: .uppercase) == word.uppercased())
             #expect(entry.text(for: .capitalized) == word.prefix(1).uppercased() + word.dropFirst())
             for length in 1...key.count {
@@ -92,9 +106,14 @@ struct EnglishVocabularyTests {
         #expect(!decoder.compositionCandidates(for: "nihaoswi'ftui", languages: languages, allowsVerbatim: false)
             .contains { $0.text == "你好SwiftUI" && !$0.isPartial })
         #expect(decoder.compositionCandidates(for: "nihaoSWI'", languages: languages, allowsVerbatim: false)
-            .contains { $0.text == "你好SWIFTUI" && $0.hasCompletion && !$0.isPartial })
+            .contains { $0.text == "你好SWIFT" && $0.hasCompletion && !$0.isPartial })
         #expect(!decoder.compositionCandidates(for: "nihaow", languages: languages, allowsVerbatim: false)
             .contains { $0.text == "你好world" && !$0.isPartial })
+    }
+
+    @Test func lowFrequencyTechnologyCompletionsRemainAvailableThroughDirectLookup() {
+        // Mixed paths are bounded; an absent corpus term need not enter their top twelve.
+        #expect(EnglishCandidateProvider().candidates(for: "SWI").contains { $0.text == "SWIFTUI" && $0.hasCompletion })
     }
 
     @Test func trieCompletionsExcludeExactTerminalsAndKeepLexicalOrder() {

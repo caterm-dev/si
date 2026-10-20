@@ -2,6 +2,49 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Unified statistical ranking — 2026-10-20
+
+The default English, Chinese and mixed providers now share additive negative log probabilities, with wordfreq 3.1.1 English frequencies, Chinese word/reading priors, finite spelling likelihood, language-transition calibration and vocabulary-derived Chinese character-boundary Witten–Bell backoff. Direct, composed and prefix scores use one bit scale. Explicit preferred personal codes retain categorical user priority; ordinary phrase paths use the shared cost scale. Existing aggregate learning caps, exclusions, retention and schema remain intact. See [equations, data, licensing and limits](UNIFIED_RANKING.md).
+
+The baseline is the starting worktree at `5dafb9f`, including its pending whole-code-to-100 experiment. That experiment is removed by this implementation. Its patch/hashes and the benchmark outputs remain locally under `.build/unified-ranking/`. An isolated archive of the starting sources ran the same quality fixtures; no installed input method or saved user profile was read or modified.
+
+| Synthetic partition | Baseline first / top five | Unified first / top five |
+| --- | --- | --- |
+| Tracked regression/development, 45 examples | 30 / 36 | 44 / 45 |
+| Later holdout, 20 examples | 11 / 12 | 19 / 20 |
+
+Both engines retain every target somewhere in their engine results. Unified provisional/final first choices agree on all 65 fixtures, and all 65 targets enter each stage's top five. Overall exact-target character error rate is 18.48% → 0.41%. These are small authored suites, with an intended target for ambiguous spellings, not representative accuracy estimates. The 45 tracked examples were inspected during development; the 20 holdout examples were added after freezing model parameters. No parameters were subsequently tuned against holdout results. `abilit` moves from engine rank 74 to 1 for `ability`; `danci` and explicit `dan'ci` retain first-choice `单词` through both stages and layouts without whole-code score normalization. Remaining first-choice differences include `帮我见查一下` versus `帮我检查一下` and `字母` versus intended `字幕`.
+
+Checks actually completed:
+
+- All **242 Swift tests** passed: 173 core, 38 presentation, 19 settings and 12 storage.
+- All **32 Python vocabulary/model tests** passed; English/Chinese generation checks and ranking/source/license checksum checks passed offline.
+- Debug and Release app builds succeeded with signing disabled. The bundled ranking notice bytes match the generated source notice, including full Apache-2.0 text, original data/license URI, modifications and SUBTLEX attribution. No Python runtime or third-party executable library was added.
+- Native offscreen candidate renders and selection/commit checks cover light/dark, compact/expanded and narrow layouts. Synthetic PNGs are retained under `/tmp/si-unified-ranking*`. `ability` has explicit bilingual stage/layout/commit coverage, including exact literal reachability and complete-English reservation ahead of prefixes.
+- Probability/unknown normalization, rare readings, character-boundary interpolation, spelling mass, independently enumerated optimal path costs, source-order determinism and Unicode committed bytes have focused regression coverage. The preview cache is compared against unbounded English ranking.
+
+Release measurements used the same 200-iteration synthetic full-search scenarios with 5,000 preferences and 1,000 phrases, without concurrent builds/tests. Rankings and output fingerprints intentionally change from the baseline. A compact-transition/top-eight-cache refinement preserved all final fingerprints. A further per-position scratch cache increased measured instruction count and was removed. Timings are descriptive samples, not native key-to-screen latency or a blanket speedup claim.
+
+| Full engine scenario | Baseline P95 ms | Unified P95 ms |
+| --- | ---: | ---: |
+| English broad prefix | 0.974 | 0.868 |
+| English prefix | 0.116 | 0.113 |
+| English exact | 0.145 | 0.145 |
+| short | 4.500 | 4.783 |
+| partial | 3.280 | 3.749 |
+| phrase construction | 24.100 | 28.861 |
+| mixed | 7.611 | 8.461 |
+| long ambiguous composition | 74.684 | 81.085 |
+| dense prefix with unknown tail | 122.355 | 121.480 |
+| learned tokens in longer composition | 51.562 | 41.391 |
+| bounded Unicode personal expansions | 74.556 | 26.532 |
+
+Initialization is 470.2 → 697.4 ms once per process, outside keystroke handling. CLI maximum RSS is 246.1 → 280.1 MiB; this is peak benchmark-process memory, not installed-app idle memory. Full long-phrase and mixed searches incur context-model overhead, while several English/private-expansion cases improve. Current provisional P95 is 0.089 ms for `shi`, 1.282 ms for the phrase-construction fixture and 0.736 ms for the mixed fixture; dense 64-letter scenarios reach about 15.2 ms. These preview measurements have no captured old-preview baseline. Deferred-edit timing excludes search and UI delivery.
+
+Raw evidence: `before.json`, `final-performance.json`/`.stderr`, `final-previews.json`, `quality-baseline.json`, `quality-final.json`, `final-tests.log`, `data-tests.log` and Debug/Release build logs under `.build/unified-ranking/`. Reproduce current results with the commands in [testing](TESTING.md) and the model guide.
+
+No installation, live host typing, InputMethodKit callback/focus validation, VoiceOver interaction or high-contrast system-setting check was performed for this change. Automated model/UI checks and successful builds do not establish host compatibility or production sentence quality. Earlier checkpoints below describe their then-current, sometimes superseded scoring policies.
+
 ## Upstream Chinese weights without authored overrides — 2026-10-20
 
 Chinese generated data now preserves all upstream integer weights and ratios instead of decimal-magnitude score buckets. The 979 original and three local entries retain only spelling/readings; their manual score columns are removed, and unweighted sources cannot overwrite upstream weights. Override corrections may preserve a weight while changing spelling/readings, but cannot assign scores. All 85,596 entries remain. Ten original spellings have no selected upstream frequency and retain unweighted coverage.

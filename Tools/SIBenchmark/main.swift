@@ -27,6 +27,10 @@ enum SIBenchmark {
     }
 
     static func main() throws {
+        if CommandLine.arguments.dropFirst().contains("--quality") {
+            try RankingQuality.run()
+            return
+        }
         let previewsOnly = CommandLine.arguments.dropFirst().contains("--previews")
         let now = Date.now
         let profile = LearningProfile(entries: (0..<LearningProfile.maximumEntries).map {

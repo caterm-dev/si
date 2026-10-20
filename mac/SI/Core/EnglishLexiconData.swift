@@ -63605,6 +63605,7 @@ enum EnglishLexiconData {
     Zypper
     ZZZ
     """.split(separator: "\n").map(String.init)
+    // Legacy source metadata; runtime ranking uses EnglishFrequencyData.
     static let completionScores: [String: Int] = [
         "a": 85,
         "about": 85,

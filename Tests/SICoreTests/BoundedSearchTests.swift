@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import SICore
 
@@ -32,11 +33,17 @@ struct BoundedSearchTests {
             ("甲", 100), ("乙", 99), ("丙", 98), ("é", 97), ("e\u{301}", 96),
             ("女", 95), ("👩🏽‍💻", 94), ("豈", 93), ("\u{f900}", 94),
         ]
-        // Enumerate all 6,561 complete paths, independently of the bounded decoder.
+        var weights: [String: Double] = [:]
+        for word in words { weights[word.text] = max(weights[word.text, default: 0], exp2(Double(word.score) / 10)) }
+        let total = weights.keys.sorted().reduce(1.0) { $0 + weights[$1]! }
+        // Enumerate all 6,561 paths independently, including canonical alias reading costs.
         var exhaustive: [(text: String, cost: Double)] = [("", 0)]
         for _ in 0..<4 {
             exhaustive = exhaustive.flatMap { path in
-                words.map { (path.text + $0.text, path.cost + 8 + Double(100 - $0.score) / 4) }
+                words.map { word in
+                    let language = path.text.isEmpty ? 1.0 : -log2(1 - RankingCalibration.switchProbability)
+                    return (path.text + word.text, path.cost + log2(total) - Double(word.score) / 10 + language)
+                }
             }
         }
         var distinct: [String: (text: String, cost: Double)] = [:]
@@ -47,12 +54,22 @@ struct BoundedSearchTests {
         let expected = distinct.values.sorted {
             $0.cost != $1.cost ? $0.cost < $1.cost : $0.text < $1.text
         }.prefix(12)
+        var baseline: [InputCandidate]?
         for order in [words, Array(words.reversed()), Array(words.dropFirst(3)) + Array(words.prefix(3))] {
             let decoder = PinyinDecoder(entries: order.map { PinyinLexiconEntry(syllables: ["a"], text: $0.text, score: $0.score) })
             let candidates = decoder.candidates(for: "aaaa")
-            #expect(candidates.map(\.text) == expected.map(\.text))
-            #expect(candidates.map { Array($0.text.utf8) } == expected.map { Array($0.text.utf8) })
-            #expect(candidates.map(\.rankingScore) == expected.map { 94 - $0.cost / 10 })
+            // Logarithmic sums may differ by an ULP for mathematically tied permutations.
+            // Verify exhaustive optimal costs, all strictly better paths, and insertion-order identity.
+            #expect(candidates.count == expected.count)
+            for (candidate, path) in zip(candidates, expected) { #expect(abs(candidate.rankingScore + path.cost) < 1e-10) }
+            let threshold = expected.last!.cost
+            for path in distinct.values where path.cost < threshold - 1e-10 {
+                #expect(candidates.contains { $0.text == path.text })
+            }
+            if let baseline {
+                #expect(candidates == baseline)
+                #expect(candidates.map { Array($0.text.utf8) } == baseline.map { Array($0.text.utf8) })
+            } else { baseline = candidates }
             #expect(Set(candidates.map(\.id)).count == candidates.count)
         }
     }

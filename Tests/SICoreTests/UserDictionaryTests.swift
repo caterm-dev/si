@@ -3,6 +3,23 @@ import Testing
 @testable import SICore
 
 struct UserDictionaryTests {
+    @Test func preferredFullCodeRemainsAnExplicitOverrideAfterStatisticalScoring() throws {
+        let phrase = try UserPhrase(input: "he", text: "Synthetic preferred output", language: .english, isPinned: true)
+        let dictionary = try UserDictionary(entries: [phrase])
+        let learned = InputCandidate(text: "he", language: .english, score: 100)
+        var profile = LearningProfile()
+        for _ in 0..<8 { profile.record(InputCommit(input: "he", candidate: learned, reason: .explicitSelection)) }
+        let engine = CandidateEngine()
+        for values in [engine.candidates(for: "he", languages: Set(InputLanguage.allCases), learning: profile, dictionary: dictionary),
+                       engine.previewCandidates(for: "he", languages: Set(InputLanguage.allCases), learning: profile,
+                                                dictionary: dictionary, now: .now, context: nil)] {
+            #expect(values.first?.text == phrase.text)
+            #expect(values.first?.isPreferred == true)
+            #expect(values.first?.canLearn == false)
+        }
+        #expect(!dictionary.candidates(for: "h", languages: [.english]).contains { $0.isPreferred })
+    }
+
     @Test func addingAnIdenticalPersonalPhraseDoesNotDiscardStrongerExistingLearning() throws {
         let candidate = InputCandidate(text: "he", language: .english, score: 110)
         var profile = LearningProfile()
@@ -35,7 +52,7 @@ struct UserDictionaryTests {
         let dictionary = try UserDictionary(entries: [phrase])
         let candidates = CandidateEngine().candidates(for: "he", languages: Set(InputLanguage.allCases), dictionary: dictionary)
         #expect(candidates.first?.text == "he")
-        #expect(candidates.first?.score == 180)
+        #expect(candidates.first?.isUserPhrase == true)
         #expect(candidates.first?.isUserPhrase == true)
         #expect(candidates.count(where: { $0.text == "he" && $0.language == .english }) == 1)
         #expect(candidates.contains { $0.text == "和" })

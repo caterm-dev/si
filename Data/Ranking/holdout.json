@@ -1,0 +1,102 @@
+[
+  {
+    "input": "shurupinyin",
+    "expected": "输入拼音",
+    "category": "holdout-Chinese"
+  },
+  {
+    "input": "shanchuwenzi",
+    "expected": "删除文字",
+    "category": "holdout-Chinese"
+  },
+  {
+    "input": "womenyijingwanchengle",
+    "expected": "我们已经完成了",
+    "category": "holdout-Chinese"
+  },
+  {
+    "input": "xiugaizhegedifang",
+    "expected": "修改这个地方",
+    "category": "holdout-Chinese"
+  },
+  {
+    "input": "baocunzhegewenjian",
+    "expected": "保存这个文件",
+    "category": "holdout-Chinese"
+  },
+  {
+    "input": "haodewozhidaole",
+    "expected": "好的我知道了",
+    "category": "holdout-Chinese"
+  },
+  {
+    "input": "xianzaitianjiazimu",
+    "expected": "现在添加字幕",
+    "category": "holdout-Chinese"
+  },
+  {
+    "input": "nihaoma",
+    "expected": "你好吗",
+    "category": "holdout-Chinese"
+  },
+  {
+    "input": "experienc",
+    "expected": "experience",
+    "category": "holdout-English"
+  },
+  {
+    "input": "probabilit",
+    "expected": "probability",
+    "category": "holdout-English"
+  },
+  {
+    "input": "understan",
+    "expected": "understand",
+    "category": "holdout-English"
+  },
+  {
+    "input": "efficien",
+    "expected": "efficient",
+    "category": "holdout-English"
+  },
+  {
+    "input": "performa",
+    "expected": "performance",
+    "category": "holdout-English"
+  },
+  {
+    "input": "possibl",
+    "expected": "possible",
+    "category": "holdout-English"
+  },
+  {
+    "input": "improvemen",
+    "expected": "improvement",
+    "category": "holdout-English"
+  },
+  {
+    "input": "conversatio",
+    "expected": "conversation",
+    "category": "holdout-English"
+  },
+  {
+    "input": "shiyongGitHub",
+    "expected": "使用GitHub",
+    "category": "holdout-mixed"
+  },
+  {
+    "input": "baocunJSON",
+    "expected": "保存JSON",
+    "category": "holdout-mixed"
+  },
+  {
+    "input": "wozaiOpenAI",
+    "expected": "我在OpenAI",
+    "category": "holdout-mixed"
+  },
+  {
+    "input": "woaiPython",
+    "expected": "我爱Python",
+    "category": "holdout-mixed"
+  }
+]

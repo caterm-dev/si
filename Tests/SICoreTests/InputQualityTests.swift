@@ -24,8 +24,7 @@ struct InputQualityTests {
             #expect(candidates.prefix(5).contains { $0.text == expected && !$0.isPartial }, "Input: \(input)")
             #expect(candidates.last?.text == input && candidates.last?.isLiteral == true)
         }
-        // Raw upstream priors alone do not supply sentence grammar: 文件明 currently precedes 文件名.
-        // Track that quality limit explicitly rather than restoring an authored per-word preference.
+        // Preserve the existing quality gate while changing model units and search scoring.
         #expect(firstChoices >= 9)
     }
 }

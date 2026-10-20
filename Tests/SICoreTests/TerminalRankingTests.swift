@@ -10,7 +10,7 @@ struct TerminalRankingTests {
         let languages = Set(InputLanguage.allCases)
         let original = engine.candidates(for: "niha", languages: languages, now: now)
         let greeting = try #require(original.first { $0.text == "你好" && !$0.isPartial })
-        #expect(greeting.rankingScore > 84)
+        #expect(greeting.rankingScore.isFinite)
         #expect(greeting.hasCompletion)
         var profile = LearningProfile()
         profile.record(InputCommit(input: "niha", candidate: greeting, reason: .explicitSelection), now: now)
@@ -24,17 +24,19 @@ struct TerminalRankingTests {
         let decoder = PinyinDecoder(entries: [
             PinyinLexiconEntry(syllables: ["wo"], text: "我"),
             PinyinLexiconEntry(syllables: ["shi"], text: "是"),
-            PinyinLexiconEntry(syllables: ["wo", "shi"], text: "我是", score: 90),
+            PinyinLexiconEntry(syllables: ["wo", "shi"], text: "我是", score: 0),
         ])
         let candidates = decoder.candidates(for: "woshi")
         let result = try #require(candidates.first { $0.text == "我是" })
-        #expect(result.rankingScore == 92.4)
+        let pFirst = 0.5 * 1024 / 2050 * 2 / 3
+        let pSecond = (1 - RankingCalibration.switchProbability) * (0.5 + 0.5 * 1024 / 2050) * 4 / 7
+        #expect(abs(result.rankingScore - log2(pFirst * pSecond)) < 1e-10)
         #expect(candidates.count { $0.text == "我是" } == 1)
     }
 
     @Test func lowScoringDirectWordsCannotCrowdOutBetterConstructedWords() {
         let direct = (0..<24).map {
-            PinyinLexiconEntry(syllables: ["wo", "shi"], text: String(UnicodeScalar(0x5000 + $0)!), score: 90)
+            PinyinLexiconEntry(syllables: ["wo", "shi"], text: String(UnicodeScalar(0x5000 + $0)!), score: 0)
         }
         let decoder = PinyinDecoder(entries: direct + [
             PinyinLexiconEntry(syllables: ["wo"], text: "我"),

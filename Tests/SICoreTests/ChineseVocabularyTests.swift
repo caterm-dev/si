@@ -3,6 +3,34 @@ import Testing
 @testable import SICore
 
 struct ChineseVocabularyTests {
+    @Test func wholeSpellingUsesHomophoneFrequenciesWithoutOverridingExplicitLearning() throws {
+        let decoder = PinyinDecoder(entries: [
+            PinyinLexiconEntry(syllables: ["de"], text: "的", upstreamWeight: 1 << 40),
+            PinyinLexiconEntry(syllables: ["dan", "ci"], text: "单词", upstreamWeight: 225_415),
+            PinyinLexiconEntry(syllables: ["dan", "ci"], text: "单次", upstreamWeight: 25_195),
+            PinyinLexiconEntry(syllables: ["dan"], text: "但", upstreamWeight: 800_000),
+            PinyinLexiconEntry(syllables: ["ci"], text: "此", upstreamWeight: 900_000),
+            PinyinLexiconEntry(syllables: ["xian"], text: "先", upstreamWeight: 2_000_000),
+            PinyinLexiconEntry(syllables: ["xi", "an"], text: "西安", upstreamWeight: 500_000),
+        ])
+        for preview in [false, true] {
+            let values = decoder.compositionCandidates(for: "danci", languages: [.simplifiedChinese], preview: preview)
+            let word = try #require(values.first { $0.text == "单词" })
+            let once = try #require(values.first { $0.text == "单次" })
+            #expect(values.first?.text == "单词")
+            #expect(abs(word.rankingScore - once.rankingScore - log2(225_415.0 / 25_195.0)) < 1e-12)
+            #expect(decoder.compositionCandidates(for: "xian", languages: [.simplifiedChinese], preview: preview).first?.text == "先")
+            #expect(decoder.compositionCandidates(for: "xi'an", languages: [.simplifiedChinese], preview: preview).first?.text == "西安")
+        }
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let profile = LearningProfile(entries: [
+            LearnedPreference(input: "danci", text: "但此", language: .simplifiedChinese, strength: 8, lastUsed: now),
+        ], now: now)
+        let personalized = decoder.compositionCandidates(for: "danci", languages: [.simplifiedChinese], learning: profile, now: now)
+        #expect(personalized.first?.text == "但此")
+        #expect(personalized.contains { $0.text == "单词" })
+    }
+
     @Test func sentenceFinalMaKeepsChineseAndEnglishAlternatives() throws {
         let engine = CandidateEngine()
         let input = "nengxiangbanfayouhuama"
@@ -85,7 +113,7 @@ struct ChineseVocabularyTests {
         ])
         let values = decoder.candidates(for: "guo")
         let country = try #require(values.first { $0.text == "国" })
-        #expect(abs(country.rankingScore - (100 + log2(3_063_867.0 / 7_307_184.0))) < 1e-12)
+        #expect(abs(country.rankingScore - log2(0.5 * 3_063_867.0 / (3_063_867.0 + 7_307_184.0 + 2) * 4 / 7)) < 1e-12)
         #expect(values.first?.text == "过")
         #expect(values.contains { $0.text == "果" && $0.rankingScore < country.rankingScore })
         let unweighted = PinyinDecoder(entries: [
@@ -106,7 +134,7 @@ struct ChineseVocabularyTests {
         ])
         let values = decoder.candidates(for: "niha")
         let greeting = try #require(values.first { $0.text == "你好" })
-        #expect(greeting.hasCompletion && greeting.rankingScore > 84)
+        #expect(greeting.hasCompletion && greeting.rankingScore.isFinite)
         #expect(values.contains { !$0.hasCompletion })
         #expect(values.filter { $0.hasCompletion }.count <= 12)
         #expect(values.filter { !$0.hasCompletion }.count <= 12)
@@ -128,10 +156,11 @@ struct ChineseVocabularyTests {
         let entries = (0..<128).map {
             PinyinLexiconEntry(syllables: ["a"], text: String(UnicodeScalar(0x4E00 + $0)!), score: 100 - $0 % 16)
         }
+        let total = entries.reduce(1.0) { $0 + exp2(Double($1.score) / 10) }
         var combinations: [(text: String, cost: Double)] = []
         for first in entries {
             for second in entries {
-                let cost = 16.0 + Double(200 - first.score - second.score) / 4
+                let cost = 2 * log2(total) - Double(first.score + second.score) / 10 + 1 - log2(1 - RankingCalibration.switchProbability)
                 combinations.append((first.text + second.text, cost))
             }
         }
@@ -141,7 +170,7 @@ struct ChineseVocabularyTests {
         for order in [entries, Array(entries.reversed())] {
             let result = PinyinDecoder(entries: order).candidates(for: "aa")
             #expect(result.map(\.text) == exhaustive.map(\.text))
-            #expect(result.map(\.rankingScore) == exhaustive.map { 94 - $0.cost / 10 })
+            for (candidate, path) in zip(result, exhaustive) { #expect(abs(candidate.rankingScore + path.cost) < 1e-10) }
         }
     }
 

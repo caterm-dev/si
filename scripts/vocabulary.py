@@ -173,6 +173,7 @@ def compile_vocabulary(root, pending=None):
         "    static let words: [String] = \"\"\"\n"
         + "".join("    " + row["word"] + "\n" for row in rows)
         + '    """.split(separator: "\\n").map(String.init)\n'
+        + '    // Legacy source metadata; runtime ranking uses EnglishFrequencyData.\n'
         + '    static let completionScores: [String: Int] = ' + score_literal + '\n}\n'
     ).encode()
     notice_parts = [

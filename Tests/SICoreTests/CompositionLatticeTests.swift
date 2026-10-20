@@ -41,7 +41,10 @@ struct CompositionLatticeTests {
     }
 
     @Test func longCompositionsDoNotLoseCoherenceThroughAFixedScoreFloor() {
-        let candidates = CandidateEngine().candidates(for: String(repeating: "a", count: 64), languages: languages)
+        // A 64-syllable lexical preference must remain ordered without a fixed score floor.
+        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["a"], text: "啊"),
+                                               PinyinLexiconEntry(syllables: ["a"], text: "阿", score: 99)])
+        let candidates = decoder.compositionCandidates(for: String(repeating: "a", count: 64), languages: languages)
         #expect(candidates.first?.text == String(repeating: "啊", count: 64))
         #expect(candidates.contains { $0.isMixed })
     }

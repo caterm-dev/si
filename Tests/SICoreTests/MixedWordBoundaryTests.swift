@@ -46,7 +46,11 @@ struct MixedWordBoundaryTests {
         let profile = LearningProfile(entries: [
             LearnedPreference(input: "le", text: "了", language: .simplifiedChinese, strength: 8, lastUsed: now),
         ], now: now)
-        let candidates = CandidateEngine().candidates(for: input, languages: languages, learning: profile, now: now)
+        // Keep the lexical boundary contract independent of vocabulary-dependent beam membership.
+        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好"),
+                                               PinyinLexiconEntry(syllables: ["zhong", "wen"], text: "中文"),
+                                               PinyinLexiconEntry(syllables: ["le"], text: "了")])
+        let candidates = decoder.compositionCandidates(for: input, languages: languages, learning: profile, now: now)
         let intactIndex = try #require(candidates.firstIndex { $0.text == intact && !$0.isPartial })
         let splitIndex = try #require(candidates.firstIndex { $0.text == split && !$0.isPartial })
         #expect(intactIndex < splitIndex)

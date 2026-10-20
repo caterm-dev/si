@@ -29,6 +29,7 @@ jobs:
           python3 -m unittest discover -s Tests/VocabularyTests -v
           ./scripts/vocabulary.sh build --check
           ./scripts/vocabulary.sh --language chinese build --check
+          python3 scripts/ranking.py --check
       - name: Test shared core
         run: ./scripts/test.sh
       - name: Build input method

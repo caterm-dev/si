@@ -9,14 +9,17 @@ public struct PinyinDecoder: Sendable {
         let entries: [Int]
         let previewEntries: [Int]
         let boundaries: Set<Int>
-        let penalty: Int
+        let channelCost: Double
+        let abbreviated: Bool
     }
     private struct Edge {
         let end: Int
         let text: String
         let languages: Int
         let cost: Double
-        let score: Double
+        let token: Int
+        var channelCost = 0.0
+        var preferred = false
         var personal = false
         var verbatim = false
         var abbreviated = false
@@ -31,7 +34,9 @@ public struct PinyinDecoder: Sendable {
         let languages: Int
         let lastLanguage: Int
         let segments: Int
-        let directScore: Double
+        let lastToken: Int
+        let contextID: Int
+        let preferred: Bool
         let personal: Bool
         let verbatim: Bool
         let completion: Bool
@@ -44,7 +49,7 @@ public struct PinyinDecoder: Sendable {
         var learningBonus: Double {
             personal || verbatim || splitsEnglishWord || consumedLetters == 0 ? 0 : min(32, learnedSum / Double(consumedLetters))
         }
-        var searchCost: Double { cost - learningBonus * 10 }
+        var searchCost: Double { cost - learningBonus / LexicalLanguageModel.pointsPerBit }
         var comparisonText: String { englishText ?? text }
     }
     private struct PathIdentity: Hashable {
@@ -53,22 +58,29 @@ public struct PinyinDecoder: Sendable {
         let supportsByteComparison: Bool
         let englishWordEnd: Int
         let splitsEnglishWord: Bool
+        let contextID: Int
+        let learningBonus: Double
 
         init(state: Int, path: Path, continuing: Bool = false) {
             self.state = state
             text = path.comparisonText
             supportsByteComparison = path.supportsByteComparison
+            contextID = continuing ? path.contextID : 0
+            learningBonus = continuing ? path.learningBonus : 0
             englishWordEnd = continuing ? path.englishWordEnd : 0
             splitsEnglishWord = continuing && path.splitsEnglishWord
         }
 
         static func == (left: Self, right: Self) -> Bool {
-            left.state == right.state && left.englishWordEnd == right.englishWordEnd
+            left.state == right.state && left.contextID == right.contextID && left.learningBonus == right.learningBonus
+                && left.englishWordEnd == right.englishWordEnd
                 && left.splitsEnglishWord == right.splitsEnglishWord && left.text == right.text
         }
 
         func hash(into hasher: inout Hasher) {
             hasher.combine(state)
+            hasher.combine(contextID)
+            hasher.combine(learningBonus)
             hasher.combine(englishWordEnd)
             hasher.combine(splitsEnglishWord)
             // Both branches hash the same canonical UTF-8 bytes, including cross-branch equivalents.
@@ -80,9 +92,11 @@ public struct PinyinDecoder: Sendable {
         let path: Path
         let baseScore: Double
         let effectiveScore: Double
+        let isPreferred: Bool
     }
     private let entries: [PinyinLexiconEntry]
-    private let lexicalScores: [Double]
+    private let model: LexicalLanguageModel
+    private let exactChannelCosts: [Double]
     private let readings: [Reading]
     private let exact: [String: [Int]]
     private let fullCodes: [String]
@@ -111,14 +125,13 @@ public struct PinyinDecoder: Sendable {
         var exact: [String: [Int]] = [:]
         var full: [(code: String, reading: Int)] = []
         var maximum = 0
-        let positiveWeights = entries.compactMap(\.upstreamWeight).filter { $0 > 0 }
-        let maximumWeight = Double(positiveWeights.max() ?? 1)
-        // Preserve raw frequencies in the entries. A shared continuous log scale combines their
-        // relative evidence with bounded path/learning costs without decimal buckets or per-word edits.
-        let lexicalScores = entries.map { entry in
-            entry.usesUpstreamWeight
-                ? 100 + log2(Double(max(1, entry.upstreamWeight ?? 0)) / maximumWeight)
-                : Double(entry.score)
+        let model = LexicalLanguageModel(entries: entries)
+        let exactChannelCosts = entries.map { entry in
+            SpellingChannel.fullCost(length: entry.code.count,
+                abbreviatableSyllables: entry.syllables.count > 1 ? entry.syllables.filter { $0.count > 1 }.count : 0)
+        }
+        let lexicalScores = entries.indices.map {
+            -(model.costs[model.chineseIDs[$0]] + model.readingCosts[$0] + exactChannelCosts[$0]) * LexicalLanguageModel.pointsPerBit
         }
         for group in groups {
             let entry = entries[group[0]]
@@ -130,32 +143,34 @@ public struct PinyinDecoder: Sendable {
             }.prefix(16))
             maximum = max(maximum, entry.code.count)
             let index = readings.count
-            readings.append(Reading(entries: group, previewEntries: previewEntries, boundaries: entry.boundaries, penalty: 0))
+            readings.append(Reading(entries: group, previewEntries: previewEntries, boundaries: entry.boundaries, channelCost: 0, abbreviated: false))
             exact[entry.code, default: []].append(index)
             full.append((entry.code, index))
             guard entry.syllables.count > 1 else { continue }
             let masks = entry.syllables.count <= 6 ? Array(1..<(1 << entry.syllables.count)) : [-1]
+            let variants = entry.syllables.count > 6 ? 1 : max(1, (1 << entry.syllables.filter { $0.count > 1 }.count) - 1)
+            let abbreviationCost = SpellingChannel.abbreviationCost(variants: variants)
             var seen: Set<String> = [entry.code]
             for mask in masks {
                 var code = ""
                 var boundaries = Set<Int>()
-                var shortened = 0
                 for (position, syllable) in entry.syllables.enumerated() {
                     let initial = mask == -1 || mask & (1 << position) != 0
                     let token = initial ? String(syllable.prefix(1)) : syllable
-                    if token != syllable { shortened += 1 }
                     code += token
                     if position < entry.syllables.count - 1 { boundaries.insert(code.count) }
                 }
                 guard seen.insert(code).inserted else { continue }
                 exact[code, default: []].append(readings.count)
                 readings.append(Reading(entries: group, previewEntries: previewEntries, boundaries: boundaries,
-                                        penalty: 18 + min(4, shortened * 2)))
+                                        channelCost: abbreviationCost,
+                                        abbreviated: true))
             }
         }
         full.sort { $0.code == $1.code ? $0.reading < $1.reading : $0.code < $1.code }
         self.entries = entries
-        self.lexicalScores = lexicalScores
+        self.model = model
+        self.exactChannelCosts = exactChannelCosts
         self.readings = readings
         self.exact = exact
         fullCodes = full.map(\.code)
@@ -218,8 +233,8 @@ public struct PinyinDecoder: Sendable {
         var paths = Array(repeating: [Path](), count: count + 1)
         var prefixes = Array(repeating: [PresentationPath](), count: count + 1)
         var prefixRankings: [Int: LearningProfile.Ranking] = [:]
-        paths[0] = [Path(text: "", englishText: "", cost: 0, languages: 0, lastLanguage: 0, segments: 0, directScore: 0,
-                         personal: false, verbatim: false, completion: false, learnedSum: 0, consumedLetters: 0,
+        paths[0] = [Path(text: "", englishText: "", cost: 0, languages: 0, lastLanguage: 0, segments: 0, lastToken: 0, contextID: 0,
+                         preferred: false, personal: false, verbatim: false, completion: false, learnedSum: 0, consumedLetters: 0,
                          supportsByteComparison: true, englishWordEnd: 0, splitsEnglishWord: false)]
         for start in 0..<count where !paths[start].isEmpty {
             var options = outgoing[start]
@@ -229,7 +244,7 @@ public struct PinyinDecoder: Sendable {
                 let ends = anchors.filter { $0 > start } + [count]
                 for end in ends {
                     options.append(Edge(end: end, text: reading.rawText(from: start, to: end), languages: 2,
-                                        cost: 25 + Double(end - start) * 2, score: 0, verbatim: true))
+                                        cost: model.costs[0] + Double(end - start) * log2(26), token: 0, verbatim: true))
                 }
             }
             for edge in options {
@@ -238,9 +253,11 @@ public struct PinyinDecoder: Sendable {
                 let supportsBytes = edge.text.unicodeScalars.allSatisfy {
                     $0.isASCII || (0x3400...0x4dbf).contains($0.value) || (0x4e00...0x9fff).contains($0.value)
                 }
+                let contextID = model.contextIdentity(for: edge.token)
                 for path in paths[start] {
                     guard path.text.utf8.count + edge.text.utf8.count <= Self.maximumOutputBytes else { continue }
-                    let transition = path.lastLanguage == 0 || path.lastLanguage == edge.languages ? 0.0 : 4.0
+                    let increment = edge.token == 0 ? edge.cost
+                        : edge.channelCost + model.cost(token: edge.token, after: path.lastToken)
                     let excludesLearning = path.personal || path.verbatim || edge.personal || edge.verbatim
                     let splitsEnglishWord = !excludesLearning && (path.splitsEnglishWord
                         || (path.lastLanguage == 2 && start < path.englishWordEnd)
@@ -253,10 +270,10 @@ public struct PinyinDecoder: Sendable {
                     let englishText = edge.languages == 2 && !edge.personal && !edge.verbatim
                         ? path.englishText.map { $0.isEmpty ? edge.text : $0 + " " + edge.text } : nil
                     guard englishText.map({ $0.utf8.count <= Self.maximumOutputBytes }) ?? true else { continue }
-                    paths[edge.end].append(Path(text: text, englishText: englishText, cost: path.cost + edge.cost + transition,
+                    paths[edge.end].append(Path(text: text, englishText: englishText, cost: path.cost + increment,
                                                languages: path.languages | edge.languages, lastLanguage: edge.languages,
                                                segments: path.segments + 1,
-                                               directScore: edge.score, personal: path.personal || edge.personal,
+                                               lastToken: edge.token, contextID: contextID, preferred: path.segments == 0 && edge.preferred, personal: path.personal || edge.personal,
                                                verbatim: path.verbatim || edge.verbatim, completion: path.completion || edge.completion,
                                                learnedSum: path.learnedSum + edge.learningBonus * Double(edge.end - start),
                                                consumedLetters: edge.end,
@@ -292,8 +309,9 @@ public struct PinyinDecoder: Sendable {
         var results = preview ? [] : dictionary.candidates(for: input, languages: languages)
         // Direct lexical matches/completions are not restricted by the constructed-path beam.
         for edge in outgoing[0] where edge.end == count && edge.languages == 1 {
-            results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: Int(edge.score),
-                                          isUserPhrase: edge.personal, rankingScore: edge.score, hasCompletion: edge.completion))
+            results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: Int(-edge.cost * LexicalLanguageModel.pointsPerBit),
+                                          isUserPhrase: edge.personal, rankingScore: -edge.cost * LexicalLanguageModel.pointsPerBit, hasCompletion: edge.completion,
+                                          isPreferred: edge.preferred))
         }
         for path in paths[count] where eligible(path) {
             results.append(candidate(path))
@@ -310,8 +328,10 @@ public struct PinyinDecoder: Sendable {
         for result in results {
             let spelling = result.consumedInputCount.map { String(input.prefix($0)) } ?? input
             let score = learning.rankingScore(for: result, input: spelling, now: now, context: context)
-            if let previous = best[result.id], previous.score > score
-                || (previous.score == score && !result.isUserPhrase) { continue }
+            if let previous = best[result.id],
+               (previous.candidate.isPreferred && !result.isPreferred)
+                || (previous.candidate.isPreferred == result.isPreferred
+                    && (previous.score > score || (previous.score == score && !result.isUserPhrase))) { continue }
             best[result.id] = (result, score)
         }
         return best.values.sorted {
@@ -319,6 +339,7 @@ public struct PinyinDecoder: Sendable {
             if $0.candidate.isPartial, $0.candidate.consumedInputCount != $1.candidate.consumedInputCount {
                 return ($0.candidate.consumedInputCount ?? 0) > ($1.candidate.consumedInputCount ?? 0)
             }
+            if $0.candidate.isPreferred != $1.candidate.isPreferred { return $0.candidate.isPreferred }
             if $0.score != $1.score { return $0.score > $1.score }
             return $0.candidate.id < $1.candidate.id
         }.map(\.candidate)
@@ -329,6 +350,7 @@ public struct PinyinDecoder: Sendable {
         let count = input.letters.count
         let chinese = languages.contains(.simplifiedChinese)
         let english = languages.contains(.english)
+        let personalBaseCost = log2(Double(max(1, dictionary.phraseCount)))
         let longest = max(chinese ? maximumCodeLength : 0, english ? EnglishLexicon.maximumLength : 0,
                           dictionary.maximumCodeLength)
         var result = Array(repeating: [Edge](), count: count)
@@ -345,17 +367,17 @@ public struct PinyinDecoder: Sendable {
                         guard input.respects(match.boundaries, from: start, to: end) else { continue }
                         for index in preview ? match.previewEntries : match.entries {
                             let entry = entries[index]
-                            let score = lexicalScores[index] - Double(match.penalty)
+                            let channel = match.abbreviated ? match.channelCost : exactChannelCosts[index]
                             result[start].append(Edge(end: end, text: entry.text, languages: 1,
-                                                      cost: 8 + Double(max(0, 100 - score)) / 4, score: score,
-                                                      abbreviated: match.penalty > 0))
+                                                      cost: model.costs[model.chineseIDs[index]] + model.readingCosts[index] + channel,
+                                                      token: model.chineseIDs[index], channelCost: model.readingCosts[index] + channel, abbreviated: match.abbreviated))
                         }
                     }
                 }
                 for phrase in dictionary.phrases(for: code) where languages.contains(phrase.language)
                     && input.respects(phrase.boundaries, from: start, to: end) {
                     result[start].append(Edge(end: end, text: phrase.text, languages: phrase.language == .english ? 2 : 1,
-                                              cost: phrase.isPinned ? 1 : 4, score: phrase.isPinned ? 180 : 115, personal: true))
+                                              cost: personalBaseCost + (phrase.isPinned ? 0 : 1), token: 0, preferred: phrase.isPinned, personal: true))
                 }
                 // Walk the same English prefix once, stopping permanently at a failed
                 // transition or an explicit syllable boundary inside this span.
@@ -365,7 +387,8 @@ public struct PinyinDecoder: Sendable {
                     if let next = englishNode, let entry = EnglishLexicon.exactMatch(at: next) {
                         let style = EnglishLexicon.CaseStyle(input: String(input.originalLetters[start..<end]))
                         result[start].append(Edge(end: end, text: entry.text(for: style),
-                                                  languages: 2, cost: 8, score: 110))
+                                                  languages: 2, cost: entry.cost(typedLength: end - start), token: entry.id,
+                                                  channelCost: entry.channelCost(typedLength: end - start)))
                     }
                 }
             }
@@ -377,19 +400,22 @@ public struct PinyinDecoder: Sendable {
                     guard input.respectsCompletion(match.boundaries, from: start, to: count) else { continue }
                     for index in preview ? match.previewEntries : match.entries {
                         let entry = entries[index]
+                        let channel = model.readingCosts[index]
+                            + SpellingChannel.cost(fullLength: entry.code.count, typedLength: count - start)
+                            + (entry.syllables.count > 1 && entry.syllables.contains { $0.count > 1 } ? 1 : 0)
                         result[start].append(Edge(end: count, text: entry.text, languages: 1,
-                                                  cost: 24 + max(0, 100 - lexicalScores[index]) / 4,
-                                                  score: lexicalScores[index] - 16, completion: true))
+                                                  cost: model.costs[model.chineseIDs[index]] + channel,
+                                                  token: model.chineseIDs[index], channelCost: channel, completion: true))
                     }
                 }
             }
             if count - start >= 2, count - start <= longest, let node = englishNode {
                 let style = EnglishLexicon.CaseStyle(input: String(input.originalLetters[start..<count]))
-                let matches = EnglishLexicon.completions(at: node)
-                for entry in preview ? matches.prefix(8) : matches {
+                let matches = preview ? EnglishLexicon.previewCompletions(at: node) : Array(EnglishLexicon.completions(at: node))
+                for entry in matches {
                     result[start].append(Edge(end: count, text: entry.text(for: style),
-                                              languages: 2, cost: entry.completionCost,
-                                              score: Double(entry.completionScore), completion: true))
+                                              languages: 2, cost: entry.cost(typedLength: count - start),
+                                              token: entry.id, channelCost: entry.channelCost(typedLength: count - start), completion: true))
                 }
             }
             if learning.hasTokenPreferences {
@@ -414,16 +440,16 @@ public struct PinyinDecoder: Sendable {
                 var spans: [Int: Set<Int>] = [:]
                 result[start] = result[start].sorted {
                     // Prefer words that cover more spelling when reducing the provisional edge set.
-                    let a = ($0.cost - $0.learningBonus * 10) / Double($0.end - start)
-                    let b = ($1.cost - $1.learningBonus * 10) / Double($1.end - start)
+                    let a = ($0.cost - $0.learningBonus / LexicalLanguageModel.pointsPerBit) / Double($0.end - start)
+                    let b = ($1.cost - $1.learningBonus / LexicalLanguageModel.pointsPerBit) / Double($1.end - start)
                     if a != b { return a < b }
                     if $0.end != $1.end { return $0.end > $1.end }
                     return $0.text < $1.text
                 }.filter {
                     let key = $0.languages | ($0.completion ? 4 : 0)
                     let spanKey = key | ($0.end << 3)
-                    guard counts[spanKey, default: 0] < 2,
-                          spans[key, default: []].contains($0.end) || spans[key, default: []].count < 2 else { return false }
+                    guard counts[spanKey, default: 0] < 8,
+                          spans[key, default: []].contains($0.end) || spans[key, default: []].count < 4 else { return false }
                     spans[key, default: []].insert($0.end)
                     counts[spanKey, default: 0] += 1
                     return true
@@ -442,12 +468,13 @@ public struct PinyinDecoder: Sendable {
         return InputCandidate(text: path.comparisonText, language: path.languages == 2 ? .english : .simplifiedChinese,
                               score: Int(score), isMixed: path.languages == 3, isUserPhrase: path.personal,
                               hasLiteralSegments: path.verbatim, consumedInputCount: consumed, rankingScore: score,
-                              hasCompletion: path.completion, tokenLearningBonus: path.segments > 1 ? path.learningBonus : 0)
+                              hasCompletion: path.completion, tokenLearningBonus: path.segments > 1 ? path.learningBonus : 0,
+                              isPreferred: consumed == nil && path.segments == 1 && path.preferred)
     }
 
     private func baseScore(_ path: Path, consumed: Int?) -> Double {
-        let fullScore = path.segments == 1 ? Double(path.directScore) : max(0, 94 - path.cost / 10 - (path.verbatim ? 12 : 0))
-        return consumed == nil ? fullScore : fullScore - 26
+        // Prefix actions are ordered separately; their score uses only consumed spelling.
+        -(path.cost + LexicalLanguageModel.terminalCost) * LexicalLanguageModel.pointsPerBit
     }
 
     private func prune(_ paths: [Path]) -> [Path] {
@@ -481,10 +508,12 @@ public struct PinyinDecoder: Sendable {
         } else {
             effective = base + (ranking.isActive && path.segments > 1 ? path.learningBonus : 0)
         }
-        return PresentationPath(path: path, baseScore: base, effectiveScore: effective)
+        return PresentationPath(path: path, baseScore: base, effectiveScore: effective,
+                                isPreferred: consumed == nil && path.segments == 1 && path.preferred)
     }
 
     private func presentationPrecedes(_ left: PresentationPath, _ right: PresentationPath, personalized: Bool) -> Bool {
+        if left.isPreferred != right.isPreferred { return left.isPreferred }
         let a = personalized ? left.effectiveScore : left.baseScore
         let b = personalized ? right.effectiveScore : right.baseScore
         if a != b { return a > b }
@@ -560,7 +589,7 @@ public struct PinyinDecoder: Sendable {
             var group = groups[key, default: []]
             if group.count == Self.beamWidth, !precedes(path, group[group.count - 1].path) { continue }
             if let duplicate = group.firstIndex(where: {
-                $0.path.englishWordEnd == path.englishWordEnd && $0.path.splitsEnglishWord == path.splitsEnglishWord
+                $0.path.contextID == path.contextID && $0.path.englishWordEnd == path.englishWordEnd && $0.path.splitsEnglishWord == path.splitsEnglishWord
                     && Self.textEquals($0.path, path)
             }) {
                 guard precedes(path, group[duplicate].path) else { continue }

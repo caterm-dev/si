@@ -98,10 +98,12 @@ struct TokenLearningTests {
 
     @Test func englishFinalCompletionsUseTheirOwnSpellingAndLanguage() throws {
         let profile = try learned(input: "fi", text: "find", language: .english)
-        let ranked = engine.candidates(for: "nihaofi", languages: languages, learning: profile, now: now)
+        // Isolate learning from the maintained Chinese homophone fanout.
+        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好")])
+        let ranked = decoder.compositionCandidates(for: "nihaofi", languages: languages, learning: profile, now: now)
         let find = try #require(ranked.firstIndex { $0.text == "你好find" && !$0.isPartial })
-        let file = try #require(ranked.firstIndex { $0.text == "你好file" && !$0.isPartial })
-        #expect(find < file)
+        let first = try #require(ranked.firstIndex { $0.text == "你好first" && !$0.isPartial })
+        #expect(find < first)
         #expect(ranked[find].hasCompletion && ranked[find].canLearn && ranked[find].tokenLearningBonus > 0)
         #expect(!engine.candidates(for: "nihaofi", languages: [.simplifiedChinese], learning: profile, now: now)
             .contains { $0.text == "你好find" })
@@ -133,7 +135,9 @@ struct TokenLearningTests {
     @Test func repeatedTokensAndWholeInputPreferencesShareOneFrequencyCap() throws {
         var profile = try learned(input: "shike", text: "食客")
         let input = String(repeating: "shike", count: 10)
-        let repeated = try #require(engine.candidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now)
+        let balanced = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["shi", "ke"], text: "食客"),
+                                                PinyinLexiconEntry(syllables: ["shi", "ke"], text: "时刻", score: 99)])
+        let repeated = try #require(balanced.compositionCandidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now)
             .first { $0.text == String(repeating: "食客", count: 10) && !$0.isPartial })
         #expect(repeated.tokenLearningBonus == 32)
         #expect(profile.rankingScore(for: repeated, input: input, now: now, context: nil) - repeated.rankingScore == 32)
@@ -171,6 +175,7 @@ struct TokenLearningTests {
             PinyinLexiconEntry(syllables: ["shi", "ke"], text: "食客"),
             PinyinLexiconEntry(syllables: ["wo", "shi", "ke"], text: "我食客", score: 100),
         ])
+        let base = try #require(tiny.candidates(for: "woshike").first { $0.text == "我食客" })
         var profile = try learned(input: "shike", text: "食客")
         let tokenRanked = try #require(tiny.compositionCandidates(for: "woshike", languages: [.simplifiedChinese], learning: profile, now: now)
             .first { $0.text == "我食客" && !$0.isPartial })
@@ -181,9 +186,9 @@ struct TokenLearningTests {
         let candidates = tiny.compositionCandidates(for: "woshike", languages: [.simplifiedChinese], learning: profile, now: now)
         let wholeRanked = try #require(candidates.first { $0.text == "我食客" && !$0.isPartial })
         #expect(candidates.count { $0.id == wholeRanked.id } == 1)
-        #expect(wholeRanked.rankingScore == 100)
+        #expect(wholeRanked.rankingScore == base.rankingScore)
         #expect(wholeRanked.tokenLearningBonus == 0)
-        #expect(profile.rankingScore(for: wholeRanked, input: "woshike", now: now, context: nil) == 132)
+        #expect(profile.rankingScore(for: wholeRanked, input: "woshike", now: now, context: nil) - wholeRanked.rankingScore == 32)
     }
 
     @Test func deletingOnePreferenceDoesNotDropOtherPreferencesForTheSameCode() throws {

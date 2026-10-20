@@ -13,11 +13,14 @@ case "${1:-}" in
         si_benchmark_bin="$(swift build --configuration release --scratch-path .build/swift --show-bin-path)"
         /usr/bin/time -l "$si_benchmark_bin/SIBenchmark"
         ;;
+    --quality)
+        swift run --configuration release --scratch-path .build/swift SIBenchmark --quality
+        ;;
     --previews)
         swift run --configuration release --scratch-path .build/swift SIBenchmark --previews
         ;;
     *)
-        printf 'Usage: %s [--resources|--previews]\n' "$0" >&2
+        printf 'Usage: %s [--resources|--previews|--quality]\n' "$0" >&2
         exit 2
         ;;
 esac

@@ -1,0 +1,649 @@
+{
+  "description": "Authored synthetic development examples, not observed user input or a representative corpus. Token language runs estimate only the switch prior with add-one smoothing; quality evaluation is separate.",
+  "examples": [
+    {
+      "tokens": [
+        "我",
+        "喜欢",
+        "学习",
+        "中文"
+      ],
+      "languages": "CCCC"
+    },
+    {
+      "tokens": [
+        "今天",
+        "外面",
+        "很冷"
+      ],
+      "languages": "CCC"
+    },
+    {
+      "tokens": [
+        "请",
+        "打开",
+        "这个",
+        "文件"
+      ],
+      "languages": "CCCC"
+    },
+    {
+      "tokens": [
+        "明天",
+        "去",
+        "上海"
+      ],
+      "languages": "CCC"
+    },
+    {
+      "tokens": [
+        "这个",
+        "问题",
+        "需要",
+        "解决"
+      ],
+      "languages": "CCCC"
+    },
+    {
+      "tokens": [
+        "输入法",
+        "支持",
+        "中文",
+        "拼音"
+      ],
+      "languages": "CCCC"
+    },
+    {
+      "tokens": [
+        "我",
+        "正在",
+        "修改",
+        "代码"
+      ],
+      "languages": "CCCC"
+    },
+    {
+      "tokens": [
+        "保存",
+        "一个",
+        "新的",
+        "文件"
+      ],
+      "languages": "CCCC"
+    },
+    {
+      "tokens": [
+        "please",
+        "open",
+        "the",
+        "window"
+      ],
+      "languages": "EEEE"
+    },
+    {
+      "tokens": [
+        "we",
+        "can",
+        "write",
+        "code"
+      ],
+      "languages": "EEEE"
+    },
+    {
+      "tokens": [
+        "this",
+        "is",
+        "a",
+        "test"
+      ],
+      "languages": "EEEE"
+    },
+    {
+      "tokens": [
+        "I",
+        "would",
+        "like",
+        "to",
+        "learn"
+      ],
+      "languages": "EEEEE"
+    },
+    {
+      "tokens": [
+        "thank",
+        "you",
+        "very",
+        "much"
+      ],
+      "languages": "EEEE"
+    },
+    {
+      "tokens": [
+        "help",
+        "me",
+        "save",
+        "it"
+      ],
+      "languages": "EEEE"
+    },
+    {
+      "tokens": [
+        "read",
+        "the",
+        "next",
+        "word"
+      ],
+      "languages": "EEEE"
+    },
+    {
+      "tokens": [
+        "keep",
+        "the",
+        "original",
+        "text"
+      ],
+      "languages": "EEEE"
+    },
+    {
+      "tokens": [
+        "打开",
+        "GitHub",
+        "项目"
+      ],
+      "languages": "CEC"
+    },
+    {
+      "tokens": [
+        "使用",
+        "Python",
+        "处理",
+        "数据"
+      ],
+      "languages": "CECC"
+    },
+    {
+      "tokens": [
+        "下载",
+        "macOS",
+        "更新"
+      ],
+      "languages": "CEC"
+    },
+    {
+      "tokens": [
+        "学习",
+        "SwiftUI",
+        "布局"
+      ],
+      "languages": "CEC"
+    },
+    {
+      "tokens": [
+        "这个",
+        "API",
+        "支持",
+        "UTF"
+      ],
+      "languages": "CECE"
+    },
+    {
+      "tokens": [
+        "hello",
+        "世界"
+      ],
+      "languages": "EC"
+    },
+    {
+      "tokens": [
+        "早上",
+        "我们",
+        "一起",
+        "去",
+        "公园",
+        "散步"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "下午",
+        "还有",
+        "一个",
+        "重要",
+        "的",
+        "会议"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "这个",
+        "功能",
+        "已经",
+        "完成",
+        "了"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "他",
+        "正在",
+        "认真",
+        "阅读",
+        "这本",
+        "书"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "请",
+        "把",
+        "结果",
+        "发送",
+        "到",
+        "邮箱"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "下周",
+        "需要",
+        "重新",
+        "安排",
+        "时间"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "我们",
+        "应该",
+        "先",
+        "确认",
+        "一下"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "这个",
+        "文件",
+        "已经",
+        "成功",
+        "保存"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "她",
+        "今天",
+        "准备",
+        "回家",
+        "吃饭"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "我",
+        "想",
+        "知道",
+        "更多",
+        "详细",
+        "信息"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "现在",
+        "可以",
+        "开始",
+        "下一步",
+        "操作"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "这个",
+        "计划",
+        "还有",
+        "很多",
+        "问题"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "请",
+        "继续",
+        "完成",
+        "剩下",
+        "的",
+        "工作"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "你",
+        "可以",
+        "试试",
+        "其他",
+        "方法"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "他",
+        "昨天",
+        "买了",
+        "一台",
+        "新的",
+        "电脑"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "这些",
+        "数据",
+        "需要",
+        "仔细",
+        "检查"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "我们",
+        "最后",
+        "决定",
+        "暂时",
+        "保留"
+      ],
+      "languages": "CCCCC"
+    },
+    {
+      "tokens": [
+        "所有",
+        "修改",
+        "都",
+        "已经",
+        "记录",
+        "下来"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "明天",
+        "下午",
+        "我",
+        "会",
+        "再来",
+        "一次"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "希望",
+        "这个",
+        "版本",
+        "可以",
+        "正常",
+        "使用"
+      ],
+      "languages": "CCCCCC"
+    },
+    {
+      "tokens": [
+        "we",
+        "should",
+        "review",
+        "the",
+        "changes",
+        "before",
+        "shipping"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "I",
+        "will",
+        "send",
+        "you",
+        "the",
+        "details",
+        "tomorrow"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "please",
+        "check",
+        "whether",
+        "the",
+        "file",
+        "exists"
+      ],
+      "languages": "EEEEEE"
+    },
+    {
+      "tokens": [
+        "the",
+        "next",
+        "version",
+        "includes",
+        "several",
+        "useful",
+        "improvements"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "we",
+        "need",
+        "to",
+        "finish",
+        "this",
+        "work",
+        "first"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "there",
+        "are",
+        "many",
+        "ways",
+        "to",
+        "solve",
+        "problems"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "she",
+        "is",
+        "reading",
+        "a",
+        "very",
+        "interesting",
+        "book"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "you",
+        "can",
+        "change",
+        "the",
+        "settings",
+        "at",
+        "any",
+        "time"
+      ],
+      "languages": "EEEEEEEE"
+    },
+    {
+      "tokens": [
+        "our",
+        "team",
+        "will",
+        "meet",
+        "again",
+        "next",
+        "week"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "the",
+        "results",
+        "are",
+        "ready",
+        "for",
+        "your",
+        "review"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "this",
+        "example",
+        "shows",
+        "how",
+        "the",
+        "system",
+        "works"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "I",
+        "have",
+        "already",
+        "saved",
+        "the",
+        "latest",
+        "document"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "let",
+        "us",
+        "start",
+        "with",
+        "a",
+        "simple",
+        "explanation"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "they",
+        "are",
+        "looking",
+        "for",
+        "another",
+        "possible",
+        "solution"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "you",
+        "should",
+        "keep",
+        "a",
+        "copy",
+        "of",
+        "the",
+        "original"
+      ],
+      "languages": "EEEEEEEE"
+    },
+    {
+      "tokens": [
+        "he",
+        "wants",
+        "to",
+        "know",
+        "more",
+        "about",
+        "the",
+        "project"
+      ],
+      "languages": "EEEEEEEE"
+    },
+    {
+      "tokens": [
+        "all",
+        "of",
+        "these",
+        "changes",
+        "can",
+        "be",
+        "reviewed"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "please",
+        "try",
+        "the",
+        "same",
+        "steps",
+        "once",
+        "again"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "it",
+        "should",
+        "work",
+        "correctly",
+        "after",
+        "the",
+        "update"
+      ],
+      "languages": "EEEEEEE"
+    },
+    {
+      "tokens": [
+        "the",
+        "application",
+        "is",
+        "running",
+        "on",
+        "this",
+        "computer"
+      ],
+      "languages": "EEEEEEE"
+    }
+  ]
+}

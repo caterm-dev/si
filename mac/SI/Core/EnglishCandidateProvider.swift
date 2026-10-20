@@ -12,7 +12,8 @@ public struct EnglishCandidateProvider: CandidateProvider {
         let style = EnglishLexicon.CaseStyle(input: input)
         return EnglishLexicon.matches(for: key).map { entry in
             InputCandidate(text: entry.text(for: style), language: language,
-                           score: entry.length == length ? 110 : entry.completionScore,
+                           score: Int(-entry.cost(typedLength: length) * LexicalLanguageModel.pointsPerBit),
+                           rankingScore: -entry.cost(typedLength: length) * LexicalLanguageModel.pointsPerBit,
                            hasCompletion: entry.length != length)
         }
     }

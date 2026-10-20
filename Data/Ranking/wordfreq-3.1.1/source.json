@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "source": "wordfreq",
+  "release": "3.1.1",
+  "wheel_url": "https://files.pythonhosted.org/packages/24/61/62835c475d69872d30689f284497853fe33fe1d6dd18f57346d13305861d/wordfreq-3.1.1-py3-none-any.whl",
+  "wheel_sha256": "4b1c6ecffc6198be3396d5cf871c4423ca71c907c231348d352dd54d62b97473",
+  "data_sha256": "dffae8066b78dce0a6667cf5f58e567054f902674667090a7ac8a8a44628b05c",
+  "license": "CC-BY-SA-4.0",
+  "documentation": "README.md",
+  "scope": "Existing ASCII English vocabulary only; lowercase exact-token lookup, no additions",
+  "data_era": "approximately 2021",
+  "license_files": {
+    "LICENSE-Apache-2.0-full.txt": {
+      "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  },
+  "documentation_sha256": "29f380e4c58e58abdad4c6180bf2b62d25ba79e3a6842bd9a82d789e9d5db849",
+  "code_notice_sha256": "262b51ebd3e7e29d3e5b82cb1fceefcf0a0db5627f119d4ad85157adfb6e16fe",
+  "documentation_origin": "Body of wordfreq-3.1.1.dist-info/METADATA in the pinned wheel",
+  "code_notice_origin": "wordfreq-3.1.1.dist-info/LICENSE.txt in the pinned wheel"
+}

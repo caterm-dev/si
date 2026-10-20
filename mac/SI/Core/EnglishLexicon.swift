@@ -1,3 +1,5 @@
+import Foundation
+
 /// One immutable vocabulary shared by direct English lookup and mixed decoding.
 /// Trie nodes refer to ranges of sorted entries, never copies of completion lists.
 /// Generated words are unique ASCII spellings sorted by their lowercase key.
@@ -15,19 +17,29 @@ enum EnglishLexicon {
     struct Entry {
         let text: String
         let length: Int
-        let completionScore: Int
-        let completionCost: Double
+        let id: Int
+        let probability: Double
+        let lexicalCost: Double
+        private let truncationOffset: Double
         private let capitalizedText: String
         private let uppercaseText: String
 
-        init(_ word: String) {
+        init(_ word: String, index: Int) {
             text = word
             length = word.utf8.count
-            completionScore = EnglishLexiconData.completionScores[word.lowercased()] ?? 75
-            completionCost = 24 + Double(85 - completionScore) / 4
+            id = index + 1
+            probability = frequencies[index] / totalFrequency
+            lexicalCost = -log2(0.5 * probability)
+            truncationOffset = SpellingChannel.cost(fullLength: length, typedLength: length)
             capitalizedText = word.prefix(1).uppercased() + word.dropFirst()
             uppercaseText = word.uppercased()
         }
+
+        func cost(typedLength: Int) -> Double {
+            lexicalCost + channelCost(typedLength: typedLength)
+        }
+
+        func channelCost(typedLength: Int) -> Double { Double(length - typedLength) + truncationOffset }
 
         func text(for style: CaseStyle) -> String {
             switch style {
@@ -44,16 +56,20 @@ enum EnglishLexicon {
         let terminal: Int32
         let lower: Int32
         let upper: Int32
+        let bestStart: Int32
+        let bestCount: Int32
     }
 
     private struct Trie {
         let nodes: [Node]
         let children: [Int32]
+        let bestEntries: [Int32]
 
         init(entries: [Entry]) {
             let keys = entries.map { Array($0.text.lowercased().utf8) }
             var nodes: [Node] = []
             var children: [Int32] = []
+            var bestEntries: [Int32] = []
             // Count shared prefixes before allocation, avoiding oversized retained buffers.
             var nodeCount = 1
             var previous: [UInt8] = []
@@ -68,7 +84,7 @@ enum EnglishLexicon {
 
             func appendNode(_ range: Range<Int>, depth: Int) -> Int32 {
                 let node = nodes.count
-                nodes.append(Node(childMask: 0, childStart: 0, terminal: -1, lower: 0, upper: 0))
+                nodes.append(Node(childMask: 0, childStart: 0, terminal: -1, lower: 0, upper: 0, bestStart: 0, bestCount: 0))
                 let terminal = range.first.flatMap { keys[$0].count == depth ? Int32($0) : nil } ?? -1
                 var start = range.lowerBound + (terminal >= 0 ? 1 : 0)
                 var mask: UInt32 = 0
@@ -81,16 +97,40 @@ enum EnglishLexicon {
                     childNodes.append(appendNode(start..<end, depth: depth + 1))
                     start = end
                 }
+                let bestStart: Int32
+                let bestCount: Int32
+                if terminal < 0, childNodes.count == 1 {
+                    // Single-child chains share their immutable top-eight slice.
+                    let child = nodes[Int(childNodes[0])]
+                    bestStart = child.bestStart
+                    bestCount = child.bestCount
+                } else {
+                    var best = childNodes.flatMap { childID -> [Int32] in
+                        let child = nodes[Int(childID)]
+                        return Array(bestEntries[Int(child.bestStart)..<Int(child.bestStart + child.bestCount)])
+                    }
+                    if terminal >= 0 { best.append(terminal) }
+                    best.sort {
+                        let a = entries[Int($0)], b = entries[Int($1)]
+                        let ac = a.cost(typedLength: max(1, depth))
+                        let bc = b.cost(typedLength: max(1, depth))
+                        return ac == bc ? $0 < $1 : ac < bc
+                    }
+                    bestStart = Int32(bestEntries.count)
+                    bestCount = Int32(min(8, best.count))
+                    bestEntries.append(contentsOf: best.prefix(8))
+                }
                 let childStart = children.count
                 children.append(contentsOf: childNodes)
                 nodes[node] = Node(childMask: mask, childStart: Int32(childStart), terminal: terminal,
-                                   lower: Int32(range.lowerBound), upper: Int32(range.upperBound))
+                                   lower: Int32(range.lowerBound), upper: Int32(range.upperBound), bestStart: bestStart, bestCount: bestCount)
                 return Int32(node)
             }
 
             _ = appendNode(entries.indices, depth: 0)
             self.nodes = nodes
             self.children = children
+            self.bestEntries = bestEntries
         }
 
         func advance(_ node: Int, byte: UInt8) -> Int? {
@@ -104,7 +144,13 @@ enum EnglishLexicon {
     }
 
     static let words = EnglishLexiconData.words
-    static let entries = words.map(Entry.init)
+    private static let frequencies = EnglishFrequencyData.centibels.map { pow(10, -Double($0) / 100) }
+    private static let totalFrequency = frequencies.reduce(1e-9, +)
+    static let unknownProbability = 1e-9 / totalFrequency
+    static let entries: [Entry] = {
+        precondition(words.count == frequencies.count, "Regenerate ranking data after vocabulary changes")
+        return words.enumerated().map { Entry($0.element, index: $0.offset) }
+    }()
     static let maximumLength = entries.map(\.length).max() ?? 0
     private static let trie = Trie(entries: entries)
 
@@ -130,6 +176,23 @@ enum EnglishLexicon {
         }
         let value = trie.nodes[node]
         return entries[Int(value.lower)..<Int(value.upper)]
+    }
+
+    static func previewMatches(for key: String) -> [Entry] {
+        guard !key.isEmpty else { return [] }
+        var node = 0
+        for byte in key.utf8 {
+            guard let next = advance(node, byte: byte) else { return [] }
+            node = next
+        }
+        let value = trie.nodes[node]
+        return trie.bestEntries[Int(value.bestStart)..<Int(value.bestStart + value.bestCount)].map { entries[Int($0)] }
+    }
+
+    static func previewCompletions(at node: Int) -> [Entry] {
+        let value = trie.nodes[node]
+        return trie.bestEntries[Int(value.bestStart)..<Int(value.bestStart + value.bestCount)]
+            .filter { $0 != value.terminal }.map { entries[Int($0)] }
     }
 
     /// Mixed completion excludes the exact word; callers enforce its two-letter minimum.

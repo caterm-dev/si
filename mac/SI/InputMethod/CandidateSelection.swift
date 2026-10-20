@@ -58,18 +58,20 @@ struct CandidateSelection {
 
     private static func shortlist(_ ordered: [InputCandidate], engineCandidates: [InputCandidate]) -> [InputCandidate] {
         guard ordered.count > maximumCandidates else { return ordered }
-        // Reserve the engine's first choice for each language identity, plus exact typed text.
+        // Reserve a complete choice per language identity before considering prefix-only fallbacks.
         var languages: Set<InputLanguage> = []
         var includesMixed = false
         var retainedIDs: Set<String> = []
-        for candidate in engineCandidates {
-            if candidate.isLiteral {
-                retainedIDs.insert(candidate.id)
-            } else if candidate.isMixed {
-                if !includesMixed { retainedIDs.insert(candidate.id) }
-                includesMixed = true
-            } else if let language = candidate.language, languages.insert(language).inserted {
-                retainedIDs.insert(candidate.id)
+        for partial in [false, true] {
+            for candidate in engineCandidates where candidate.isPartial == partial {
+                if candidate.isLiteral {
+                    retainedIDs.insert(candidate.id)
+                } else if candidate.isMixed {
+                    if !includesMixed { retainedIDs.insert(candidate.id) }
+                    includesMixed = true
+                } else if let language = candidate.language, languages.insert(language).inserted {
+                    retainedIDs.insert(candidate.id)
+                }
             }
         }
         for candidate in ordered {
