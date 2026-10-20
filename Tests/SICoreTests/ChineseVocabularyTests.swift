@@ -3,6 +3,33 @@ import Testing
 @testable import SICore
 
 struct ChineseVocabularyTests {
+    @Test func sentenceFinalMaKeepsChineseAndEnglishAlternatives() throws {
+        let engine = CandidateEngine()
+        let input = "nengxiangbanfayouhuama"
+        for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
+            let values = engine.candidates(for: input, languages: languages)
+            let first = try #require(values.first)
+            #expect(first.text == "能想办法优化吗")
+            #expect(!first.isPartial && !first.isMixed && !first.hasCompletion && !first.hasLiteralSegments)
+            #expect(values.last?.text == input && values.last?.isLiteral == true)
+            #expect(values == engine.candidates(for: input, languages: languages))
+            if languages.contains(.english) {
+                #expect(values.contains { $0.text == "能想办法优化ma" && $0.isMixed && !$0.isPartial })
+            }
+        }
+
+        // A saved English token choice may reorder results, but must keep the Chinese ending available.
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let profile = LearningProfile(entries: [
+            LearnedPreference(input: "ma", text: "ma", language: .english, strength: 8, lastUsed: now),
+        ], now: now)
+        let personalized = engine.candidates(for: input, languages: Set(InputLanguage.allCases),
+                                             learning: profile, now: now)
+        #expect(personalized.contains { $0.text == "能想办法优化吗" && !$0.isPartial })
+        #expect(personalized.contains { $0.text == "能想办法优化ma" && $0.isMixed && !$0.isPartial })
+        #expect(personalized.last?.text == input && personalized.last?.isLiteral == true)
+    }
+
     @Test func importedWordsCharactersAndReadingsJoinTheExistingEngine() {
         let engine = CandidateEngine()
         for (input, expected) in [("zimu", "字幕"), ("shujuku", "数据库"), ("zhuban", "主板"),

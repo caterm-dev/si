@@ -1,6 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+configuration="${1:-Release}"
+case "$configuration" in
+    Debug|Release) ;;
+    *) printf 'Usage: %s [Debug|Release]\n' "$0" >&2; exit 2 ;;
+esac
+if [[ $# -gt 1 ]]; then
+    printf 'Usage: %s [Debug|Release]\n' "$0" >&2
+    exit 2
+fi
 destination="$HOME/Library/Input Methods/SI.app"
 ensure_si_stopped() {
     local status=0
@@ -18,8 +27,8 @@ ensure_si_stopped() {
     esac
 }
 ensure_si_stopped
-"$repo_root/scripts/build.sh" Debug
-source_app="$repo_root/.build/xcode/Build/Products/Debug/SI.app"
+"$repo_root/scripts/build.sh" "$configuration"
+source_app="$repo_root/.build/xcode/Build/Products/$configuration/SI.app"
 mkdir -p "$(dirname "$destination")"
 staging="$(mktemp -d "$(dirname "$destination")/.si-install.XXXXXX")"
 trap 'rm -rf "$staging"' EXIT

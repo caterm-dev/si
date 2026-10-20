@@ -5,6 +5,79 @@ import SICore
 
 @MainActor
 struct CandidateViewTests {
+    @Test func pendingSearchKeepsTheCardUntilCurrentCandidatesReplaceIt() throws {
+        let view = CandidateListView()
+        var selection = CandidateSelection()
+        selection.update((0..<12).map { InputCandidate(text: "旧候选\($0)", language: .simplifiedChinese, score: 100) })
+        view.render(selection)
+        let oldRows = view.rows
+        let size = view.preferredSize
+        let pageText = view.pageLabel.stringValue
+        var selected: [String] = []
+        var pageMoves: [Int] = []
+        view.onSelect = { selected.append($0) }
+        view.onMovePage = { pageMoves.append($0) }
+
+        // Deferred sessions expose only the current literal until their result arrives.
+        for spelling in ["n", "ni", "nihao"] {
+            selection.update([InputCandidate(text: spelling, language: nil, score: 0)])
+            view.render(selection, isPending: true)
+            #expect(view.preferredSize == size)
+            #expect(view.rows.elementsEqual(oldRows, by: { $0 === $1 }))
+            #expect(view.pageLabel.stringValue == pageText)
+            #expect(view.rows.allSatisfy { !$0.isEnabled })
+            #expect(!view.previousButton.isEnabled && !view.nextButton.isEnabled)
+            // Also reject actions already queued before the controls were disabled.
+            NSApplication.shared.sendAction(try #require(oldRows[0].action), to: view, from: oldRows[0])
+            NSApplication.shared.sendAction(try #require(view.nextButton.action), to: view, from: view.nextButton)
+        }
+        #expect(selected.isEmpty && pageMoves.isEmpty)
+        #expect(view.accessibilityHelp() == "Updating candidates")
+
+        selection.update([InputCandidate(text: "你好", language: .simplifiedChinese, score: 100)])
+        view.render(selection)
+        #expect(!view.isUpdating)
+        #expect(view.accessibilityHelp() == nil)
+        #expect(view.rows[0].isEnabled)
+        #expect(view.rows[0].candidateLabel.stringValue == "你好")
+        #expect(!view.showsPagination)
+        oldRows[0].performClick(nil)
+        #expect(selected.isEmpty)
+        view.rows[0].performClick(nil)
+        #expect(selected == [selection.candidates[0].id])
+    }
+
+    @Test func firstPendingCompositionShowsItsLiteralWithoutEnablingSelection() {
+        let view = CandidateListView()
+        var selection = CandidateSelection()
+        selection.update([InputCandidate(text: "Ni", language: nil, score: 0)])
+        view.render(selection, isPending: true)
+        #expect(view.rows.map { $0.candidateLabel.stringValue } == ["Ni"])
+        #expect(!view.rows[0].isEnabled)
+        selection.update([])
+        view.render(selection)
+        #expect(view.rows.isEmpty && !view.isUpdating)
+        selection.update([InputCandidate(text: "Other", language: nil, score: 0)])
+        view.render(selection, isPending: true)
+        #expect(view.rows.map { $0.candidateLabel.stringValue } == ["Other"])
+    }
+
+    @Test func aRemovedRowCannotSelectAReplacementCompositionsCandidate() {
+        let view = CandidateListView()
+        var selection = CandidateSelection()
+        var selected: [String] = []
+        view.onSelect = { selected.append($0) }
+        selection.update([InputCandidate(text: "旧", language: .simplifiedChinese, score: 100)])
+        view.render(selection)
+        let oldRow = view.rows[0]
+        selection.update([InputCandidate(text: "新", language: .simplifiedChinese, score: 100)])
+        view.render(selection)
+        oldRow.performClick(nil)
+        #expect(selected.isEmpty)
+        view.rows[0].performClick(nil)
+        #expect(selected == [selection.candidates[0].id])
+    }
+
     @Test func realKeyEventValuesDriveTheDisplayedSelectionAndCommit() throws {
         var session = InputSession()
         session.append("shi")

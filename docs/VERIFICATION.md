@@ -2,11 +2,15 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Combined responsiveness validation — 2026-10-20
+
+The complete checkout includes the English Trie, bounded continuation selection, deferred/coalesced client-local requests, stable pending candidate panels, Release-default installation, and their regressions. `./scripts/test.sh` passed all 192 methods (137 core, 12 storage, 18 settings and 25 presentation). Debug and Release app builds passed with only the existing skipped AppIntents metadata warning. Installer shell syntax, local documentation links and whitespace checks passed. No installation or native host-app operation was performed; the manual compatibility and accessibility checks remain outstanding.
+
 ## English Trie and static entry metadata — 2026-10-20
 
 Direct English lookup and the shared mixed decoder now use one immutable compact ASCII Trie. Nodes contain child bitmaps, packed child IDs and ranges into the sorted vocabulary; they do not copy completion lists. Each entry caches canonical/initial-capital/uppercase text, byte length, completion score and continuation cost. Mixed lookup advances a cursor per source start, retaining the original edge order, explicit apostrophe constraints and two-letter completion minimum. Learning/context adjustments remain query-local. No word sources, candidate caps, ranking rules, personal data or persisted schema changed. These derived structures initialize once on first default-engine construction and rebuild after process restart; no input cache or serialized index was introduced.
 
-The performance measurements below were collected in the shared checkout with pre-existing continuation-pruning and deferred-typing changes. Those changes remain outside this commit. The committed benchmark has eighteen search cases; the local benchmark used for comparison additionally had two existing typing-edit cases.
+The performance measurements below were collected in the shared checkout with pre-existing continuation-pruning and deferred-typing changes. The English Trie commit (`9019bdd`) excluded those changes. Its benchmark had eighteen search cases; the comparison checkout additionally had two existing typing-edit cases.
 
 Validation on Apple Silicon macOS 27.0.1, Xcode 27.1, Swift 6.4:
 
@@ -31,6 +35,46 @@ The first pair shows approximately 22–36% lower medians for these English-only
 The first measured default-engine initialization took 399.735 ms before and 427.235 ms after (about 28 ms extra). The reverse-order repeat measured 405.315 ms before and 416.358 ms after (about 11 ms extra). Initialization includes preparation of both languages and is one sample per process, not total application startup. CLI maximum resident set size rose from 226,164,736 to 235,831,296 bytes (about 9.22 MiB); peak footprint rose from 219,169,416 to 228,835,976 bytes. These are whole-process resource totals, not isolated index allocations or input-method app memory. Candidate-generation measurements exclude InputMethodKit, IPC, UI delivery and host-app latency.
 
 No installation, process termination, input-source change or host-app operation was performed. Actual host typing, shortcuts/focus, paging and appearance remain unverified; follow the existing manual checks before release. The Trie still enumerates complete direct matches and preserves exact literals and language ambiguity.
+
+## Candidate-window continuity — 2026-10-20
+
+The user reported per-keystroke flashing after deferred search was introduced. The pending-request branch explicitly ordered the panel out before every search. It now keeps the visible panel and its existing rows, dimensions and footer while waiting, then replaces the contents on accepted delivery. Pending mouse/page/scroll actions are blocked; keyboard confirmation still resolves the current spelling. The first search shows a literal placeholder, and a hidden panel starts with the new composition's contents. Showing an already visible panel no longer orders it front again or reapplies an unchanged frame. Commit, cancellation, deactivation and invalid geometry retain their dismissal behavior.
+
+The directed run passed 49 tests (24 core and 25 presentation), including two new pending-view regressions, obsolete/queued row actions, deferred delivery, selection, placement, editing and prefix/boundary commits. The view checks are offscreen and do not display a window or control host apps. The Debug app build passed; its only warning was the existing skipped AppIntents metadata extraction. Whitespace checks passed. SI was not installed or restarted, and actual window continuity, VoiceOver and host-app behavior remain unverified until manual checks from [TESTING.md](TESTING.md). The prior rapid-typing checkpoint below describes the earlier implementation that hid pending rows.
+
+## Rapid typing responsiveness — 2026-10-20
+
+The user reported lag during fast typing. Inspection found that the installer always selected the unoptimized Debug app, and every composition edit synchronously generated candidates in the InputMethodKit main-thread callback. A Release benchmark with the maintained vocabularies reproduced expensive searches. A three-second sample of only the self-launched synthetic benchmark identified full continuation sorting as a hotspot; no input-method process or personal input was sampled.
+
+Continuation selection now retains the same bounded distinct best paths incrementally rather than sorting the full incoming pool. State/beam budgets, canonical comparison/identity, stable tie order, prefix presentation, terminal scoring, and direct lexical/personal results remain intact. The input-method controller uses deferred `InputSession` requests: marked spelling updates before a shared worker actor computes candidates, and each client coalesces work to one in-flight request plus one latest replacement. Sealed, revision-checked results cannot restore edited/cancelled compositions or apply to another client. Delivery rechecks settings, consent, secure-input suppression, dictionary, and context. Return/Escape/shortcuts do not wait for candidates; selection and punctuation boundaries resolve current pending candidates synchronously to retain exact commit behavior. Old rows hide while pending, and removed row actions are rejected. No unsafe isolation bridge was added.
+
+The installer now defaults to Release, with an explicit `Debug` argument for debugging. Its process guard, signing, backup, registration, and rollback behavior are unchanged. This repair did not install or terminate SI, alter enabled input sources, inspect private archives, or operate host apps.
+
+Validation on Apple Silicon macOS 27.0.1, Xcode 27.1, Swift 6.4:
+
+- The main directed run passed 154 tests (131 core and 23 presentation), including bounded/exhaustive search, Unicode, learning, prefixes, editing, selection, deferred results, and the production worker's off-main execution. A final focused run passed seven deferred-session methods and three pipeline methods, adding four independently injected learning/dictionary/context/secure configuration cases to the earlier checks. There are 155 distinct passing core/presentation methods across these runs. Controlled continuations test coalescing and replacement without timing sleeps. Storage/settings suites were not rerun beyond the existing directed scope.
+- Debug and Release app builds succeeded. The only app-build warning was the existing skipped AppIntents metadata extraction. Installer shell syntax passed, and an invalid configuration exited with usage/status 2 before touching installation state. Whitespace checks passed.
+- The baseline and final Release runs use 5,000 synthetic preferences, 1,000 personal phrases, 10 warmups and 200 iterations for the original thirteen search scenarios. Final measurement began at `2026-10-20T01:43:28Z` after builds/tests finished. All thirteen final candidate fingerprints match baseline. The brief CPU sample occurred during the baseline pass; fingerprint agreement and small exhaustive tests are regression evidence rather than a proof over all inputs.
+
+| Candidate-generation scenario | Before median (ms) | Final median (ms) | Final p95 (ms) |
+| --- | ---: | ---: | ---: |
+| short | 5.325 | 5.291 | 5.358 |
+| ambiguous | 1.662 | 1.687 | 1.727 |
+| partial | 2.420 | 2.509 | 2.546 |
+| phrase construction | 25.583 | 19.370 | 19.520 |
+| mixed | 10.998 | 6.215 | 6.309 |
+| long ambiguous composition | 167.617 | 61.027 | 61.530 |
+| literal fallback beyond decoder limit | 0.009 | 0.009 | 0.011 |
+| personal phrase prefix at full capacity | 10.713 | 10.666 | 10.838 |
+| dense known composition | 21.665 | 16.643 | 16.822 |
+| dense prefix with unknown tail | 111.346 | 98.442 | 99.627 |
+| bounded long personal expansions | 30.411 | 23.196 | 23.430 |
+| learned tokens in longer composition | 82.028 | 41.238 | 41.627 |
+| bounded Unicode personal expansions | 104.712 | 62.759 | 63.157 |
+
+The added 16-character typing-burst measurements compare the caller's synchronous and deferred edit work using the same optimized engine (3 warmups and 20 measured bursts). Synchronous edits took 183.945 ms median/184.760 ms p95 per burst; deferred edits took 0.009 ms median/0.009 ms p95. Deferred final resolution occurs outside the edit timer, and the final synchronous/deferred candidate fingerprints match. This measures only in-process session edits; it excludes actor scheduling, background search, marked-text IPC, drawing, settings access, and confirmation waits. It is not a native key-to-screen latency claim.
+
+The final fifteen-scenario CLI took 78.79 seconds under `time -l`, with 227,426,304 bytes maximum resident set size and 220,430,984 bytes peak memory footprint. These are CLI-process totals, not input-method app memory or a startup measurement. Background searches still have the costs above; confirmation boundaries can wait for current search, and Settings preview remains synchronous. Actual fast typing, focus changes, shortcuts, secure fields, candidate delivery/paging, and appearance remain unverified in host apps and require the new checks in [TESTING.md](TESTING.md) after installing the Release update.
 
 ## Top menu-bar template badge — 2026-10-20
 

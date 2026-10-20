@@ -487,22 +487,38 @@ public struct PinyinDecoder: Sendable {
     }
 
     private func select(_ paths: [Path], personalized: Bool) -> [Path] {
-        var seen = Set<PathIdentity>(minimumCapacity: min(paths.count, Self.beamWidth * 8))
-        var counts = Dictionary<Int, Int>(minimumCapacity: 8)
-        return paths.sorted {
-            let left = personalized ? $0.searchCost : $0.cost
-            let right = personalized ? $1.searchCost : $1.cost
-            if left != right { return left < right }
-            if $0.verbatim != $1.verbatim { return !$0.verbatim }
-            if $0.personal != $1.personal { return !$0.personal }
-            return Self.continuationPrecedes($0, $1)
-        }.filter {
-            let key = state($0)
-            guard counts[key, default: 0] < Self.beamWidth,
-                  seen.insert(PathIdentity(state: key, path: $0, continuing: true)).inserted else { return false }
-            counts[key, default: 0] += 1
-            return true
+        func precedes(_ left: Path, _ right: Path) -> Bool {
+            let a = personalized ? left.searchCost : left.cost
+            let b = personalized ? right.searchCost : right.cost
+            if a != b { return a < b }
+            if left.verbatim != right.verbatim { return !left.verbatim }
+            if left.personal != right.personal { return !left.personal }
+            return Self.continuationPrecedes(left, right)
         }
+        // Retain the same best distinct paths without sorting the entire incoming pool.
+        // The budget and identity include the same future boundary/learning information.
+        var groups: [Int: [(path: Path, order: Int)]] = [:]
+        for (order, path) in paths.enumerated() {
+            let key = state(path)
+            var group = groups[key, default: []]
+            if group.count == Self.beamWidth, !precedes(path, group[group.count - 1].path) { continue }
+            if let duplicate = group.firstIndex(where: {
+                $0.path.englishWordEnd == path.englishWordEnd && $0.path.splitsEnglishWord == path.splitsEnglishWord
+                    && Self.textEquals($0.path, path)
+            }) {
+                guard precedes(path, group[duplicate].path) else { continue }
+                group.remove(at: duplicate)
+            }
+            let position = group.firstIndex { precedes(path, $0.path) } ?? group.count
+            group.insert((path, order), at: position)
+            if group.count > Self.beamWidth { group.removeLast() }
+            groups[key] = group
+        }
+        return groups.values.flatMap { $0 }.sorted {
+            if precedes($0.path, $1.path) { return true }
+            if precedes($1.path, $0.path) { return false }
+            return $0.order < $1.order
+        }.map(\.path)
     }
 
     private static func continuationPrecedes(_ left: Path, _ right: Path) -> Bool {

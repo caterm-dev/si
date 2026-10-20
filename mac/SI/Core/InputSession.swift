@@ -1,6 +1,29 @@
 import Foundation
 
+/// Immutable, transient work for one composition revision. No client/UI objects cross this boundary.
+public struct CandidateRequest: Sendable {
+    public let id = UUID()
+    fileprivate let input: String
+    fileprivate let languages: Set<InputLanguage>
+    fileprivate let engine: CandidateEngine
+    fileprivate let learning: LearningProfile
+    fileprivate let dictionary: UserDictionary
+    fileprivate let now: Date
+    fileprivate let context: CandidateContext?
+
+    public func generate() -> CandidateResult {
+        CandidateResult(requestID: id, candidates: engine.candidates(
+            for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context))
+    }
+}
+
+public struct CandidateResult: Sendable {
+    fileprivate let requestID: UUID
+    public let candidates: [InputCandidate]
+}
+
 public struct InputSession: Sendable {
+    public enum CandidateGeneration: Sendable { case synchronous, deferred }
     public static let contextLifetime: TimeInterval = 5 * 60
     private struct RecentContext: Sendable {
         let candidate: CandidateContext
@@ -10,16 +33,19 @@ public struct InputSession: Sendable {
     public private(set) var cursor = 0
     public var cursorUTF16Offset: Int { buffer.prefix(cursor).utf16.count }
     public private(set) var candidates: [InputCandidate] = []
+    public private(set) var pendingCandidateRequest: CandidateRequest?
     private var languages: Set<InputLanguage> = Set(InputLanguage.allCases)
     private let engine: CandidateEngine
+    private let candidateGeneration: CandidateGeneration
     private var learning = LearningProfile()
     private var dictionary = UserDictionary()
     private var usesContext = false
     private var recentContext: RecentContext?
     private var contextGeneration: UInt64 = 0
 
-    public init(engine: CandidateEngine = CandidateEngine()) {
+    public init(engine: CandidateEngine = CandidateEngine(), candidateGeneration: CandidateGeneration = .synchronous) {
         self.engine = engine
+        self.candidateGeneration = candidateGeneration
     }
 
     public mutating func configure(languages: Set<InputLanguage>, learning: LearningProfile = LearningProfile(),
@@ -110,6 +136,7 @@ public struct InputSession: Sendable {
         buffer = ""
         cursor = 0
         candidates = []
+        pendingCandidateRequest = nil
         recentContext = nil
     }
 
@@ -126,7 +153,33 @@ public struct InputSession: Sendable {
     }
 
     private mutating func refresh(now: Date = .now) {
-        candidates = engine.candidates(for: buffer, languages: languages, learning: learning, dictionary: dictionary,
-                                       now: now, context: currentContext(now: now))
+        guard !buffer.isEmpty else {
+            candidates = []
+            pendingCandidateRequest = nil
+            return
+        }
+        let request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
+                                       dictionary: dictionary, now: now, context: currentContext(now: now))
+        pendingCandidateRequest = request
+        if candidateGeneration == .synchronous {
+            _ = accept(request.generate())
+        } else {
+            // Old candidates must not be selected while new work is pending. Exact text remains available.
+            candidates = [InputCandidate(text: buffer, language: nil, score: 0)]
+        }
+    }
+
+    @discardableResult
+    public mutating func accept(_ result: CandidateResult) -> Bool {
+        guard pendingCandidateRequest?.id == result.requestID else { return false }
+        candidates = result.candidates
+        pendingCandidateRequest = nil
+        return true
+    }
+
+    /// Selection boundaries need current candidates even when background work has not finished.
+    public mutating func resolveCandidates() {
+        guard let request = pendingCandidateRequest else { return }
+        _ = accept(request.generate())
     }
 }

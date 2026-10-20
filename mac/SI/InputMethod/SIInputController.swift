@@ -6,7 +6,11 @@ import InputMethodKit
 @objc(SIInputController)
 // The legacy superclass is not Sendable. All mutable state remains main-actor isolated.
 final class SIInputController: IMKInputController, @unchecked Sendable {
-    private var session = InputSession()
+    private var session = InputSession(candidateGeneration: .deferred)
+    private weak var candidateClient: (any IMKTextInput)?
+    private lazy var candidatePipeline = CandidatePipeline { [weak self] result in
+        self?.receiveCandidates(result)
+    }
     private var selection = CandidateSelection()
     private var candidateAnchor = CandidateAnchor()
     private var explicitlyNavigated = false
@@ -14,6 +18,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let panel = CandidatePanel()
         panel.list.onSelect = { [weak self] id in
             guard let self, let client = self.client(),
+                  self.session.pendingCandidateRequest == nil,
                   let candidate = self.session.candidates.first(where: { $0.id == id }) else { return }
             self.commitCandidate(candidate, to: client)
         }
@@ -34,12 +39,9 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private func handleOnMain(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event, event.type == .keyDown, let client = sender as? any IMKTextInput else { return false }
         let previousCandidates = session.candidates
-        session.configure(languages: LanguageSettings.shared.enabledLanguages,
-                          learning: PersonalizationSettings.shared.rankingProfile,
-                          dictionary: UserDictionarySettings.shared.dictionaryForInput,
-                          usesContext: PersonalizationSettings.shared.usesContext,
-                          contextGeneration: PersonalizationSettings.shared.contextGeneration)
-        if previousCandidates != session.candidates { update(client) }
+        let previousRequest = session.pendingCandidateRequest?.id
+        configureSession()
+        if previousCandidates != session.candidates || previousRequest != session.pendingCandidateRequest?.id { update(client) }
 
         if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             commitLiteral(to: client)
@@ -48,6 +50,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
         if !session.buffer.isEmpty,
            let action = CandidateSelection.action(keyCode: event.keyCode, characters: event.characters) {
+            resolveCandidates(to: client)
             switch action {
             case .move(let distance): moveCandidateSelection(by: distance, to: client)
             case .choose(let number): commitCandidate(selection.candidate(number: number), to: client)
@@ -77,6 +80,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return true
         case 49: // Space
             guard !session.buffer.isEmpty else { return false }
+            resolveCandidates(to: client)
             let selected = currentCandidate
             let commit = session.commitResult(selected, reason: explicitlyNavigated ? .explicitSelection : .defaultAcceptance)
             let suffix = commit.remainingInput.isEmpty && selected?.appendsSpaceOnAcceptance != false ? " " : ""
@@ -107,6 +111,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             update(client)
             return true
         }
+        resolveCandidates(to: client)
         let selected = currentCandidate
         let boundary = CompositionBoundary.resolve(text: text, selected: selected, explicitlySelected: explicitlyNavigated,
                                                    behavior: LanguageSettings.shared.punctuationBehavior)
@@ -125,6 +130,32 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let commit = session.commitResult(candidate, reason: .explicitSelection)
         apply(commit, to: client)
         PersonalizationSettings.shared.record(commit)
+    }
+
+    private func configureSession() {
+        session.configure(languages: LanguageSettings.shared.enabledLanguages,
+                          learning: PersonalizationSettings.shared.rankingProfile,
+                          dictionary: UserDictionarySettings.shared.dictionaryForInput,
+                          usesContext: PersonalizationSettings.shared.usesContext,
+                          contextGeneration: PersonalizationSettings.shared.contextGeneration)
+    }
+
+    private func receiveCandidates(_ result: CandidateResult) {
+        guard let client = candidateClient else { return }
+        let previousRequest = session.pendingCandidateRequest?.id
+        // Consent, secure input, language, dictionary, and context may change while work is running.
+        configureSession()
+        if session.accept(result) {
+            update(client)
+        } else if previousRequest != session.pendingCandidateRequest?.id {
+            update(client)
+        }
+    }
+
+    private func resolveCandidates(to client: any IMKTextInput) {
+        guard session.pendingCandidateRequest != nil else { return }
+        session.resolveCandidates()
+        update(client)
     }
 
     private var currentCandidate: InputCandidate? {
@@ -147,7 +178,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return rect
         }
         guard let caret else { candidatePanel.orderOut(nil); return }
-        candidatePanel.show(selection: selection, caret: caret, clientLevel: Int(client.windowLevel()), screens: screens)
+        candidatePanel.show(selection: selection, caret: caret, clientLevel: Int(client.windowLevel()), screens: screens,
+                            isPending: session.pendingCandidateRequest != nil)
     }
 
     nonisolated override func commitComposition(_ sender: Any!) {
@@ -162,6 +194,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         commitComposition(sender)
         MainActor.assumeIsolated {
             session.breakContext()
+            candidatePipeline.invalidate()
+            candidateClient = nil
             candidateAnchor.reset()
             candidatePanel.orderOut(nil)
         }
@@ -181,14 +215,20 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func update(_ client: any IMKTextInput) {
+        candidateClient = client
         selection.update(session.candidates)
         explicitlyNavigated = false
         client.setMarkedText(session.buffer, selectionRange: NSRange(location: session.cursorUTF16Offset, length: 0),
                              replacementRange: NSRange(location: NSNotFound, length: 0))
         if session.buffer.isEmpty {
+            candidatePipeline.invalidate()
             candidateAnchor.reset()
             candidatePanel.orderOut(nil)
+        } else if let request = session.pendingCandidateRequest {
+            presentCandidates(to: client)
+            candidatePipeline.submit(request)
         } else {
+            candidatePipeline.invalidate()
             presentCandidates(to: client)
         }
     }
@@ -200,6 +240,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func insert(_ text: String, into client: any IMKTextInput) {
+        candidatePipeline.invalidate()
+        candidateClient = nil
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         selection.update([])
         candidateAnchor.reset()

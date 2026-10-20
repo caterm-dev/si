@@ -7,6 +7,7 @@ final class CandidateListView: NSView {
     private(set) var previousButton = NSButton(title: "", target: nil, action: nil)
     private(set) var nextButton = NSButton(title: "", target: nil, action: nil)
     private(set) var showsPagination = false
+    private(set) var isUpdating = false
     var onSelect: ((String) -> Void)?
     var onMovePage: ((Int) -> Void)?
     private let rowHeight: CGFloat = 30
@@ -40,7 +41,14 @@ final class CandidateListView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
-    func render(_ selection: CandidateSelection) {
+    func render(_ selection: CandidateSelection, isPending: Bool = false) {
+        isUpdating = isPending
+        // Keep the current card intact while a newer composition is being searched.
+        // These rows are only a visual placeholder; they cannot confirm stale text.
+        if isPending, !rows.isEmpty {
+            updateInteraction(selection)
+            return
+        }
         rows.forEach { $0.removeFromSuperview() }
         rows = selection.visibleRange.enumerated().map { number, index in
             let row = CandidateRowButton()
@@ -55,10 +63,16 @@ final class CandidateListView: NSView {
         pageLabel.stringValue = "\(selection.page + 1) / \(max(1, selection.pageCount))"
         pageLabel.setAccessibilityLabel("Page \(selection.page + 1) of \(max(1, selection.pageCount))")
         for control in [pageLabel, previousButton, nextButton] { control.isHidden = !showsPagination }
-        previousButton.isEnabled = selection.page > 0
-        nextButton.isEnabled = selection.page + 1 < selection.pageCount
+        updateInteraction(selection)
         needsLayout = true
         needsDisplay = true
+    }
+
+    private func updateInteraction(_ selection: CandidateSelection) {
+        rows.forEach { $0.isEnabled = !isUpdating }
+        previousButton.isEnabled = !isUpdating && selection.page > 0
+        nextButton.isEnabled = !isUpdating && selection.page + 1 < selection.pageCount
+        setAccessibilityHelp(isUpdating ? "Updating candidates" : nil)
     }
 
     var preferredSize: NSSize {
@@ -98,11 +112,14 @@ final class CandidateListView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard abs(event.scrollingDeltaY) > 0.5, event.phase != .ended else { return }
+        guard !isUpdating, abs(event.scrollingDeltaY) > 0.5, event.phase != .ended else { return }
         onMovePage?(event.scrollingDeltaY > 0 ? -1 : 1)
     }
 
-    @objc private func selectRow(_ sender: CandidateRowButton) { onSelect?(sender.candidateID) }
-    @objc private func previousPage() { onMovePage?(-1) }
-    @objc private func nextPage() { onMovePage?(1) }
+    @objc private func selectRow(_ sender: CandidateRowButton) {
+        guard !isUpdating, rows.contains(where: { $0 === sender }) else { return }
+        onSelect?(sender.candidateID)
+    }
+    @objc private func previousPage() { if !isUpdating { onMovePage?(-1) } }
+    @objc private func nextPage() { if !isUpdating { onMovePage?(1) } }
 }

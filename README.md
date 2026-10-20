@@ -85,7 +85,7 @@ The Xcode project defaults to ad hoc signing for local development. No personal 
 ./scripts/install.sh
 ```
 
-This builds SI, stages and verifies an ad hoc signed copy, and installs it in `~/Library/Input Methods/SI.app`. It then asks macOS to register the bundle and verifies exactly one selectable SI keyboard input source. It does not enable or select SI and never requires `sudo`. Stop any Xcode run first; if the installed SI process is running, select another input source and log out before replacing it.
+This builds the optimized **Release** app, stages and verifies an ad hoc signed copy, and installs it in `~/Library/Input Methods/SI.app`. Use `./scripts/install.sh Debug` only when debugging an installed input method; Debug disables compiler optimization and is not representative of typing performance. The installer then asks macOS to register the bundle and verifies exactly one selectable SI keyboard input source. It does not enable or select SI and never requires `sudo`. Stop any Xcode run first; if the installed SI process is running, select another input source and log out before replacing it.
 
 1. After the installer reports `Verified: one selectable SI keyboard input source`, open Keyboard settings. If already open, close and reopen System Settings. Log out and back in only if SI remains missing.
 2. Open **System Settings → Keyboard → Text Input → Edit → +**.
@@ -134,6 +134,8 @@ Outside composition, control keys and punctuation pass through. Shift and Caps L
 
 Number shortcuts select the currently visible candidate rows, including after scrolling or paging. Up/Down changes the highlighted choice, Page Up/Page Down moves by a page, and Space confirms the highlighted candidate. Left/Right edits the composition caret.
 
+Ordinary typing updates marked spelling before searching candidates off the main thread. Each client keeps one running search and the latest pending request, discarding superseded results. The candidate window stays visible while searching: it keeps its current rows and size until the new results replace them. Pending rows and page controls cannot be clicked or scrolled; the first search displays the current literal spelling. Space, digits, candidate navigation, and composition punctuation resolve the current spelling before selecting; these confirmation boundaries can still wait for a search. Return, Escape, and shortcuts can preserve/cancel spelling without waiting for candidates.
+
 The candidate window shows compact numbered rows without repeated language descriptions such as “Chinese + English”. Full language/source details remain in tooltips and accessibility labels. Small hints distinguish prefix choices, personal phrases, and typed text. Page controls appear only when more than one page is available; light and dark appearances use system colors.
 
 The panel anchors below the beginning of the marked composition, using the host's screen coordinates, and moves above it when space is limited. A temporary geometry failure can reuse the last valid position in that composition; without valid geometry it stays hidden. Host-specific positioning still requires manual verification.
@@ -166,7 +168,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture](docs/ARCHITECTURE
 
 See the [roadmap](docs/ROADMAP.md) for planned work and [manual verification](docs/TESTING.md) for host-app checks. GitHub Actions builds the macOS app and runs core tests on pushes and pull requests.
 
-`./scripts/benchmark.sh` measures Release-mode candidate generation across eighteen synthetic scenarios with 5,000 saved preferences and 1,000 personal phrases, including five English lookup cases. It also records first-engine initialization, which prepares the shared English Trie and cached word metadata once per process. It emits JSON with timings and synthetic candidate fingerprints; `--resources` separately reports CLI-process resource usage on stderr. These are in-process measurements, not total key-to-screen latency. See [dictionary provenance and decoder limits](docs/DICTIONARIES.md) and the [latest verification checkpoint](docs/VERIFICATION.md).
+`./scripts/benchmark.sh` measures Release-mode candidate generation across eighteen synthetic scenarios with 5,000 saved preferences and 1,000 personal phrases, including five English lookup cases, plus synchronous/deferred edit costs for a synthetic typing burst. It also records first-engine initialization, which prepares the shared English Trie and cached word metadata once per process. It emits JSON with timings and synthetic candidate fingerprints; `--resources` separately reports CLI-process resource usage on stderr. Deferred edit timing excludes final search and UI delivery; candidate-generation scenarios measure search separately. These are in-process measurements, not total key-to-screen latency. See [dictionary provenance and decoder limits](docs/DICTIONARIES.md) and the [latest verification checkpoint](docs/VERIFICATION.md).
 
 ## License
 

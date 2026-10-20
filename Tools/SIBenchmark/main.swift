@@ -103,6 +103,34 @@ enum SIBenchmark {
                                             p95Milliseconds: times[Int(Double(times.count - 1) * 0.95)],
                                             maximumMilliseconds: times.last ?? 0))
         }
+        // Compare the caller's edit path only. Deferred final resolution is outside this timed region;
+        // its real search cost is measured by the candidate-generation scenarios above.
+        let typingInput = "woaiSwiftshurufa"
+        for generation in [InputSession.CandidateGeneration.synchronous, .deferred] {
+            var times: [Double] = []
+            var lastCandidates: [InputCandidate] = []
+            for iteration in -3..<20 {
+                var session = InputSession(engine: engine, candidateGeneration: generation)
+                session.configure(languages: Set(InputLanguage.allCases), learning: profile, dictionary: dictionary)
+                let start = clock.now
+                for character in typingInput { session.append(String(character)) }
+                let duration = start.duration(to: clock.now).components
+                if iteration >= 0 {
+                    times.append(Double(duration.seconds) * 1_000 + Double(duration.attoseconds) / 1e15)
+                }
+                session.resolveCandidates()
+                lastCandidates = session.candidates
+                checksum += session.candidates.count
+            }
+            times.sort()
+            measurements.append(Measurement(
+                scenario: generation == .synchronous ? "synchronous typing edits" : "deferred typing edits",
+                inputLength: typingInput.count, iterations: times.count, candidates: lastCandidates.count,
+                candidateFingerprint: fingerprint(lastCandidates),
+                maximumPersonalPhraseBytes: dictionary.entries.map { $0.text.utf8.count }.max() ?? 0,
+                medianMilliseconds: times[times.count / 2],
+                p95Milliseconds: times[Int(Double(times.count - 1) * 0.95)], maximumMilliseconds: times.last ?? 0))
+        }
         let report = Report(measuredAt: now, operatingSystem: ProcessInfo.processInfo.operatingSystemVersionString,
                             learnedPreferences: profile.entries.count, personalPhrases: dictionary.entries.count,
                             engineInitializationMilliseconds: initializationMilliseconds,
