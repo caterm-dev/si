@@ -48,7 +48,8 @@ struct CandidateViewTests {
         view.render(selection)
         view.frame = NSRect(origin: .zero, size: view.preferredSize)
         view.layoutSubtreeIfNeeded()
-        #expect(view.rows.count == 3 && view.preferredSize.height == 42)
+        #expect(view.rows.count == 5 && view.preferredSize.height < 40)
+        #expect(view.rows.map { $0.numberLabel.stringValue } == ["1", "2", "3", "4", "5"])
         #expect(Set(view.rows.map { $0.frame.minY }).count == 1)
         #expect(view.rows[0].frame.maxX <= view.rows[1].frame.minX)
         #expect(view.rows.last!.frame.maxX <= view.expandButton.frame.minX)
@@ -56,6 +57,8 @@ struct CandidateViewTests {
         #expect(view.expandButton.accessibilityLabel() == "Expand candidates")
         view.rows[2].performClick(nil)
         #expect(clicked == selection.candidate(number: 3)?.id)
+        view.rows[4].performClick(nil)
+        #expect(clicked == selection.candidate(number: 5)?.id)
         selection.move(by: 7)
         view.render(selection)
         let selected = selection.selected
@@ -66,13 +69,19 @@ struct CandidateViewTests {
         #expect(view.expandButton.accessibilityLabel() == "Collapse candidates")
         view.expandButton.performClick(nil)
         #expect(!view.isExpanded && selection.selected == selected)
-        #expect(view.rows[1].isCurrent)
-        view.rows[1].performClick(nil)
-        #expect(clicked == selection.candidate(number: 2)?.id)
+        #expect(view.rows[2].isCurrent)
+        view.rows[2].performClick(nil)
+        #expect(clicked == selection.candidate(number: 3)?.id)
         // Narrow host screens clip labels, without overlapping controls or changing commit identity.
         view.frame.size.width = 220
         view.layoutSubtreeIfNeeded()
         #expect(view.rows.allSatisfy { $0.frame.minX >= 0 && $0.frame.maxX <= view.expandButton.frame.minX })
+        // Retaining a wide pending window must not stretch the selected pill into empty space.
+        view.frame.size.width = 800
+        view.needsLayout = true
+        view.layoutSubtreeIfNeeded()
+        // AppKit's frame conversion can introduce fractional floating-point roundoff.
+        for row in view.rows { #expect(row.frame.width <= row.preferredWidth + 0.001) }
     }
 
     @Test(arguments: [false, true])
@@ -192,12 +201,15 @@ struct CandidateViewTests {
     }
 
     @Test func syntheticCandidateViewCanRenderForVisualInspection() throws {
-        var session = InputSession()
-        session.append("nengxiangbanfayouhuama")
         var selection = CandidateSelection()
         selection.setExpanded(true)
-        selection.update(session.candidates, prefixScore: { session.presentationScore(for: $0) })
-        #expect(selection.candidates[2].text == "能")
+        selection.update([
+            InputCandidate(text: "然后有一个展开的按钮", language: .simplifiedChinese, score: 100, hasCompletion: true),
+            InputCandidate(text: "然后有一个", language: .simplifiedChinese, score: 99),
+            InputCandidate(text: "然后又", language: .simplifiedChinese, score: 74, consumedInputCount: 9),
+            InputCandidate(text: "然后", language: .simplifiedChinese, score: 73, consumedInputCount: 6),
+            InputCandidate(text: "然", language: .simplifiedChinese, score: 72, consumedInputCount: 3),
+        ] + (0..<9).map { InputCandidate(text: "测试候选\($0 + 1)", language: .simplifiedChinese, score: 70 - $0) })
         let view = CandidateListView()
         view.render(selection)
         let light = try snapshot(view, appearance: .aqua)
@@ -210,11 +222,20 @@ struct CandidateViewTests {
             view.render(selection)
             try snapshot(view, appearance: .aqua).write(to: location.deletingPathExtension().appendingPathExtension("compact.png"))
             try snapshot(view, appearance: .darkAqua).write(to: location.deletingPathExtension().appendingPathExtension("compact.dark.png"))
+            view.frame.size.width = 280
+            view.layoutSubtreeIfNeeded()
+            let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
+            view.appearance = NSAppearance(named: .aqua)
+            view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                view.cacheDisplay(in: view.bounds, to: bitmap)
+            }
+            try #require(bitmap.representation(using: .png, properties: [:]))
+                .write(to: location.deletingPathExtension().appendingPathExtension("narrow.png"))
         }
     }
 
     private func snapshot(_ view: CandidateListView, appearance: NSAppearance.Name) throws -> Data {
-        view.appearance = NSAppearance(named: appearance)
+        view.appearance = try #require(NSAppearance(named: appearance))
         view.frame = NSRect(origin: .zero, size: view.preferredSize)
         view.layoutSubtreeIfNeeded()
         let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
@@ -239,6 +260,11 @@ struct CandidateViewTests {
         row.configure(candidate: prefix, number: 2, selected: false)
         #expect(!row.detailLabel.isHidden)
         #expect(row.detailLabel.stringValue == "First 5")
+        row.configure(candidate: prefix, number: 2, selected: false, compact: true)
+        #expect(row.detailLabel.isHidden && !row.sourceIndicator.isHidden)
+        #expect(row.accessibilityLabel()?.contains("First 5 characters") == true)
+        #expect(row.toolTip?.contains("First 5 characters") == true)
+        #expect(row.candidateLabel.stringValue == prefix.text && row.candidateID == prefix.id)
         let literal = InputCandidate(text: "NiHao", language: nil, score: 0)
         row.configure(candidate: literal, number: 3, selected: false)
         #expect(row.detailLabel.stringValue == "As Typed")

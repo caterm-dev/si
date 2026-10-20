@@ -2,6 +2,20 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Tighter candidate number spacing — 2026-10-20
+
+Candidate text starts five points closer to its number in both layouts, and preferred button widths shrink by the same amount. Synthetic compact light/dark and expanded renders were visually inspected. All 210 tests and the universal Debug build passed. The existing no-stretch layout assertion now allows 0.001 point of floating-point roundoff after AppKit frame conversion; the observed difference was approximately 0.0000000000005 point. Whitespace checks passed. No installation or live host/VoiceOver check was performed.
+
+## Five compact candidates — 2026-10-20
+
+The collapsed strip now shows up to five candidates per page, with number shortcuts 1–5 and five-candidate page steps. Expanded pages still contain nine choices. Selection survives layout switches with its new visible number, and all remaining candidates stay reachable. Focused regressions cover the fifth mouse/number choice, page keys, incomplete last pages, collapse/expansion mapping and narrow bounds. All 210 test methods and the universal Debug app build passed; whitespace checks passed. Synthetic compact and narrow renders were visually inspected. No installation or live host/VoiceOver check was performed.
+
+## Candidate appearance refinement — 2026-10-20
+
+The candidate window now uses a 36-point warm-neutral strip with 28-point buttons, a soft peach selection pill, an orange selected number and adaptive label text. Dark mode uses a matching charcoal/umber palette. Buttons fit their text rather than stretching into retained pending-window width, and text-cell insets are included so normally sized labels do not truncate prematurely. The compact strip replaces long `First N`/source labels with small arrow, pin and text symbols; full descriptions remain in expanded rows, tooltips and accessibility labels. Selection/commit identity, paging, pending interaction guards and input-method registration are unchanged. The system Increased Contrast preference adds stronger outlines, and appearance changes invalidate custom drawing.
+
+Native offscreen light/dark, compact/expanded and narrow renders using curated synthetic candidates were visually inspected. The current workspace passed all 210 test methods (149 core, 31 presentation, 18 settings, 12 storage) and the universal Debug app build. The earlier full-suite run caught eight failed assertions in two concurrently changing English sentence tests; the final complete run passed those tests as well. The UI regression checks cover numbered/mouse identity, exact accessibility prefix descriptions, stale/pending actions, source symbols, narrow bounds and avoiding stretched compact buttons. Whitespace checks passed. This work did not edit the concurrent English decoder/sentence changes, install SI or operate host applications. Live focus, positioning, VoiceOver, actual system Increased Contrast and automatic appearance transitions remain unverified. Named high-contrast appearance construction on this SDK normalizes to Aqua, so it was not treated as a simulation of the system contrast preference.
+
 ## Provisional hints during continuous typing — 2026-10-20
 
 Continuous edits could keep every completed full-search result obsolete. The panel then retained old rows until the user paused. The controller now runs a coalescing provisional lane on a separate worker actor alongside the existing full-search lane. Both use revision-checked immutable requests and the same engine; the provisional mode bounds lexical edges rather than adding another decoder. Current hints refresh pending rows without hiding or shrinking the panel, while selection/page/expansion actions remain disabled. Full confirmation still resolves current final candidates; literal/cancel/focus boundaries invalidate both lanes without waiting. Provisional identity remapping cannot commit or train a candidate absent from the final result. Final lexical completeness and search budgets remain unchanged.

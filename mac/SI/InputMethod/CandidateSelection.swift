@@ -11,7 +11,7 @@ struct CandidateSelection {
 
     static let pageSize = 9
     private(set) var isExpanded = false
-    var visiblePageSize: Int { isExpanded ? Self.pageSize : 3 }
+    var visiblePageSize: Int { isExpanded ? Self.pageSize : 5 }
     private(set) var candidates: [InputCandidate] = []
     private(set) var selectedIndex = 0
 

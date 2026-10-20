@@ -13,13 +13,13 @@ final class CandidateListView: NSView {
     var onSelect: ((String) -> Void)?
     var onMovePage: ((Int) -> Void)?
     var onToggleExpansion: (() -> Void)?
-    private let rowHeight: CGFloat = 30
+    private let rowHeight = CandidateStyle.rowHeight
     private var pendingMinimumSize: NSSize?
 
     init() {
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = 10
+        layer?.cornerRadius = 12
         layer?.masksToBounds = true
         setAccessibilityLabel("SI candidates")
         pageLabel.font = .systemFont(ofSize: 11)
@@ -33,7 +33,7 @@ final class CandidateListView: NSView {
         for button in [previousButton, nextButton, expandButton] {
             button.isBordered = false
             button.imagePosition = .imageOnly
-            button.symbolConfiguration = .init(pointSize: 10, weight: .semibold)
+            button.symbolConfiguration = .init(pointSize: 9, weight: .medium)
             button.contentTintColor = .secondaryLabelColor
             button.target = self
             addSubview(button)
@@ -46,6 +46,11 @@ final class CandidateListView: NSView {
 
     required init?(coder: NSCoder) { nil }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
+    }
+
     func render(_ selection: CandidateSelection, isPending: Bool = false, refreshPendingRows: Bool = false) {
         if !isPending { pendingMinimumSize = nil }
         else if !rows.isEmpty { pendingMinimumSize = preferredSize }
@@ -57,7 +62,7 @@ final class CandidateListView: NSView {
             return
         }
         isExpanded = selection.isExpanded
-        layer?.cornerRadius = isExpanded ? 10 : 21
+        layer?.cornerRadius = isExpanded ? 12 : CandidateStyle.stripHeight / 2
         let expansionLabel = isExpanded ? "Collapse candidates" : "Expand candidates"
         expandButton.image = NSImage(systemSymbolName: isExpanded ? "chevron.up" : "chevron.down",
                                      accessibilityDescription: expansionLabel)
@@ -68,7 +73,7 @@ final class CandidateListView: NSView {
         rows = selection.visibleRange.enumerated().map { number, index in
             let row = CandidateRowButton()
             row.configure(candidate: selection.candidates[index], number: number + 1,
-                          selected: index == selection.selectedIndex)
+                          selected: index == selection.selectedIndex, compact: !isExpanded)
             row.target = self
             row.action = #selector(selectRow(_:))
             addSubview(row)
@@ -95,21 +100,20 @@ final class CandidateListView: NSView {
     var preferredSize: NSSize {
         let content: NSSize
         if !isExpanded {
-            content = NSSize(width: max(180, rows.map(compactWidth).reduce(0, +) + 38), height: 42)
+            content = NSSize(width: max(160, rows.map(compactWidth).reduce(0, +) + 38), height: CandidateStyle.stripHeight)
         } else {
             let textWidth = rows.map(rowWidth).max() ?? 180
-            content = NSSize(width: min(600, max(180, textWidth)), height: CGFloat(rows.count) * rowHeight + 41)
+            content = NSSize(width: min(600, max(180, textWidth + 10)), height: CGFloat(rows.count) * rowHeight + 41)
         }
         return NSSize(width: max(content.width, pendingMinimumSize?.width ?? 0),
                       height: max(content.height, pendingMinimumSize?.height ?? 0))
     }
 
     private func rowWidth(_ row: CandidateRowButton) -> CGFloat {
-        row.candidateLabel.intrinsicContentSize.width + 55
-            + (row.detailLabel.isHidden ? 0 : min(120, row.detailLabel.intrinsicContentSize.width + 10) + 10)
+        row.preferredWidth
     }
 
-    private func compactWidth(_ row: CandidateRowButton) -> CGFloat { min(280, max(64, rowWidth(row))) }
+    private func compactWidth(_ row: CandidateRowButton) -> CGFloat { min(280, max(44, rowWidth(row))) }
 
     override func layout() {
         super.layout()
@@ -121,27 +125,35 @@ final class CandidateListView: NSView {
         } else {
             let available = max(0, bounds.width - 38)
             let total = max(1, rows.map(compactWidth).reduce(0, +))
+            let scale = min(1, available / total)
             var x: CGFloat = 5
             for row in rows {
-                let width = available * compactWidth(row) / total
-                row.frame = NSRect(x: x, y: 6, width: width, height: rowHeight)
+                let width = compactWidth(row) * scale
+                row.frame = NSRect(x: x, y: (bounds.height - rowHeight) / 2, width: width, height: rowHeight)
                 x += width
             }
         }
         pageLabel.frame = NSRect(x: 13, y: 7, width: max(0, bounds.width - 108), height: 16)
         previousButton.frame = NSRect(x: bounds.width - 90, y: 3, width: 26, height: 24)
         nextButton.frame = NSRect(x: bounds.width - 62, y: 3, width: 26, height: 24)
-        expandButton.frame = NSRect(x: bounds.width - 32, y: isExpanded ? 3 : 6, width: 26, height: isExpanded ? 24 : 30)
+        expandButton.frame = NSRect(x: bounds.width - 32, y: isExpanded ? 3 : 4, width: 26, height: isExpanded ? 24 : rowHeight)
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.windowBackgroundColor.setFill()
-        let radius: CGFloat = isExpanded ? 10 : 21
+        CandidateStyle.background.setFill()
+        let radius: CGFloat = isExpanded ? 12 : CandidateStyle.stripHeight / 2
         let outline = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
         outline.fill()
-        NSColor.separatorColor.setStroke()
+        CandidateStyle.outline.setStroke()
         outline.lineWidth = 0.5
         outline.stroke()
+        if !isExpanded {
+            let separator = NSBezierPath()
+            separator.move(to: NSPoint(x: bounds.width - 35, y: 10))
+            separator.line(to: NSPoint(x: bounds.width - 35, y: bounds.height - 10))
+            separator.lineWidth = 0.5
+            separator.stroke()
+        }
         if isExpanded {
             let separator = NSBezierPath()
             separator.move(to: NSPoint(x: 11, y: 30))
