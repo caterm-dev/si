@@ -1,4 +1,11 @@
 {
-  "schema_version": 1,
-  "rules": []
+  "rules": [
+    {
+      "action": "replace",
+      "reason": "Preferred product-name capitalization for the CSpell GMail entry.",
+      "replacement": "Gmail",
+      "word": "gmail"
+    }
+  ],
+  "schema_version": 1
 }

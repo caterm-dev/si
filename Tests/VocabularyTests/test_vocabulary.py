@@ -124,6 +124,31 @@ class VocabularyTests(unittest.TestCase):
         with self.assertRaisesRegex(vocabulary.VocabularyError, "license_sha256"):
             vocabulary.compile_vocabulary(self.root)
 
+    def test_cspell_annotations_do_not_rewrite_unsupported_names_or_compounds(self):
+        data = b"# Fixture\n  GMail # service\nGitHub\t# tool\nOpenAI\nC#\nC++\n.NET\nfoo#bar\ntwo words\nabc123\n+compound\ntyped\tExpansion\n"
+        snapshot, filtering = vocabulary.import_words(data, "cspell")
+        self.assertEqual(snapshot, b"GitHub\nGMail\nOpenAI\n")
+        self.assertEqual(filtering, {"unsupported_rows": 8, "collapsed_case_variants": 0,
+                                     "inline_comments_removed": 2})
+        # Existing plain-word-list imports do not reinterpret annotations.
+        self.assertEqual(vocabulary.import_words(b"GMail # service\nGitHub\n", "wordlist")[0], b"GitHub\n")
+
+    def test_cspell_refresh_retains_pinned_import_settings_and_casing_overrides(self):
+        source = self.remote()
+        source["upstream"]["format"] = "cspell"
+        self.configure()
+        self.rules([{"word": "gmail", "action": "replace", "replacement": "Gmail", "reason": "Preferred case"}])
+        data = b"GMail # service\nGitHub\nOpenAI\n"
+        download = lambda url: b"Fixture license\n" if url.endswith("LICENSE") else data
+        vocabulary.refresh(self.root, "base", revision="2" * 40, download=download)
+        merged = (self.root / vocabulary.MERGED).read_text()
+        self.assertIn("Gmail\tbase,si-overrides", merged)
+        self.assertIn("GitHub\tbase", merged)
+        lock = json.loads((self.root / vocabulary.DATA / "sources.lock.json").read_text())
+        self.assertEqual(lock["sources"]["base"]["upstream"]["format"], "cspell")
+        self.assertEqual(lock["sources"]["base"]["filtering"]["inline_comments_removed"], 1)
+        vocabulary.write_outputs(self.root, vocabulary.compile_vocabulary(self.root)[0], check=True)
+
     def test_refresh_pins_revision_preserves_local_edits_and_applies_exclusions(self):
         self.remote()
         self.rules([{"word": "subtitle", "action": "exclude", "reason": "Keep excluded across updates"}])

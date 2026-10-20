@@ -26,12 +26,13 @@ All processing is local. SI has no network client, analytics, keystroke logging,
 
 ## Vocabulary maintenance
 
-English and Chinese source lists are maintained separately and merged into offline vocabularies shared by the existing providers and mixed decoder. The checked-in SCOWL snapshot, original SI words, and SI terminology are pinned and attributed. Additions, spelling/case corrections, exclusions, source tracing, deterministic generation, and monthly upstream audits are documented in [English vocabulary maintenance](docs/ENGLISH_VOCABULARY.md). Chinese combines selected annotated Rime Ice characters/base words with all original SI entries and local additions; its [maintenance workflow and selection limits](docs/CHINESE_VOCABULARY.md) describe the pinned data, weighting, pronunciation checks and overrides.
+English and Chinese source lists are maintained separately and merged into offline vocabularies shared by the existing providers and mixed decoder. The checked-in SCOWL snapshot, CSpell tool/company names, Rime Ice English extension, original SI words, and SI terminology are pinned and attributed. Additions, spelling/case corrections, exclusions, source tracing, deterministic generation, and monthly upstream audits are documented in [English vocabulary maintenance](docs/ENGLISH_VOCABULARY.md). Chinese combines selected annotated Rime Ice characters/base words with all original SI entries and local additions; its [maintenance workflow and selection limits](docs/CHINESE_VOCABULARY.md) describe the pinned data, weighting, pronunciation checks and overrides.
 
 ```sh
 ./scripts/vocabulary.sh build --check
 ./scripts/vocabulary.sh stats
 ./scripts/vocabulary.sh explain subtitle
+./scripts/vocabulary.sh explain gmail
 ./scripts/vocabulary.sh --language chinese build --check
 ./scripts/vocabulary.sh --language chinese explain 字幕
 ```
@@ -62,7 +63,7 @@ The manager supports search, editing, deletion, clear, and additive JSON import/
 
 - macOS 14 or later.
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.
-- No third-party runtime libraries or Apple Developer account are needed for an unsigned development build. Vocabulary data includes attributed SCOWL English words and selected Rime Ice Chinese entries.
+- No third-party runtime libraries or Apple Developer account are needed for an unsigned development build. Vocabulary data includes attributed SCOWL English words, CSpell tool/company names, and selected Rime Ice English and Chinese entries.
 
 ## Get started
 
@@ -172,4 +173,4 @@ See the [roadmap](docs/ROADMAP.md) for planned work and [manual verification](do
 
 ## License
 
-SI is licensed under the GNU General Public License, version 3. See [LICENSE](LICENSE). The repository's existing license is preserved. The vocabularies include SCOWL and selected Rime Ice data with retained licenses and source attributions; see [data provenance](docs/DICTIONARIES.md). Additional dictionaries or language models must have compatible licenses and documented provenance.
+SI is licensed under the GNU General Public License, version 3. See [LICENSE](LICENSE). The repository's existing license is preserved. The vocabularies include SCOWL, MIT-licensed CSpell lists and selected Rime Ice data with retained licenses and source attributions; see [data provenance](docs/DICTIONARIES.md). Additional dictionaries or language models must have compatible licenses and documented provenance.

@@ -106,7 +106,11 @@ struct CompositionLatticeTests {
         // Additional known segmentations can suppress verbatim paths; exact input still survives.
         #expect(engine.candidates(for: "nihaowor", languages: languages).last?.text == "nihaowor")
         #expect(engine.candidates(for: "nihaowor", languages: languages).last?.isLiteral == true)
-        for (input, output) in [("nihaoQwErTy", "你好QwErTy"), ("QwErTynihao", "QwErTy你好")] {
+        // QWERT is now a lexical technology entry. Keep the unknown-span fixture
+        // independent of it, and also cover an unknown tail after a known product.
+        #expect(EnglishLexicon.matches(for: "qz").isEmpty)
+        for (input, output) in [("nihaoQzXvJk", "你好QzXvJk"), ("QzXvJknihao", "QzXvJk你好"),
+                                ("nihaogmailQzXvJk", "你好GmailQzXvJk")] {
             let candidates = engine.candidates(for: input, languages: languages)
             let preserved = try #require(candidates.first { $0.text == output && !$0.isPartial })
             #expect(preserved.hasLiteralSegments)

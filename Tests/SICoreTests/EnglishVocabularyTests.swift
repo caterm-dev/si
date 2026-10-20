@@ -2,6 +2,32 @@ import Testing
 @testable import SICore
 
 struct EnglishVocabularyTests {
+    @Test func technologySourcesProvideCanonicalExactWordsCompletionsAndMixedTokens() {
+        let engine = CandidateEngine()
+        for (input, expected) in [("gmail", "Gmail"), ("GMAIL", "GMAIL"), ("github", "GitHub"),
+                                  ("openai", "OpenAI"), ("chatgpt", "ChatGPT"), ("wechat", "WeChat"),
+                                  ("iphone", "iPhone"), ("kubernetes", "Kubernetes")] {
+            let result = engine.candidates(for: input, languages: [.english])
+            #expect(result.contains { $0.text == expected && $0.language == .english && !$0.hasCompletion })
+            #expect(result.last?.text == input && result.last?.isLiteral == true)
+        }
+        let completion = EnglishCandidateProvider().candidates(for: "gm")
+        #expect(completion.contains { $0.text == "Gmail" && $0.hasCompletion && $0.score == 75 })
+        for (input, expected) in [("nihaogmail", "你好Gmail"), ("nihaoGMAIL", "你好GMAIL")] {
+            let result = engine.candidates(for: input, languages: Set(InputLanguage.allCases))
+            #expect(result.contains { $0.text == expected && $0.isMixed && !$0.isPartial && !$0.hasLiteralSegments })
+            #expect(result.last?.text == input && result.last?.isLiteral == true)
+        }
+        for languages: Set<InputLanguage> in [[], [.simplifiedChinese]] {
+            let result = engine.candidates(for: "gmail", languages: languages)
+            #expect(!result.contains { $0.language == .english || $0.isMixed })
+            #expect(result.last?.text == "gmail" && result.last?.isLiteral == true)
+        }
+        for word in ["may", "can", "will"] {
+            #expect(EnglishCandidateProvider().candidates(for: word).contains { $0.text == word && !$0.hasCompletion })
+        }
+    }
+
     @Test func directLookupPreservesReferenceCandidatesAndMetadata() {
         let provider = EnglishCandidateProvider()
         for input in ["a", "I", "he", "sub", "SUB", "Sub", "sUb", "swift", "SwiftUI", "SWIFTUI",

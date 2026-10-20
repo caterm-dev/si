@@ -3,8 +3,10 @@
 enum EnglishLexiconData {
     static let words: [String] = """
     a
+    AAPL
     aardvark
     aardvarks
+    Aave
     aback
     abacus
     abacuses
@@ -32,6 +34,7 @@ enum EnglishLexiconData {
     abating
     abattoir
     abattoirs
+    ABB
     abbess
     abbesses
     abbey
@@ -44,6 +47,9 @@ enum EnglishLexiconData {
     abbreviating
     abbreviation
     abbreviations
+    ABBV
+    ABBYY
+    abcd
     abdicate
     abdicated
     abdicates
@@ -86,6 +92,9 @@ enum EnglishLexiconData {
     abiding
     abilities
     ability
+    Abiomed
+    Abios
+    AbiosGaming
     abject
     abjectly
     abjuration
@@ -104,6 +113,7 @@ enum EnglishLexiconData {
     ablution
     ablutions
     ably
+    ABMD
     abnegate
     abnegated
     abnegates
@@ -181,6 +191,7 @@ enum EnglishLexiconData {
     abruptest
     abruptly
     abruptness
+    ABS
     abscess
     abscessed
     abscesses
@@ -310,6 +321,7 @@ enum EnglishLexiconData {
     accentuates
     accentuating
     accentuation
+    Accenture
     accept
     acceptability
     acceptable
@@ -452,6 +464,7 @@ enum EnglishLexiconData {
     acetic
     acetone
     acetylene
+    ACG
     ache
     ached
     aches
@@ -548,12 +561,14 @@ enum EnglishLexiconData {
     acrostics
     acrylic
     acrylics
+    ACS
     act
     acted
     acting
     actinium
     action
     actionable
+    Actionlint
     actions
     activate
     activated
@@ -562,7 +577,9 @@ enum EnglishLexiconData {
     activation
     active
     actively
+    ActiveMQ
     actives
+    ActiveX
     activism
     activist
     activists
@@ -620,6 +637,9 @@ enum EnglishLexiconData {
     adapting
     adaptive
     adapts
+    ADBE
+    Adblock
+    ADC
     add
     added
     addend
@@ -667,6 +687,8 @@ enum EnglishLexiconData {
     adequacy
     adequate
     adequately
+    AdGuard
+    ADHD
     adhere
     adhered
     adherence
@@ -677,9 +699,12 @@ enum EnglishLexiconData {
     adhesion
     adhesive
     adhesives
+    ADI
     adiabatic
+    Adidas
     adieu
     adieus
+    Adios
     adipose
     adjacent
     adjacently
@@ -730,6 +755,7 @@ enum EnglishLexiconData {
     adjutants
     adman
     admen
+    Adminer
     administer
     administered
     administering
@@ -778,6 +804,7 @@ enum EnglishLexiconData {
     admonition
     admonitions
     admonitory
+    admx
     ado
     adobe
     adobes
@@ -806,6 +833,7 @@ enum EnglishLexiconData {
     adornment
     adornments
     adorns
+    ADOT
     adrenal
     adrenaline
     adrenals
@@ -814,6 +842,11 @@ enum EnglishLexiconData {
     adroitly
     adroitness
     ads
+    AdSense
+    ADSK
+    ADSL
+    Adsterra
+    ADTF
     adulate
     adulated
     adulates
@@ -914,6 +947,8 @@ enum EnglishLexiconData {
     adze
     adzes
     aegis
+    Aegon
+    AEON
     aerate
     aerated
     aerates
@@ -933,8 +968,10 @@ enum EnglishLexiconData {
     aerodynamic
     aerodynamically
     aerodynamics
+    Aeron
     aeronautical
     aeronautics
+    Aeropex
     aerosol
     aerosols
     aerospace
@@ -943,6 +980,9 @@ enum EnglishLexiconData {
     aesthetic
     aesthetically
     aesthetics
+    Aetna
+    Aeva
+    Aevo
     afar
     affability
     affable
@@ -1013,6 +1053,7 @@ enum EnglishLexiconData {
     aficionados
     afield
     afire
+    Aflac
     aflame
     afloat
     aflutter
@@ -1044,6 +1085,7 @@ enum EnglishLexiconData {
     aftershaves
     aftershock
     aftershocks
+    AfterShokz
     aftertaste
     aftertastes
     afterthought
@@ -1108,6 +1150,7 @@ enum EnglishLexiconData {
     aggrieves
     aggrieving
     aghast
+    AGI
     agile
     agilely
     agility
@@ -1161,13 +1204,16 @@ enum EnglishLexiconData {
     aha
     ahead
     ahem
+    AHK
     ahoy
+    AICPA
     aid
     aide
     aided
     aides
     aiding
     aids
+    AIGC
     ail
     ailed
     aileron
@@ -1186,11 +1232,14 @@ enum EnglishLexiconData {
     air
     airbag
     airbags
+    Airbnb
     airborne
+    airbrake
     airbrush
     airbrushed
     airbrushes
     airbrushing
+    Airbus
     aircraft
     airdrop
     airdropped
@@ -1232,6 +1281,7 @@ enum EnglishLexiconData {
     airmen
     airplane
     airplanes
+    AirPods
     airport
     airports
     airs
@@ -1242,7 +1292,9 @@ enum EnglishLexiconData {
     airspace
     airstrip
     airstrips
+    AirTag
     airtight
+    AirWatch
     airwaves
     airway
     airways
@@ -1251,9 +1303,13 @@ enum EnglishLexiconData {
     aisle
     aisles
     ajar
+    AK
+    AKAM
     akimbo
     akin
+    AKS
     alabaster
+    alacritty
     alacrity
     alarm
     alarmed
@@ -1279,6 +1335,7 @@ enum EnglishLexiconData {
     alchemist
     alchemists
     alchemy
+    Alcoa
     alcohol
     alcoholic
     alcoholics
@@ -1292,15 +1349,19 @@ enum EnglishLexiconData {
     alders
     alderwoman
     alderwomen
+    Aldi
     ale
     alert
     alerted
     alerting
     alertly
+    Alertmanager
+    alertname
     alertness
     alerts
     ales
     alfalfa
+    Alfred
     alfresco
     alga
     algae
@@ -1308,6 +1369,7 @@ enum EnglishLexiconData {
     algebraic
     algebraically
     algebras
+    ALGN
     algorithm
     algorithmic
     algorithms
@@ -1315,6 +1377,7 @@ enum EnglishLexiconData {
     aliased
     aliases
     aliasing
+    Alibaba
     alibi
     alibied
     alibiing
@@ -1340,7 +1403,10 @@ enum EnglishLexiconData {
     alike
     alimentary
     alimony
+    Alipay
+    Alita
     alive
+    AlixPartners
     alkali
     alkalies
     alkaline
@@ -1353,6 +1419,7 @@ enum EnglishLexiconData {
     allayed
     allaying
     allays
+    ALLE
     allegation
     allegations
     allege
@@ -1362,6 +1429,7 @@ enum EnglishLexiconData {
     allegiance
     allegiances
     alleging
+    Allegion
     allegorical
     allegorically
     allegories
@@ -1389,6 +1457,7 @@ enum EnglishLexiconData {
     alleyways
     alliance
     alliances
+    Allianz
     allied
     allies
     alligator
@@ -1420,6 +1489,7 @@ enum EnglishLexiconData {
     alloying
     alloys
     allspice
+    Allstate
     allude
     alluded
     alludes
@@ -1437,6 +1507,7 @@ enum EnglishLexiconData {
     alluviums
     ally
     allying
+    AlmaLinux
     almanac
     almanacs
     almighty
@@ -1467,12 +1538,15 @@ enum EnglishLexiconData {
     alphabetizes
     alphabetizing
     alphabets
+    AlphaFold
+    AlphaGo
     alphanumeric
     alphas
     alpine
     already
     alright
     also
+    Alstom
     altar
     altars
     alter
@@ -1501,9 +1575,11 @@ enum EnglishLexiconData {
     altimeters
     altitude
     altitudes
+    Altman
     alto
     altogether
     altos
+    Altri
     altruism
     altruist
     altruistic
@@ -1536,6 +1612,7 @@ enum EnglishLexiconData {
     amassed
     amasses
     amassing
+    AMAT
     amateur
     amateurish
     amateurism
@@ -1586,6 +1663,9 @@ enum EnglishLexiconData {
     ambushed
     ambushes
     ambushing
+    AMCR
+    AMD
+    AMDgpu
     ameliorate
     ameliorated
     ameliorates
@@ -1610,8 +1690,10 @@ enum EnglishLexiconData {
     Americanized
     Americanizes
     Americanizing
+    AmerisourceBergen
     amethyst
     amethysts
+    AMGN
     amiability
     amiable
     amiably
@@ -1703,6 +1785,8 @@ enum EnglishLexiconData {
     amputations
     amputee
     amputees
+    AMR
+    Amtrack
     amulet
     amulets
     amuse
@@ -1712,6 +1796,9 @@ enum EnglishLexiconData {
     amuses
     amusing
     amusingly
+    Amy
+    AmyTelecom
+    AMZN
     an
     anachronism
     anachronisms
@@ -1823,6 +1910,7 @@ enum EnglishLexiconData {
     anesthetized
     anesthetizes
     anesthetizing
+    ANET
     aneurysm
     aneurysms
     anew
@@ -1890,6 +1978,7 @@ enum EnglishLexiconData {
     anions
     anise
     aniseed
+    Anka
     ankh
     ankhs
     ankle
@@ -1971,11 +2060,14 @@ enum EnglishLexiconData {
     anorexic
     anorexics
     another
+    Ansible
+    ANSS
     answer
     answerable
     answered
     answering
     answers
+    ANSYS
     ant
     antacid
     antacids
@@ -2010,6 +2102,7 @@ enum EnglishLexiconData {
     antenna
     antennae
     antennas
+    Antergos
     anterior
     anteroom
     anterooms
@@ -2100,6 +2193,7 @@ enum EnglishLexiconData {
     antiquities
     antiquity
     antis
+    AntiSamy
     antiseptic
     antiseptically
     antiseptics
@@ -2118,6 +2212,7 @@ enum EnglishLexiconData {
     antler
     antlered
     antlers
+    ANTM
     antonym
     antonyms
     ants
@@ -2136,11 +2231,14 @@ enum EnglishLexiconData {
     anyone
     anyplace
     anything
+    AnythingLLM
     anytime
     anyway
     anywhere
     aorta
     aortas
+    AOSP
+    aPaaS
     apace
     apart
     apartheid
@@ -2149,6 +2247,7 @@ enum EnglishLexiconData {
     apathetic
     apathetically
     apathy
+    APC
     ape
     aped
     aperitif
@@ -2158,6 +2257,7 @@ enum EnglishLexiconData {
     apes
     apex
     apexes
+    APFS
     aphasia
     aphasic
     aphasics
@@ -2170,10 +2270,13 @@ enum EnglishLexiconData {
     aphoristic
     aphrodisiac
     aphrodisiacs
+    API
     apiaries
     apiary
     apiece
     aping
+    APISIX
+    APK
     aplenty
     aplomb
     apocalypse
@@ -2227,6 +2330,10 @@ enum EnglishLexiconData {
     apparently
     apparition
     apparitions
+    Apparmor
+    appcenter
+    AppCleaner
+    AppCode
     appeal
     appealed
     appealing
@@ -2268,10 +2375,14 @@ enum EnglishLexiconData {
     appertains
     appetite
     appetites
+    Appetize
     appetizer
     appetizers
     appetizing
     appetizingly
+    AppFlowy
+    AppImage
+    Appium
     AppKit
     applaud
     applauded
@@ -2279,6 +2390,7 @@ enum EnglishLexiconData {
     applauds
     applause
     apple
+    AppleCare
     applejack
     apples
     applesauce
@@ -2298,6 +2410,7 @@ enum EnglishLexiconData {
     applying
     appoint
     appointed
+    Appointedd
     appointee
     appointees
     appointing
@@ -2389,9 +2502,11 @@ enum EnglishLexiconData {
     apps
     appurtenance
     appurtenances
+    Appveyor
     apricot
     apricots
     April
+    Aprilia
     Aprils
     apron
     aprons
@@ -2405,6 +2520,8 @@ enum EnglishLexiconData {
     aptitudes
     aptly
     aptness
+    Aptos
+    APTV
     aqua
     aquaculture
     aquamarine
@@ -2419,6 +2536,7 @@ enum EnglishLexiconData {
     aquariums
     Aquarius
     aquas
+    aquasecurity
     aquatic
     aquatics
     aquavit
@@ -2448,6 +2566,7 @@ enum EnglishLexiconData {
     arbitration
     arbitrator
     arbitrators
+    Arbitrum
     arbor
     arboreal
     arboretum
@@ -2462,6 +2581,7 @@ enum EnglishLexiconData {
     arcades
     arcane
     arced
+    ArcelorMittal
     arch
     archaeological
     archaeologist
@@ -2512,6 +2632,7 @@ enum EnglishLexiconData {
     archness
     archway
     archways
+    ArchWiki
     arcing
     arcs
     arctic
@@ -2520,6 +2641,7 @@ enum EnglishLexiconData {
     ardently
     ardor
     ardors
+    Arduino
     arduous
     arduously
     arduousness
@@ -2529,7 +2651,9 @@ enum EnglishLexiconData {
     arena
     arenas
     ares
+    ArgoCD
     argon
+    ArgoProj
     argosies
     argosy
     argot
@@ -2547,6 +2671,7 @@ enum EnglishLexiconData {
     argyle
     argyles
     aria
+    ariakit
     arias
     arid
     aridity
@@ -2562,9 +2687,11 @@ enum EnglishLexiconData {
     aristocratic
     aristocratically
     aristocrats
+    arithmatex
     arithmetic
     arithmetical
     arithmetically
+    Arize
     ark
     arks
     arm
@@ -2605,6 +2732,7 @@ enum EnglishLexiconData {
     armrests
     arms
     army
+    ARNES
     aroma
     aromas
     aromatherapy
@@ -2677,6 +2805,7 @@ enum EnglishLexiconData {
     artful
     artfully
     artfulness
+    Arthas
     arthritic
     arthritics
     arthritis
@@ -2697,6 +2826,7 @@ enum EnglishLexiconData {
     artier
     artiest
     artifact
+    Artifactory
     artifacts
     artifice
     artificer
@@ -2725,7 +2855,13 @@ enum EnglishLexiconData {
     artwork
     artworks
     arty
+    Arweave
+    arXiv
     as
+    ASAM
+    asammdf
+    Asana
+    ASAP
     asbestos
     ascend
     ascendancy
@@ -2746,6 +2882,7 @@ enum EnglishLexiconData {
     ascetic
     asceticism
     ascetics
+    ASCII
     ascot
     ascots
     ascribable
@@ -2754,6 +2891,7 @@ enum EnglishLexiconData {
     ascribes
     ascribing
     ascription
+    asdf
     aseptic
     asexual
     asexually
@@ -2770,6 +2908,8 @@ enum EnglishLexiconData {
     ashtray
     ashtrays
     ashy
+    ASIC
+    Asics
     aside
     asides
     asinine
@@ -2783,6 +2923,7 @@ enum EnglishLexiconData {
     asks
     aslant
     asleep
+    ASMR
     asocial
     asp
     asparagus
@@ -2859,6 +3000,7 @@ enum EnglishLexiconData {
     assembly
     assemblyman
     assemblymen
+    AssemblyScript
     assemblywoman
     assemblywomen
     assent
@@ -2942,6 +3084,7 @@ enum EnglishLexiconData {
     assumptions
     assurance
     assurances
+    Assurant
     assure
     assured
     assuredly
@@ -2978,10 +3121,12 @@ enum EnglishLexiconData {
     astrakhan
     astral
     astray
+    AstraZeneca
     astride
     astringency
     astringent
     astringents
+    Astro
     astrologer
     astrologers
     astrological
@@ -3002,6 +3147,7 @@ enum EnglishLexiconData {
     astutely
     astuteness
     asunder
+    ASUS
     asylum
     asylums
     asymmetric
@@ -3030,8 +3176,13 @@ enum EnglishLexiconData {
     athletic
     athletically
     athletics
+    Athlon
+    ATI
     atlas
     atlases
+    Atlaskit
+    Atlassian
+    ATM
     atmosphere
     atmospheres
     atmospheric
@@ -3149,10 +3300,12 @@ enum EnglishLexiconData {
     attuned
     attunes
     attuning
+    ATVI
     atwitter
     atypical
     atypically
     auburn
+    Auchan
     auction
     auctioned
     auctioneer
@@ -3163,6 +3316,7 @@ enum EnglishLexiconData {
     audaciously
     audaciousness
     audacity
+    Audi
     audibility
     audible
     audibles
@@ -3211,6 +3365,7 @@ enum EnglishLexiconData {
     auks
     aunt
     aunts
+    AUR
     aura
     aural
     aurally
@@ -3219,6 +3374,7 @@ enum EnglishLexiconData {
     aureoles
     auricle
     auricles
+    AURIX
     auspices
     auspicious
     auspiciously
@@ -3237,6 +3393,7 @@ enum EnglishLexiconData {
     authenticating
     authentication
     authentications
+    Authenticator
     authenticity
     author
     authored
@@ -3269,11 +3426,15 @@ enum EnglishLexiconData {
     autocratic
     autocratically
     autocrats
+    autodocstring
+    autogen
     autograph
     autographed
     autographing
     autographs
+    AutoHotkey
     autoimmune
+    automake
     automate
     automated
     automates
@@ -3295,6 +3456,8 @@ enum EnglishLexiconData {
     autopsy
     autopsying
     autos
+    Autoware
+    AutowareFoundation
     autoworker
     autoworkers
     autumn
@@ -3302,6 +3465,7 @@ enum EnglishLexiconData {
     autumns
     auxiliaries
     auxiliary
+    AV
     avail
     availability
     available
@@ -3339,6 +3503,7 @@ enum EnglishLexiconData {
     averted
     averting
     averts
+    AVGO
     avian
     aviaries
     aviary
@@ -3350,7 +3515,12 @@ enum EnglishLexiconData {
     avid
     avidity
     avidly
+    AVIF
     avionics
+    Avira
+    Avito
+    Aviva
+    Avnet
     avocado
     avocados
     avocation
@@ -3370,6 +3540,8 @@ enum EnglishLexiconData {
     avowedly
     avowing
     avows
+    Avro
+    avsc
     avuncular
     aw
     await
@@ -3418,8 +3590,11 @@ enum EnglishLexiconData {
     awoke
     awoken
     AWOL
+    AWP
     awry
+    AWS
     ax
+    AXA
     axe
     axed
     axes
@@ -3434,6 +3609,7 @@ enum EnglishLexiconData {
     axles
     axon
     axons
+    Axure
     ayatollah
     ayatollahs
     aye
@@ -3443,6 +3619,7 @@ enum EnglishLexiconData {
     azimuth
     azimuths
     azure
+    azurecli
     azures
     baa
     baaed
@@ -3494,6 +3671,7 @@ enum EnglishLexiconData {
     backbites
     backbiting
     backbitten
+    Backblaze
     backboard
     backboards
     backbone
@@ -3600,6 +3778,7 @@ enum EnglishLexiconData {
     bacteriologists
     bacteriology
     bacterium
+    Bacula
     bad
     badder
     baddest
@@ -3639,6 +3818,7 @@ enum EnglishLexiconData {
     bagpipes
     bags
     bah
+    Baiduspider
     bail
     bailed
     bailiff
@@ -3779,6 +3959,7 @@ enum EnglishLexiconData {
     bandit
     banditry
     bandits
+    Bandizip
     bandoleer
     bandoleers
     bands
@@ -3816,6 +3997,7 @@ enum EnglishLexiconData {
     banked
     banker
     bankers
+    Bankin
     banking
     banknote
     banknotes
@@ -3850,6 +4032,7 @@ enum EnglishLexiconData {
     bantered
     bantering
     banters
+    bantime
     banyan
     banyans
     baobab
@@ -3894,6 +4077,7 @@ enum EnglishLexiconData {
     barbiturate
     barbiturates
     barbs
+    Barclays
     barcode
     barcodes
     bard
@@ -4019,6 +4203,7 @@ enum EnglishLexiconData {
     baser
     bases
     basest
+    BASF
     bash
     bashed
     bashes
@@ -4145,6 +4330,7 @@ enum EnglishLexiconData {
     bayberries
     bayberry
     bayed
+    Bayer
     baying
     bayonet
     bayoneted
@@ -4155,10 +4341,15 @@ enum EnglishLexiconData {
     bays
     bazaar
     bazaars
+    Bazaarvoice
+    Bazel
     bazillion
     bazillions
     bazooka
     bazookas
+    BBC
+    BBQ
+    BBS
     be
     beach
     beachcomber
@@ -4328,6 +4519,7 @@ enum EnglishLexiconData {
     beefsteak
     beefsteaks
     beefy
+    Beego
     beehive
     beehives
     beekeeper
@@ -4579,6 +4771,7 @@ enum EnglishLexiconData {
     benign
     benignly
     bent
+    Bentley
     bents
     benumb
     benumbed
@@ -4608,13 +4801,16 @@ enum EnglishLexiconData {
     bergs
     Beria
     beriberi
+    Berkshelf
     berm
     berms
+    Bernadette
     berried
     berries
     berry
     berrying
     berserk
+    Bertelsmann
     berth
     berthed
     berthing
@@ -4713,7 +4909,10 @@ enum EnglishLexiconData {
     bets
     better
     bettered
+    betterem
     bettering
+    Betterleaks
+    betterleaksignore
     betterment
     betters
     betting
@@ -4746,8 +4945,10 @@ enum EnglishLexiconData {
     bewitched
     bewitches
     bewitching
+    beyatch
     Beyer
     beyond
+    BGM
     biannual
     biannually
     bias
@@ -4836,6 +5037,7 @@ enum EnglishLexiconData {
     bigots
     bigwig
     bigwigs
+    BIIB
     bike
     biked
     biker
@@ -4849,6 +5051,7 @@ enum EnglishLexiconData {
     bile
     bilge
     bilges
+    bilibili
     bilingual
     bilinguals
     bilious
@@ -4884,6 +5087,7 @@ enum EnglishLexiconData {
     bimonthlies
     bimonthly
     bin
+    Binance
     binaries
     binary
     bind
@@ -4894,6 +5098,8 @@ enum EnglishLexiconData {
     binding
     bindings
     binds
+    Bing
+    Bingbot
     binge
     binged
     bingeing
@@ -4936,6 +5142,7 @@ enum EnglishLexiconData {
     biopsying
     biorhythm
     biorhythms
+    BIOS
     biosolid
     biosolids
     biosphere
@@ -5012,6 +5219,7 @@ enum EnglishLexiconData {
     bistro
     bistros
     bit
+    Bitbucket
     bitch
     bitched
     bitches
@@ -5021,13 +5229,23 @@ enum EnglishLexiconData {
     bitchy
     bitcoin
     bitcoins
+    BitComet
+    Bitdefender
     bite
     bites
+    Bitfinex
+    Bitget
     biting
     bitingly
+    Bitly
     bitmap
+    BitMart
+    Bitnami
+    bitnamicharts
     bits
+    Bitstamp
     bitten
+    Bittensor
     bitter
     bitterer
     bitterest
@@ -5038,8 +5256,10 @@ enum EnglishLexiconData {
     bitters
     bittersweet
     bittersweets
+    bittorrent
     bitumen
     bituminous
+    Bitwarden
     bivalve
     bivalves
     bivouac
@@ -5050,6 +5270,7 @@ enum EnglishLexiconData {
     biweekly
     bizarre
     bizarrely
+    BKNG
     blab
     blabbed
     blabbermouth
@@ -5068,6 +5289,7 @@ enum EnglishLexiconData {
     blackboard
     blackboards
     blackcurrant
+    blackduck
     blacked
     blacken
     blackened
@@ -5075,6 +5297,7 @@ enum EnglishLexiconData {
     blackens
     blacker
     blackest
+    blackFriday
     blackguard
     blackguards
     blackhead
@@ -5098,6 +5321,7 @@ enum EnglishLexiconData {
     blackness
     blackout
     blackouts
+    BlackRock
     blacks
     blacksmith
     blacksmiths
@@ -5357,6 +5581,7 @@ enum EnglishLexiconData {
     bloody
     bloodying
     bloom
+    Bloomberg
     bloomed
     bloomer
     bloomers
@@ -5437,9 +5662,11 @@ enum EnglishLexiconData {
     blueprints
     bluer
     blues
+    Bluesky
     bluest
     bluestocking
     bluestockings
+    Blueway
     bluff
     bluffed
     bluffer
@@ -5489,6 +5716,7 @@ enum EnglishLexiconData {
     blustering
     blusters
     blustery
+    BMW
     boa
     boar
     board
@@ -5564,7 +5792,9 @@ enum EnglishLexiconData {
     bodybuilding
     bodyguard
     bodyguards
+    bodyparser
     bodywork
+    Boeing
     bog
     bogey
     bogeyed
@@ -5671,6 +5901,7 @@ enum EnglishLexiconData {
     boning
     bonito
     bonitos
+    Bonjour
     bonkers
     bonnet
     bonnets
@@ -5815,6 +6046,7 @@ enum EnglishLexiconData {
     borer
     borers
     bores
+    BorgWarner
     boring
     boringly
     born
@@ -5920,6 +6152,7 @@ enum EnglishLexiconData {
     boutique
     boutiques
     bouts
+    Bouygues
     bovine
     bovines
     bow
@@ -5973,7 +6206,9 @@ enum EnglishLexiconData {
     boysenberry
     bozo
     bozos
+    BP
     bra
+    Braavos
     brace
     braced
     bracelet
@@ -6051,6 +6286,7 @@ enum EnglishLexiconData {
     brandishes
     brandishing
     brands
+    Brandwatch
     brandy
     brandying
     bras
@@ -6197,6 +6433,7 @@ enum EnglishLexiconData {
     breviary
     brevity
     brew
+    Brewblox
     brewed
     brewer
     breweries
@@ -6233,6 +6470,7 @@ enum EnglishLexiconData {
     bridgehead
     bridgeheads
     bridges
+    Bridgestone
     bridgework
     bridging
     bridle
@@ -6327,6 +6565,7 @@ enum EnglishLexiconData {
     broadcasting
     broadcasts
     broadcloth
+    Broadcom
     broaden
     broadened
     broadening
@@ -6372,6 +6611,7 @@ enum EnglishLexiconData {
     bromide
     bromides
     bromine
+    bromite
     bronchi
     bronchial
     bronchitis
@@ -6402,6 +6642,7 @@ enum EnglishLexiconData {
     brooms
     broomstick
     broomsticks
+    Brotato
     broth
     brothel
     brothels
@@ -6479,6 +6720,13 @@ enum EnglishLexiconData {
     brutes
     brutish
     brutishly
+    BscScan
+    BSD
+    BT
+    BTC
+    Btitish
+    Btrfs
+    BTW
     bubble
     bubbled
     bubblegum
@@ -6570,6 +6818,7 @@ enum EnglishLexiconData {
     bug
     bugaboo
     bugaboos
+    Bugatti
     bugbear
     bugbears
     bugged
@@ -6587,11 +6836,14 @@ enum EnglishLexiconData {
     bugles
     bugling
     bugs
+    BuhoCleaner
     build
     builder
     builders
     building
     buildings
+    buildkitd
+    Buildkite
     builds
     buildup
     buildups
@@ -6709,11 +6961,14 @@ enum EnglishLexiconData {
     bunching
     bundle
     bundled
+    BundleHunt
+    bundler
     bundles
     bundling
     bung
     bungalow
     bungalows
+    Bunge
     bunged
     bunghole
     bungholes
@@ -6737,6 +6992,7 @@ enum EnglishLexiconData {
     bunks
     bunkum
     bunnies
+    Bunnings
     bunny
     buns
     bunt
@@ -6902,6 +7158,7 @@ enum EnglishLexiconData {
     busy
     busybodies
     busybody
+    busybox
     busying
     busyness
     busywork
@@ -6978,6 +7235,7 @@ enum EnglishLexiconData {
     buzzword
     buzzwords
     by
+    Bybit
     bye
     byes
     bygone
@@ -7001,6 +7259,7 @@ enum EnglishLexiconData {
     byways
     byword
     bywords
+    bzip
     cab
     cabal
     cabals
@@ -7071,6 +7330,7 @@ enum EnglishLexiconData {
     cadgers
     cadges
     cadging
+    Cadillac
     cadmium
     cadre
     cadres
@@ -7114,6 +7374,7 @@ enum EnglishLexiconData {
     calamities
     calamitous
     calamity
+    Calcbot
     calcified
     calcifies
     calcify
@@ -7139,6 +7400,7 @@ enum EnglishLexiconData {
     calendared
     calendaring
     calendars
+    Calendly
     calf
     calfskin
     caliber
@@ -7151,6 +7413,7 @@ enum EnglishLexiconData {
     calibrations
     calibrator
     calibrators
+    Calibre
     calico
     calicoes
     caliper
@@ -7180,6 +7443,7 @@ enum EnglishLexiconData {
     callings
     calliope
     calliopes
+    CallKit
     callous
     calloused
     callouses
@@ -7206,6 +7470,7 @@ enum EnglishLexiconData {
     calorie
     calories
     calorific
+    Caltech
     calumniate
     calumniated
     calumniates
@@ -7244,6 +7509,7 @@ enum EnglishLexiconData {
     cameras
     camerawoman
     camerawomen
+    Camerfirma
     camisole
     camisoles
     camouflage
@@ -7413,6 +7679,7 @@ enum EnglishLexiconData {
     cantors
     cantos
     cants
+    Canva
     canvas
     canvasback
     canvasbacks
@@ -7444,6 +7711,7 @@ enum EnglishLexiconData {
     caparisoned
     caparisoning
     caparisons
+    Capcom
     cape
     caped
     caper
@@ -7451,6 +7719,7 @@ enum EnglishLexiconData {
     capering
     capers
     capes
+    Capgemini
     capillaries
     capillary
     capital
@@ -7476,6 +7745,7 @@ enum EnglishLexiconData {
     caplets
     capon
     capons
+    Capoo
     capped
     capping
     cappuccino
@@ -7492,6 +7762,7 @@ enum EnglishLexiconData {
     capsized
     capsizes
     capsizing
+    CapsLock
     capstan
     capstans
     capsule
@@ -7504,6 +7775,7 @@ enum EnglishLexiconData {
     captained
     captaining
     captains
+    CAPTCHA
     caption
     captioned
     captioning
@@ -7566,6 +7838,7 @@ enum EnglishLexiconData {
     carcinoma
     carcinomas
     card
+    Cardano
     cardboard
     carded
     cardiac
@@ -7635,6 +7908,7 @@ enum EnglishLexiconData {
     carjackers
     carjacking
     carjackings
+    CarLife
     carmine
     carmines
     carnage
@@ -7694,12 +7968,15 @@ enum EnglishLexiconData {
     carpets
     carpi
     carping
+    CarPlay
     carpool
     carpools
     carport
     carports
     carps
     carpus
+    CARR
+    Carrefour
     carrel
     carrels
     carriage
@@ -7786,6 +8063,7 @@ enum EnglishLexiconData {
     casings
     casino
     casinos
+    Casio
     cask
     casket
     caskets
@@ -7803,6 +8081,7 @@ enum EnglishLexiconData {
     cassock
     cassocks
     cast
+    castai
     castanet
     castanets
     castaway
@@ -7852,6 +8131,7 @@ enum EnglishLexiconData {
     catacombs
     catafalque
     catafalques
+    Catalent
     catalepsy
     cataleptic
     cataleptics
@@ -8000,6 +8280,7 @@ enum EnglishLexiconData {
     cause
     caused
     causeless
+    Causely
     causes
     causeway
     causeways
@@ -8054,7 +8335,19 @@ enum EnglishLexiconData {
     cawing
     caws
     cayenne
+    CBA
+    CBD
+    CBOE
+    CBRE
+    Ccache
+    CCD
+    ccloud
+    ccmake
+    CCTV
     CD
+    CDN
+    CDNS
+    CDPR
     CDs
     cease
     ceased
@@ -8072,8 +8365,11 @@ enum EnglishLexiconData {
     cedilla
     cedillas
     ceding
+    CEF
+    Cegid
     ceiling
     ceilings
+    Celanese
     celebrant
     celebrants
     celebrate
@@ -8086,6 +8382,7 @@ enum EnglishLexiconData {
     celebrities
     celebrity
     celerity
+    Celeron
     celery
     celesta
     celestas
@@ -8160,6 +8457,7 @@ enum EnglishLexiconData {
     centimeters
     centipede
     centipedes
+    CentOS
     central
     centralization
     centralize
@@ -8168,6 +8466,7 @@ enum EnglishLexiconData {
     centralizing
     centrally
     centrals
+    Centrica
     centrifugal
     centrifuge
     centrifuged
@@ -8181,7 +8480,10 @@ enum EnglishLexiconData {
     centurion
     centurions
     century
+    CEO
+    Ceph
     cephalic
+    Cepton
     ceramic
     ceramics
     cereal
@@ -8199,6 +8501,8 @@ enum EnglishLexiconData {
     ceremoniously
     ceremony
     cerise
+    CERN
+    Cerner
     certain
     certainly
     certainties
@@ -8216,6 +8520,7 @@ enum EnglishLexiconData {
     certifying
     certitude
     certitudes
+    Certum
     cerulean
     cervical
     cervices
@@ -8231,6 +8536,9 @@ enum EnglishLexiconData {
     cesspools
     cetacean
     cetaceans
+    CFE
+    CFO
+    CFONB
     chafe
     chafed
     chafes
@@ -8246,8 +8554,10 @@ enum EnglishLexiconData {
     chagrining
     chagrins
     chain
+    Chainalysis
     chained
     chaining
+    Chainlink
     chains
     chainsaw
     chainsawed
@@ -8294,6 +8604,7 @@ enum EnglishLexiconData {
     chambermaid
     chambermaids
     chambers
+    Chambersign
     chambray
     chameleon
     chameleons
@@ -8469,6 +8780,8 @@ enum EnglishLexiconData {
     chasuble
     chasubles
     chat
+    ChatBox
+    ChatGPT
     chats
     chatted
     chattel
@@ -8495,6 +8808,7 @@ enum EnglishLexiconData {
     chauvinist
     chauvinistic
     chauvinists
+    CHDBits
     cheap
     cheapen
     cheapened
@@ -8512,6 +8826,7 @@ enum EnglishLexiconData {
     cheaters
     cheating
     cheats
+    CheatSheet
     check
     checkbook
     checkbooks
@@ -8531,6 +8846,7 @@ enum EnglishLexiconData {
     checkmating
     checkout
     checkouts
+    Checkov
     checkpoint
     checkpoints
     checkroom
@@ -8587,6 +8903,9 @@ enum EnglishLexiconData {
     cheetahs
     chef
     chefs
+    ChefSpec
+    ChemBioDraw
+    ChemChina
     chemical
     chemically
     chemicals
@@ -8597,6 +8916,7 @@ enum EnglishLexiconData {
     chemists
     chemotherapy
     chenille
+    CHEP
     cherish
     cherished
     cherishes
@@ -8619,6 +8939,7 @@ enum EnglishLexiconData {
     chestnut
     chestnuts
     chests
+    Chevrolet
     chevron
     chevrons
     chew
@@ -8630,6 +8951,7 @@ enum EnglishLexiconData {
     chewing
     chews
     chewy
+    chezmoi
     chi
     chiaroscuro
     chic
@@ -8673,6 +8995,7 @@ enum EnglishLexiconData {
     chiggers
     chignon
     chignons
+    Chiikawa
     chilblain
     chilblains
     child
@@ -8796,12 +9119,16 @@ enum EnglishLexiconData {
     chloroforming
     chloroforms
     chlorophyll
+    chmod
     chock
     chocked
     chocking
     chocks
+    choco
     chocolate
+    Chocolately
     chocolates
+    Chocolatey
     choice
     choicer
     choices
@@ -8876,7 +9203,9 @@ enum EnglishLexiconData {
     chowders
     chowed
     chowing
+    chown
     chows
+    chpasswd
     Christ
     christen
     christened
@@ -8890,7 +9219,9 @@ enum EnglishLexiconData {
     Christmases
     chromatic
     chrome
+    Chromebook
     chromed
+    ChromeOS
     chromes
     chroming
     chromium
@@ -8904,16 +9235,23 @@ enum EnglishLexiconData {
     chroniclers
     chronicles
     chronicling
+    chrono
     chronological
     chronologically
     chronologies
     chronology
     chronometer
     chronometers
+    Chronosphere
+    chroot
+    CHRW
     chrysalis
     chrysalises
     chrysanthemum
     chrysanthemums
+    Chrysler
+    CHS
+    CHTR
     chubbier
     chubbiest
     chubbiness
@@ -8972,6 +9310,7 @@ enum EnglishLexiconData {
     chutzpah
     chyron
     chyrons
+    CI
     ciabatta
     ciabattas
     cicada
@@ -8997,14 +9336,18 @@ enum EnglishLexiconData {
     cinctures
     cinder
     cindered
+    Cinderella
     cindering
     cinders
     cinema
+    Cinemark
     cinemas
     cinematic
     cinematographer
     cinematographers
     cinematography
+    CINF
+    Cinity
     cinnabar
     cinnamon
     cipher
@@ -9014,6 +9357,7 @@ enum EnglishLexiconData {
     circa
     circadian
     circle
+    CircleCI
     circled
     circles
     circlet
@@ -9083,6 +9427,7 @@ enum EnglishLexiconData {
     cirri
     cirrus
     cis
+    CISC
     cisgender
     cistern
     cisterns
@@ -9093,7 +9438,9 @@ enum EnglishLexiconData {
     cite
     cited
     cites
+    Citibank
     cities
+    Citigroup
     citing
     citizen
     citizenry
@@ -9106,6 +9453,7 @@ enum EnglishLexiconData {
     citrus
     citruses
     city
+    Citylink
     civet
     civets
     civic
@@ -9138,6 +9486,7 @@ enum EnglishLexiconData {
     clairvoyant
     clairvoyants
     clam
+    ClamAV
     clambake
     clambakes
     clamber
@@ -9166,6 +9515,7 @@ enum EnglishLexiconData {
     clandestine
     clandestinely
     clang
+    clangd
     clanged
     clanging
     clangor
@@ -9206,6 +9556,7 @@ enum EnglishLexiconData {
     clashed
     clashes
     clashing
+    ClashX
     clasp
     clasped
     clasping
@@ -9242,6 +9593,7 @@ enum EnglishLexiconData {
     clattered
     clattering
     clatters
+    Claude
     clause
     clauses
     claustrophobia
@@ -9251,6 +9603,7 @@ enum EnglishLexiconData {
     clavicle
     clavicles
     claw
+    Clawdbot
     clawed
     clawing
     claws
@@ -9339,10 +9692,12 @@ enum EnglishLexiconData {
     clewed
     clewing
     clews
+    CLI
     click
     clickable
     clickbait
     clicked
+    ClickHouse
     clicking
     clicks
     client
@@ -9388,6 +9743,7 @@ enum EnglishLexiconData {
     clinkers
     clinking
     clinks
+    CLion
     clip
     clipboard
     clipboards
@@ -9396,6 +9752,7 @@ enum EnglishLexiconData {
     clippers
     clipping
     clippings
+    CLIProxyAPI
     clips
     clique
     cliques
@@ -9419,6 +9776,7 @@ enum EnglishLexiconData {
     cloches
     clock
     clocked
+    clockify
     clocking
     clocks
     clockwise
@@ -9436,6 +9794,7 @@ enum EnglishLexiconData {
     cloistered
     cloistering
     cloisters
+    Clojure
     clomp
     clomped
     clomping
@@ -9485,15 +9844,25 @@ enum EnglishLexiconData {
     cloture
     clotures
     cloud
+    CloudApp
     cloudburst
     cloudbursts
     clouded
+    Cloudera
+    Cloudflare
+    cloudflared
+    CloudFront
     cloudier
     cloudiest
+    Cloudinary
     cloudiness
     clouding
+    Cloudkick
     cloudless
+    CloudMagic
     clouds
+    CloudStack
+    CloudXNS
     cloudy
     clout
     clouted
@@ -9564,6 +9933,16 @@ enum EnglishLexiconData {
     cluttered
     cluttering
     clutters
+    CMake
+    CMCSA
+    cmd
+    CMOS
+    CMS
+    CN
+    CNAME
+    cnBeta
+    CNCF
+    cnpg
     coach
     coached
     coaches
@@ -9629,6 +10008,7 @@ enum EnglishLexiconData {
     cobblestone
     cobblestones
     cobbling
+    cobertura
     cobra
     cobras
     cobs
@@ -9667,6 +10047,7 @@ enum EnglishLexiconData {
     cockpit
     cockpits
     cockroach
+    CockroachDB
     cockroaches
     cocks
     cockscomb
@@ -9678,6 +10059,7 @@ enum EnglishLexiconData {
     cocktails
     cocky
     cocoa
+    CocoaPods
     cocoas
     coconut
     coconuts
@@ -9695,9 +10077,18 @@ enum EnglishLexiconData {
     coddling
     code
     codebase
+    Codebeamer
+    CodeBox
+    CodeBuddy
+    Codecentric
+    codecov
     coded
     codeine
+    Codeium
+    CodeKit
+    codeql
     codes
+    CodeWhisperer
     codex
     codfish
     codfishes
@@ -9706,6 +10097,8 @@ enum EnglishLexiconData {
     codices
     codicil
     codicils
+    codicon
+    codicons
     codification
     codifications
     codified
@@ -9713,6 +10106,8 @@ enum EnglishLexiconData {
     codify
     codifying
     coding
+    Codium
+    CodiumAI
     cods
     coed
     coeds
@@ -9735,12 +10130,14 @@ enum EnglishLexiconData {
     coexistence
     coexisting
     coexists
+    COFCO
     coffee
     coffeehouse
     coffeehouses
     coffeepot
     coffeepots
     coffees
+    CoffeeScript
     coffer
     coffers
     coffin
@@ -9805,6 +10202,8 @@ enum EnglishLexiconData {
     coin
     coinage
     coinages
+    Coinbase
+    CoinCheckup
     coincide
     coincided
     coincidence
@@ -9814,8 +10213,14 @@ enum EnglishLexiconData {
     coincidentally
     coincides
     coinciding
+    CoinCodex
+    CoinDesk
     coined
+    CoinGecko
+    CoinGlass
     coining
+    CoinMarketCap
+    Coinranking
     coins
     coital
     coitus
@@ -9872,6 +10277,7 @@ enum EnglishLexiconData {
     colleague
     colleagues
     collect
+    collectd
     collected
     collectible
     collectibles
@@ -9898,6 +10304,7 @@ enum EnglishLexiconData {
     collegian
     collegians
     collegiate
+    Collibra
     collide
     collided
     collides
@@ -9959,6 +10366,7 @@ enum EnglishLexiconData {
     colonoscopy
     colons
     colony
+    COLOPL
     color
     coloration
     coloratura
@@ -9971,6 +10379,7 @@ enum EnglishLexiconData {
     colorfully
     coloring
     colorless
+    ColorOS
     colors
     colossal
     colossally
@@ -9988,6 +10397,7 @@ enum EnglishLexiconData {
     columns
     coma
     comas
+    Comate
     comatose
     comb
     combat
@@ -10012,6 +10422,7 @@ enum EnglishLexiconData {
     combustible
     combustibles
     combustion
+    Comcast
     come
     comeback
     comebacks
@@ -10047,6 +10458,7 @@ enum EnglishLexiconData {
     comforting
     comforts
     comfy
+    ComfyUI
     comic
     comical
     comically
@@ -10119,6 +10531,7 @@ enum EnglishLexiconData {
     commercializing
     commercially
     commercials
+    Commerzbank
     commingle
     commingled
     commingles
@@ -10163,6 +10576,7 @@ enum EnglishLexiconData {
     commoners
     commonest
     commonly
+    CommonMark
     commonplace
     commonplaces
     commons
@@ -10207,6 +10621,7 @@ enum EnglishLexiconData {
     commuters
     commutes
     commuting
+    Comodo
     compact
     compacted
     compacter
@@ -10568,6 +10983,7 @@ enum EnglishLexiconData {
     concurs
     concussion
     concussions
+    conda
     condemn
     condemnation
     condemnations
@@ -10724,6 +11140,7 @@ enum EnglishLexiconData {
     confluence
     confluences
     confluent
+    confluentinc
     conform
     conformance
     conformation
@@ -10878,6 +11295,7 @@ enum EnglishLexiconData {
     connotes
     connoting
     connubial
+    ConocoPhillips
     conquer
     conquered
     conquering
@@ -11099,6 +11517,7 @@ enum EnglishLexiconData {
     contain
     contained
     container
+    containerd
     containers
     containing
     containment
@@ -11262,6 +11681,7 @@ enum EnglishLexiconData {
     controller
     controllers
     controlling
+    ControlNet
     controls
     controversial
     controversially
@@ -11304,6 +11724,7 @@ enum EnglishLexiconData {
     convent
     convention
     conventional
+    conventionalcommits
     conventionality
     conventionally
     conventions
@@ -11492,6 +11913,7 @@ enum EnglishLexiconData {
     coquetting
     coquettish
     coral
+    Coralogix
     corals
     cord
     corded
@@ -11511,9 +11933,12 @@ enum EnglishLexiconData {
     corduroys
     core
     cored
+    CoreOS
+    corepack
     cores
     corespondent
     corespondents
+    coreutils
     coriander
     coring
     cork
@@ -11676,6 +12101,8 @@ enum EnglishLexiconData {
     corseted
     corseting
     corsets
+    Cortana
+    Corteva
     cortex
     cortical
     cortices
@@ -11719,6 +12146,7 @@ enum EnglishLexiconData {
     costarred
     costarring
     costars
+    Costco
     costed
     costing
     costings
@@ -11760,6 +12188,8 @@ enum EnglishLexiconData {
     cotyledon
     cotyledons
     couch
+    Couchbase
+    CouchDB
     couched
     couches
     couching
@@ -11895,6 +12325,7 @@ enum EnglishLexiconData {
     couriers
     course
     coursed
+    Coursera
     courses
     coursing
     court
@@ -11954,6 +12385,7 @@ enum EnglishLexiconData {
     covets
     covey
     coveys
+    COVID
     cow
     coward
     cowardice
@@ -12014,6 +12446,13 @@ enum EnglishLexiconData {
     cozily
     coziness
     cozy
+    CP
+    CPC
+    cpplint
+    cpptools
+    CPRT
+    CPU
+    CPython
     crab
     crabbed
     crabbier
@@ -12107,6 +12546,7 @@ enum EnglishLexiconData {
     crashed
     crashes
     crashing
+    Crashlytics
     crass
     crasser
     crassest
@@ -12152,6 +12592,7 @@ enum EnglishLexiconData {
     craziness
     crazing
     crazy
+    crDroid
     creak
     creaked
     creakier
@@ -12207,6 +12648,7 @@ enum EnglishLexiconData {
     creditor
     creditors
     credits
+    Credly
     credo
     credos
     credulity
@@ -12268,6 +12710,7 @@ enum EnglishLexiconData {
     crewed
     crewing
     crews
+    CRH
     crib
     cribbage
     cribbed
@@ -12335,6 +12778,7 @@ enum EnglishLexiconData {
     crisscrossed
     crisscrosses
     crisscrossing
+    Criteo
     criteria
     criterion
     critic
@@ -12372,6 +12816,7 @@ enum EnglishLexiconData {
     crofts
     croissant
     croissants
+    cron
     crone
     crones
     cronies
@@ -12460,6 +12905,7 @@ enum EnglishLexiconData {
     crowdfunded
     crowdfunding
     crowdfunds
+    Crowdin
     crowding
     crowds
     crowed
@@ -12580,6 +13026,8 @@ enum EnglishLexiconData {
     cryptographer
     cryptographers
     cryptography
+    Cryptomator
+    CryptoQuant
     crypts
     crystal
     crystalline
@@ -12591,6 +13039,23 @@ enum EnglishLexiconData {
     crystallographic
     crystallography
     crystals
+    CS
+    CSAIL
+    CSCO
+    CSDN
+    CSharpier
+    cspell
+    cspellcache
+    CSS
+    ctag
+    ctags
+    CTAS
+    CTLT
+    CTO
+    Ctrl
+    CTSH
+    CTVA
+    CTXS
     cub
     cubbyhole
     cubbyholes
@@ -12617,6 +13082,7 @@ enum EnglishLexiconData {
     cucumber
     cucumbers
     cud
+    CUDA
     cuddle
     cuddled
     cuddles
@@ -12871,6 +13337,8 @@ enum EnglishLexiconData {
     cuttlefishes
     cutup
     cutups
+    CVE
+    CWE
     cyanide
     cyberbullies
     cyberbully
@@ -12880,6 +13348,7 @@ enum EnglishLexiconData {
     cyberpunks
     cybersex
     cyberspace
+    Cybozu
     cyclamen
     cyclamens
     cycle
@@ -12898,6 +13367,8 @@ enum EnglishLexiconData {
     cyclotrons
     cygnet
     cygnets
+    cygpath
+    cygwin
     cylinder
     cylinders
     cylindrical
@@ -12910,6 +13381,7 @@ enum EnglishLexiconData {
     cynics
     cynosure
     cynosures
+    cyon
     cypress
     cypresses
     Cyrillic
@@ -12968,6 +13440,7 @@ enum EnglishLexiconData {
     dahlias
     dailies
     daily
+    Daimler
     daintier
     dainties
     daintiest
@@ -13069,6 +13542,8 @@ enum EnglishLexiconData {
     dankest
     dankly
     dankness
+    Danone
+    DApp
     dapper
     dapperer
     dapperest
@@ -13076,6 +13551,8 @@ enum EnglishLexiconData {
     dappled
     dapples
     dappling
+    DApps
+    Darcula
     dare
     dared
     daredevil
@@ -13106,6 +13583,7 @@ enum EnglishLexiconData {
     darted
     darting
     darts
+    Darwin
     dash
     dashboard
     dashboards
@@ -13119,6 +13597,15 @@ enum EnglishLexiconData {
     data
     database
     databases
+    Databend
+    Databricks
+    Datadog
+    DataEase
+    Datagraph
+    DataGrip
+    Datalore
+    Datanami
+    DataSpell
     datatype
     date
     dated
@@ -13127,9 +13614,11 @@ enum EnglishLexiconData {
     datelines
     datelining
     dates
+    datetime
     dating
     dative
     datives
+    Datorama
     datum
     daub
     daubed
@@ -13173,6 +13662,7 @@ enum EnglishLexiconData {
     daydreamers
     daydreaming
     daydreams
+    Dayjs
     daylight
     daylights
     days
@@ -13185,6 +13675,11 @@ enum EnglishLexiconData {
     dazzled
     dazzles
     dazzling
+    DBeaver
+    DBMesh
+    DBOS
+    DDOG
+    DDoS
     deacon
     deaconess
     deaconesses
@@ -13218,6 +13713,8 @@ enum EnglishLexiconData {
     deadpanned
     deadpanning
     deadpans
+    Deadpool
+    deadsnakes
     deadwood
     deaf
     deafen
@@ -13291,6 +13788,7 @@ enum EnglishLexiconData {
     debauching
     debenture
     debentures
+    Debian
     debilitate
     debilitated
     debilitates
@@ -13564,10 +14062,15 @@ enum EnglishLexiconData {
     deepest
     deepfake
     deepfakes
+    deepin
+    DeepL
     deeply
+    DeepMind
     deepness
     deeps
+    DeepSeek
     deer
+    Deere
     deerskin
     deface
     defaced
@@ -13649,6 +14152,7 @@ enum EnglishLexiconData {
     defilement
     defiles
     defiling
+    DefiLlama
     definable
     define
     defined
@@ -13776,6 +14280,7 @@ enum EnglishLexiconData {
     dejected
     dejectedly
     dejection
+    Del
     delay
     delayed
     delaying
@@ -13856,6 +14361,7 @@ enum EnglishLexiconData {
     delivery
     dell
     dells
+    Deloitte
     delphinium
     delphiniums
     delta
@@ -14014,6 +14520,7 @@ enum EnglishLexiconData {
     denims
     denizen
     denizens
+    Deno
     denominate
     denominated
     denominates
@@ -14045,6 +14552,7 @@ enum EnglishLexiconData {
     densest
     densities
     density
+    Denso
     dent
     dental
     dented
@@ -14087,10 +14595,12 @@ enum EnglishLexiconData {
     departs
     departure
     departures
+    Depay
     depend
     dependability
     dependable
     dependably
+    Dependabot
     depended
     dependence
     dependencies
@@ -14235,6 +14745,7 @@ enum EnglishLexiconData {
     derelict
     dereliction
     derelicts
+    Deribit
     deride
     derided
     derides
@@ -14544,6 +15055,7 @@ enum EnglishLexiconData {
     devastates
     devastating
     devastation
+    develocity
     develop
     developed
     developer
@@ -14588,6 +15100,8 @@ enum EnglishLexiconData {
     devolved
     devolves
     devolving
+    DEVONthink
+    DevOps
     devote
     devoted
     devotedly
@@ -14608,6 +15122,7 @@ enum EnglishLexiconData {
     devoutest
     devoutly
     devoutness
+    DevSecOps
     dew
     dewberries
     dewberry
@@ -14618,11 +15133,15 @@ enum EnglishLexiconData {
     dewlap
     dewlaps
     dewy
+    DexCom
     dexterity
     dexterous
     dexterously
     dextrose
+    Dezzai
+    DFKI
     dharma
+    DHCP
     dhoti
     dhotis
     diabetes
@@ -14709,6 +15228,7 @@ enum EnglishLexiconData {
     dickey
     dickeys
     dicks
+    dict
     dicta
     dictate
     dictated
@@ -14781,6 +15301,7 @@ enum EnglishLexiconData {
     diffuses
     diffusing
     diffusion
+    Dify
     dig
     digest
     digested
@@ -14793,10 +15314,12 @@ enum EnglishLexiconData {
     digger
     diggers
     digging
+    DigiCert
     digit
     digital
     digitalis
     digitally
+    DigitalOcean
     digitization
     digitize
     digitized
@@ -14976,6 +15499,9 @@ enum EnglishLexiconData {
     directorships
     directory
     directs
+    Directus
+    DirecTV
+    DirectX
     direr
     direst
     dirge
@@ -15102,6 +15628,7 @@ enum EnglishLexiconData {
     disburses
     disbursing
     disc
+    DISCA
     discard
     discarded
     discarding
@@ -15125,6 +15652,7 @@ enum EnglishLexiconData {
     disciplined
     disciplines
     disciplining
+    DISCK
     disclaim
     disclaimed
     disclaimer
@@ -15428,6 +15956,7 @@ enum EnglishLexiconData {
     disk
     diskette
     diskettes
+    DiskGenius
     disks
     dislike
     disliked
@@ -15446,6 +15975,7 @@ enum EnglishLexiconData {
     disloyal
     disloyally
     disloyalty
+    DISM
     dismal
     dismally
     dismantle
@@ -15472,6 +16002,7 @@ enum EnglishLexiconData {
     dismounted
     dismounting
     dismounts
+    Disney
     disobedience
     disobedient
     disobediently
@@ -15611,6 +16142,7 @@ enum EnglishLexiconData {
     disquiets
     disquisition
     disquisitions
+    Disqus
     disregard
     disregarded
     disregarding
@@ -15823,6 +16355,7 @@ enum EnglishLexiconData {
     dittoing
     dittos
     ditty
+    Diumoo
     diuretic
     diuretics
     diurnal
@@ -15908,6 +16441,7 @@ enum EnglishLexiconData {
     divvy
     divvying
     Dixie
+    DIY
     dizzied
     dizzier
     dizzies
@@ -15916,6 +16450,20 @@ enum EnglishLexiconData {
     dizziness
     dizzy
     dizzying
+    DJ
+    Django
+    DjVu
+    DLC
+    DLsite
+    DLTR
+    DMCA
+    dmesg
+    dmidecode
+    DNA
+    DnD
+    DNS
+    Dnsmasq
+    DNSPod
     do
     doable
     doc
@@ -15926,6 +16474,10 @@ enum EnglishLexiconData {
     docility
     dock
     docked
+    docker
+    dockerd
+    Dockerfile
+    dockerhub
     docket
     docketed
     docketing
@@ -15956,6 +16508,8 @@ enum EnglishLexiconData {
     documented
     documenting
     documents
+    Docusaurus
+    DocuSign
     dodder
     doddered
     doddering
@@ -15979,6 +16533,8 @@ enum EnglishLexiconData {
     dog
     dogcatcher
     dogcatchers
+    Doge
+    Dogecoin
     dogfight
     dogfights
     dogfish
@@ -16009,12 +16565,14 @@ enum EnglishLexiconData {
     dogmatist
     dogmatists
     dogs
+    dogstatsd
     dogtrot
     dogtrots
     dogtrotted
     dogtrotting
     dogwood
     dogwoods
+    DoH
     doilies
     doily
     doing
@@ -16048,6 +16606,7 @@ enum EnglishLexiconData {
     dolt
     doltish
     dolts
+    DOM
     domain
     domains
     dome
@@ -16139,6 +16698,7 @@ enum EnglishLexiconData {
     dopier
     dopiest
     doping
+    DoQ
     dories
     dork
     dorkier
@@ -16167,19 +16727,26 @@ enum EnglishLexiconData {
     dossier
     dossiers
     dost
+    dosu
     dot
+    Dota
     dotage
     dotcom
     dotcoms
+    dotCover
     dote
     doted
+    dotenvx
     dotes
     doth
     doting
     dotingly
+    dotMemory
+    dotPeek
     dots
     dotted
     dotting
+    dotTrace
     dotty
     double
     doubled
@@ -16221,6 +16788,7 @@ enum EnglishLexiconData {
     doused
     douses
     dousing
+    Douyin
     dove
     doves
     dovetail
@@ -16254,6 +16822,7 @@ enum EnglishLexiconData {
     downhearted
     downhill
     downhills
+    Downie
     downier
     downiest
     downing
@@ -16311,6 +16880,7 @@ enum EnglishLexiconData {
     doxxes
     doxxing
     doxxings
+    doxygen
     doyen
     doyens
     doze
@@ -16319,6 +16889,7 @@ enum EnglishLexiconData {
     dozens
     dozes
     dozing
+    dprint
     Dr
     drab
     drabber
@@ -16350,6 +16921,7 @@ enum EnglishLexiconData {
     dragon
     dragonflies
     dragonfly
+    DragonFlyBSD
     dragons
     dragoon
     dragooned
@@ -16542,6 +17114,7 @@ enum EnglishLexiconData {
     droops
     droopy
     drop
+    Dropbox
     droplet
     droplets
     dropout
@@ -16553,6 +17126,7 @@ enum EnglishLexiconData {
     droppings
     drops
     dropsy
+    Dropzone
     dross
     drought
     droughts
@@ -16621,12 +17195,15 @@ enum EnglishLexiconData {
     dryness
     drys
     drywall
+    DSL
     dual
     dualism
     duality
+    duang
     dub
     dubbed
     dubbing
+    Dubbo
     dubiety
     dubious
     dubiously
@@ -16634,6 +17211,7 @@ enum EnglishLexiconData {
     dubs
     ducal
     ducat
+    Ducati
     ducats
     duchess
     duchesses
@@ -16642,6 +17220,8 @@ enum EnglishLexiconData {
     duck
     duckbill
     duckbills
+    DuckDB
+    DuckDuckGo
     ducked
     ducking
     duckling
@@ -16763,6 +17343,7 @@ enum EnglishLexiconData {
     duplicator
     duplicators
     duplicity
+    DuPont
     durability
     durable
     durably
@@ -16819,7 +17400,9 @@ enum EnglishLexiconData {
     dwindled
     dwindles
     dwindling
+    DXCM
     dyadic
+    dYdX
     dye
     dyed
     dyeing
@@ -16845,6 +17428,8 @@ enum EnglishLexiconData {
     dynastic
     dynasties
     dynasty
+    Dynatrace
+    DYOR
     dysentery
     dysfunction
     dysfunctional
@@ -16856,6 +17441,7 @@ enum EnglishLexiconData {
     dyspeptic
     dyspeptics
     each
+    EADS
     eager
     eagerer
     eagerest
@@ -16905,6 +17491,7 @@ enum EnglishLexiconData {
     earphones
     earplug
     earplugs
+    EarPods
     earring
     earrings
     ears
@@ -16959,6 +17546,7 @@ enum EnglishLexiconData {
     eastward
     eastwards
     easy
+    easycla
     easygoing
     eat
     eatable
@@ -16977,12 +17565,14 @@ enum EnglishLexiconData {
     eavesdroppers
     eavesdropping
     eavesdrops
+    EBAY
     ebb
     ebbed
     ebbing
     ebbs
     ebonies
     ebony
+    eBPF
     ebullience
     ebullient
     eccentric
@@ -16993,6 +17583,7 @@ enum EnglishLexiconData {
     ecclesiastic
     ecclesiastical
     ecclesiastics
+    ECharts
     echelon
     echelons
     echo
@@ -17008,6 +17599,7 @@ enum EnglishLexiconData {
     eclipses
     eclipsing
     ecliptic
+    ECMAScript
     ecological
     ecologically
     ecologist
@@ -17026,6 +17618,7 @@ enum EnglishLexiconData {
     economizes
     economizing
     economy
+    Ecopetrol
     ecosystem
     ecosystems
     ecotourism
@@ -17083,6 +17676,7 @@ enum EnglishLexiconData {
     editors
     editorship
     edits
+    Edubuntu
     educable
     educate
     educated
@@ -17094,6 +17688,7 @@ enum EnglishLexiconData {
     educations
     educator
     educators
+    EduTools
     eel
     eels
     eerie
@@ -17151,6 +17746,7 @@ enum EnglishLexiconData {
     effusive
     effusively
     effusiveness
+    EFI
     egalitarian
     egalitarianism
     egalitarians
@@ -17167,6 +17763,7 @@ enum EnglishLexiconData {
     eggshells
     eglantine
     eglantines
+    Egnyte
     ego
     egocentric
     egocentrics
@@ -17181,8 +17778,10 @@ enum EnglishLexiconData {
     egotistical
     egotistically
     egotists
+    eGPU
     egregious
     egregiously
+    egrep
     egress
     egresses
     egret
@@ -17211,6 +17810,7 @@ enum EnglishLexiconData {
     eked
     ekes
     eking
+    EKS
     elaborate
     elaborated
     elaborately
@@ -17226,6 +17826,7 @@ enum EnglishLexiconData {
     elastic
     elasticity
     elastics
+    Elasticsearch
     elate
     elated
     elates
@@ -17321,6 +17922,7 @@ enum EnglishLexiconData {
     elephant
     elephantine
     elephants
+    Eleuther
     elevate
     elevated
     elevates
@@ -17332,6 +17934,7 @@ enum EnglishLexiconData {
     elf
     elfin
     elfish
+    Elfsight
     elicit
     elicited
     eliciting
@@ -17342,6 +17945,7 @@ enum EnglishLexiconData {
     eliding
     eligibility
     eligible
+    Elijah
     eliminate
     eliminated
     eliminates
@@ -17372,6 +17976,7 @@ enum EnglishLexiconData {
     elocution
     elocutionist
     elocutionists
+    Elon
     elongate
     elongated
     elongates
@@ -17577,6 +18182,7 @@ enum EnglishLexiconData {
     Emmys
     emo
     emoji
+    Emojipedia
     emojis
     emollient
     emollients
@@ -17801,6 +18407,7 @@ enum EnglishLexiconData {
     endless
     endlessly
     endlessness
+    Endnote
     endocrine
     endocrines
     endorse
@@ -17829,6 +18436,7 @@ enum EnglishLexiconData {
     endures
     enduring
     endways
+    Enel
     enema
     enemas
     enemies
@@ -17885,6 +18493,7 @@ enum EnglishLexiconData {
     engineered
     engineering
     engineers
+    engineman
     engines
     English
     engorge
@@ -17913,6 +18522,7 @@ enum EnglishLexiconData {
     enhancer
     enhances
     enhancing
+    ENI
     enigma
     enigmas
     enigmatic
@@ -18096,6 +18706,7 @@ enum EnglishLexiconData {
     entomology
     entourage
     entourages
+    EntraID
     entrails
     entrance
     entranced
@@ -18189,6 +18800,7 @@ enum EnglishLexiconData {
     eons
     epaulet
     epaulets
+    EPFL
     ephemeral
     epic
     epicenter
@@ -18239,11 +18851,15 @@ enum EnglishLexiconData {
     epoch
     epochal
     epochs
+    epoll
     epoxied
     epoxies
     epoxy
     epoxying
     epsilon
+    EPUB
+    EPYC
+    EQIX
     equability
     equable
     equably
@@ -18281,6 +18897,7 @@ enum EnglishLexiconData {
     equilibriums
     equine
     equines
+    Equinix
     equinoctial
     equinox
     equinoxes
@@ -18339,6 +18956,7 @@ enum EnglishLexiconData {
     ergonomic
     ergonomics
     ergs
+    Erlang
     ermine
     ermines
     erode
@@ -18382,6 +19000,9 @@ enum EnglishLexiconData {
     erupts
     erythrocyte
     erythrocytes
+    eSATA
+    esbuild
+    Esc
     escalate
     escalated
     escalates
@@ -18418,14 +19039,21 @@ enum EnglishLexiconData {
     escrows
     escutcheon
     escutcheons
+    eSIM
     Eskimo
     Eskimos
+    ESLint
+    eslintconfig
+    eslintignore
+    eslintplugin
+    esmini
     esophagi
     esophagus
     esoteric
     esoterically
     espadrille
     espadrilles
+    espanso
     especial
     especially
     espied
@@ -18444,6 +19072,7 @@ enum EnglishLexiconData {
     espying
     esquire
     esquires
+    Esri
     essay
     essayed
     essaying
@@ -18489,6 +19118,7 @@ enum EnglishLexiconData {
     estuaries
     estuary
     eta
+    etcd
     etch
     etched
     etcher
@@ -18500,9 +19130,14 @@ enum EnglishLexiconData {
     eternally
     eternities
     eternity
+    ETH
+    Ethena
     ether
     ethereal
     ethereally
+    Ethereum
+    Ethernet
+    Etherscan
     ethic
     ethical
     ethically
@@ -18516,9 +19151,12 @@ enum EnglishLexiconData {
     ethnologists
     ethnology
     ethos
+    Ethr
+    ethtool
     etiologies
     etiology
     etiquette
+    Etsy
     etymological
     etymologies
     etymologist
@@ -18617,9 +19255,11 @@ enum EnglishLexiconData {
     everglades
     evergreen
     evergreens
+    Evergy
     everlasting
     everlastings
     evermore
+    Evernote
     every
     everybody
     everyday
@@ -18669,6 +19309,7 @@ enum EnglishLexiconData {
     evolved
     evolves
     evolving
+    EVRG
     ewe
     ewer
     ewers
@@ -18719,6 +19360,7 @@ enum EnglishLexiconData {
     exasperates
     exasperating
     exasperation
+    Excalidraw
     excavate
     excavated
     excavates
@@ -18884,6 +19526,7 @@ enum EnglishLexiconData {
     exertions
     exerts
     exes
+    ExFAT
     exhalation
     exhalations
     exhale
@@ -18996,6 +19639,8 @@ enum EnglishLexiconData {
     expatriates
     expatriating
     expatriation
+    EXPD
+    EXPE
     expect
     expectancy
     expectant
@@ -19030,6 +19675,7 @@ enum EnglishLexiconData {
     expeditions
     expeditious
     expeditiously
+    Expeditors
     expel
     expelled
     expelling
@@ -19044,8 +19690,10 @@ enum EnglishLexiconData {
     expends
     expense
     expenses
+    Expensify
     expensive
     expensively
+    Experian
     experience
     experienced
     experiences
@@ -19337,6 +19985,7 @@ enum EnglishLexiconData {
     exulted
     exulting
     exults
+    EY
     eye
     eyeball
     eyeballed
@@ -19386,6 +20035,7 @@ enum EnglishLexiconData {
     facade
     facades
     face
+    Facebook
     faced
     faceless
     facepalm
@@ -19395,6 +20045,7 @@ enum EnglishLexiconData {
     faces
     facet
     faceted
+    FaceTime
     faceting
     facetious
     facetiously
@@ -19428,6 +20079,7 @@ enum EnglishLexiconData {
     factorial
     factories
     factoring
+    Factorio
     factorization
     factorize
     factorizing
@@ -19612,10 +20264,12 @@ enum EnglishLexiconData {
     fantasizes
     fantasizing
     fantastic
+    Fantastical
     fantastically
     fantasy
     fantasying
     fanzine
+    FAQ
     far
     faraway
     farce
@@ -19675,6 +20329,7 @@ enum EnglishLexiconData {
     fashionistas
     fashions
     fast
+    FastAPI
     fasted
     fasten
     fastened
@@ -19685,10 +20340,14 @@ enum EnglishLexiconData {
     fastens
     faster
     fastest
+    FastGPT
     fastidious
     fastidiously
     fastidiousness
+    Fastify
     fasting
+    fastlane
+    Fastmail
     fastness
     fastnesses
     fasts
@@ -19782,6 +20441,9 @@ enum EnglishLexiconData {
     fazed
     fazes
     fazing
+    FBHS
+    FBI
+    Fcitx
     fealty
     fear
     feared
@@ -19839,6 +20501,7 @@ enum EnglishLexiconData {
     federating
     federation
     federations
+    FedEx
     fedora
     fedoras
     feds
@@ -19866,10 +20529,12 @@ enum EnglishLexiconData {
     feels
     fees
     feet
+    FeHelper
     feign
     feigned
     feigning
     feigns
+    Feinberg
     feint
     feinted
     feinting
@@ -19941,6 +20606,7 @@ enum EnglishLexiconData {
     ferociously
     ferociousness
     ferocity
+    Ferrari
     ferret
     ferreted
     ferreting
@@ -20032,6 +20698,9 @@ enum EnglishLexiconData {
     fey
     fez
     fezzes
+    FFIV
+    FFmpeg
+    FHD
     fiasco
     fiascoes
     fiat
@@ -20105,14 +20774,17 @@ enum EnglishLexiconData {
     fiery
     fiesta
     fiestas
+    FIFA
     fife
     fifes
+    FIFO
     fig
     fight
     fighter
     fighters
     fighting
     fights
+    Figma
     figment
     figments
     figs
@@ -20136,9 +20808,11 @@ enum EnglishLexiconData {
     filches
     filching
     file
+    Filecoin
     filed
     files
     filet
+    FileVault
     filial
     filibuster
     filibustered
@@ -20273,6 +20947,7 @@ enum EnglishLexiconData {
     finked
     finking
     finks
+    Finmeccanica
     finny
     fins
     fir
@@ -20281,6 +20956,7 @@ enum EnglishLexiconData {
     firearms
     fireball
     fireballs
+    Fireblocks
     firebomb
     firebombed
     firebombing
@@ -20299,6 +20975,7 @@ enum EnglishLexiconData {
     firefighting
     fireflies
     firefly
+    Firefox
     firehouse
     firehouses
     fireman
@@ -20381,7 +21058,9 @@ enum EnglishLexiconData {
     fistfuls
     fisticuffs
     fists
+    FISV
     fit
+    FITB
     fitful
     fitfully
     fitly
@@ -20416,6 +21095,7 @@ enum EnglishLexiconData {
     fixture
     fixtures
     fizz
+    fizzbuzz
     fizzed
     fizzes
     fizzier
@@ -20441,6 +21121,7 @@ enum EnglishLexiconData {
     flack
     flacks
     flag
+    flagd
     flagella
     flagellate
     flagellated
@@ -20486,6 +21167,7 @@ enum EnglishLexiconData {
     flamenco
     flamencos
     flames
+    Flameshot
     flamethrower
     flamethrowers
     flaming
@@ -20557,6 +21239,7 @@ enum EnglishLexiconData {
     flatirons
     flatly
     flatness
+    Flatpak
     flats
     flatted
     flatten
@@ -20574,6 +21257,7 @@ enum EnglishLexiconData {
     flatting
     flattop
     flattops
+    Flattr
     flatulence
     flatulent
     flatware
@@ -20621,6 +21305,7 @@ enum EnglishLexiconData {
     fleeing
     flees
     fleet
+    Fleetcor
     fleeted
     fleeter
     fleetest
@@ -20656,6 +21341,7 @@ enum EnglishLexiconData {
     flickering
     flickers
     flicking
+    Flickr
     flicks
     flied
     flier
@@ -20685,6 +21371,7 @@ enum EnglishLexiconData {
     fling
     flinging
     flings
+    Flink
     flint
     flintier
     flintiest
@@ -20693,6 +21380,7 @@ enum EnglishLexiconData {
     flints
     flinty
     flip
+    Flipkart
     flippancy
     flippant
     flippantly
@@ -20702,6 +21390,7 @@ enum EnglishLexiconData {
     flippest
     flipping
     flips
+    FLIR
     flirt
     flirtation
     flirtations
@@ -20731,6 +21420,7 @@ enum EnglishLexiconData {
     flogging
     floggings
     flogs
+    flomo
     flood
     flooded
     floodgate
@@ -20747,6 +21437,7 @@ enum EnglishLexiconData {
     floorboards
     floored
     flooring
+    Floorp
     floors
     floozies
     floozy
@@ -20833,6 +21524,7 @@ enum EnglishLexiconData {
     flue
     fluency
     fluent
+    Fluentd
     fluently
     flues
     fluff
@@ -20865,6 +21557,7 @@ enum EnglishLexiconData {
     flunking
     flunks
     flunky
+    Fluor
     fluoresce
     fluoresced
     fluorescence
@@ -20910,6 +21603,7 @@ enum EnglishLexiconData {
     flutters
     fluttery
     flux
+    FluxCD
     fluxed
     fluxes
     fluxing
@@ -20921,8 +21615,10 @@ enum EnglishLexiconData {
     flying
     flyleaf
     flyleaves
+    Flyme
     flypaper
     flypapers
+    flypy
     flysheet
     flyspeck
     flyspecked
@@ -20934,6 +21630,8 @@ enum EnglishLexiconData {
     flyweights
     flywheel
     flywheels
+    Fn
+    fo
     foal
     foaled
     foaling
@@ -21015,6 +21713,7 @@ enum EnglishLexiconData {
     fomented
     fomenting
     foments
+    FOMO
     fond
     fondant
     fondants
@@ -21030,6 +21729,7 @@ enum EnglishLexiconData {
     fondues
     font
     fonts
+    foobar
     food
     foods
     foodstuff
@@ -21375,6 +22075,7 @@ enum EnglishLexiconData {
     fortifies
     fortify
     fortifying
+    Fortinet
     fortissimo
     fortitude
     fortnight
@@ -21399,6 +22100,7 @@ enum EnglishLexiconData {
     forwardness
     forwards
     forwent
+    FOSS
     fossil
     fossilization
     fossilize
@@ -21451,6 +22153,7 @@ enum EnglishLexiconData {
     fowling
     fowls
     fox
+    FOXA
     foxed
     foxes
     foxglove
@@ -21469,6 +22172,7 @@ enum EnglishLexiconData {
     foxy
     foyer
     foyers
+    FPGA
     fracas
     fracases
     frack
@@ -21583,7 +22287,9 @@ enum EnglishLexiconData {
     freebies
     freebooter
     freebooters
+    FreeBSD
     freed
+    freedesktop
     freedman
     freedmen
     freedom
@@ -21600,6 +22306,7 @@ enum EnglishLexiconData {
     freelancers
     freelances
     freelancing
+    Freelens
     freeload
     freeloaded
     freeloader
@@ -21650,6 +22357,7 @@ enum EnglishLexiconData {
     frequents
     fresco
     frescoes
+    Fresenius
     fresh
     freshen
     freshened
@@ -21664,6 +22372,7 @@ enum EnglishLexiconData {
     freshmen
     freshness
     freshwater
+    Freshworks
     fret
     fretful
     fretfully
@@ -21847,6 +22556,7 @@ enum EnglishLexiconData {
     frumpiest
     frumps
     frumpy
+    Frundles
     frustrate
     frustrated
     frustrates
@@ -21857,6 +22567,12 @@ enum EnglishLexiconData {
     fryer
     fryers
     frying
+    fsck
+    fstrim
+    FTIR
+    FTNT
+    FTP
+    ftrace
     fuchsia
     fuchsias
     fuck
@@ -21864,6 +22580,7 @@ enum EnglishLexiconData {
     fucker
     fuckers
     fucking
+    fuckity
     fucks
     fuddle
     fuddled
@@ -21881,6 +22598,8 @@ enum EnglishLexiconData {
     fugitives
     fugue
     fugues
+    FujiFilm
+    Fujitsu
     fulcrum
     fulcrums
     fulfill
@@ -22060,6 +22779,7 @@ enum EnglishLexiconData {
     futons
     future
     futures
+    Futurice
     futuristic
     futurities
     futurity
@@ -22076,6 +22796,8 @@ enum EnglishLexiconData {
     fuzziness
     fuzzing
     fuzzy
+    FYI
+    Fyne
     gab
     gabardine
     gabardines
@@ -22133,6 +22855,7 @@ enum EnglishLexiconData {
     gaiter
     gaiters
     gaits
+    gakki
     gal
     gala
     galactic
@@ -22142,6 +22865,7 @@ enum EnglishLexiconData {
     gale
     galena
     gales
+    GalGame
     gall
     gallant
     gallantly
@@ -22196,9 +22920,13 @@ enum EnglishLexiconData {
     gamboling
     gambols
     game
+    GameBoy
     gamecock
     gamecocks
+    GameCube
     gamed
+    GameFAQs
+    GameFi
     gamekeeper
     gamekeepers
     gamely
@@ -22278,6 +23006,7 @@ enum EnglishLexiconData {
     gardenias
     gardening
     gardens
+    Garena
     gargantuan
     gargle
     gargled
@@ -22326,6 +23055,7 @@ enum EnglishLexiconData {
     garrulousness
     garter
     garters
+    Gartner
     gas
     gaseous
     gases
@@ -22351,6 +23081,7 @@ enum EnglishLexiconData {
     gassiest
     gassing
     gassy
+    GasTerra
     gastric
     gastritis
     gastrointestinal
@@ -22437,6 +23168,14 @@ enum EnglishLexiconData {
     gazillions
     gazing
     gazpacho
+    Gazprom
+    GBA
+    GBC
+    Gboard
+    GCC
+    GCP
+    GDP
+    GDPR
     gear
     gearboxes
     geared
@@ -22452,8 +23191,10 @@ enum EnglishLexiconData {
     geed
     geeing
     geek
+    Geekbench
     geekier
     geekiest
+    GeekNote
     geeks
     geeky
     gees
@@ -22480,6 +23221,7 @@ enum EnglishLexiconData {
     gems
     gemstone
     gemstones
+    Genava
     gendarme
     gendarmes
     gender
@@ -22545,6 +23287,7 @@ enum EnglishLexiconData {
     genocides
     genre
     genres
+    genrsa
     gent
     genteel
     gentian
@@ -22566,6 +23309,7 @@ enum EnglishLexiconData {
     gentlewomen
     gentling
     gently
+    Gentoo
     gentries
     gentrification
     gentrified
@@ -22601,6 +23345,7 @@ enum EnglishLexiconData {
     geographically
     geographies
     geography
+    GeoIP
     geologic
     geological
     geologically
@@ -22618,8 +23363,10 @@ enum EnglishLexiconData {
     geophysics
     geopolitical
     geopolitics
+    GEOS
     geostationary
     geothermal
+    Geralt
     geranium
     geraniums
     gerbil
@@ -22642,6 +23389,7 @@ enum EnglishLexiconData {
     gerontologist
     gerontologists
     gerontology
+    Gerrit
     gerrymander
     gerrymandered
     gerrymandering
@@ -22659,6 +23407,7 @@ enum EnglishLexiconData {
     gesticulating
     gesticulation
     gesticulations
+    Gestimer
     gesture
     gestured
     gestures
@@ -22676,6 +23425,9 @@ enum EnglishLexiconData {
     geysered
     geysering
     geysers
+    GFM
+    GFW
+    gfwlist
     ghastlier
     ghastliest
     ghastliness
@@ -22691,7 +23443,10 @@ enum EnglishLexiconData {
     ghostliest
     ghostliness
     ghostly
+    GhostNote
     ghosts
+    GhostTile
+    Ghostty
     ghostwrite
     ghostwriter
     ghostwriters
@@ -22722,11 +23477,13 @@ enum EnglishLexiconData {
     gibes
     gibing
     giblets
+    GICS
     giddier
     giddiest
     giddily
     giddiness
     giddy
+    GIF
     gift
     gifted
     gifting
@@ -22736,6 +23493,7 @@ enum EnglishLexiconData {
     gigabits
     gigabyte
     gigabytes
+    GigaDevice
     gigahertz
     gigantic
     gigapixel
@@ -22774,6 +23532,8 @@ enum EnglishLexiconData {
     gimmicks
     gimmicky
     gimpy
+    gimu
+    gimuy
     gin
     ginger
     gingerbread
@@ -22789,6 +23549,7 @@ enum EnglishLexiconData {
     ginning
     gins
     ginseng
+    GIPHY
     giraffe
     giraffes
     gird
@@ -22816,6 +23577,23 @@ enum EnglishLexiconData {
     girting
     girts
     gist
+    gists
+    git
+    GitBook
+    GitBucket
+    GitButler
+    gitdm
+    Gitea
+    Gitee
+    GitHub
+    gitignore
+    Gitkraken
+    GitLab
+    Gitleaks
+    gitleaksignore
+    GitOps
+    Gitpod
+    Gitter
     give
     giveaway
     giveaways
@@ -22827,6 +23605,7 @@ enum EnglishLexiconData {
     gizmos
     gizzard
     gizzards
+    GKE
     glacial
     glacially
     glacier
@@ -22878,9 +23657,11 @@ enum EnglishLexiconData {
     glassier
     glassiest
     glassing
+    Glassnode
     glassware
     glassy
     glaucoma
+    GlaxoSmithKline
     glaze
     glazed
     glazes
@@ -22952,6 +23733,9 @@ enum EnglishLexiconData {
     global
     globalization
     globally
+    GlobalSign
+    globbed
+    globbing
     globe
     globes
     globetrotter
@@ -23036,6 +23820,9 @@ enum EnglishLexiconData {
     glycerol
     glycogen
     glyph
+    Gmail
+    gmake
+    GMT
     gnarled
     gnarly
     gnash
@@ -23059,6 +23846,7 @@ enum EnglishLexiconData {
     goaded
     goading
     goads
+    GoagentX
     goal
     goalie
     goalies
@@ -23093,6 +23881,7 @@ enum EnglishLexiconData {
     goblins
     gobs
     god
+    GoDaddy
     godawful
     godchild
     godchildren
@@ -23114,6 +23903,7 @@ enum EnglishLexiconData {
     godly
     godmother
     godmothers
+    Godot
     godparent
     godparents
     gods
@@ -23124,20 +23914,25 @@ enum EnglishLexiconData {
     goes
     gofer
     gofers
+    GoFrame
     goggle
     goggled
     goggles
     goggling
+    Gogs
     going
     goings
     goiter
     goiters
+    GoLand
+    Golang
     gold
     goldbrick
     goldbricked
     goldbricking
     goldbricks
     golden
+    GoldenDict
     goldener
     goldenest
     goldenrod
@@ -23145,6 +23940,7 @@ enum EnglishLexiconData {
     goldfinches
     goldfish
     goldfishes
+    Goldmark
     golds
     goldsmith
     goldsmiths
@@ -23194,9 +23990,14 @@ enum EnglishLexiconData {
     goofing
     goofs
     goofy
+    GOOG
+    GOOGL
     google
+    googleapis
+    Googlebot
     googled
     googles
+    googletest
     googling
     gooier
     gooiest
@@ -23230,6 +24031,8 @@ enum EnglishLexiconData {
     gorillas
     goriness
     goring
+    goroutine
+    goroutines
     gorse
     gory
     gosh
@@ -23244,6 +24047,7 @@ enum EnglishLexiconData {
     gossips
     gossipy
     got
+    gotk
     gotta
     gotten
     gouge
@@ -23283,6 +24087,13 @@ enum EnglishLexiconData {
     gowned
     gowning
     gowns
+    GPIB
+    GPIO
+    GPL
+    GPS
+    GPT
+    GPTs
+    GPU
     grab
     grabbed
     grabbing
@@ -23313,6 +24124,7 @@ enum EnglishLexiconData {
     gradient
     gradients
     grading
+    Gradio
     grads
     gradual
     gradually
@@ -23322,8 +24134,10 @@ enum EnglishLexiconData {
     graduating
     graduation
     graduations
+    Grafana
     graffiti
     graffito
+    Graffle
     graft
     grafted
     grafter
@@ -23340,6 +24154,7 @@ enum EnglishLexiconData {
     grammar
     grammarian
     grammarians
+    Grammarly
     grammars
     grammatical
     grammatically
@@ -23423,6 +24238,7 @@ enum EnglishLexiconData {
     graphologist
     graphologists
     graphology
+    GraphQL
     graphs
     grapnel
     grapnels
@@ -23468,6 +24284,7 @@ enum EnglishLexiconData {
     gratuitous
     gratuitously
     gratuity
+    Gravatar
     grave
     graved
     gravel
@@ -23509,6 +24326,7 @@ enum EnglishLexiconData {
     grazing
     grease
     greased
+    greasemonkey
     greasepaint
     greases
     greasier
@@ -23562,6 +24380,7 @@ enum EnglishLexiconData {
     grenades
     grenadier
     grenadiers
+    GreptimeDB
     grew
     greyhound
     greyhounds
@@ -23649,6 +24468,7 @@ enum EnglishLexiconData {
     grizzlies
     grizzliest
     grizzly
+    GRMN
     groan
     groaned
     groaning
@@ -23720,11 +24540,14 @@ enum EnglishLexiconData {
     groundswells
     groundwork
     group
+    groupadd
+    groupdel
     grouped
     groupie
     groupies
     grouping
     groupings
+    groupmod
     groups
     grouse
     groused
@@ -23750,6 +24573,7 @@ enum EnglishLexiconData {
     grows
     growth
     growths
+    gRPC
     grub
     grubbed
     grubbier
@@ -23794,6 +24618,13 @@ enum EnglishLexiconData {
     grunted
     grunting
     grunts
+    Gruntwork
+    Gruvbox
+    grype
+    GTA
+    GTAV
+    GTAVI
+    gtest
     guacamole
     guano
     guarantee
@@ -23848,6 +24679,8 @@ enum EnglishLexiconData {
     guffawed
     guffawing
     guffaws
+    GUI
+    GUID
     guidance
     guide
     guidebook
@@ -23945,6 +24778,7 @@ enum EnglishLexiconData {
     gunsmiths
     gunwale
     gunwales
+    gunzip
     guppies
     guppy
     gurgle
@@ -24003,6 +24837,7 @@ enum EnglishLexiconData {
     guzzlers
     guzzles
     guzzling
+    gVim
     gym
     gymnasium
     gymnasiums
@@ -24034,6 +24869,7 @@ enum EnglishLexiconData {
     gyros
     gyroscope
     gyroscopes
+    Gzip
     ha
     haberdasher
     haberdasheries
@@ -24061,6 +24897,7 @@ enum EnglishLexiconData {
     hacker
     hackers
     hacking
+    Hackintosh
     hackle
     hackles
     hackney
@@ -24075,6 +24912,9 @@ enum EnglishLexiconData {
     had
     haddock
     haddocks
+    hading
+    hadolint
+    Hadoop
     hafnium
     haft
     hafts
@@ -24164,7 +25004,9 @@ enum EnglishLexiconData {
     halitosis
     hall
     hallelujah
+    hallelujahIM
     hallelujahs
+    Halliburton
     hallmark
     hallmarked
     hallmarking
@@ -24196,6 +25038,7 @@ enum EnglishLexiconData {
     haloing
     halon
     halos
+    Halp
     halt
     halted
     halter
@@ -24224,6 +25067,7 @@ enum EnglishLexiconData {
     hammering
     hammerings
     hammers
+    Hammerspoon
     hamming
     hammock
     hammocks
@@ -24247,6 +25091,7 @@ enum EnglishLexiconData {
     handbills
     handbook
     handbooks
+    HandBrake
     handcar
     handcars
     handcart
@@ -24296,8 +25141,10 @@ enum EnglishLexiconData {
     handmaiden
     handmaidens
     handmaids
+    Handoff
     handout
     handouts
+    Handover
     handpick
     handpicked
     handpicking
@@ -24352,6 +25199,7 @@ enum EnglishLexiconData {
     hankie
     hankies
     hanks
+    HanLP
     hansom
     hansoms
     Hanukkah
@@ -24371,6 +25219,7 @@ enum EnglishLexiconData {
     happily
     happiness
     happy
+    haproxy
     harangue
     harangued
     harangues
@@ -24466,6 +25315,7 @@ enum EnglishLexiconData {
     harmonizes
     harmonizing
     harmony
+    HarmonyOS
     harms
     harness
     harnessed
@@ -24513,10 +25363,14 @@ enum EnglishLexiconData {
     Hashable
     hashed
     hashes
+    HashiCorp
     hashing
     hashish
+    HashKey
+    Hashsum
     hashtag
     hashtags
+    Haskell
     hasp
     hasps
     hassle
@@ -24646,6 +25500,12 @@ enum EnglishLexiconData {
     hazings
     hazmat
     hazy
+    HBAN
+    HBase
+    HDD
+    hdiutil
+    HDL
+    HDMI
     he
     head
     headache
@@ -24870,6 +25730,7 @@ enum EnglishLexiconData {
     heightening
     heightens
     heights
+    heil
     heinous
     heinously
     heinousness
@@ -24908,9 +25769,12 @@ enum EnglishLexiconData {
     hellishly
     hello
     hellos
+    HelloSign
     helm
     helmet
     helmets
+    helmfile
+    helmify
     helms
     helmsman
     helmsmen
@@ -24933,6 +25797,7 @@ enum EnglishLexiconData {
     helpmate
     helpmates
     helps
+    Helvetica
     hem
     hematologist
     hematologists
@@ -24982,8 +25847,10 @@ enum EnglishLexiconData {
     hep
     hepatic
     hepatitis
+    Heptabase
     heptagon
     heptagons
+    Heptio
     her
     herald
     heralded
@@ -25063,6 +25930,7 @@ enum EnglishLexiconData {
     hers
     herself
     hertz
+    Hesai
     hesitancy
     hesitant
     hesitantly
@@ -25073,6 +25941,7 @@ enum EnglishLexiconData {
     hesitatingly
     hesitation
     hesitations
+    Hess
     heterodox
     heterodoxy
     heterogeneity
@@ -25080,8 +25949,10 @@ enum EnglishLexiconData {
     heterosexual
     heterosexuality
     heterosexuals
+    Hetzner
     heuristic
     heuristics
+    HEVC
     hew
     hewed
     hewer
@@ -25099,9 +25970,12 @@ enum EnglishLexiconData {
     hexed
     hexes
     hexing
+    Hexo
     hey
     heyday
     heydays
+    HHD
+    HHKB
     hi
     hiatus
     hiatuses
@@ -25114,6 +25988,7 @@ enum EnglishLexiconData {
     hibernation
     hibiscus
     hibiscuses
+    HiCar
     hiccough
     hiccoughed
     hiccoughing
@@ -25243,6 +26118,8 @@ enum EnglishLexiconData {
     hinting
     hints
     hip
+    HipChat
+    Hipercard
     hipped
     hipper
     hippest
@@ -25282,6 +26159,7 @@ enum EnglishLexiconData {
     histrionic
     histrionics
     hit
+    Hitachi
     hitch
     hitched
     hitches
@@ -25304,6 +26182,8 @@ enum EnglishLexiconData {
     hiveminds
     hives
     hiving
+    HK
+    HMCL
     ho
     hoagie
     hoagies
@@ -25390,6 +26270,7 @@ enum EnglishLexiconData {
     hokier
     hokiest
     hokum
+    Holcim
     hold
     holder
     holders
@@ -25426,11 +26307,13 @@ enum EnglishLexiconData {
     hollowness
     hollows
     holly
+    HollyFrontier
     hollyhock
     hollyhocks
     Hollywood
     holocaust
     holocausts
+    Hologic
     hologram
     holograms
     holograph
@@ -25441,7 +26324,9 @@ enum EnglishLexiconData {
     holstered
     holstering
     holsters
+    HOLX
     holy
+    HOMAG
     homage
     homages
     homburg
@@ -25451,10 +26336,12 @@ enum EnglishLexiconData {
     homebody
     homeboy
     homeboys
+    Homebrew
     homecoming
     homecomings
     homed
     homegrown
+    HomeKit
     homeland
     homelands
     homeless
@@ -25472,6 +26359,7 @@ enum EnglishLexiconData {
     homeowners
     homepage
     homepages
+    HomePod
     homer
     homered
     homering
@@ -25563,6 +26451,7 @@ enum EnglishLexiconData {
     honked
     honking
     honks
+    Hono
     honor
     honorable
     honorably
@@ -25672,6 +26561,7 @@ enum EnglishLexiconData {
     horology
     horoscope
     horoscopes
+    Horovod
     horrendous
     horrendously
     horrible
@@ -25765,7 +26655,9 @@ enum EnglishLexiconData {
     hosting
     hostler
     hostlers
+    hostnamectl
     hosts
+    HostUS
     hot
     hotbed
     hotbeds
@@ -25787,6 +26679,7 @@ enum EnglishLexiconData {
     hotline
     hotlines
     hotly
+    hotmail
     hotness
     hotshot
     hotshots
@@ -25853,6 +26746,7 @@ enum EnglishLexiconData {
     hovering
     hovers
     how
+    Howard
     howdah
     howdahs
     howdy
@@ -25867,6 +26761,13 @@ enum EnglishLexiconData {
     howls
     hows
     howsoever
+    HSIC
+    HTML
+    htmlhintrc
+    HTTP
+    httpbin
+    httpie
+    HTTPS
     hub
     hubbub
     hubbubs
@@ -25874,6 +26775,7 @@ enum EnglishLexiconData {
     hubcaps
     hubris
     hubs
+    HubSpot
     huckleberries
     huckleberry
     huckster
@@ -25902,6 +26804,8 @@ enum EnglishLexiconData {
     hugest
     hugged
     hugging
+    Hughie
+    Hugo
     hugs
     huh
     hula
@@ -25915,8 +26819,10 @@ enum EnglishLexiconData {
     hulled
     hulling
     hulls
+    Hulu
     hum
     human
+    Humana
     humane
     humanely
     humaneness
@@ -26029,6 +26935,7 @@ enum EnglishLexiconData {
     hunkering
     hunkers
     hunks
+    Hunspell
     hunt
     hunted
     hunter
@@ -26039,6 +26946,7 @@ enum EnglishLexiconData {
     hunts
     huntsman
     huntsmen
+    Huobi
     hurdle
     hurdled
     hurdler
@@ -26168,6 +27076,7 @@ enum EnglishLexiconData {
     hymned
     hymning
     hymns
+    Hynix
     hype
     hyped
     hyper
@@ -26181,6 +27090,7 @@ enum EnglishLexiconData {
     hyperlinked
     hyperlinking
     hyperlinks
+    Hyperliquid
     hypermarket
     hypersensitive
     hypersensitivities
@@ -26246,6 +27156,7 @@ enum EnglishLexiconData {
     hypothesizing
     hypothetical
     hypothetically
+    Hyprland
     hysterectomies
     hysterectomy
     hysteresis
@@ -26259,11 +27170,17 @@ enum EnglishLexiconData {
     iambic
     iambics
     iambs
+    Iberdrola
     ibex
     ibexes
     ibis
     ibises
+    IBM
+    iBook
     ibuprofen
+    iBus
+    IC
+    ICCC
     ice
     iceberg
     icebergs
@@ -26287,13 +27204,19 @@ enum EnglishLexiconData {
     ickier
     ickiest
     icky
+    iCloud
+    ICMP
     icon
     iconoclast
     iconoclastic
     iconoclasts
     icons
+    ICP
+    ICPC
     icy
     id
+    IDC
+    IDE
     idea
     ideal
     idealism
@@ -26308,8 +27231,11 @@ enum EnglishLexiconData {
     idealizes
     idealizing
     ideally
+    Idealo
     ideals
+    Idean
     ideas
+    IdeaVim
     identical
     identically
     identifiable
@@ -26367,14 +27293,26 @@ enum EnglishLexiconData {
     idolizing
     idols
     ids
+    IDXX
     idyll
     idyllic
     idylls
+    IE
+    IEEE
+    IELTS
+    IEPL
+    IETF
+    iExplorer
     if
+    ifcfg
+    ifconfig
     iffier
     iffiest
+    iFFmpeg
     iffy
     ifs
+    IFTTT
+    Igalia
     igloo
     igloos
     igneous
@@ -26401,6 +27339,9 @@ enum EnglishLexiconData {
     ignoring
     iguana
     iguanas
+    IINA
+    IKEA
+    iKlear
     ilk
     ilks
     ill
@@ -26451,10 +27392,13 @@ enum EnglishLexiconData {
     illustrator
     illustrators
     illustrious
+    ILMN
+    iMac
     image
     imaged
     imagery
     images
+    imagetools
     imaginable
     imaginably
     imaginary
@@ -26469,6 +27413,9 @@ enum EnglishLexiconData {
     imagining
     imam
     imams
+    IMAP
+    iMazing
+    IMBA
     imbalance
     imbalanced
     imbalances
@@ -26487,6 +27434,11 @@ enum EnglishLexiconData {
     imbued
     imbues
     imbuing
+    IME
+    iMessage
+    IMF
+    Imgix
+    imgur
     imitate
     imitated
     imitates
@@ -26582,6 +27534,7 @@ enum EnglishLexiconData {
     immutability
     immutable
     immutably
+    iMore
     imp
     impact
     impacted
@@ -26701,6 +27654,7 @@ enum EnglishLexiconData {
     imperturbability
     imperturbable
     imperturbably
+    Imperva
     impervious
     impetigo
     impetuosity
@@ -26913,6 +27867,7 @@ enum EnglishLexiconData {
     imputed
     imputes
     imputing
+    imToken
     in
     inabilities
     inability
@@ -26944,6 +27899,7 @@ enum EnglishLexiconData {
     inanimate
     inanities
     inanity
+    INAP
     inapplicable
     inappropriate
     inappropriately
@@ -27202,6 +28158,8 @@ enum EnglishLexiconData {
     incurs
     incursion
     incursions
+    INCY
+    Incyte
     indebted
     indebtedness
     indecencies
@@ -27438,6 +28396,7 @@ enum EnglishLexiconData {
     inessentials
     inestimable
     inestimably
+    inetutils
     inevitability
     inevitable
     inevitables
@@ -27535,6 +28494,7 @@ enum EnglishLexiconData {
     infiltration
     infiltrator
     infiltrators
+    Infineon
     infinite
     infinitely
     infinitesimal
@@ -27550,6 +28510,7 @@ enum EnglishLexiconData {
     infirmary
     infirmities
     infirmity
+    Infisical
     infix
     inflame
     inflamed
@@ -27594,10 +28555,13 @@ enum EnglishLexiconData {
     influentially
     influenza
     influx
+    InfluxDB
     influxes
     info
+    Infomaniak
     infomercial
     infomercials
+    InfoQ
     inform
     informal
     informality
@@ -27612,6 +28576,7 @@ enum EnglishLexiconData {
     informers
     informing
     informs
+    Infosys
     infotainment
     infraction
     infractions
@@ -27646,6 +28611,7 @@ enum EnglishLexiconData {
     ingenuousness
     ingest
     ingested
+    Ingester
     ingesting
     ingestion
     ingests
@@ -27719,6 +28685,7 @@ enum EnglishLexiconData {
     iniquities
     iniquitous
     iniquity
+    initdb
     initial
     initialed
     initialing
@@ -27740,6 +28707,7 @@ enum EnglishLexiconData {
     initiator
     initiators
     initio
+    initramfs
     inject
     injected
     injecting
@@ -27799,6 +28767,7 @@ enum EnglishLexiconData {
     innocents
     innocuous
     innocuously
+    InnoDB
     innovate
     innovated
     innovates
@@ -27808,6 +28777,7 @@ enum EnglishLexiconData {
     innovative
     innovator
     innovators
+    Innoviz
     inns
     innuendo
     innuendos
@@ -27960,6 +28930,7 @@ enum EnglishLexiconData {
     insomniacs
     insouciance
     insouciant
+    InSpec
     inspect
     inspected
     inspecting
@@ -27977,6 +28948,8 @@ enum EnglishLexiconData {
     inspiring
     instabilities
     instability
+    Instacast
+    Instagram
     install
     installation
     installations
@@ -27985,6 +28958,7 @@ enum EnglishLexiconData {
     installment
     installments
     installs
+    Instana
     instance
     instanced
     instances
@@ -27994,6 +28968,7 @@ enum EnglishLexiconData {
     instantaneously
     instantly
     instants
+    Instashare
     instead
     instep
     insteps
@@ -28096,6 +29071,7 @@ enum EnglishLexiconData {
     intangible
     intangibles
     intangibly
+    INTC
     integer
     integers
     integral
@@ -28106,6 +29082,7 @@ enum EnglishLexiconData {
     integrating
     integration
     integrator
+    Integreatly
     integrity
     integument
     integuments
@@ -28127,6 +29104,7 @@ enum EnglishLexiconData {
     intelligibility
     intelligible
     intelligibly
+    IntelliJ
     intemperance
     intemperate
     intend
@@ -28294,6 +29272,7 @@ enum EnglishLexiconData {
     internals
     international
     internationalism
+    internationalization
     internationalize
     internationalized
     internationalizes
@@ -28495,6 +29474,7 @@ enum EnglishLexiconData {
     intrusion
     intrusions
     intrusive
+    INTU
     intuit
     intuited
     intuiting
@@ -28657,10 +29637,29 @@ enum EnglishLexiconData {
     ionosphere
     ionospheres
     ions
+    iOS
     iota
     iotas
+    IP
+    iPack
+    iPad
+    iPadOS
     ipecac
     ipecacs
+    IPFS
+    IPGP
+    iPhone
+    IPLC
+    IPN
+    IPO
+    iPod
+    IPoE
+    IPTV
+    iputils
+    IQ
+    IQIYI
+    IQOS
+    IQVIA
     irascibility
     irascible
     irate
@@ -28670,6 +29669,7 @@ enum EnglishLexiconData {
     iridescence
     iridescent
     iridium
+    iRime
     iris
     irises
     irk
@@ -28759,6 +29759,9 @@ enum EnglishLexiconData {
     irruption
     irruptions
     is
+    ISBN
+    ISEA
+    iShot
     isinglass
     Islam
     Islamic
@@ -28772,6 +29775,7 @@ enum EnglishLexiconData {
     islets
     ism
     isms
+    ISO
     isobar
     isobars
     isolate
@@ -28790,13 +29794,19 @@ enum EnglishLexiconData {
     isotopes
     isotopic
     isotropic
+    Isovalent
+    ISRG
+    ISSN
     issuance
     issue
     issued
+    IssueHunt
     issues
     issuing
+    iStat
     isthmus
     isthmuses
+    Istio
     it
     italic
     italicize
@@ -28828,12 +29838,16 @@ enum EnglishLexiconData {
     iterative
     iterator
     iterators
+    iTerm
     itinerant
     itinerants
     itineraries
     itinerary
+    Itochu
     its
+    itsdangerours
     itself
+    iTunes
     ivies
     ivories
     ivory
@@ -28904,6 +29918,7 @@ enum EnglishLexiconData {
     jalousie
     jalousies
     jam
+    Jama
     jamb
     jamboree
     jamborees
@@ -28949,6 +29964,7 @@ enum EnglishLexiconData {
     jaunting
     jaunts
     jaunty
+    JavaScript
     javelin
     javelins
     jaw
@@ -28976,11 +29992,15 @@ enum EnglishLexiconData {
     jazziest
     jazzing
     jazzy
+    JBHT
+    JBS
+    JDK
     jealous
     jealousies
     jealously
     jealousy
     jeans
+    JediSwap
     jeep
     jeeps
     jeer
@@ -28990,6 +30010,7 @@ enum EnglishLexiconData {
     jeers
     jeez
     jejune
+    Jekyll
     jell
     jelled
     jellied
@@ -29003,6 +30024,7 @@ enum EnglishLexiconData {
     jellyfish
     jellyfishes
     jellying
+    Jemmic
     jeopardize
     jeopardized
     jeopardizes
@@ -29031,6 +30053,7 @@ enum EnglishLexiconData {
     jests
     Jesus
     jet
+    JetBrains
     jets
     jetsam
     jetted
@@ -29052,6 +30075,7 @@ enum EnglishLexiconData {
     jewels
     Jewish
     Jews
+    JFrog
     jib
     jibbed
     jibbing
@@ -29098,6 +30122,7 @@ enum EnglishLexiconData {
     jingoist
     jingoistic
     jingoists
+    Jinja
     jinni
     jinnis
     jinrikisha
@@ -29106,6 +30131,7 @@ enum EnglishLexiconData {
     jinxed
     jinxes
     jinxing
+    Jira
     jitney
     jitneys
     jitterbug
@@ -29120,6 +30146,9 @@ enum EnglishLexiconData {
     jived
     jives
     jiving
+    JKHY
+    JMeter
+    JNPR
     job
     jobbed
     jobber
@@ -29146,6 +30175,7 @@ enum EnglishLexiconData {
     jocundity
     jocundly
     jodhpurs
+    Joey
     jog
     jogged
     jogger
@@ -29192,10 +30222,12 @@ enum EnglishLexiconData {
     jolts
     jonquil
     jonquils
+    Joplin
     josh
     joshed
     joshes
     joshing
+    JOSM
     jostle
     jostled
     jostles
@@ -29212,6 +30244,7 @@ enum EnglishLexiconData {
     jounces
     jouncing
     journal
+    journald
     journalese
     journalism
     journalist
@@ -29235,6 +30268,7 @@ enum EnglishLexiconData {
     jowls
     joy
     joyed
+    Joyent
     joyful
     joyfuller
     joyfullest
@@ -29255,7 +30289,18 @@ enum EnglishLexiconData {
     joys
     joystick
     joysticks
+    JPEG
+    JPG
+    jq
+    jQuery
+    JRE
+    JRPG
+    JS
     JSON
+    jsonpath
+    JSP
+    JSTOR
+    JTAG
     jubilant
     jubilantly
     jubilation
@@ -29407,7 +30452,13 @@ enum EnglishLexiconData {
     juxtaposing
     juxtaposition
     juxtapositions
+    JVM
+    jwhois
+    Kabbage
     kaboom
+    Kafka
+    KafkaJS
+    KairosDB
     kale
     kaleidoscope
     kaleidoscopes
@@ -29419,21 +30470,27 @@ enum EnglishLexiconData {
     kaolin
     kapok
     kaput
+    Karabiner
     karakul
     karaoke
     karaokes
     karat
     karate
     karats
+    Karbon
     karma
+    KaTeX
     katydid
     katydids
+    Kawasaki
     kayak
     kayaked
     kayaking
     kayaks
     kazoo
     kazoos
+    KDDI
+    KDE
     kebab
     kebabs
     keel
@@ -29449,6 +30506,9 @@ enum EnglishLexiconData {
     keenness
     keens
     keep
+    keepalived
+    keepass
+    KeepassXC
     keeper
     keepers
     keeping
@@ -29457,6 +30517,8 @@ enum EnglishLexiconData {
     keepsakes
     keg
     kegs
+    Keka
+    Kelivo
     kelp
     ken
     kenned
@@ -29467,6 +30529,8 @@ enum EnglishLexiconData {
     kenning
     kens
     kept
+    Keptn
+    Keras
     keratin
     kerchief
     kerchiefs
@@ -29494,6 +30558,10 @@ enum EnglishLexiconData {
     keyboarding
     keyboards
     keycap
+    Keycard
+    KeyCastr
+    KeyCorp
+    KeyCue
     keyed
     keyhole
     keyholes
@@ -29502,6 +30570,7 @@ enum EnglishLexiconData {
     keynoted
     keynotes
     keynoting
+    Keypirinha
     keypunch
     keypunched
     keypunches
@@ -29511,12 +30580,18 @@ enum EnglishLexiconData {
     keystones
     keystroke
     keystrokes
+    keysym
+    keysyms
     keyword
     keywords
+    KFC
+    KFUPM
     khaki
     khakis
     khan
     khans
+    Kia
+    Kibana
     kibbutz
     kibbutzim
     kibitz
@@ -29541,6 +30616,7 @@ enum EnglishLexiconData {
     kickstand
     kickstands
     kicky
+    KICS
     kid
     kidded
     kidder
@@ -29619,6 +30695,7 @@ enum EnglishLexiconData {
     kindnesses
     kindred
     kinds
+    Kinect
     kinematic
     kinematics
     kinetic
@@ -29650,6 +30727,7 @@ enum EnglishLexiconData {
     kinswomen
     kiosk
     kiosks
+    KIOXIA
     kipper
     kippered
     kippering
@@ -29682,6 +30760,8 @@ enum EnglishLexiconData {
     kitty
     kiwi
     kiwis
+    KLAC
+    Klei
     kleptomania
     kleptomaniac
     kleptomaniacs
@@ -29695,6 +30775,7 @@ enum EnglishLexiconData {
     knacks
     knapsack
     knapsacks
+    Knative
     knave
     knavery
     knaves
@@ -29785,10 +30866,15 @@ enum EnglishLexiconData {
     knuckleheads
     knuckles
     knuckling
+    KoaJS
     koala
     koalas
     kohlrabi
     kohlrabies
+    Komatsu
+    Konami
+    Kong
+    Koofr
     kook
     kookaburra
     kookaburras
@@ -29797,27 +30883,52 @@ enum EnglishLexiconData {
     kookiness
     kooks
     kooky
+    Koopa
     kopeck
     kopecks
     Korean
+    Korn
     kosher
     koshered
     koshering
     koshers
+    Kotlin
     kowtow
     kowtowed
     kowtowing
     kowtows
+    KPI
+    KPMG
+    kqueue
+    Kraken
+    Kroger
     krone
     kroner
     krypton
+    KTM
+    KTV
+    Kube
+    Kubeadm
+    Kubecost
+    kubectl
+    kubelogin
+    Kuberhealthy
+    Kubernetes
+    kubespec
+    Kubuntu
+    KuCoin
     kudos
     kudzu
     kudzus
+    KUKA
+    Kuma
     kumquat
     kumquats
+    Kuromis
+    Kustomize
     kW
     Kwanzaa
+    Kyverno
     la
     lab
     label
@@ -29909,6 +31020,7 @@ enum EnglishLexiconData {
     ladylike
     ladyship
     ladyships
+    Lafarge
     lag
     lager
     lagers
@@ -29944,9 +31056,11 @@ enum EnglishLexiconData {
     lambing
     lambkin
     lambkins
+    Lamborghini
     lambs
     lambskin
     lambskins
+    LaMDA
     lame
     lamebrain
     lamebrains
@@ -29972,6 +31086,7 @@ enum EnglishLexiconData {
     laming
     lammed
     lamming
+    Lamoda
     lamp
     lampblack
     lampoon
@@ -29993,6 +31108,7 @@ enum EnglishLexiconData {
     lances
     lancet
     lancets
+    Lancia
     lancing
     land
     landed
@@ -30038,6 +31154,11 @@ enum EnglishLexiconData {
     landwards
     lane
     lanes
+    LangChain
+    Langfuse
+    LangServe
+    LangSmith
+    Langtrace
     language
     languages
     languid
@@ -30079,6 +31200,7 @@ enum EnglishLexiconData {
     laptops
     lapwing
     lapwings
+    Laravel
     larboard
     larboards
     larcenies
@@ -30137,6 +31259,7 @@ enum EnglishLexiconData {
     lassos
     last
     lasted
+    Lastfm
     lasting
     lastingly
     lastly
@@ -30160,6 +31283,7 @@ enum EnglishLexiconData {
     laterals
     latest
     latex
+    LaTeXian
     lath
     lathe
     lathed
@@ -30209,6 +31333,9 @@ enum EnglishLexiconData {
     laughs
     laughter
     launch
+    launchctl
+    launchd
+    LaunchDarkly
     launched
     launcher
     launchers
@@ -30311,7 +31438,10 @@ enum EnglishLexiconData {
     lazing
     lazy
     lazybones
+    Lazygit
     lazying
+    LCD
+    LDOS
     lea
     leach
     leached
@@ -30352,6 +31482,7 @@ enum EnglishLexiconData {
     leaks
     leaky
     lean
+    LeanCloud
     leaned
     leaner
     leanest
@@ -30382,6 +31513,7 @@ enum EnglishLexiconData {
     leaseholders
     leaseholds
     leases
+    Leaseweb
     leash
     leashed
     leashes
@@ -30437,6 +31569,7 @@ enum EnglishLexiconData {
     leers
     leery
     lees
+    LeetCode
     leeward
     leewards
     leeway
@@ -30519,6 +31652,7 @@ enum EnglishLexiconData {
     legless
     legman
     legmen
+    Lego
     legroom
     legrooms
     legs
@@ -30527,7 +31661,9 @@ enum EnglishLexiconData {
     leguminous
     legwork
     lei
+    Leica
     leis
+    Leishen
     leisure
     leisurely
     leitmotif
@@ -30563,12 +31699,14 @@ enum EnglishLexiconData {
     leniency
     lenient
     leniently
+    Lenovo
     lens
     lenses
     lent
     lentil
     lentils
     Leo
+    Leonard
     leonine
     leopard
     leopards
@@ -30610,6 +31748,7 @@ enum EnglishLexiconData {
     lets
     letter
     letterbox
+    Letterboxd
     lettered
     letterhead
     letterheads
@@ -30626,6 +31765,7 @@ enum EnglishLexiconData {
     levee
     levees
     level
+    LevelDB
     leveled
     leveler
     levelers
@@ -30646,6 +31786,7 @@ enum EnglishLexiconData {
     leviathans
     levied
     levies
+    Levis
     levitate
     levitated
     levitates
@@ -30665,6 +31806,11 @@ enum EnglishLexiconData {
     lexicography
     lexicon
     lexicons
+    LexisNexis
+    Lexus
+    LGBT
+    LGPL
+    LGTM
     liabilities
     liability
     liable
@@ -30676,9 +31822,11 @@ enum EnglishLexiconData {
     liaisons
     liar
     liars
+    Liatrio
     lib
     libation
     libations
+    libcurl
     libel
     libeled
     libeler
@@ -30697,6 +31845,7 @@ enum EnglishLexiconData {
     liberalizing
     liberally
     liberals
+    Liberapay
     liberate
     liberated
     liberates
@@ -30719,10 +31868,15 @@ enum EnglishLexiconData {
     libraries
     library
     Libras
+    Librato
+    LibreChat
+    LibreOffice
     librettist
     librettists
     libretto
     librettos
+    LibreWolf
+    librime
     lice
     license
     licensed
@@ -30747,6 +31901,7 @@ enum EnglishLexiconData {
     licorices
     lid
     lidded
+    Lidl
     lids
     lie
     lied
@@ -30789,6 +31944,7 @@ enum EnglishLexiconData {
     lifetimes
     lifework
     lifeworks
+    LIFO
     lift
     lifted
     lifting
@@ -30802,6 +31958,7 @@ enum EnglishLexiconData {
     ligatures
     ligaturing
     light
+    lightdm
     lighted
     lighten
     lightened
@@ -30823,6 +31980,7 @@ enum EnglishLexiconData {
     lightninged
     lightnings
     lights
+    Lightstep
     lightweight
     lightweights
     lignite
@@ -30886,6 +32044,7 @@ enum EnglishLexiconData {
     limning
     limns
     limo
+    limon
     limos
     limousine
     limousines
@@ -30910,6 +32069,7 @@ enum EnglishLexiconData {
     lindens
     line
     lineage
+    LineageOS
     lineages
     lineal
     lineally
@@ -30925,6 +32085,7 @@ enum EnglishLexiconData {
     linemen
     linen
     linens
+    linenums
     liner
     liners
     lines
@@ -30954,18 +32115,25 @@ enum EnglishLexiconData {
     linkage
     linkages
     linked
+    LinkedIn
     linker
+    Linkerd
     linking
     links
     linkup
     linkups
     linnet
     linnets
+    Linode
     linoleum
     linseed
     lint
     lintel
     lintels
+    linter
+    Linus
+    Linux
+    linuxserver
     lion
     lioness
     lionesses
@@ -31038,6 +32206,8 @@ enum EnglishLexiconData {
     litchi
     litchis
     lite
+    Litecoin
+    litemetica
     liter
     literacy
     literal
@@ -31102,6 +32272,7 @@ enum EnglishLexiconData {
     livening
     livens
     liver
+    LiveReload
     liveried
     liveries
     livers
@@ -31114,12 +32285,18 @@ enum EnglishLexiconData {
     lividly
     living
     livings
+    Livox
     lizard
     lizards
     llama
     llamas
     llano
     llanos
+    LLDB
+    LLM
+    LLVM
+    LMAO
+    LMArena
     lo
     load
     loadable
@@ -31166,6 +32343,7 @@ enum EnglishLexiconData {
     lobbyists
     lobe
     lobed
+    LobeHub
     lobes
     lobotomies
     lobotomy
@@ -31205,6 +32383,7 @@ enum EnglishLexiconData {
     lockout
     lockouts
     locks
+    LockScreen
     locksmith
     locksmiths
     lockstep
@@ -31265,13 +32444,16 @@ enum EnglishLexiconData {
     logician
     logicians
     login
+    loginctl
     logins
     logistic
     logistical
     logistically
     logistics
+    Logitech
     logjam
     logjams
+    logman
     logo
     logoff
     logoffs
@@ -31283,7 +32465,10 @@ enum EnglishLexiconData {
     logout
     logouts
     logrolling
+    logrotate
     logs
+    Logseq
+    Logz
     loin
     loincloth
     loincloths
@@ -31294,6 +32479,8 @@ enum EnglishLexiconData {
     loiterers
     loitering
     loiters
+    Loki
+    LOL
     lolcat
     lolcats
     loll
@@ -31340,6 +32527,7 @@ enum EnglishLexiconData {
     longshoremen
     longstanding
     longtime
+    Lonza
     loofah
     look
     lookalike
@@ -31416,6 +32604,7 @@ enum EnglishLexiconData {
     lorn
     lorries
     lorry
+    LOSCAM
     lose
     loser
     losers
@@ -31509,6 +32698,19 @@ enum EnglishLexiconData {
     loyalty
     lozenge
     lozenges
+    LRCX
+    lsattr
+    lsblk
+    lscpu
+    lsmod
+    lsof
+    LSP
+    lspci
+    lsscsi
+    LTS
+    LTSC
+    Lua
+    lualine
     luau
     luaus
     lubber
@@ -31526,6 +32728,8 @@ enum EnglishLexiconData {
     lubrication
     lubricator
     lubricators
+    Lubuntu
+    Lucene
     lucid
     lucidity
     lucidly
@@ -31554,7 +32758,9 @@ enum EnglishLexiconData {
     lugubrious
     lugubriously
     lugubriousness
+    Luhn
     lukewarm
+    Lukoil
     lull
     lullabies
     lullaby
@@ -31573,6 +32779,8 @@ enum EnglishLexiconData {
     lumbers
     lumberyard
     lumberyards
+    Lumibird
+    Luminar
     luminaries
     luminary
     luminescence
@@ -31580,6 +32788,7 @@ enum EnglishLexiconData {
     luminosity
     luminous
     luminously
+    Lumitics
     lummox
     lummoxes
     lump
@@ -31594,6 +32803,7 @@ enum EnglishLexiconData {
     lunacies
     lunacy
     lunar
+    LunarVim
     lunatic
     lunatics
     lunch
@@ -31672,9 +32882,13 @@ enum EnglishLexiconData {
     luxuriously
     luxuriousness
     luxury
+    LXDE
+    lxdm
+    lxqt
     lyceum
     lyceums
     lye
+    Lyft
     lying
     lymph
     lymphatic
@@ -31688,6 +32902,7 @@ enum EnglishLexiconData {
     lynchings
     lynx
     lynxes
+    LyondellBasell
     lyre
     lyres
     lyric
@@ -31696,16 +32911,19 @@ enum EnglishLexiconData {
     lyricist
     lyricists
     lyrics
+    LyricsX
     ma
     Mac
     macabre
     macadam
+    MacAppDeals
     macaroni
     macaronis
     macaroon
     macaroons
     macaw
     macaws
+    MacBook
     mace
     maced
     macerate
@@ -31727,7 +32945,9 @@ enum EnglishLexiconData {
     machinists
     machismo
     macho
+    MacID
     macing
+    Macintosh
     mackerel
     mackerels
     mackinaw
@@ -31735,6 +32955,7 @@ enum EnglishLexiconData {
     mackintosh
     mackintoshes
     macOS
+    MacPorts
     macro
     macrobiotic
     macrobiotics
@@ -31744,6 +32965,9 @@ enum EnglishLexiconData {
     macrons
     macros
     macroscopic
+    MacTips
+    MacType
+    MacVim
     mad
     madam
     madame
@@ -31782,8 +33006,10 @@ enum EnglishLexiconData {
     madwomen
     maelstrom
     maelstroms
+    Maersk
     maestro
     maestros
+    Maeve
     Mafia
     Mafias
     magazine
@@ -31796,6 +33022,7 @@ enum EnglishLexiconData {
     magically
     magician
     magicians
+    magiclink
     magisterial
     magisterially
     magistrate
@@ -31840,6 +33067,7 @@ enum EnglishLexiconData {
     magnums
     magpie
     magpies
+    MagSafe
     maharajah
     maharajahs
     maharani
@@ -31864,20 +33092,26 @@ enum EnglishLexiconData {
     mail
     mailbox
     mailboxes
+    Mailchimp
     mailed
     mailer
     mailers
+    Mailfence
+    MailHog
     mailing
     mailings
     mailman
     mailmen
+    mailparser
     mails
+    Mailtrap
     maim
     maimed
     maiming
     maims
     main
     MainActor
+    Maine
     mainframe
     mainframes
     mainland
@@ -31928,6 +33162,7 @@ enum EnglishLexiconData {
     majors
     make
     maker
+    MakerDAO
     makers
     makes
     makeshift
@@ -32062,6 +33297,7 @@ enum EnglishLexiconData {
     mandrakes
     mandrill
     mandrills
+    Mandriva
     mane
     manes
     maneuver
@@ -32075,6 +33311,7 @@ enum EnglishLexiconData {
     manga
     manganese
     mange
+    Mangeia
     manger
     mangers
     mangier
@@ -32103,6 +33340,7 @@ enum EnglishLexiconData {
     maniacs
     manias
     manic
+    Manico
     manics
     manicure
     manicured
@@ -32135,6 +33373,7 @@ enum EnglishLexiconData {
     manipulative
     manipulator
     manipulators
+    Manjaro
     mankind
     manlier
     manliest
@@ -32207,6 +33446,7 @@ enum EnglishLexiconData {
     map
     maple
     maples
+    MAPPA
     mapped
     mapper
     mapping
@@ -32250,6 +33490,7 @@ enum EnglishLexiconData {
     maria
     mariachi
     mariachis
+    MariaDB
     marigold
     marigolds
     marijuana
@@ -32276,6 +33517,8 @@ enum EnglishLexiconData {
     marjoram
     mark
     markdown
+    markdownlint
+    markdownlintignore
     markdowns
     marked
     markedly
@@ -32284,6 +33527,7 @@ enum EnglishLexiconData {
     market
     marketability
     marketable
+    MarketAxess
     marketed
     marketer
     marketers
@@ -32293,6 +33537,7 @@ enum EnglishLexiconData {
     markets
     marking
     markings
+    MarkMyWords
     marks
     marksman
     marksmanship
@@ -32331,6 +33576,7 @@ enum EnglishLexiconData {
     marry
     marrying
     mars
+    MarsEdit
     marsh
     marshal
     marshaled
@@ -32362,9 +33608,12 @@ enum EnglishLexiconData {
     martyred
     martyring
     martyrs
+    Marubeni
+    Maruhan
     marvel
     marveled
     marveling
+    Marvell
     marvelous
     marvelously
     marvels
@@ -32382,6 +33631,7 @@ enum EnglishLexiconData {
     masculine
     masculines
     masculinity
+    Maserati
     mash
     mashed
     masher
@@ -32433,6 +33683,7 @@ enum EnglishLexiconData {
     mastectomies
     mastectomy
     master
+    Mastercard
     mastered
     masterful
     masterfully
@@ -32513,8 +33764,12 @@ enum EnglishLexiconData {
     mathematician
     mathematicians
     mathematics
+    MathJax
+    Mathtype
     mating
     matins
+    Matlab
+    Matomo
     matriarch
     matriarchal
     matriarchies
@@ -32540,6 +33795,7 @@ enum EnglishLexiconData {
     matter
     mattered
     mattering
+    Mattermost
     matters
     mattes
     matting
@@ -32598,6 +33854,7 @@ enum EnglishLexiconData {
     maximum
     maximums
     maxing
+    MaxMind
     may
     maybe
     maybes
@@ -32617,11 +33874,27 @@ enum EnglishLexiconData {
     maypole
     maypoles
     Mays
+    Mazda
     maze
     mazes
     mazurka
     mazurkas
+    MBA
+    MBN
+    MBP
+    MBR
+    McAfee
+    MCAP
+    McCafe
     McCoy
+    MCHP
+    McKesson
+    McLaren
+    MCP
+    MCU
+    mdast
+    mdformat
+    MDLZ
     me
     mead
     meadow
@@ -32713,6 +33986,7 @@ enum EnglishLexiconData {
     medians
     mediate
     mediated
+    MediaTek
     mediates
     mediating
     mediation
@@ -32774,6 +34048,7 @@ enum EnglishLexiconData {
     megacycle
     megacycles
     megahertz
+    MegaLinter
     megalith
     megaliths
     megalomania
@@ -32791,6 +34066,7 @@ enum EnglishLexiconData {
     megatons
     megs
     meh
+    Meilisearch
     melancholia
     melancholic
     melancholy
@@ -32799,6 +34075,7 @@ enum EnglishLexiconData {
     melanin
     melanoma
     melanomas
+    Melanox
     meld
     melded
     melding
@@ -32831,6 +34108,7 @@ enum EnglishLexiconData {
     melted
     melting
     melts
+    Melvor
     member
     members
     membership
@@ -32838,6 +34116,7 @@ enum EnglishLexiconData {
     membrane
     membranes
     membranous
+    Memcached
     meme
     memento
     mementos
@@ -32923,6 +34202,8 @@ enum EnglishLexiconData {
     meowing
     meows
     mercantile
+    Mercari
+    Mercedes
     mercenaries
     mercenary
     mercerize
@@ -32942,6 +34223,7 @@ enum EnglishLexiconData {
     mercifully
     merciless
     mercilessly
+    Merck
     mercurial
     mercuric
     mercury
@@ -33008,6 +34290,7 @@ enum EnglishLexiconData {
     messaged
     messages
     messaging
+    Messari
     messed
     messenger
     messengers
@@ -33025,6 +34308,7 @@ enum EnglishLexiconData {
     mestizo
     mestizos
     met
+    Meta
     metabolic
     metabolism
     metabolisms
@@ -33043,6 +34327,7 @@ enum EnglishLexiconData {
     metallurgists
     metallurgy
     metals
+    MetaMask
     metamorphic
     metamorphism
     metamorphose
@@ -33102,6 +34387,7 @@ enum EnglishLexiconData {
     meticulously
     meticulousness
     meting
+    MetLife
     metric
     metrical
     metrically
@@ -33131,6 +34417,7 @@ enum EnglishLexiconData {
     miasmas
     mica
     mice
+    Michelin
     microaggression
     microaggressions
     microbe
@@ -33171,6 +34458,7 @@ enum EnglishLexiconData {
     microscopy
     microsecond
     microseconds
+    Microsoft
     microsurgery
     microwave
     microwaved
@@ -33194,6 +34482,7 @@ enum EnglishLexiconData {
     midges
     midget
     midgets
+    Midjourney
     midland
     midlands
     midmost
@@ -33250,6 +34539,7 @@ enum EnglishLexiconData {
     migration
     migrations
     migratory
+    mihomo
     mike
     miked
     mikes
@@ -33361,6 +34651,7 @@ enum EnglishLexiconData {
     mimeographing
     mimeographs
     mimes
+    Mimestream
     mimetic
     mimic
     mimicked
@@ -33390,8 +34681,10 @@ enum EnglishLexiconData {
     mindless
     mindlessly
     mindlessness
+    MindNode
     minds
     mine
+    Minecraft
     mined
     minefield
     minefields
@@ -33426,6 +34719,8 @@ enum EnglishLexiconData {
     minibuses
     minicomputer
     minicomputers
+    Miniconda
+    Minikube
     minim
     minima
     minimal
@@ -33433,6 +34728,7 @@ enum EnglishLexiconData {
     minimalist
     minimalists
     minimally
+    MiniMax
     minimization
     minimize
     minimized
@@ -33442,6 +34738,7 @@ enum EnglishLexiconData {
     minimum
     minimums
     mining
+    MinIO
     minion
     minions
     minis
@@ -33503,12 +34800,14 @@ enum EnglishLexiconData {
     minuting
     minx
     minxes
+    MIPS
     miracle
     miracles
     miraculous
     miraculously
     mirage
     mirages
+    Mirantis
     mire
     mired
     mires
@@ -33521,6 +34820,7 @@ enum EnglishLexiconData {
     mirthful
     mirthfully
     mirthless
+    Mirtle
     misadventure
     misadventures
     misalignment
@@ -33778,6 +35078,7 @@ enum EnglishLexiconData {
     misstating
     misstep
     missteps
+    MissWarmJ
     mist
     mistake
     mistaken
@@ -33827,6 +35128,7 @@ enum EnglishLexiconData {
     misused
     misuses
     misusing
+    MIT
     mite
     miter
     mitered
@@ -33838,17 +35140,23 @@ enum EnglishLexiconData {
     mitigates
     mitigating
     mitigation
+    MitM
+    mitmproxy
     mitosis
+    Mitsubishi
+    Mitsui
     mitt
     mitten
     mittens
     mitts
+    MIUI
     mix
     mixed
     mixer
     mixers
     mixes
     mixing
+    Mixpanel
     mixture
     mixtures
     mizzen
@@ -33856,8 +35164,11 @@ enum EnglishLexiconData {
     mizzenmasts
     mizzens
     mkay
+    mkdir
+    MKTX
     mnemonic
     mnemonics
+    MNST
     moan
     moaned
     moaning
@@ -33865,6 +35176,9 @@ enum EnglishLexiconData {
     moat
     moats
     mob
+    MobaDiff
+    MobaTextEditor
+    MobaXterm
     mobbed
     mobbing
     mobile
@@ -33893,7 +35207,11 @@ enum EnglishLexiconData {
     mockingbird
     mockingbirds
     mockingly
+    Mockito
     mocks
+    MockServer
+    mockup
+    mockups
     mod
     modal
     modals
@@ -33979,6 +35297,9 @@ enum EnglishLexiconData {
     moisturizers
     moisturizes
     moisturizing
+    Mojave
+    Mojito
+    Moke
     molar
     molars
     molasses
@@ -34025,6 +35346,7 @@ enum EnglishLexiconData {
     mollycoddles
     mollycoddling
     molt
+    Moltbot
     molted
     molten
     molting
@@ -34058,6 +35380,8 @@ enum EnglishLexiconData {
     monaural
     Monday
     Mondays
+    Mondoo
+    Monero
     monetarily
     monetarism
     monetary
@@ -34072,17 +35396,25 @@ enum EnglishLexiconData {
     moneymakers
     moneymaking
     moneys
+    MoneyWiz
     monger
     mongered
     mongering
     mongers
+    mongod
+    MongoDB
+    mongodump
     mongolism
     mongoose
     mongooses
+    mongorestore
+    mongosh
     mongrel
     mongrels
+    Monica
     moniker
     monikers
+    monit
     monitor
     monitored
     monitoring
@@ -34189,6 +35521,7 @@ enum EnglishLexiconData {
     moody
     mooed
     mooing
+    Moom
     moon
     moonbeam
     moonbeams
@@ -34222,7 +35555,9 @@ enum EnglishLexiconData {
     moot
     mooted
     mooting
+    mootools
     moots
+    Moovit
     mop
     mope
     moped
@@ -34320,6 +35655,7 @@ enum EnglishLexiconData {
     mortising
     mortuaries
     mortuary
+    Morty
     mosaic
     mosaics
     mosey
@@ -34360,6 +35696,7 @@ enum EnglishLexiconData {
     motherliness
     motherly
     mothers
+    Mothra
     moths
     motif
     motifs
@@ -34419,6 +35756,7 @@ enum EnglishLexiconData {
     motors
     motorway
     motorways
+    Motrix
     mottle
     mottled
     mottles
@@ -34458,6 +35796,7 @@ enum EnglishLexiconData {
     mourns
     mouse
     moused
+    Mouseflow
     mouser
     mousers
     mouses
@@ -34504,10 +35843,22 @@ enum EnglishLexiconData {
     mowers
     mowing
     mows
+    Mozilla
     mozzarella
+    MplayerX
     Mr
+    mRNA
     Mrs
     Ms
+    mSATA
+    MSCI
+    msedge
+    MSFT
+    MSN
+    MSSQL
+    MSTeams
+    MSVC
+    MTV
     mu
     much
     mucilage
@@ -34615,6 +35966,7 @@ enum EnglishLexiconData {
     multifariousness
     multilateral
     multilingual
+    multilingualization
     multimedia
     multimillionaire
     multimillionaires
@@ -34753,6 +36105,7 @@ enum EnglishLexiconData {
     musicology
     musing
     musings
+    Musixmatch
     musk
     muskellunge
     muskellunges
@@ -34814,6 +36167,7 @@ enum EnglishLexiconData {
     muter
     mutes
     mutest
+    mutex
     mutilate
     mutilated
     mutilates
@@ -34845,7 +36199,15 @@ enum EnglishLexiconData {
     muzzled
     muzzles
     muzzling
+    MVC
+    mvn
+    mvnd
+    MVVM
+    MXIM
     my
+    MyBatis
+    Myer
+    MyISAM
     myna
     mynas
     myopia
@@ -34856,6 +36218,7 @@ enum EnglishLexiconData {
     myrtle
     myrtles
     myself
+    MySQL
     mysteries
     mysterious
     mysteriously
@@ -34881,18 +36244,21 @@ enum EnglishLexiconData {
     mythologists
     mythology
     myths
+    NA
     nab
     nabbed
     nabbing
     nabob
     nabobs
     nabs
+    Nacos
     nacre
     nadir
     nadirs
     nag
     nagged
     nagging
+    Nagios
     nags
     naiad
     naiads
@@ -34912,15 +36278,18 @@ enum EnglishLexiconData {
     nakedly
     nakedness
     name
+    NameCheap
     named
     nameless
     namely
     names
     namesake
     namesakes
+    NameSilo
     naming
     nannies
     nanny
+    nano
     nanosecond
     nanoseconds
     nanotechnology
@@ -34929,6 +36298,7 @@ enum EnglishLexiconData {
     napalmed
     napalming
     napalms
+    Napatech
     nape
     napes
     naphtha
@@ -34975,6 +36345,8 @@ enum EnglishLexiconData {
     narwhal
     narwhals
     nary
+    NAS
+    NASA
     nasal
     nasalize
     nasalized
@@ -34983,6 +36355,7 @@ enum EnglishLexiconData {
     nasally
     nasals
     nascent
+    Nasdaq
     nastier
     nastiest
     nastily
@@ -35013,6 +36386,8 @@ enum EnglishLexiconData {
     natives
     nativities
     nativity
+    NATO
+    NATS
     nattier
     nattiest
     nattily
@@ -35055,7 +36430,9 @@ enum EnglishLexiconData {
     nave
     navel
     navels
+    Naver
     naves
+    Navicat
     navies
     navigability
     navigable
@@ -35072,6 +36449,10 @@ enum EnglishLexiconData {
     nays
     naysayer
     naysayers
+    NBA
+    NCLH
+    NDAQ
+    NDM
     near
     nearby
     neared
@@ -35093,6 +36474,7 @@ enum EnglishLexiconData {
     nebulae
     nebular
     nebulous
+    NEC
     necessaries
     necessarily
     necessary
@@ -35213,6 +36595,8 @@ enum EnglishLexiconData {
     neophyte
     neophytes
     neoprene
+    Neovide
+    Neovim
     nephew
     nephews
     nephritis
@@ -35239,6 +36623,7 @@ enum EnglishLexiconData {
     nest
     nested
     nesting
+    NestJS
     nestle
     nestled
     nestles
@@ -35246,11 +36631,18 @@ enum EnglishLexiconData {
     nestlings
     nests
     net
+    NetApp
     netbook
     netbooks
+    NetBSD
+    Netdata
+    Netflix
     nether
     nethermost
+    Netlify
     nets
+    Netscape
+    NetSetMan
     netted
     netting
     nettle
@@ -35303,6 +36695,7 @@ enum EnglishLexiconData {
     nevermore
     nevertheless
     new
+    NewAPI
     newbie
     newbies
     newborn
@@ -35350,9 +36743,18 @@ enum EnglishLexiconData {
     newton
     newtons
     newts
+    Nexitally
     next
     nexus
     nexuses
+    NFC
+    NFLX
+    NFT
+    NG
+    NGFF
+    NGINX
+    Nginxinc
+    NGO
     niacin
     nib
     nibble
@@ -35383,6 +36785,7 @@ enum EnglishLexiconData {
     nicknames
     nicknaming
     nicks
+    Niconico
     nicotine
     niece
     nieces
@@ -35440,6 +36843,7 @@ enum EnglishLexiconData {
     nihilist
     nihilistic
     nihilists
+    Nikon
     nil
     nimbi
     nimble
@@ -35455,6 +36859,7 @@ enum EnglishLexiconData {
     ninjas
     ninnies
     ninny
+    Nintendo
     nip
     nipped
     nipper
@@ -35489,6 +36894,11 @@ enum EnglishLexiconData {
     nixed
     nixes
     nixing
+    NixOS
+    NLOK
+    NLP
+    NLSN
+    Nmap
     no
     nobility
     noble
@@ -35503,6 +36913,8 @@ enum EnglishLexiconData {
     nobly
     nobodies
     nobody
+    nobreak
+    nocomma
     nocturnal
     nocturnally
     nocturne
@@ -35537,6 +36949,9 @@ enum EnglishLexiconData {
     noising
     noisome
     noisy
+    Noita
+    Noizio
+    Nokia
     nomad
     nomadic
     nomads
@@ -35681,10 +37096,15 @@ enum EnglishLexiconData {
     noon
     noonday
     noontime
+    noop
     noose
     nooses
     nope
     nor
+    Norah
+    Nordcloud
+    NordVPN
+    Noria
     norm
     normal
     normalcy
@@ -35717,6 +37137,7 @@ enum EnglishLexiconData {
     northwesterly
     northwestern
     northwestward
+    NortonLifeLock
     nose
     nosebleed
     nosebleeds
@@ -35762,6 +37183,7 @@ enum EnglishLexiconData {
     notching
     note
     notebook
+    NotebookLM
     notebooks
     noted
     notepad
@@ -35804,12 +37226,15 @@ enum EnglishLexiconData {
     nourishment
     nous
     nova
+    Novartis
     novas
     novel
+    NovelAI
     novelette
     novelettes
     novelist
     novelists
+    Novell
     novella
     novellas
     novels
@@ -35829,9 +37254,20 @@ enum EnglishLexiconData {
     noxious
     nozzle
     nozzles
+    NPC
+    npm
+    npmrc
+    nproc
+    npx
+    NRIA
+    NSFW
     NSObject
     NSRange
+    NTAP
+    NTFS
     nth
+    NTR
+    NTRS
     nu
     nuance
     nuanced
@@ -35871,6 +37307,7 @@ enum EnglishLexiconData {
     nullifying
     nullity
     nulls
+    Nullsoft
     numb
     numbed
     number
@@ -35911,6 +37348,7 @@ enum EnglishLexiconData {
     nunneries
     nunnery
     nuns
+    nuPlan
     nuptial
     nuptials
     nurse
@@ -35927,6 +37365,9 @@ enum EnglishLexiconData {
     nurtured
     nurtures
     nurturing
+    nuScenes
+    Nushell
+    Nust
     nut
     nutcracker
     nutcrackers
@@ -35958,10 +37399,19 @@ enum EnglishLexiconData {
     nuttiness
     nutting
     nutty
+    Nuxt
     nuzzle
     nuzzled
     nuzzles
     nuzzling
+    nvALT
+    NVDA
+    Nvdia
+    Nvidia
+    Nvim
+    nvm
+    NVMe
+    NWSA
     nylon
     nylons
     nymph
@@ -35969,6 +37419,7 @@ enum EnglishLexiconData {
     nymphomaniac
     nymphomaniacs
     nymphs
+    NYSE
     oaf
     oafish
     oafs
@@ -35992,6 +37443,7 @@ enum EnglishLexiconData {
     oaths
     oatmeal
     oats
+    OAuth
     obduracy
     obdurate
     obdurately
@@ -36107,6 +37559,7 @@ enum EnglishLexiconData {
     observers
     observes
     observing
+    ObservIQ
     obsess
     obsessed
     obsesses
@@ -36171,6 +37624,8 @@ enum EnglishLexiconData {
     obvious
     obviously
     obviousness
+    OC
+    OCaml
     ocarina
     ocarinas
     occasion
@@ -36207,6 +37662,7 @@ enum EnglishLexiconData {
     occurring
     occurs
     ocean
+    OceanBase
     oceangoing
     oceanic
     oceanographer
@@ -36217,6 +37673,8 @@ enum EnglishLexiconData {
     ocelot
     ocelots
     ocher
+    OCR
+    OCSP
     octagon
     octagonal
     octagons
@@ -36227,10 +37685,13 @@ enum EnglishLexiconData {
     octaves
     octet
     octets
+    Octicons
     October
     Octobers
+    Octocat
     octogenarian
     octogenarians
+    octokit
     octopus
     octopuses
     ocular
@@ -36249,6 +37710,7 @@ enum EnglishLexiconData {
     odds
     ode
     odes
+    ODFL
     odious
     odiously
     odium
@@ -36259,6 +37721,7 @@ enum EnglishLexiconData {
     odorless
     odorous
     odors
+    Odysee
     odyssey
     odysseys
     of
@@ -36335,8 +37798,10 @@ enum EnglishLexiconData {
     ogre
     ogres
     oh
+    Ohai
     ohm
     ohms
+    ohmyzsh
     oho
     ohs
     oil
@@ -36368,6 +37833,8 @@ enum EnglishLexiconData {
     okra
     okras
     OKs
+    Okta
+    OKX
     old
     olden
     older
@@ -36388,8 +37855,11 @@ enum EnglishLexiconData {
     oligarchy
     olive
     olives
+    Ollama
+    Olly
     Olympic
     Olympics
+    Omarchy
     ombudsman
     ombudsmen
     omega
@@ -36398,6 +37868,7 @@ enum EnglishLexiconData {
     omelets
     omen
     omens
+    OMG
     ominous
     ominously
     omission
@@ -36406,14 +37877,21 @@ enum EnglishLexiconData {
     omits
     omitted
     omitting
+    OmmWriter
     omnibus
     omnibuses
+    OmniFocus
+    OmniGraffle
+    OmniOS
+    OmniOutliner
+    OmniPlan
     omnipotence
     omnipotent
     omnipresence
     omnipresent
     omniscience
     omniscient
+    Omnition
     omnivore
     omnivores
     omnivorous
@@ -36422,11 +37900,17 @@ enum EnglishLexiconData {
     oncology
     oncoming
     one
+    OneDrive
+    OneKey
     oneness
+    OneNote
+    ONEOK
+    OnePlus
     onerous
     ones
     oneself
     onetime
+    Onex
     ongoing
     onion
     onions
@@ -36451,12 +37935,15 @@ enum EnglishLexiconData {
     onward
     onyx
     onyxes
+    OOCL
     oodles
+    OOP
     oops
     ooze
     oozed
     oozes
     oozing
+    OP
     opacity
     opal
     opalescence
@@ -36470,19 +37957,61 @@ enum EnglishLexiconData {
     opaques
     opaquest
     opaquing
+    Opel
     open
+    OpenAI
+    OpenAPI
+    Openbase
+    OpenBSD
+    OpenCat
+    OpenCC
+    OpenCL
+    OpenClash
+    OpenClaw
+    OpenCode
+    OpenCV
+    OpenDNS
+    OpenDRIVE
     opened
     opener
     openers
     openest
+    OpenFeign
+    OpenGL
     openhanded
     openhearted
+    openindiana
     opening
     openings
+    OpenJDK
+    openldap
+    OpenLLMetry
     openly
+    OpenMP
+    OpenNebula
     openness
+    OpenNMT
+    OpenNN
+    OpenResty
+    OpenRouter
     opens
+    OpenSCENARIO
+    OpenSea
+    OpenSearch
+    OpenShift
+    OpenSolaris
+    OpenSSH
+    OpenSSL
+    OpenStack
+    OpenStreetMap
+    openSUSE
+    OpenTofu
+    OpenTSDB
+    OpenVINO
+    OpenVPN
+    OpenVZ
     openwork
+    OpenWrt
     opera
     operable
     operand
@@ -36521,6 +38050,8 @@ enum EnglishLexiconData {
     opium
     opossum
     opossums
+    Oppenheimer
+    OPPO
     opponent
     opponents
     opportune
@@ -36549,8 +38080,11 @@ enum EnglishLexiconData {
     oppressors
     opprobrious
     opprobrium
+    Opscode
+    Opsgenie
     opt
     opted
+    OptFine
     optic
     optical
     optically
@@ -36616,6 +38150,7 @@ enum EnglishLexiconData {
     orbital
     orbitals
     orbited
+    Orbiter
     orbiting
     orbits
     orbs
@@ -36633,6 +38168,7 @@ enum EnglishLexiconData {
     orchestrations
     orchid
     orchids
+    ORCL
     orcs
     ordain
     ordained
@@ -36717,9 +38253,12 @@ enum EnglishLexiconData {
     origination
     originator
     originators
+    OriginOS
     origins
     oriole
     orioles
+    ORLY
+    ORM
     ormolu
     ornament
     ornamental
@@ -36737,6 +38276,7 @@ enum EnglishLexiconData {
     ornithologists
     ornithology
     orotund
+    oRPC
     orphan
     orphanage
     orphanages
@@ -36760,8 +38300,11 @@ enum EnglishLexiconData {
     orthopedics
     orthopedist
     orthopedists
+    orz
+    OS
     Oscar
     Oscars
+    OSCHINA
     oscillate
     oscillated
     oscillates
@@ -36772,12 +38315,16 @@ enum EnglishLexiconData {
     oscillators
     oscilloscope
     oscilloscopes
+    OSDI
     osier
     osiers
+    OsmAnd
+    OSMC
     osmosis
     osmotic
     osprey
     ospreys
+    OSS
     ossification
     ossified
     ossifies
@@ -36799,11 +38346,16 @@ enum EnglishLexiconData {
     ostracizing
     ostrich
     ostriches
+    OTC
+    Otechie
+    otelcol
     other
     others
     otherwise
     otherworldly
     otiose
+    OTIS
+    otlphttp
     otter
     otters
     ottoman
@@ -36813,6 +38365,7 @@ enum EnglishLexiconData {
     ounce
     ounces
     our
+    Ouroboros
     ours
     ourself
     ourselves
@@ -36973,6 +38526,7 @@ enum EnglishLexiconData {
     outreached
     outreaches
     outreaching
+    Outreachy
     outrider
     outriders
     outrigger
@@ -37023,6 +38577,7 @@ enum EnglishLexiconData {
     outstripped
     outstripping
     outstrips
+    outta
     outtake
     outtakes
     outvote
@@ -37452,7 +39007,10 @@ enum EnglishLexiconData {
     ox
     oxbow
     oxbows
+    Oxc
     oxen
+    oxfmt
+    oxfmtrc
     oxford
     oxfords
     oxidation
@@ -37464,6 +39022,9 @@ enum EnglishLexiconData {
     oxidizers
     oxidizes
     oxidizing
+    oxlint
+    oxlintrc
+    OXSecurity
     oxyacetylene
     oxygen
     oxygenate
@@ -37475,8 +39036,10 @@ enum EnglishLexiconData {
     oxymoron
     oyster
     oysters
+    Ozforex
     ozone
     pa
+    PaaS
     pace
     paced
     pacemaker
@@ -37501,6 +39064,7 @@ enum EnglishLexiconData {
     pacing
     pack
     package
+    Packagecloud
     packaged
     packages
     packaging
@@ -37511,6 +39075,7 @@ enum EnglishLexiconData {
     packets
     packing
     packs
+    pacman
     pact
     pacts
     pad
@@ -37519,6 +39084,7 @@ enum EnglishLexiconData {
     padding
     paddle
     paddled
+    PaddleOCR
     paddles
     paddling
     paddock
@@ -37544,6 +39110,7 @@ enum EnglishLexiconData {
     pageants
     paged
     pager
+    PagerDuty
     pagers
     pages
     paginate
@@ -37576,6 +39143,7 @@ enum EnglishLexiconData {
     paint
     paintbrush
     paintbrushes
+    PaintCode
     painted
     painter
     painters
@@ -37684,6 +39252,7 @@ enum EnglishLexiconData {
     paltriest
     paltriness
     paltry
+    Palworld
     pampas
     pamper
     pampered
@@ -37697,9 +39266,12 @@ enum EnglishLexiconData {
     panacea
     panaceas
     panache
+    Panamera
+    Panasonic
     pancake
     pancaked
     pancakes
+    PancakeSwap
     pancaking
     panchromatic
     pancreas
@@ -37716,6 +39288,7 @@ enum EnglishLexiconData {
     panderers
     pandering
     panders
+    pandoc
     pane
     panegyric
     panegyrics
@@ -37727,6 +39300,7 @@ enum EnglishLexiconData {
     panelists
     panels
     panes
+    PANews
     pang
     pangs
     panhandle
@@ -37779,6 +39353,7 @@ enum EnglishLexiconData {
     papa
     papacies
     papacy
+    Papaki
     papal
     papas
     papaya
@@ -37796,6 +39371,7 @@ enum EnglishLexiconData {
     paperhanger
     paperhangers
     papering
+    PaperMod
     papers
     paperweight
     paperweights
@@ -37927,6 +39503,7 @@ enum EnglishLexiconData {
     parent
     parentage
     parental
+    parentbased
     parented
     parentheses
     parenthesis
@@ -38130,6 +39707,7 @@ enum EnglishLexiconData {
     Passovers
     passport
     passports
+    passwall
     password
     passwords
     past
@@ -38225,6 +39803,7 @@ enum EnglishLexiconData {
     patio
     patios
     patois
+    Patreon
     patriarch
     patriarchal
     patriarchies
@@ -38318,10 +39897,13 @@ enum EnglishLexiconData {
     pawpaw
     pawpaws
     paws
+    Paxlovid
     pay
     payable
+    PAYC
     paycheck
     paychecks
+    Paycom
     payday
     paydays
     payed
@@ -38332,12 +39914,14 @@ enum EnglishLexiconData {
     paying
     payload
     payloads
+    Paylocity
     paymaster
     paymasters
     payment
     payments
     payoff
     payoffs
+    PayPal
     payphone
     payphones
     payroll
@@ -38345,6 +39929,17 @@ enum EnglishLexiconData {
     pays
     paywall
     paywalls
+    PAYX
+    pbcopy
+    PBCT
+    pbpaste
+    PC
+    PCAR
+    PCDN
+    PCIe
+    PDF
+    PDFs
+    PDVSA
     pea
     peace
     peaceable
@@ -38517,6 +40112,7 @@ enum EnglishLexiconData {
     pelvic
     pelvis
     pelvises
+    Pemex
     pen
     penal
     penalize
@@ -38599,12 +40195,16 @@ enum EnglishLexiconData {
     pentagon
     pentagonal
     pentagons
+    Pentair
     pentameter
     pentameters
     pentathlon
     pentathlons
+    Penteston
     penthouse
     penthouses
+    Pentium
+    Pentoo
     penultimate
     penultimates
     penurious
@@ -38636,6 +40236,8 @@ enum EnglishLexiconData {
     pepping
     peppy
     peps
+    Pepsi
+    PepsiCo
     pepsin
     peptic
     peptics
@@ -38678,6 +40280,7 @@ enum EnglishLexiconData {
     percolation
     percolator
     percolators
+    Percona
     percussion
     percussionist
     percussionists
@@ -38702,6 +40305,7 @@ enum EnglishLexiconData {
     perfections
     perfectly
     perfects
+    Perfetto
     perfidies
     perfidious
     perfidy
@@ -38728,6 +40332,7 @@ enum EnglishLexiconData {
     perfuming
     perfunctorily
     perfunctory
+    PerfView
     perhaps
     pericardia
     pericardium
@@ -38786,10 +40391,12 @@ enum EnglishLexiconData {
     perked
     perkier
     perkiest
+    PerkinElmer
     perkiness
     perking
     perks
     perky
+    perl
     perm
     permafrost
     permanence
@@ -38818,6 +40425,7 @@ enum EnglishLexiconData {
     perms
     permutation
     permutations
+    Permute
     permuted
     pernicious
     perniciously
@@ -38853,6 +40461,7 @@ enum EnglishLexiconData {
     perplexity
     perquisite
     perquisites
+    Perrigo
     persecute
     persecuted
     persecutes
@@ -38886,6 +40495,7 @@ enum EnglishLexiconData {
     personal
     personalities
     personality
+    personalization
     personalize
     personalized
     personalizes
@@ -39013,11 +40623,13 @@ enum EnglishLexiconData {
     petrifies
     petrify
     petrifying
+    Petrobras
     petrochemical
     petrochemicals
     petrol
     petrolatum
     petroleum
+    Petronas
     pets
     petted
     petticoat
@@ -39039,6 +40651,7 @@ enum EnglishLexiconData {
     petulantly
     petunia
     petunias
+    Peugeot
     pew
     pewee
     pewees
@@ -39046,6 +40659,9 @@ enum EnglishLexiconData {
     pewter
     pewters
     peyote
+    Pfizer
+    pgSQL
+    Phabricator
     phalanges
     phalanx
     phalanxes
@@ -39113,6 +40729,7 @@ enum EnglishLexiconData {
     philippics
     philistine
     philistines
+    Phillips
     philodendron
     philodendrons
     philological
@@ -39179,6 +40796,7 @@ enum EnglishLexiconData {
     phony
     phonying
     phooey
+    Phorge
     phosphate
     phosphates
     phosphor
@@ -39194,6 +40812,7 @@ enum EnglishLexiconData {
     photocopies
     photocopy
     photocopying
+    PhotoDesk
     photoed
     photoelectric
     photogenic
@@ -39214,9 +40833,13 @@ enum EnglishLexiconData {
     photons
     photos
     photosensitive
+    Photoshop
     photosynthesis
     phototypesetter
     phototypesetting
+    PHP
+    phpBB
+    PhpStorm
     phrasal
     phrase
     phrased
@@ -39263,6 +40886,7 @@ enum EnglishLexiconData {
     pica
     picante
     picaresque
+    Picatext
     picayune
     piccalilli
     piccolo
@@ -39310,6 +40934,7 @@ enum EnglishLexiconData {
     pictured
     pictures
     picturesque
+    PictureView
     picturing
     piddle
     piddled
@@ -39317,6 +40942,7 @@ enum EnglishLexiconData {
     piddling
     pidgin
     pidgins
+    Pidora
     pie
     piebald
     piebalds
@@ -39373,6 +40999,7 @@ enum EnglishLexiconData {
     pigsty
     pigtail
     pigtails
+    Pikachu
     pike
     piked
     piker
@@ -39465,9 +41092,11 @@ enum EnglishLexiconData {
     pinfeather
     pinfeathers
     ping
+    Pingdom
     pinged
     pinging
     pings
+    PingWest
     pinhead
     pinheads
     pinhole
@@ -39504,6 +41133,7 @@ enum EnglishLexiconData {
     pinstriped
     pinstripes
     pint
+    Pinterest
     pinto
     pintos
     pints
@@ -39518,6 +41148,7 @@ enum EnglishLexiconData {
     pioneered
     pioneering
     pioneers
+    Pionex
     pious
     piously
     pip
@@ -39621,10 +41252,15 @@ enum EnglishLexiconData {
     pivoted
     pivoting
     pivots
+    Pixar
     pixel
+    Pixelmator
     pixels
+    pixi
     pixie
     pixies
+    PixiJS
+    pixiv
     pizza
     pizzas
     pizzazz
@@ -39632,6 +41268,12 @@ enum EnglishLexiconData {
     pizzerias
     pizzicati
     pizzicato
+    PK
+    pkgadd
+    PKGBUILD
+    pkginfo
+    pkgutil
+    pkill
     placard
     placarded
     placarding
@@ -39728,6 +41370,7 @@ enum EnglishLexiconData {
     planting
     plantings
     plants
+    PlantUML
     plaque
     plaques
     plasma
@@ -39812,6 +41455,7 @@ enum EnglishLexiconData {
     playroom
     playrooms
     plays
+    PlayStation
     plaything
     playthings
     playwright
@@ -39871,6 +41515,7 @@ enum EnglishLexiconData {
     plenty
     plethora
     pleurisy
+    Plex
     plexus
     plexuses
     pliability
@@ -40002,6 +41647,8 @@ enum EnglishLexiconData {
     pneumatic
     pneumatically
     pneumonia
+    PNG
+    pnpm
     poach
     poached
     poacher
@@ -40035,6 +41682,7 @@ enum EnglishLexiconData {
     podiatry
     podium
     podiums
+    Podman
     pods
     poem
     poems
@@ -40097,6 +41745,7 @@ enum EnglishLexiconData {
     poky
     pol
     polar
+    Polarion
     polarities
     polarity
     polarization
@@ -40160,6 +41809,7 @@ enum EnglishLexiconData {
     polities
     polity
     polka
+    Polkadot
     polkaed
     polkaing
     polkas
@@ -40209,12 +41859,14 @@ enum EnglishLexiconData {
     polygon
     polygonal
     polygons
+    PolygonScan
     polygraph
     polygraphed
     polygraphing
     polygraphs
     polyhedron
     polyhedrons
+    Polymarket
     polymath
     polymaths
     polymer
@@ -40309,6 +41961,8 @@ enum EnglishLexiconData {
     poorhouses
     poorly
     pop
+    PopCap
+    PopClip
     popcorn
     pope
     popes
@@ -40360,6 +42014,7 @@ enum EnglishLexiconData {
     poring
     pork
     porn
+    Pornhub
     porno
     pornographer
     pornographers
@@ -40375,6 +42030,7 @@ enum EnglishLexiconData {
     porridge
     porringer
     porringers
+    Porsche
     port
     portability
     portable
@@ -40383,6 +42039,7 @@ enum EnglishLexiconData {
     portaged
     portages
     portaging
+    Portainer
     portal
     portals
     portcullis
@@ -40429,6 +42086,7 @@ enum EnglishLexiconData {
     portraying
     portrays
     ports
+    POSCO
     pose
     posed
     poser
@@ -40485,6 +42143,7 @@ enum EnglishLexiconData {
     postcards
     postcode
     postcodes
+    PostCSS
     postdate
     postdated
     postdates
@@ -40500,7 +42159,11 @@ enum EnglishLexiconData {
     posters
     postgraduate
     postgraduates
+    Postgres
+    PostgreSQL
+    PostgresSQL
     posthaste
+    PostHog
     posthumous
     posthumously
     posting
@@ -40509,6 +42172,7 @@ enum EnglishLexiconData {
     postman
     postmark
     postmarked
+    postmarketOS
     postmarking
     postmarks
     postmaster
@@ -40521,6 +42185,7 @@ enum EnglishLexiconData {
     postmortems
     postnatal
     postoperative
+    postpack
     postpaid
     postpartum
     postpone
@@ -40579,6 +42244,7 @@ enum EnglishLexiconData {
     potlucks
     potpie
     potpies
+    PotPlayer
     potpourri
     potpourris
     pots
@@ -40642,13 +42308,18 @@ enum EnglishLexiconData {
     powerless
     powerlessly
     powerlessness
+    PowerPack
+    PowerPoint
     powers
+    PowerShell
     powwow
     powwowed
     powwowing
     powwows
     pox
     poxes
+    PPPoE
+    PPT
     practicability
     practicable
     practicably
@@ -41000,6 +42671,7 @@ enum EnglishLexiconData {
     preposterous
     preposterously
     prepped
+    Prepper
     preppier
     preppies
     preppiest
@@ -41040,6 +42712,7 @@ enum EnglishLexiconData {
     prescription
     prescriptions
     prescriptive
+    PreSearch
     presence
     presences
     present
@@ -41136,6 +42809,7 @@ enum EnglishLexiconData {
     pretexts
     prettied
     prettier
+    prettierd
     pretties
     prettiest
     prettified
@@ -41185,6 +42859,7 @@ enum EnglishLexiconData {
     preyed
     preying
     preys
+    PRGO
     price
     priced
     priceless
@@ -41277,6 +42952,7 @@ enum EnglishLexiconData {
     printout
     printouts
     prints
+    PrintScreen
     prior
     prioress
     prioresses
@@ -41290,6 +42966,7 @@ enum EnglishLexiconData {
     priors
     priory
     prism
+    Prisma
     prismatic
     prisms
     prison
@@ -41327,6 +43004,7 @@ enum EnglishLexiconData {
     privileged
     privileges
     privileging
+    Privoxy
     privy
     prize
     prized
@@ -41575,6 +43253,7 @@ enum EnglishLexiconData {
     prolifically
     prolix
     prolixity
+    Prologis
     prologue
     prologues
     prolong
@@ -41588,6 +43267,7 @@ enum EnglishLexiconData {
     promenaded
     promenades
     promenading
+    Prometheus
     prominence
     prominent
     prominently
@@ -41606,6 +43286,7 @@ enum EnglishLexiconData {
     promos
     promote
     promoted
+    Promotee
     promoter
     promoters
     promotes
@@ -41629,6 +43310,7 @@ enum EnglishLexiconData {
     promulgates
     promulgating
     promulgation
+    Promxy
     prone
     proneness
     prong
@@ -41775,6 +43457,8 @@ enum EnglishLexiconData {
     prosecutions
     prosecutor
     prosecutors
+    proselint
+    proselintrc
     proselyte
     proselyted
     proselytes
@@ -41848,9 +43532,11 @@ enum EnglishLexiconData {
     protesters
     protesting
     protests
+    protobuf
     protocol
     protocols
     proton
+    ProtonMail
     protons
     protoplasm
     protoplasmic
@@ -41938,8 +43624,12 @@ enum EnglishLexiconData {
     prowls
     prows
     proxies
+    Proxifier
     proximity
+    Proxmox
     proxy
+    ProxyChains
+    Proxyman
     prude
     prudence
     prudent
@@ -41957,16 +43647,19 @@ enum EnglishLexiconData {
     prurient
     pry
     prying
+    PS
     psalm
     psalmist
     psalmists
     psalms
+    PSEG
     pseudo
     pseudonym
     pseudonyms
     pshaw
     pshaws
     psoriasis
+    pspings
     psst
     psych
     psyche
@@ -42013,16 +43706,21 @@ enum EnglishLexiconData {
     psychotic
     psychotics
     psychs
+    PTAL
     ptarmigan
     ptarmigans
     pterodactyl
     pterodactyls
     ptomaine
     ptomaines
+    ptrace
+    PTT
+    PUA
     pub
     puberty
     pubescence
     pubescent
+    PUBG
     pubic
     public
     publican
@@ -42129,6 +43827,8 @@ enum EnglishLexiconData {
     pulsed
     pulses
     pulsing
+    PulteGroup
+    Pulumi
     pulverization
     pulverize
     pulverized
@@ -42331,6 +44031,7 @@ enum EnglishLexiconData {
     pusher
     pushers
     pushes
+    Pushgateway
     pushier
     pushiest
     pushiness
@@ -42386,15 +44087,24 @@ enum EnglishLexiconData {
     puzzlers
     puzzles
     puzzling
+    PVE
+    PVP
+    PwC
     pwn
     pwned
     pwning
     pwns
+    pwsh
+    PyCharm
     pygmies
     pygmy
+    Pylance
     pylon
     pylons
+    pymdownx
     pyorrhea
+    pypinyin
+    PYPL
     pyramid
     pyramidal
     pyramided
@@ -42402,6 +44112,7 @@ enum EnglishLexiconData {
     pyramids
     pyre
     pyres
+    Pyright
     pyrite
     pyromania
     pyromaniac
@@ -42410,8 +44121,19 @@ enum EnglishLexiconData {
     pyrotechnics
     python
     pythons
+    PyTorch
+    PyWebIO
     pyx
     pyxes
+    QA
+    qBittorrent
+    QCOM
+    qmake
+    Qoder
+    Qorvo
+    QoS
+    QRVO
+    QSpace
     qua
     quack
     quacked
@@ -42471,6 +44193,7 @@ enum EnglishLexiconData {
     quaked
     quakes
     quaking
+    Qualcomm
     qualification
     qualifications
     qualified
@@ -42485,8 +44208,10 @@ enum EnglishLexiconData {
     quality
     qualm
     qualms
+    Qualys
     quandaries
     quandary
+    Quanergy
     quanta
     quantified
     quantifier
@@ -42498,12 +44223,14 @@ enum EnglishLexiconData {
     quantities
     quantity
     quantum
+    Quantumult
     quarantine
     quarantined
     quarantines
     quarantining
     quark
     quarks
+    Quarkus
     quarrel
     quarreled
     quarreling
@@ -42588,6 +44315,7 @@ enum EnglishLexiconData {
     querying
     quesadilla
     quesadillas
+    QuesmaOrg
     quest
     quested
     questing
@@ -42612,6 +44340,7 @@ enum EnglishLexiconData {
     quibblers
     quibbles
     quibbling
+    QUIC
     quiche
     quiches
     quick
@@ -42624,6 +44353,7 @@ enum EnglishLexiconData {
     quickie
     quickies
     quicklime
+    QuickLook
     quickly
     quickness
     quicksand
@@ -42703,6 +44433,7 @@ enum EnglishLexiconData {
     quoiting
     quoits
     quondam
+    Quora
     quorum
     quorums
     quota
@@ -42718,13 +44449,18 @@ enum EnglishLexiconData {
     quotient
     quotients
     quoting
+    QuoVadis
     Quran
+    Qwen
+    QWERT
+    Qwik
     rabbi
     rabbinate
     rabbinical
     rabbis
     rabbit
     rabbiting
+    RabbitMQ
     rabbits
     rabble
     rabbles
@@ -42747,6 +44483,7 @@ enum EnglishLexiconData {
     racetracks
     raceway
     raceways
+    Rachel
     racial
     racially
     racier
@@ -42769,6 +44506,7 @@ enum EnglishLexiconData {
     rackets
     racking
     racks
+    Rackspace
     raconteur
     raconteurs
     racquetball
@@ -42902,6 +44640,7 @@ enum EnglishLexiconData {
     raisins
     rajah
     rajahs
+    Rajesh
     rake
     raked
     rakes
@@ -43177,18 +44916,25 @@ enum EnglishLexiconData {
     rawhide
     rawness
     ray
+    Raycast
+    Raydium
     rayon
     rays
+    Raytheon
     raze
     razed
     razes
     razing
     razor
+    Razorpay
     razors
     razz
     razzed
     razzes
     razzing
+    RBS
+    rclone
+    Rdio
     re
     reach
     reachable
@@ -43233,6 +44979,7 @@ enum EnglishLexiconData {
     readjustment
     readjustments
     readjusts
+    Readkit
     readmit
     readmits
     readmitted
@@ -43249,6 +44996,7 @@ enum EnglishLexiconData {
     reaffirms
     reagent
     reagents
+    Reaktor
     real
     realer
     realest
@@ -43273,6 +45021,7 @@ enum EnglishLexiconData {
     realm
     realms
     reals
+    Realtek
     realty
     ream
     reamed
@@ -43370,6 +45119,7 @@ enum EnglishLexiconData {
     reawakened
     reawakening
     reawakens
+    rebase
     rebate
     rebated
     rebates
@@ -43390,6 +45140,7 @@ enum EnglishLexiconData {
     rebounded
     rebounding
     rebounds
+    Rebrandly
     rebuff
     rebuffed
     rebuffing
@@ -43597,6 +45348,7 @@ enum EnglishLexiconData {
     reconditioned
     reconditioning
     reconditions
+    reconfig
     reconfiguration
     reconfigure
     reconfigured
@@ -43738,6 +45490,7 @@ enum EnglishLexiconData {
     redder
     reddest
     reddish
+    Reddit
     redecorate
     redecorated
     redecorates
@@ -43783,6 +45536,7 @@ enum EnglishLexiconData {
     redirecting
     redirection
     redirects
+    Redis
     rediscover
     rediscovered
     rediscoveries
@@ -43832,6 +45586,7 @@ enum EnglishLexiconData {
     redressing
     redrew
     reds
+    Redshift
     redskin
     redskins
     reduce
@@ -43909,6 +45664,8 @@ enum EnglishLexiconData {
     reexamines
     reexamining
     ref
+    refactor
+    refactoring
     refashion
     refashioned
     refashioning
@@ -43929,6 +45686,7 @@ enum EnglishLexiconData {
     referendums
     referent
     referential
+    referer
     referral
     referrals
     referred
@@ -44099,6 +45857,7 @@ enum EnglishLexiconData {
     regenerative
     regent
     regents
+    regexp
     reggae
     regicide
     regicides
@@ -44130,6 +45889,7 @@ enum EnglishLexiconData {
     registrations
     registries
     registry
+    REGN
     regress
     regressed
     regresses
@@ -44352,6 +46112,7 @@ enum EnglishLexiconData {
     relevancy
     relevant
     relevantly
+    Relex
     reliability
     reliable
     reliably
@@ -44520,6 +46281,7 @@ enum EnglishLexiconData {
     renascence
     renascences
     renascent
+    Renault
     rend
     render
     rendered
@@ -44544,6 +46306,7 @@ enum EnglishLexiconData {
     renegotiated
     renegotiates
     renegotiating
+    Renesas
     renew
     renewable
     renewal
@@ -44889,6 +46652,7 @@ enum EnglishLexiconData {
     rescuer
     rescuers
     rescues
+    RescueTime
     rescuing
     research
     researched
@@ -44932,6 +46696,7 @@ enum EnglishLexiconData {
     resettled
     resettles
     resettling
+    ReSharper
     reshuffle
     reshuffled
     reshuffles
@@ -44975,6 +46740,7 @@ enum EnglishLexiconData {
     resistor
     resistors
     resists
+    ResMed
     resold
     resolute
     resolutely
@@ -45055,6 +46821,7 @@ enum EnglishLexiconData {
     responsive
     responsively
     responsiveness
+    Responsys
     rest
     restart
     restarted
@@ -45514,6 +47281,9 @@ enum EnglishLexiconData {
     rewriting
     rewritten
     rewrote
+    RFC
+    RFCs
+    RFT
     rhapsodic
     rhapsodies
     rhapsodize
@@ -45523,6 +47293,7 @@ enum EnglishLexiconData {
     rhapsody
     rhea
     rheas
+    RHEL
     rheostat
     rheostats
     rhetoric
@@ -45595,6 +47366,7 @@ enum EnglishLexiconData {
     ricocheted
     ricocheting
     ricochets
+    Ricoh
     ricotta
     rid
     riddance
@@ -45623,6 +47395,7 @@ enum EnglishLexiconData {
     ridiculousness
     riding
     rids
+    RIEGL
     rife
     rifer
     rifest
@@ -45683,6 +47456,7 @@ enum EnglishLexiconData {
     rill
     rills
     rim
+    RIMAS
     rime
     rimed
     rimes
@@ -45690,6 +47464,7 @@ enum EnglishLexiconData {
     rimmed
     rimming
     rims
+    RimWorld
     rind
     rinds
     ring
@@ -45714,6 +47489,7 @@ enum EnglishLexiconData {
     rinsed
     rinses
     rinsing
+    RION
     riot
     rioted
     rioter
@@ -45733,6 +47509,7 @@ enum EnglishLexiconData {
     ripens
     riper
     ripest
+    ripgrep
     ripoff
     ripoffs
     riposte
@@ -45750,6 +47527,7 @@ enum EnglishLexiconData {
     rips
     ripsaw
     ripsaws
+    RISC
     rise
     risen
     riser
@@ -45798,6 +47576,8 @@ enum EnglishLexiconData {
     rivets
     rivulet
     rivulets
+    rmwc
+    RNA
     roach
     roaches
     road
@@ -45854,10 +47634,12 @@ enum EnglishLexiconData {
     robin
     robing
     robins
+    Roblox
     robocall
     robocalled
     robocalling
     robocalls
+    robocopy
     robot
     robotic
     robotics
@@ -45875,6 +47657,7 @@ enum EnglishLexiconData {
     rocket
     rocketed
     rocketing
+    RocketMQ
     rocketry
     rockets
     rockier
@@ -45882,6 +47665,7 @@ enum EnglishLexiconData {
     rockiness
     rocking
     rocks
+    RocksDB
     rocky
     rococo
     rod
@@ -45902,6 +47686,7 @@ enum EnglishLexiconData {
     rogering
     rogers
     rogue
+    roguelike
     roguery
     rogues
     roguish
@@ -45931,6 +47716,7 @@ enum EnglishLexiconData {
     rollicks
     rolling
     rolls
+    ROM
     romaine
     romaines
     roman
@@ -46012,6 +47798,7 @@ enum EnglishLexiconData {
     rosebushes
     rosemary
     roses
+    Rosetta
     rosette
     rosettes
     rosewood
@@ -46024,6 +47811,8 @@ enum EnglishLexiconData {
     rosiness
     rosining
     rosins
+    Ross
+    ROST
     roster
     rosters
     rostrum
@@ -46115,6 +47904,7 @@ enum EnglishLexiconData {
     route
     routed
     router
+    RouterOS
     routes
     routine
     routinely
@@ -46156,6 +47946,12 @@ enum EnglishLexiconData {
     royals
     royalties
     royalty
+    RPG
+    RSS
+    RSSHub
+    rsync
+    rsyslog
+    rsyslogd
     rub
     rubbed
     rubber
@@ -46190,6 +47986,7 @@ enum EnglishLexiconData {
     rubrics
     rubs
     ruby
+    RubyMine
     rucksack
     rucksacks
     ruckus
@@ -46293,6 +48090,7 @@ enum EnglishLexiconData {
     runarounds
     runaway
     runaways
+    runc
     rundown
     rundowns
     rune
@@ -46332,7 +48130,10 @@ enum EnglishLexiconData {
     russet
     russets
     rust
+    RustDesk
     rusted
+    rustfix
+    rustfmt
     rustic
     rustically
     rusticity
@@ -46351,6 +48152,7 @@ enum EnglishLexiconData {
     rustproofed
     rustproofing
     rustproofs
+    RustRover
     rusts
     rusty
     rut
@@ -46362,12 +48164,17 @@ enum EnglishLexiconData {
     ruts
     rutted
     rutting
+    RWE
     rye
+    Ryzen
+    Saab
+    SaaS
     Sabbath
     sabbatical
     sabbaticals
     saber
     sabers
+    Sabic
     sable
     sables
     sabotage
@@ -46449,6 +48256,7 @@ enum EnglishLexiconData {
     safest
     safeties
     safety
+    Safeway
     safflower
     safflowers
     saffron
@@ -46461,6 +48269,7 @@ enum EnglishLexiconData {
     sage
     sagebrush
     sager
+    SagerNet
     sages
     sagest
     sagged
@@ -46518,6 +48327,7 @@ enum EnglishLexiconData {
     sales
     salesclerk
     salesclerks
+    Salesforce
     salesgirl
     salesgirls
     salesman
@@ -46615,6 +48425,7 @@ enum EnglishLexiconData {
     samples
     sampling
     samplings
+    Samsung
     samurai
     sanatorium
     sanatoriums
@@ -46686,6 +48497,7 @@ enum EnglishLexiconData {
     sandwiching
     sandy
     sane
+    SaneDesk
     sanely
     saner
     sanest
@@ -46703,6 +48515,8 @@ enum EnglishLexiconData {
     sanitizing
     sanity
     sank
+    Sanmina
+    Sanofi
     sans
     sanserif
     Santa
@@ -46760,6 +48574,7 @@ enum EnglishLexiconData {
     sassing
     sassy
     sat
+    SATA
     Satan
     satanic
     satanically
@@ -46826,6 +48641,7 @@ enum EnglishLexiconData {
     saucily
     sauciness
     saucing
+    Saucony
     saucy
     sauerkraut
     sauna
@@ -46896,6 +48712,9 @@ enum EnglishLexiconData {
     saying
     sayings
     says
+    SBAC
+    Sberbank
+    SBUX
     scab
     scabbard
     scabbards
@@ -46990,6 +48809,7 @@ enum EnglishLexiconData {
     scapegoats
     scapula
     scapulae
+    scapy
     scar
     scarab
     scarabs
@@ -47071,6 +48891,7 @@ enum EnglishLexiconData {
     schemers
     schemes
     scheming
+    Schenker
     scherzo
     scherzos
     schism
@@ -47090,6 +48911,7 @@ enum EnglishLexiconData {
     schlepping
     schleps
     schlock
+    Schlumberger
     schmaltz
     schmaltzier
     schmaltziest
@@ -47146,6 +48968,7 @@ enum EnglishLexiconData {
     schussed
     schusses
     schussing
+    SCHW
     schwa
     schwas
     sciatic
@@ -47313,6 +49136,8 @@ enum EnglishLexiconData {
     screechy
     screen
     screened
+    ScreenFloat
+    ScreenFlow
     screening
     screenings
     screenplay
@@ -47364,6 +49189,7 @@ enum EnglishLexiconData {
     scriptures
     scriptwriter
     scriptwriters
+    Scrivener
     scrod
     scrofula
     scroll
@@ -47477,10 +49303,13 @@ enum EnglishLexiconData {
     scuzzier
     scuzziest
     scuzzy
+    ScyllaDB
     scythe
     scythed
     scythes
     scything
+    SDDM
+    SDK
     sea
     seabed
     seabeds
@@ -47537,6 +49366,7 @@ enum EnglishLexiconData {
     seared
     searing
     sears
+    SearXNG
     seas
     seascape
     seascapes
@@ -47606,6 +49436,9 @@ enum EnglishLexiconData {
     secretive
     secretively
     secretiveness
+    Secretlint
+    secretlintignore
+    secretlintrc
     secretly
     secrets
     secs
@@ -47673,6 +49506,7 @@ enum EnglishLexiconData {
     sedulous
     see
     seed
+    Seedance
     seeded
     seedier
     seediest
@@ -47716,9 +49550,11 @@ enum EnglishLexiconData {
     seethed
     seethes
     seething
+    SEGGER
     segment
     segmentation
     segmented
+    SegmentFault
     segmenting
     segments
     segregate
@@ -47793,6 +49629,7 @@ enum EnglishLexiconData {
     semaphoring
     semblance
     semblances
+    semconv
     semen
     semester
     semesters
@@ -47812,6 +49649,7 @@ enum EnglishLexiconData {
     semifinalist
     semifinalists
     semifinals
+    Semilux
     semimonthlies
     semimonthly
     seminal
@@ -47842,6 +49680,7 @@ enum EnglishLexiconData {
     senator
     senatorial
     senators
+    Sencha
     send
     Sendable
     sender
@@ -47863,6 +49702,7 @@ enum EnglishLexiconData {
     sensations
     sense
     sensed
+    Sensedia
     senseless
     senselessly
     senselessness
@@ -47916,6 +49756,7 @@ enum EnglishLexiconData {
     sentinels
     sentries
     sentry
+    SEO
     sepal
     sepals
     separable
@@ -47949,6 +49790,7 @@ enum EnglishLexiconData {
     sepulchers
     sepulchral
     sequel
+    Sequelize
     sequels
     sequence
     sequenced
@@ -48030,6 +49872,8 @@ enum EnglishLexiconData {
     serve
     served
     server
+    ServerCat
+    serverless
     servers
     serves
     service
@@ -48037,6 +49881,7 @@ enum EnglishLexiconData {
     serviced
     serviceman
     servicemen
+    ServiceNow
     services
     servicewoman
     servicewomen
@@ -48055,8 +49900,10 @@ enum EnglishLexiconData {
     session
     sessions
     set
+    Setapp
     setback
     setbacks
+    setfacl
     sets
     settable
     settee
@@ -48124,6 +49971,8 @@ enum EnglishLexiconData {
     sexuality
     sexually
     sexy
+    SFC
+    SFTP
     sh
     shabbier
     shabbiest
@@ -48137,6 +49986,7 @@ enum EnglishLexiconData {
     shackling
     shacks
     shad
+    Shadcn
     shade
     shaded
     shades
@@ -48154,7 +50004,9 @@ enum EnglishLexiconData {
     shadowier
     shadowiest
     shadowing
+    Shadowrocket
     shadows
+    Shadowsocks
     shadowy
     shads
     shady
@@ -48247,6 +50099,7 @@ enum EnglishLexiconData {
     shapes
     shaping
     shard
+    ShardingSphere
     shards
     share
     shareable
@@ -48256,6 +50109,7 @@ enum EnglishLexiconData {
     shareholder
     shareholders
     shares
+    ShareX
     sharia
     shariah
     sharing
@@ -48273,6 +50127,7 @@ enum EnglishLexiconData {
     sharper
     sharpers
     sharpest
+    Sharpier
     sharping
     sharply
     sharpness
@@ -48327,6 +50182,7 @@ enum EnglishLexiconData {
     sheepskin
     sheepskins
     sheer
+    Sheeran
     sheered
     sheerer
     sheerest
@@ -48341,12 +50197,14 @@ enum EnglishLexiconData {
     sheikhs
     shekel
     shekels
+    Sheldon
     shelf
     shell
     shellac
     shellacked
     shellacking
     shellacs
+    shellcheckrc
     shelled
     shellfish
     shellfishes
@@ -48493,6 +50351,7 @@ enum EnglishLexiconData {
     shittiest
     shitting
     shitty
+    shitwork
     shiver
     shivered
     shivering
@@ -48548,6 +50407,7 @@ enum EnglishLexiconData {
     shop
     shopaholic
     shopaholics
+    Shopify
     shopkeeper
     shopkeepers
     shoplift
@@ -48616,6 +50476,7 @@ enum EnglishLexiconData {
     shotgunning
     shotguns
     shots
+    Shottr
     should
     shoulder
     shouldered
@@ -48850,7 +50711,10 @@ enum EnglishLexiconData {
     sidelined
     sidelines
     sidelining
+    sideload
+    sideloading
     sidelong
+    sider
     sidereal
     sides
     sidesaddle
@@ -48887,6 +50751,7 @@ enum EnglishLexiconData {
     sidling
     siege
     sieges
+    Siemens
     sierra
     sierras
     siesta
@@ -48915,7 +50780,9 @@ enum EnglishLexiconData {
     sightseeing
     sightseer
     sightseers
+    SIGKDD
     sigma
+    SigmaOS
     sign
     signal
     signaled
@@ -48956,6 +50823,7 @@ enum EnglishLexiconData {
     Sikh
     Sikhism
     Sikhs
+    Silae
     silage
     silence
     silenced
@@ -48976,6 +50844,7 @@ enum EnglishLexiconData {
     silicate
     silicates
     siliceous
+    Silicom
     silicon
     silicone
     silicosis
@@ -49030,6 +50899,7 @@ enum EnglishLexiconData {
     simpers
     simple
     simpleness
+    Simplenote
     simpler
     simplest
     simpleton
@@ -49110,6 +50980,7 @@ enum EnglishLexiconData {
     sinner
     sinners
     sinning
+    Sinomach
     sins
     sinuous
     sinus
@@ -49130,6 +51001,7 @@ enum EnglishLexiconData {
     siren
     sirens
     sires
+    Siri
     siring
     sirloin
     sirloins
@@ -49139,10 +51011,12 @@ enum EnglishLexiconData {
     sis
     sisal
     sises
+    Sismology
     sissier
     sissies
     sissiest
     sissy
+    Sistema
     sister
     sisterhood
     sisterhoods
@@ -49169,6 +51043,7 @@ enum EnglishLexiconData {
     situating
     situation
     situations
+    SIVB
     sixpence
     sizable
     size
@@ -49179,6 +51054,7 @@ enum EnglishLexiconData {
     sizzled
     sizzles
     sizzling
+    Skaffold
     skate
     skateboard
     skateboarded
@@ -49294,6 +51170,7 @@ enum EnglishLexiconData {
     skivvies
     skivvy
     skivvying
+    Skoda
     skulduggery
     skulk
     skulked
@@ -49328,6 +51205,8 @@ enum EnglishLexiconData {
     skylights
     skyline
     skylines
+    skynet
+    Skype
     skyrocket
     skyrocketed
     skyrocketing
@@ -49344,6 +51223,7 @@ enum EnglishLexiconData {
     slabbing
     slabs
     slack
+    SlackAPI
     slacked
     slacken
     slackened
@@ -49356,6 +51236,7 @@ enum EnglishLexiconData {
     slackly
     slackness
     slacks
+    Slackware
     slag
     slags
     slain
@@ -49509,6 +51390,7 @@ enum EnglishLexiconData {
     slept
     sleuth
     sleuths
+    Slevomat
     slew
     slewed
     slewing
@@ -49528,6 +51410,7 @@ enum EnglishLexiconData {
     slickly
     slickness
     slicks
+    Slicy
     slid
     slide
     slider
@@ -49555,6 +51438,7 @@ enum EnglishLexiconData {
     slimmest
     slimming
     slimness
+    Slimpay
     slims
     slimy
     sling
@@ -49707,6 +51591,7 @@ enum EnglishLexiconData {
     slung
     slunk
     slur
+    Slurm
     slurp
     slurped
     slurping
@@ -49737,6 +51622,7 @@ enum EnglishLexiconData {
     smallness
     smallpox
     smalls
+    Smarkets
     smarmier
     smarmiest
     smarmy
@@ -49751,11 +51637,15 @@ enum EnglishLexiconData {
     smarting
     smartly
     smartness
+    SmartOS
     smartphone
     smartphones
     smarts
+    smartsymbols
     smartwatch
     smartwatches
+    Smarty
+    SmartyStreets
     smash
     smashed
     smashes
@@ -49850,6 +51740,7 @@ enum EnglishLexiconData {
     smothered
     smothering
     smothers
+    SMTP
     smudge
     smudged
     smudges
@@ -49886,6 +51777,7 @@ enum EnglishLexiconData {
     snag
     snagged
     snagging
+    Snagit
     snags
     snail
     snails
@@ -49897,6 +51789,7 @@ enum EnglishLexiconData {
     snaking
     snaky
     snap
+    Snapchat
     snapdragon
     snapdragons
     snapped
@@ -49928,6 +51821,7 @@ enum EnglishLexiconData {
     snazzier
     snazziest
     snazzy
+    SNCF
     sneak
     sneaked
     sneaker
@@ -49987,6 +51881,8 @@ enum EnglishLexiconData {
     sniveled
     sniveling
     snivels
+    snmpd
+    snmptrapd
     snob
     snobbery
     snobbier
@@ -50082,6 +51978,7 @@ enum EnglishLexiconData {
     snowsuit
     snowsuits
     snowy
+    SNPS
     snub
     snubbed
     snubbing
@@ -50109,6 +52006,7 @@ enum EnglishLexiconData {
     snuggling
     snugly
     snugs
+    Snyk
     so
     soak
     soaked
@@ -50180,6 +52078,7 @@ enum EnglishLexiconData {
     socket
     sockets
     socking
+    sockperf
     socks
     sod
     soda
@@ -50187,6 +52086,7 @@ enum EnglishLexiconData {
     sodded
     sodden
     sodding
+    Sodexo
     sodium
     sodomite
     sodomites
@@ -50197,6 +52097,7 @@ enum EnglishLexiconData {
     soft
     softball
     softballs
+    Softbank
     soften
     softened
     softener
@@ -50207,6 +52108,7 @@ enum EnglishLexiconData {
     softest
     softhearted
     softies
+    SoftLayer
     softly
     softness
     software
@@ -50218,6 +52120,7 @@ enum EnglishLexiconData {
     soggily
     sogginess
     soggy
+    SogouSpider
     soil
     soiled
     soiling
@@ -50231,6 +52134,7 @@ enum EnglishLexiconData {
     solaced
     solaces
     solacing
+    Solana
     solar
     solaria
     solarium
@@ -50283,6 +52187,7 @@ enum EnglishLexiconData {
     solidify
     solidifying
     solidity
+    SolidJS
     solidly
     solidness
     solids
@@ -50305,6 +52210,7 @@ enum EnglishLexiconData {
     soloists
     solos
     sols
+    Solscan
     solstice
     solstices
     solubility
@@ -50350,9 +52256,11 @@ enum EnglishLexiconData {
     somnolent
     son
     sonar
+    SonarJS
     sonars
     sonata
     sonatas
+    Sonera
     song
     songbird
     songbirds
@@ -50369,6 +52277,7 @@ enum EnglishLexiconData {
     sonority
     sonorous
     sons
+    Sony
     soon
     sooner
     soonest
@@ -50451,6 +52360,7 @@ enum EnglishLexiconData {
     sorties
     sorting
     sorts
+    SOS
     sot
     sots
     sottish
@@ -50494,7 +52404,10 @@ enum EnglishLexiconData {
     sour
     source
     sourced
+    Sourcegraph
+    SourceMonitor
     sources
+    Sourcetree
     sourcing
     sourdough
     sourdoughs
@@ -50567,6 +52480,7 @@ enum EnglishLexiconData {
     spacewalked
     spacewalking
     spacewalks
+    SpaceX
     spacey
     spacial
     spacier
@@ -50619,6 +52533,7 @@ enum EnglishLexiconData {
     sparing
     sparingly
     spark
+    Sparkbox
     sparked
     sparking
     sparkle
@@ -50669,6 +52584,7 @@ enum EnglishLexiconData {
     spayed
     spaying
     spays
+    spdlog
     speak
     speakeasies
     speakeasy
@@ -50768,14 +52684,17 @@ enum EnglishLexiconData {
     speeding
     speedometer
     speedometers
+    speedrun
     speeds
     speedster
     speedsters
+    Speedtest
     speedup
     speedups
     speedway
     speedways
     speedy
+    Spegel
     spell
     spellbind
     spellbinder
@@ -50815,6 +52734,7 @@ enum EnglishLexiconData {
     spewed
     spewing
     spews
+    SPGI
     sphere
     spheres
     spherical
@@ -50900,9 +52820,11 @@ enum EnglishLexiconData {
     spire
     spirea
     spireas
+    Spirent
     spires
     spirit
     spirited
+    Spiritfarer
     spiriting
     spiritless
     spirits
@@ -50993,6 +52915,7 @@ enum EnglishLexiconData {
     splotchiest
     splotching
     splotchy
+    Splunk
     splurge
     splurged
     splurges
@@ -51021,6 +52944,7 @@ enum EnglishLexiconData {
     spokeswomen
     spoliation
     sponge
+    SpongeBob
     sponged
     sponger
     spongers
@@ -51094,6 +53018,7 @@ enum EnglishLexiconData {
     sportswomen
     sporty
     spot
+    Spotify
     spotless
     spotlessly
     spotlessness
@@ -51234,6 +53159,11 @@ enum EnglishLexiconData {
     spyglasses
     spying
     spyware
+    SQL
+    SQLAlchemy
+    sqlcmd
+    SQLite
+    sqlservr
     squab
     squabble
     squabbled
@@ -51260,6 +53190,7 @@ enum EnglishLexiconData {
     squared
     squarely
     squareness
+    SquarePants
     squarer
     squares
     squarest
@@ -51315,6 +53246,7 @@ enum EnglishLexiconData {
     squelches
     squelching
     squid
+    squidfunk
     squids
     squiggle
     squiggled
@@ -51351,6 +53283,14 @@ enum EnglishLexiconData {
     squishes
     squishing
     sriracha
+    srv
+    SSD
+    SSE
+    SSH
+    sshd
+    SSID
+    SSL
+    sssd
     stab
     stabbed
     stabbing
@@ -51365,6 +53305,7 @@ enum EnglishLexiconData {
     stabilizing
     stable
     stabled
+    stabledb
     stabler
     stables
     stablest
@@ -51373,9 +53314,11 @@ enum EnglishLexiconData {
     staccato
     staccatos
     stack
+    StackDriver
     stacked
     stacking
     stacks
+    StackSocial
     stadium
     stadiums
     staff
@@ -51523,6 +53466,7 @@ enum EnglishLexiconData {
     stapling
     star
     starboard
+    Starbucks
     starch
     starched
     starches
@@ -51534,6 +53478,7 @@ enum EnglishLexiconData {
     stare
     stared
     stares
+    Starfield
     starfish
     starfishes
     stargazer
@@ -51544,12 +53489,15 @@ enum EnglishLexiconData {
     starkest
     starkly
     starkness
+    Starknet
+    Starlark
     starless
     starlet
     starlets
     starlight
     starling
     starlings
+    Starlink
     starlit
     starred
     starrier
@@ -51622,6 +53570,7 @@ enum EnglishLexiconData {
     statistician
     statisticians
     statistics
+    Statoil
     stats
     statuary
     statue
@@ -51685,6 +53634,7 @@ enum EnglishLexiconData {
     steamier
     steamiest
     steaming
+    SteamOS
     steamroll
     steamrolled
     steamroller
@@ -51727,6 +53677,7 @@ enum EnglishLexiconData {
     steers
     stein
     steins
+    Stellantis
     stellar
     stem
     stemmed
@@ -51891,6 +53842,7 @@ enum EnglishLexiconData {
     stimulating
     stimulation
     stimuli
+    Stimulsoft
     stimulus
     sting
     stinger
@@ -52059,6 +54011,7 @@ enum EnglishLexiconData {
     storied
     stories
     storing
+    Storj
     stork
     storks
     storm
@@ -52164,6 +54117,7 @@ enum EnglishLexiconData {
     strangulating
     strangulation
     strap
+    Strapi
     strapless
     straplesses
     strapped
@@ -52278,6 +54232,7 @@ enum EnglishLexiconData {
     striking
     strikingly
     strikings
+    Strimzi
     string
     stringed
     stringency
@@ -52474,6 +54429,8 @@ enum EnglishLexiconData {
     sty
     style
     styled
+    stylelint
+    stylelintrc
     styles
     styling
     stylish
@@ -52501,6 +54458,7 @@ enum EnglishLexiconData {
     suavest
     suavity
     sub
+    Subaru
     subatomic
     subbasement
     subbasements
@@ -52605,6 +54563,8 @@ enum EnglishLexiconData {
     submitted
     submitter
     submitting
+    submodule
+    submodules
     subnormal
     suborbital
     subordinate
@@ -52669,6 +54629,7 @@ enum EnglishLexiconData {
     subsoil
     subsonic
     subspace
+    Substack
     substance
     substances
     substandard
@@ -52800,6 +54761,7 @@ enum EnglishLexiconData {
     sudden
     suddenly
     suddenness
+    sudo
     suds
     sudsier
     sudsiest
@@ -52926,6 +54888,8 @@ enum EnglishLexiconData {
     sultry
     sum
     sumac
+    Sumatra
+    Sumitomo
     summaries
     summarily
     summarize
@@ -53009,6 +54973,7 @@ enum EnglishLexiconData {
     sunniest
     sunning
     sunny
+    Sunoco
     sunrise
     sunrises
     sunroof
@@ -53028,6 +54993,7 @@ enum EnglishLexiconData {
     suntans
     sunup
     sup
+    Supabase
     super
     superabundance
     superabundances
@@ -53050,6 +55016,8 @@ enum EnglishLexiconData {
     superconductors
     superego
     superegos
+    Superfeedr
+    superfences
     superficial
     superficiality
     superficially
@@ -53076,6 +55044,7 @@ enum EnglishLexiconData {
     superlative
     superlatively
     superlatives
+    Superlist
     superman
     supermarket
     supermarkets
@@ -53113,6 +55082,7 @@ enum EnglishLexiconData {
     superstructures
     supertanker
     supertankers
+    Supervalu
     supervene
     supervened
     supervenes
@@ -53240,6 +55210,7 @@ enum EnglishLexiconData {
     surgical
     surgically
     surging
+    Surgutneftegas
     surlier
     surliest
     surliness
@@ -53271,6 +55242,7 @@ enum EnglishLexiconData {
     surprising
     surprisingly
     surreal
+    SurrealDB
     surrealism
     surrealist
     surrealistic
@@ -53312,6 +55284,8 @@ enum EnglishLexiconData {
     susceptibilities
     susceptibility
     susceptible
+    SUSE
+    SushiSwap
     suspect
     suspected
     suspecting
@@ -53339,9 +55313,15 @@ enum EnglishLexiconData {
     sutured
     sutures
     suturing
+    SUV
+    Suzuken
+    Suzuki
     svelte
     svelter
     sveltest
+    SVG
+    SVGO
+    SVN
     swab
     swabbed
     swabbing
@@ -53549,6 +55529,7 @@ enum EnglishLexiconData {
     swisher
     swishes
     swishing
+    Swisscom
     switch
     switchable
     switchback
@@ -53564,6 +55545,7 @@ enum EnglishLexiconData {
     swiveled
     swiveling
     swivels
+    SWKS
     swollen
     swoon
     swooned
@@ -53584,6 +55566,7 @@ enum EnglishLexiconData {
     sworn
     swum
     swung
+    Swyftx
     sybarite
     sybarites
     sybaritic
@@ -53622,6 +55605,7 @@ enum EnglishLexiconData {
     symbolizes
     symbolizing
     symbols
+    Symfony
     symmetric
     symmetrical
     symmetrically
@@ -53666,6 +55650,7 @@ enum EnglishLexiconData {
     syncopating
     syncopation
     syncs
+    Syncthing
     syndicate
     syndicated
     syndicates
@@ -53675,6 +55660,7 @@ enum EnglishLexiconData {
     syndromes
     synod
     synods
+    synology
     synonym
     synonymous
     synonyms
@@ -53685,6 +55671,7 @@ enum EnglishLexiconData {
     syntactically
     syntax
     syntheses
+    synthesia
     synthesis
     synthesize
     synthesized
@@ -53705,6 +55692,10 @@ enum EnglishLexiconData {
     syrup
     syrups
     syrupy
+    Sysco
+    syslog
+    sysmon
+    sysprep
     system
     systematic
     systematically
@@ -53712,6 +55703,8 @@ enum EnglishLexiconData {
     systematized
     systematizes
     systematizing
+    systemctl
+    systemd
     systemic
     systemics
     systems
@@ -53728,8 +55721,10 @@ enum EnglishLexiconData {
     tablecloth
     tablecloths
     tabled
+    tabledb
     tableland
     tablelands
+    TablePlus
     tables
     tablespoon
     tablespoonful
@@ -53739,8 +55734,10 @@ enum EnglishLexiconData {
     tablets
     tableware
     tabling
+    tabliss
     tabloid
     tabloids
+    Tabnine
     taboo
     tabooed
     tabooing
@@ -53821,8 +55818,11 @@ enum EnglishLexiconData {
     tailpipe
     tailpipes
     tails
+    Tailscale
     tailspin
     tailspins
+    Tailwind
+    TailwindCSS
     taint
     tainted
     tainting
@@ -53982,6 +55982,7 @@ enum EnglishLexiconData {
     taproot
     taproots
     taps
+    TapTap
     tar
     tarantula
     tarantulas
@@ -54097,6 +56098,7 @@ enum EnglishLexiconData {
     taunting
     taunts
     taupe
+    Tauri
     Taurus
     Tauruses
     taut
@@ -54136,6 +56138,8 @@ enum EnglishLexiconData {
     taxonomy
     taxpayer
     taxpayers
+    TCP
+    TDengine
     tea
     teach
     teachable
@@ -54155,6 +56159,7 @@ enum EnglishLexiconData {
     tealights
     teals
     team
+    TeamCity
     teamed
     teaming
     teammate
@@ -54162,6 +56167,7 @@ enum EnglishLexiconData {
     teams
     teamster
     teamsters
+    TeamViewer
     teamwork
     teapot
     teapots
@@ -54200,12 +56206,15 @@ enum EnglishLexiconData {
     teat
     teatime
     teats
+    TechDocs
+    Techetio
     technical
     technicalities
     technicality
     technically
     technician
     technicians
+    TechnipFMC
     technique
     techniques
     techno
@@ -54219,7 +56228,10 @@ enum EnglishLexiconData {
     technologist
     technologists
     technology
+    TechRadar
+    TechWeb
     tectonics
+    TED
     tedious
     tediously
     tediousness
@@ -54253,6 +56265,7 @@ enum EnglishLexiconData {
     teetotaler
     teetotalers
     Teflon
+    Tekton
     telecast
     telecaster
     telecasters
@@ -54267,6 +56280,8 @@ enum EnglishLexiconData {
     teleconferenced
     teleconferences
     teleconferencing
+    Teleflex
+    Telefonica
     telegram
     telegrams
     telegraph
@@ -54315,6 +56330,7 @@ enum EnglishLexiconData {
     telexed
     telexes
     telexing
+    Telia
     tell
     teller
     tellers
@@ -54323,6 +56339,8 @@ enum EnglishLexiconData {
     tells
     telltale
     telltales
+    telnetd
+    Telstra
     temerity
     temp
     temped
@@ -54373,6 +56391,7 @@ enum EnglishLexiconData {
     temptresses
     tempts
     tempura
+    Temu
     tenability
     tenable
     tenacious
@@ -54384,6 +56403,7 @@ enum EnglishLexiconData {
     tenanted
     tenanting
     tenants
+    Tencent
     tend
     tended
     tendencies
@@ -54441,6 +56461,7 @@ enum EnglishLexiconData {
     tension
     tensions
     tensor
+    TensorFlow
     tensors
     tent
     tentacle
@@ -54466,6 +56487,7 @@ enum EnglishLexiconData {
     terabits
     terabyte
     terabytes
+    Teradyne
     tercentenaries
     tercentenary
     term
@@ -54492,8 +56514,10 @@ enum EnglishLexiconData {
     terminus
     termite
     termites
+    Termius
     termly
     terms
+    Termux
     tern
     terns
     terrace
@@ -54501,10 +56525,13 @@ enum EnglishLexiconData {
     terraces
     terracing
     terracotta
+    Terraform
+    Terragrunt
     terrain
     terrains
     terrapin
     terrapins
+    Terraria
     terrarium
     terrariums
     terrestrial
@@ -54540,16 +56567,22 @@ enum EnglishLexiconData {
     terser
     tersest
     tertiary
+    Tesco
+    Tesla
+    Tesoro
     test
     testable
     testament
     testamentary
     testaments
     testate
+    testcontainer
+    testcontainers
     tested
     tester
     testers
     testes
+    TestFlight
     testicle
     testicles
     testier
@@ -54576,14 +56609,18 @@ enum EnglishLexiconData {
     tethers
     tetrahedron
     tetrahedrons
+    Texshop
     text
+    Textastic
     textbook
     textbooks
     texted
     TextEdit
+    TextExpander
     textile
     textiles
     texting
+    TextMate
     texts
     textual
     textually
@@ -54592,6 +56629,7 @@ enum EnglishLexiconData {
     textured
     textures
     texturing
+    TextWrangler
     thalami
     thalamus
     thallium
@@ -54607,6 +56645,7 @@ enum EnglishLexiconData {
     thanks
     thanksgiving
     thanksgivings
+    Thanos
     that
     thatch
     thatched
@@ -54706,6 +56745,7 @@ enum EnglishLexiconData {
     thesauruses
     these
     theses
+    Theseus
     thesis
     thespian
     thespians
@@ -54753,6 +56793,7 @@ enum EnglishLexiconData {
     thinker
     thinkers
     thinking
+    ThinkPad
     thinks
     thinly
     thinned
@@ -54975,6 +57016,7 @@ enum EnglishLexiconData {
     thyroid
     thyroids
     thyself
+    ThyssenKrupp
     ti
     tiara
     tiaras
@@ -54997,13 +57039,16 @@ enum EnglishLexiconData {
     ticklish
     ticks
     ticktacktoe
+    TickTick
     tics
     tidal
+    TiDB
     tidbit
     tidbits
     tiddlywinks
     tide
     tided
+    Tidelift
     tides
     tidewater
     tidewaters
@@ -55024,6 +57069,7 @@ enum EnglishLexiconData {
     tier
     tiers
     ties
+    Tieto
     tiff
     tiffed
     tiffing
@@ -55047,6 +57093,8 @@ enum EnglishLexiconData {
     tightwads
     tigress
     tigresses
+    TikTok
+    TiKV
     tilde
     tildes
     tile
@@ -55094,7 +57142,9 @@ enum EnglishLexiconData {
     timers
     times
     timescale
+    TimescaleDB
     timescales
+    timeshift
     timestamp
     timestamps
     timetable
@@ -55143,6 +57193,7 @@ enum EnglishLexiconData {
     tinkered
     tinkering
     tinkers
+    TinkerTool
     tinkle
     tinkled
     tinkles
@@ -55166,6 +57217,8 @@ enum EnglishLexiconData {
     tintinnabulations
     tints
     tiny
+    TinyPNG
+    TIOBE
     tip
     tipped
     tipper
@@ -55237,6 +57290,11 @@ enum EnglishLexiconData {
     titular
     tizzies
     tizzy
+    TJX
+    TLS
+    TM
+    TMUS
+    tmux
     to
     toad
     toadied
@@ -55265,6 +57323,7 @@ enum EnglishLexiconData {
     tobogganed
     tobogganing
     toboggans
+    TOC
     tocsin
     tocsins
     today
@@ -55276,8 +57335,12 @@ enum EnglishLexiconData {
     toddles
     toddling
     toddy
+    ToDesk
+    TODO
+    Todoist
     toe
     toed
+    TOEFL
     toehold
     toeholds
     toeing
@@ -55313,6 +57376,7 @@ enum EnglishLexiconData {
     toke
     toked
     token
+    TokenInsight
     tokenism
     tokenization
     tokenizer
@@ -55360,6 +57424,7 @@ enum EnglishLexiconData {
     tomes
     tomfooleries
     tomfoolery
+    TOML
     tomorrow
     tomorrows
     toms
@@ -55522,6 +57587,7 @@ enum EnglishLexiconData {
     tortures
     torturing
     torus
+    Toshiba
     toss
     tossed
     tosses
@@ -55546,6 +57612,7 @@ enum EnglishLexiconData {
     totems
     totes
     toting
+    TOTP
     tots
     totted
     totter
@@ -55643,10 +57710,18 @@ enum EnglishLexiconData {
     toy
     toyed
     toying
+    Toyota
     toys
+    TPM
     trace
     traceable
+    tracecontext
     traced
+    Tracefmt
+    traceidratio
+    Tracelog
+    Traceloop
+    traceparent
     tracer
     traceries
     tracers
@@ -55682,6 +57757,7 @@ enum EnglishLexiconData {
     tradesman
     tradesmen
     trading
+    TradingView
     tradition
     traditional
     traditionalist
@@ -55692,6 +57768,8 @@ enum EnglishLexiconData {
     traduced
     traduces
     traducing
+    Trae
+    traefik
     traffic
     trafficked
     trafficker
@@ -55733,6 +57811,7 @@ enum EnglishLexiconData {
     traits
     trajectories
     trajectory
+    Trakt
     tram
     trammed
     trammel
@@ -55873,6 +57952,7 @@ enum EnglishLexiconData {
     transliterating
     transliteration
     transliterations
+    Translogix
     translucence
     translucent
     transmigrate
@@ -56063,6 +58143,7 @@ enum EnglishLexiconData {
     trellised
     trellises
     trellising
+    Trello
     tremble
     trembled
     trembles
@@ -56100,6 +58181,7 @@ enum EnglishLexiconData {
     tresses
     trestle
     trestles
+    trex
     triad
     triads
     triage
@@ -56149,6 +58231,7 @@ enum EnglishLexiconData {
     tricky
     tricolor
     tricolors
+    TriCore
     tricycle
     tricycles
     trident
@@ -56188,6 +58271,8 @@ enum EnglishLexiconData {
     trim
     trimaran
     trimarans
+    Trimble
+    Trime
     trimester
     trimesters
     trimly
@@ -56206,6 +58291,7 @@ enum EnglishLexiconData {
     trio
     trios
     trip
+    Tripadvisor
     tripartite
     tripe
     triple
@@ -56256,6 +58342,8 @@ enum EnglishLexiconData {
     trivializes
     trivializing
     trivially
+    Trivy
+    trivyignore
     trochee
     trochees
     trod
@@ -56336,6 +58424,7 @@ enum EnglishLexiconData {
     trousseaux
     trout
     trouts
+    TROW
     trowel
     troweled
     troweling
@@ -56373,6 +58462,7 @@ enum EnglishLexiconData {
     trues
     truest
     truffle
+    trufflehog
     truffles
     truing
     truism
@@ -56440,8 +58530,15 @@ enum EnglishLexiconData {
     trysted
     trysting
     trysts
+    tsbuild
+    tsbuildinfo
+    TSCO
+    tsconfig
+    TSConfigs
+    TSLA
     tsunami
     tsunamis
+    TTWO
     tub
     tuba
     tubas
@@ -56483,6 +58580,7 @@ enum EnglishLexiconData {
     tugged
     tugging
     tugs
+    TUI
     tuition
     tulip
     tulips
@@ -56496,6 +58594,7 @@ enum EnglishLexiconData {
     tumbleweed
     tumbleweeds
     tumbling
+    Tumblr
     tumbrel
     tumbrels
     tumid
@@ -56541,6 +58640,7 @@ enum EnglishLexiconData {
     turbines
     turbojet
     turbojets
+    Turbopack
     turboprop
     turboprops
     turbot
@@ -56632,6 +58732,7 @@ enum EnglishLexiconData {
     tuxedos
     tuxes
     TV
+    tvOS
     TVs
     twaddle
     twaddled
@@ -56653,6 +58754,7 @@ enum EnglishLexiconData {
     tweeds
     tweedy
     tweet
+    Tweetbot
     tweeted
     tweeter
     tweeters
@@ -56678,6 +58780,7 @@ enum EnglishLexiconData {
     twiggy
     twigs
     twilight
+    Twilio
     twill
     twilled
     twin
@@ -56727,6 +58830,7 @@ enum EnglishLexiconData {
     twofold
     twosome
     twosomes
+    TWTR
     tycoon
     tycoons
     tying
@@ -56741,6 +58845,7 @@ enum EnglishLexiconData {
     typed
     typeface
     typefaces
+    TypeORM
     types
     typescript
     typescripts
@@ -56776,6 +58881,7 @@ enum EnglishLexiconData {
     typographical
     typographically
     typography
+    Typora
     typos
     tyrannical
     tyrannically
@@ -56794,17 +58900,36 @@ enum EnglishLexiconData {
     tyrants
     tyro
     tyros
+    tzinfo
+    tzutil
+    Uber
     ubiquitous
     ubiquitously
     ubiquity
+    Ubisoft
+    uBlacklist
+    uBlock
+    ublox
+    ubound
+    UBS
+    Ubuntu
+    UCLA
     udder
     udders
+    UDP
+    UEFA
+    UEFI
+    UFO
+    UGent
     ugh
     uglier
     ugliest
     ugliness
     ugly
     uh
+    UI
+    UID
+    UK
     ukulele
     ukuleles
     ulcer
@@ -56816,8 +58941,10 @@ enum EnglishLexiconData {
     ulcerations
     ulcerous
     ulcers
+    ulimit
     ulna
     ulnae
+    ULTA
     ulterior
     ultimate
     ultimately
@@ -56826,6 +58953,9 @@ enum EnglishLexiconData {
     ultra
     ultraconservative
     ultraconservatives
+    ultradns
+    UltraEdit
+    Ultraman
     ultramarine
     ultras
     ultrasonic
@@ -56837,7 +58967,9 @@ enum EnglishLexiconData {
     ululated
     ululates
     ululating
+    Ulysses
     um
+    umask
     umbel
     umbels
     umber
@@ -56849,8 +58981,10 @@ enum EnglishLexiconData {
     umbrellas
     umiak
     umiaks
+    UML
     umlaut
     umlauts
+    umount
     ump
     umped
     umping
@@ -57018,6 +59152,7 @@ enum EnglishLexiconData {
     unclearer
     unclearest
     uncles
+    Unclutter
     uncluttered
     uncoil
     uncoiled
@@ -57326,6 +59461,7 @@ enum EnglishLexiconData {
     undone
     undoubted
     undoubtedly
+    undraw
     undress
     undressed
     undresses
@@ -57423,6 +59559,7 @@ enum EnglishLexiconData {
     unflattering
     unflinching
     unflinchingly
+    unfo
     unfold
     unfolded
     unfolding
@@ -57465,6 +59602,7 @@ enum EnglishLexiconData {
     ungodlier
     ungodliest
     ungodly
+    ungoogled
     ungovernable
     ungracious
     ungrammatical
@@ -57513,6 +59651,9 @@ enum EnglishLexiconData {
     unhorsed
     unhorses
     unhorsing
+    unhuman
+    unhumanize
+    unhumified
     unhurried
     unhurt
     unicameral
@@ -57535,8 +59676,10 @@ enum EnglishLexiconData {
     uniforms
     unify
     unifying
+    Unihan
     unilateral
     unilaterally
+    Unilever
     unimaginable
     unimaginative
     unimpaired
@@ -57589,6 +59732,8 @@ enum EnglishLexiconData {
     uniquest
     unisex
     unison
+    UNIST
+    Uniswap
     unit
     unitary
     unite
@@ -57714,12 +59859,14 @@ enum EnglishLexiconData {
     unnoticeable
     unnoticed
     unnumbered
+    Uno
     unobserved
     unobstructed
     unobtainable
     unobtrusive
     unobtrusively
     unoccupied
+    UnoCSS
     unoffensive
     unofficial
     unofficially
@@ -57930,6 +60077,7 @@ enum EnglishLexiconData {
     unspeakably
     unspecific
     unspecified
+    Unsplash
     unspoiled
     unspoken
     unsportsmanlike
@@ -57971,6 +60119,7 @@ enum EnglishLexiconData {
     unsurprising
     unsuspected
     unsuspecting
+    UNSW
     unsweetened
     unswerving
     unsympathetic
@@ -58130,6 +60279,7 @@ enum EnglishLexiconData {
     upholstering
     upholsters
     upholstery
+    uPic
     upkeep
     upland
     uplands
@@ -58140,6 +60290,7 @@ enum EnglishLexiconData {
     uplifts
     upload
     upmarket
+    UPnP
     upon
     upped
     upper
@@ -58171,6 +60322,7 @@ enum EnglishLexiconData {
     uproots
     ups
     upscale
+    Upscayl
     upset
     upsets
     upsetting
@@ -58188,6 +60340,7 @@ enum EnglishLexiconData {
     upstarted
     upstarting
     upstarts
+    Upstash
     upstate
     upstream
     upsurge
@@ -58231,6 +60384,7 @@ enum EnglishLexiconData {
     urgently
     urges
     urging
+    URI
     uric
     urinal
     urinals
@@ -58244,16 +60398,24 @@ enum EnglishLexiconData {
     urination
     urine
     URL
+    URLs
     urn
     urns
     urologist
     urologists
     urology
     us
+    USA
     usability
     usable
     usage
     usages
+    USB
+    USD
+    USDC
+    USDe
+    USDS
+    USDT
     use
     used
     useful
@@ -58262,6 +60424,7 @@ enum EnglishLexiconData {
     useless
     uselessly
     uselessness
+    USENIX
     user
     username
     usernames
@@ -58274,6 +60437,8 @@ enum EnglishLexiconData {
     ushering
     ushers
     using
+    usr
+    USSR
     usual
     usually
     usurer
@@ -58287,6 +60452,7 @@ enum EnglishLexiconData {
     usurping
     usurps
     usury
+    UTC
     utensil
     utensils
     uteri
@@ -58304,6 +60470,7 @@ enum EnglishLexiconData {
     utilizes
     utilizing
     utmost
+    uTools
     utopia
     utopias
     utter
@@ -58314,6 +60481,7 @@ enum EnglishLexiconData {
     utterly
     uttermost
     utters
+    UUID
     uvula
     uvular
     uvulars
@@ -58377,6 +60545,7 @@ enum EnglishLexiconData {
     vainly
     valance
     valances
+    Valarian
     vale
     valedictorian
     valedictorians
@@ -58386,11 +60555,14 @@ enum EnglishLexiconData {
     valences
     valentine
     valentines
+    Valeo
     vales
     valet
     valeted
     valeting
     valets
+    Valgrind
+    Valhalla
     valiant
     valiantly
     valid
@@ -58403,6 +60575,7 @@ enum EnglishLexiconData {
     validity
     validly
     validness
+    Valine
     valise
     valises
     valley
@@ -58517,6 +60690,8 @@ enum EnglishLexiconData {
     vasectomies
     vasectomy
     vases
+    Vasona
+    VASP
     vassal
     vassalage
     vassals
@@ -58529,6 +60704,7 @@ enum EnglishLexiconData {
     vat
     vats
     vatted
+    Vattenfall
     vatting
     vaudeville
     vault
@@ -58541,6 +60717,11 @@ enum EnglishLexiconData {
     vaunted
     vaunting
     vaunts
+    VBoxManage
+    VCD
+    vCenter
+    vcpkg
+    VCS
     veal
     vector
     vectored
@@ -58552,6 +60733,7 @@ enum EnglishLexiconData {
     veered
     veering
     veers
+    Veertu
     vegan
     vegans
     vegetable
@@ -58586,6 +60768,7 @@ enum EnglishLexiconData {
     vellum
     velocities
     velocity
+    Velodyne
     velour
     velours
     velvet
@@ -58668,6 +60851,8 @@ enum EnglishLexiconData {
     verbose
     verbosity
     verbs
+    Vercel
+    Verdaccio
     verdant
     verdict
     verdicts
@@ -58687,7 +60872,9 @@ enum EnglishLexiconData {
     verifies
     verify
     verifying
+    Verilog
     verily
+    Verisec
     verisimilitude
     veritable
     veritably
@@ -58771,15 +60958,19 @@ enum EnglishLexiconData {
     vexed
     vexes
     vexing
+    VHDL
     via
     viability
     viable
+    VIAC
+    ViacomCBS
     viaduct
     viaducts
     vial
     vials
     viand
     viands
+    Viber
     vibes
     vibrancy
     vibrant
@@ -58825,6 +61016,7 @@ enum EnglishLexiconData {
     victimizing
     victims
     victor
+    VictoriaMetrics
     victories
     victorious
     victoriously
@@ -58899,7 +61091,13 @@ enum EnglishLexiconData {
     villein
     villeins
     vim
+    Vimium
+    VimL
+    VimR
+    Vimscript
     vinaigrette
+    Vinci
+    Vincit
     vindicate
     vindicated
     vindicates
@@ -58969,6 +61167,7 @@ enum EnglishLexiconData {
     virility
     virology
     virtual
+    VirtualBox
     virtually
     virtue
     virtues
@@ -58983,6 +61182,7 @@ enum EnglishLexiconData {
     virulently
     virus
     viruses
+    VirusTotal
     visa
     visaed
     visage
@@ -59032,6 +61232,8 @@ enum EnglishLexiconData {
     visualizing
     visually
     visuals
+    visudo
+    Visy
     vital
     vitality
     vitalize
@@ -59042,6 +61244,9 @@ enum EnglishLexiconData {
     vitals
     vitamin
     vitamins
+    VitePress
+    Vitess
+    Vitest
     vitiate
     vitiated
     vitiates
@@ -59063,7 +61268,9 @@ enum EnglishLexiconData {
     vivaciously
     vivaciousness
     vivacity
+    Vivaldi
     vivas
+    Vivendi
     vivid
     vivider
     vividest
@@ -59075,11 +61282,20 @@ enum EnglishLexiconData {
     vivifying
     viviparous
     vivisection
+    vivo
     vixen
     vixenish
     vixens
     vizier
     viziers
+    VLAN
+    VLESS
+    vmclusterlb
+    VMess
+    vminsert
+    vmselect
+    vmstorage
+    VMware
     vocabularies
     vocabulary
     vocal
@@ -59106,6 +61322,7 @@ enum EnglishLexiconData {
     vociferation
     vociferous
     vociferously
+    Vodafone
     vodka
     vodkas
     vogue
@@ -59123,6 +61340,7 @@ enum EnglishLexiconData {
     voiding
     voids
     voile
+    VoIP
     volatile
     volatility
     volcanic
@@ -59131,6 +61349,7 @@ enum EnglishLexiconData {
     vole
     voles
     volition
+    Volkswagen
     volley
     volleyball
     volleyballs
@@ -59141,6 +61360,7 @@ enum EnglishLexiconData {
     voltage
     voltages
     voltaic
+    VoLTE
     voltmeter
     voltmeters
     volts
@@ -59163,6 +61383,7 @@ enum EnglishLexiconData {
     voluptuous
     voluptuously
     voluptuousness
+    Volvo
     vomit
     vomited
     vomiting
@@ -59200,6 +61421,7 @@ enum EnglishLexiconData {
     vowed
     vowel
     vowels
+    VoWiFi
     vowing
     vows
     voyage
@@ -59212,6 +61434,18 @@ enum EnglishLexiconData {
     voyeurism
     voyeuristic
     voyeurs
+    VPN
+    VPS
+    VRSK
+    VRSN
+    VRTX
+    vsce
+    vscode
+    vscodium
+    VTEX
+    VTuber
+    Vue
+    VuePress
     vulcanization
     vulcanize
     vulcanized
@@ -59230,10 +61464,12 @@ enum EnglishLexiconData {
     vulgarizes
     vulgarizing
     vulgarly
+    Vulkan
     vulnerabilities
     vulnerability
     vulnerable
     vulnerably
+    Vultr
     vulture
     vultures
     vulva
@@ -59249,6 +61485,7 @@ enum EnglishLexiconData {
     wackiness
     wacks
     wacky
+    Wacom
     wad
     wadded
     wadding
@@ -59342,6 +61579,8 @@ enum EnglishLexiconData {
     wale
     waled
     wales
+    Walgreen
+    Waline
     waling
     walk
     walked
@@ -59380,6 +61619,7 @@ enum EnglishLexiconData {
     wallpapering
     wallpapers
     walls
+    Walmart
     walnut
     walnuts
     walrus
@@ -59426,6 +61666,7 @@ enum EnglishLexiconData {
     wants
     wapiti
     wapitis
+    Wappalyzer
     war
     warble
     warbled
@@ -59543,6 +61784,9 @@ enum EnglishLexiconData {
     washstands
     washtub
     washtubs
+    Wasm
+    WasmEdge
+    Wasmtime
     wasp
     waspish
     wasps
@@ -59585,6 +61829,7 @@ enum EnglishLexiconData {
     watchmakers
     watchman
     watchmen
+    watchOS
     watchtower
     watchtowers
     watchword
@@ -59608,6 +61853,7 @@ enum EnglishLexiconData {
     waterfalls
     waterfowl
     waterfowls
+    Waterfox
     waterfront
     waterfronts
     waterhole
@@ -59679,11 +61925,13 @@ enum EnglishLexiconData {
     waxworks
     waxy
     way
+    Waydroid
     wayfarer
     wayfarers
     wayfaring
     wayfarings
     waylaid
+    Wayland
     waylay
     waylaying
     waylays
@@ -59693,6 +61941,7 @@ enum EnglishLexiconData {
     wayward
     waywardly
     waywardness
+    Waze
     we
     weak
     weaken
@@ -59763,8 +62012,10 @@ enum EnglishLexiconData {
     weaver
     weavers
     weaves
+    Weaviate
     weaving
     web
+    WebAssembly
     webbed
     webbing
     webcam
@@ -59772,17 +62023,31 @@ enum EnglishLexiconData {
     webcast
     webcasting
     webcasts
+    WebCatalog
+    WebCore
+    WebDAV
+    Webex
+    WebGPU
     webinar
     webinars
     webisode
     webisodes
+    WebKit
+    WebLogic
+    WebM
     webmaster
     webmasters
     webmistress
     webmistresses
+    WebP
+    webpack
+    WebRTC
     webs
     website
     websites
+    WebSocket
+    WebStorm
+    WeChat
     wed
     wedded
     wedding
@@ -59794,6 +62059,7 @@ enum EnglishLexiconData {
     wedlock
     Wednesday
     Wednesdays
+    Wedos
     weds
     wee
     weed
@@ -59878,6 +62144,7 @@ enum EnglishLexiconData {
     well
     welled
     welling
+    WellPoint
     wells
     wellspring
     wellsprings
@@ -59908,6 +62175,8 @@ enum EnglishLexiconData {
     were
     werewolf
     werewolves
+    Werkzeug
+    Wesfarmers
     west
     westbound
     westerlies
@@ -59921,6 +62190,7 @@ enum EnglishLexiconData {
     westernizing
     westernmost
     westerns
+    WestRock
     westward
     westwards
     wet
@@ -59936,6 +62206,9 @@ enum EnglishLexiconData {
     wetter
     wettest
     wetting
+    Weyerhaeuser
+    WezTerm
+    wget
     whack
     whacked
     whacking
@@ -59956,10 +62229,12 @@ enum EnglishLexiconData {
     wharf
     wharves
     what
+    whatcha
     whatchamacallit
     whatchamacallits
     whatever
     whatnot
+    WhatsApp
     whatsoever
     wheal
     wheals
@@ -60147,6 +62422,7 @@ enum EnglishLexiconData {
     whizzing
     who
     whoa
+    whoami
     whodunit
     whodunits
     whoever
@@ -60214,6 +62490,8 @@ enum EnglishLexiconData {
     widescreens
     widespread
     widest
+    Widevine
+    Widget
     widow
     widowed
     widower
@@ -60254,9 +62532,12 @@ enum EnglishLexiconData {
     wigwags
     wigwam
     wigwams
+    Wii
     wiki
+    Wikipedia
     wikis
     wild
+    Wildberries
     wildcat
     wildcats
     wildcatted
@@ -60381,6 +62662,7 @@ enum EnglishLexiconData {
     winged
     winger
     wingers
+    WinGet
     winging
     wingless
     wingnut
@@ -60397,6 +62679,8 @@ enum EnglishLexiconData {
     winked
     winking
     winks
+    WinMerge
+    WinNAS
     winner
     winners
     winning
@@ -60408,10 +62692,12 @@ enum EnglishLexiconData {
     wino
     winos
     wins
+    WinSCP
     winsome
     winsomely
     winsomer
     winsomest
+    winsw
     winter
     wintered
     wintergreen
@@ -60433,9 +62719,12 @@ enum EnglishLexiconData {
     wiping
     wire
     wired
+    WireGuard
     wireless
     wirelesses
+    Wiremock
     wires
+    Wireshark
     wiretap
     wiretapped
     wiretapping
@@ -60459,6 +62748,7 @@ enum EnglishLexiconData {
     wiser
     wises
     wisest
+    WiseTech
     wish
     wishbone
     wishbones
@@ -60479,6 +62769,7 @@ enum EnglishLexiconData {
     wistful
     wistfully
     wistfulness
+    Wistron
     wit
     witch
     witchcraft
@@ -60525,10 +62816,16 @@ enum EnglishLexiconData {
     wittingly
     witty
     wives
+    Wix
     wizard
     wizardry
     wizards
     wizened
+    wkhtmltopdf
+    WLAN
+    wlroots
+    WLTW
+    WMV
     wobble
     wobbled
     wobbles
@@ -60584,6 +62881,7 @@ enum EnglishLexiconData {
     womenfolks
     won
     wonder
+    WonderCV
     wondered
     wonderful
     wonderfully
@@ -60664,6 +62962,7 @@ enum EnglishLexiconData {
     woolliness
     woolly
     wools
+    Woolworths
     woos
     woozier
     wooziest
@@ -60676,7 +62975,9 @@ enum EnglishLexiconData {
     wordiness
     wording
     wordings
+    Wordle
     wordplay
+    WordPress
     words
     wordy
     wore
@@ -60697,6 +62998,7 @@ enum EnglishLexiconData {
     workfare
     workflow
     workflows
+    WorkFlowy
     workforce
     workforces
     workhorse
@@ -60722,11 +63024,13 @@ enum EnglishLexiconData {
     worksheets
     workshop
     workshops
+    Workspace
     workstation
     workstations
     workweek
     workweeks
     world
+    Worldcoin
     worldlier
     worldliest
     worldliness
@@ -60790,6 +63094,7 @@ enum EnglishLexiconData {
     wowed
     wowing
     wows
+    WPS
     wrack
     wracks
     wraith
@@ -60884,6 +63189,7 @@ enum EnglishLexiconData {
     write
     writer
     writers
+    Writerside
     writes
     writhe
     writhed
@@ -60893,6 +63199,7 @@ enum EnglishLexiconData {
     writings
     writs
     written
+    wrlinux
     wrong
     wrongdoer
     wrongdoers
@@ -60920,16 +63227,52 @@ enum EnglishLexiconData {
     wryest
     wryly
     wryness
+    WSL
+    WTF
+    Wunderlist
     wuss
     wusses
+    WWDC
+    WWI
+    WWII
+    WWIII
+    WYNN
+    WYSIWYG
+    Xbox
     Xcode
+    xcodebuild
+    XD
+    Xee
     xenon
     xenophobia
     xenophobic
+    Xeon
     xerographic
     xerography
+    Xerox
+    xfce
+    xfonts
+    xfwm
+    XHTML
+    Xiaohongshu
+    Xiaomi
+    Xilinx
+    XING
+    xinit
+    XLNX
     Xmas
     Xmases
+    Xmind
+    XML
+    Xnip
+    Xperia
+    XRAY
+    xScope
+    Xshell
+    Xstrata
+    XtraFinder
+    Xubuntu
+    Xware
     xylem
     xylophone
     xylophones
@@ -60948,11 +63291,16 @@ enum EnglishLexiconData {
     yakking
     yaks
     yam
+    Yamaha
+    YAML
+    yamlfmt
+    yamllint
     yammer
     yammered
     yammering
     yammers
     yams
+    Yandex
     yank
     yanked
     Yankee
@@ -60975,6 +63323,7 @@ enum EnglishLexiconData {
     yarmulkes
     yarn
     yarns
+    Yassir
     yaw
     yawed
     yawing
@@ -61042,6 +63391,7 @@ enum EnglishLexiconData {
     yeti
     yew
     yews
+    Yext
     Yiddish
     yield
     yielded
@@ -61076,6 +63426,7 @@ enum EnglishLexiconData {
     yonder
     yore
     you
+    YoudaoBot
     young
     younger
     youngest
@@ -61091,6 +63442,8 @@ enum EnglishLexiconData {
     youthfully
     youthfulness
     youths
+    YouTube
+    YouTuber
     yowl
     yowled
     yowling
@@ -61117,18 +63470,24 @@ enum EnglishLexiconData {
     yuppie
     yuppies
     yups
+    Zabbix
+    Zalando
     zanier
     zanies
     zaniest
     zaniness
     zany
     zap
+    Zapier
     zapped
     zapper
     zappers
     zapping
     zaps
+    Zaraz
+    ZBRA
     zeal
+    ZEALER
     zealot
     zealots
     zealous
@@ -61140,21 +63499,31 @@ enum EnglishLexiconData {
     zebus
     zed
     zeds
+    Zellij
+    Zendesk
     zenith
     zeniths
+    Zenoss
+    ZenServer
+    Zensical
     zephyr
     zephyrs
     zeppelin
     zeppelins
     zero
+    Zerodha
     zeroed
     zeroing
+    ZeroMQ
     zeros
     zest
     zestful
     zestfully
     zests
     zeta
+    Zettlr
+    Zhihu
+    Ziggo
     zigzag
     zigzagged
     zigzagging
@@ -61162,6 +63531,7 @@ enum EnglishLexiconData {
     zilch
     zillion
     zillions
+    Zillow
     zinc
     zincked
     zincking
@@ -61174,7 +63544,9 @@ enum EnglishLexiconData {
     zings
     zinnia
     zinnias
+    ZION
     zip
+    Zipkin
     zipped
     zipper
     zippered
@@ -61183,6 +63555,7 @@ enum EnglishLexiconData {
     zippier
     zippiest
     zipping
+    Zippo
     zippy
     zips
     zircon
@@ -61192,9 +63565,12 @@ enum EnglishLexiconData {
     zither
     zithers
     zits
+    zkSync
     zodiac
     zodiacal
     zodiacs
+    Zoetis
+    Zoho
     zombie
     zombies
     zonal
@@ -61204,6 +63580,7 @@ enum EnglishLexiconData {
     zoning
     zonked
     zoo
+    ZooKeeper
     zoological
     zoologist
     zoologists
@@ -61213,11 +63590,20 @@ enum EnglishLexiconData {
     zooming
     zooms
     zoos
+    Zope
+    Zotero
+    zoxide
+    Zscaler
+    Zsh
     zucchini
     zucchinis
+    Zuora
+    Zuul
     zwieback
     zygote
     zygotes
+    Zypper
+    ZZZ
     """.split(separator: "\n").map(String.init)
     static let completionScores: [String: Int] = [
         "a": 85,

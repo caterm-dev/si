@@ -2,6 +2,34 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Three English technology sources — 2026-10-20
+
+The user authorized adding CSpell software tools, CSpell companies, and Rime Ice's `en_ext` English extension together. Their pinned snapshots and package/source-specific MIT/GPLv3 notices now feed the existing offline generator and shared English Trie. See [source versions, selection and license review](ENGLISH_VOCABULARY.md#technology-sources-and-selection). The accepted source sizes are 572, 718 and 1,447 respectively. They add 2,386 unique spellings, bringing the merged vocabulary from 61,216 to 63,602. A complete comparison with the previous merged table found no change to the casing or completion score of any pre-existing word. New-source completions score 75, and an explicit durable override converts upstream `GMail` to `Gmail`.
+
+The maintenance-only `cspell` adapter handles whitespace-delimited inline annotations while rejecting unsupported complete rows, including compound markers, punctuation, numbers, spaces and non-comment tab fields. Existing plain-word-list and Rime semantics are preserved. Rime imports still require matching output/code spelling and discard shortcut expansions/weights. The six registered English sources are covered by the existing upstream audit workflow without a new runtime dependency or timer.
+
+Validation:
+
+- `python3 -m unittest discover -s Tests/VocabularyTests -v`: 27 tests passed, including annotated imports, unsupported spelling preservation, pinned settings, durable casing overrides, checksums and failure preservation.
+- `./scripts/test.sh`: 193 methods passed (138 core, 12 storage, 18 settings and 25 presentation). New cases cover exact/canonical/uppercase technology words from all three sources, `gm` completion, mixed `nihaogmail`, literal retention, disabled English and ordinary lowercase words. Full word/prefix Trie checks use the expanded vocabulary. The old unknown fixture `QwErTy` now contains lexical `QWERT`; the privacy fixture uses a genuinely unknown synthetic span and additionally checks an unknown tail after `Gmail`, including rejection of learning/context.
+- Both English and Chinese offline `build --check` commands passed. Real HTTPS pinned refreshes of all three new sources reproduced merged word checksum `ce8cae1ea9660b4d42dfd297886a3aa98fea674ca8a13232289a3d707bfeb14b` and the same 63,602 words. Strict CSpell re-parsing also reproduces the checked-in snapshots.
+- Debug and Release app builds passed with only the existing skipped AppIntents metadata warning. Each built bundle's English notice resource exactly matches the generated source. Local documentation links and whitespace checks passed.
+
+Release before/after measurements use the same twenty synthetic cases, 5,000 aggregate preferences, 1,000 personal phrases, 10 search warmups and 200 search iterations. The baseline report began at `2026-10-20T03:20:45Z`; the expanded run began at `2026-10-20T03:26:42Z`, after builds/tests finished. Reports are retained locally at `.build/english-trie/tech-before.json` and `.build/tech-vocabulary/after.json`.
+
+| Scenario | Before median (ms) | Expanded median (ms) | Expanded p95 (ms) |
+| --- | ---: | ---: | ---: |
+| English broad prefix | 0.932 | 0.984 | 1.025 |
+| English prefix | 0.112 | 0.113 | 0.122 |
+| English exact | 0.084 | 0.084 | 0.091 |
+| mixed | 5.882 | 6.062 | 6.177 |
+| dense known composition | 14.567 | 15.532 | 16.134 |
+| dense prefix with unknown tail | 104.075 | 100.371 | 106.334 |
+
+The broad-prefix engine case grows from 3,443 to 3,620 candidates; other counts/segmentations and some fingerprints also change with new words. Within the expanded run, synchronous/deferred final fingerprints match. These single-run comparisons do not claim a speed improvement or establish real-host latency. Initial default-engine preparation was 411.592 → 417.166 ms. CLI maximum RSS was 236,994,560 → 237,092,864 bytes, with peak footprints 229,999,240 → 230,081,160 bytes; these are process totals, not isolated index allocations or app memory.
+
+No installation, input-source change, host-app operation, commit or push was performed for this vocabulary addition. Native typing, focus/shortcuts, candidate paging and accessibility remain unverified; the added manual cases in [TESTING.md](TESTING.md) are still required before release. The original input remains independently available, including unsupported source forms; newly recognized abbreviations can change bounded mixed decoding without establishing production coverage or statistical ranking.
+
 ## Combined responsiveness validation — 2026-10-20
 
 The complete checkout includes the English Trie, bounded continuation selection, deferred/coalesced client-local requests, stable pending candidate panels, Release-default installation, and their regressions. `./scripts/test.sh` passed all 192 methods (137 core, 12 storage, 18 settings and 25 presentation). Debug and Release app builds passed with only the existing skipped AppIntents metadata warning. Installer shell syntax, local documentation links and whitespace checks passed. No installation or native host-app operation was performed; the manual compatibility and accessibility checks remain outstanding.

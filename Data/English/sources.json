@@ -20,6 +20,63 @@
       "completion_score": 75
     },
     {
+      "id": "cspell-companies",
+      "priority": 1,
+      "path": "Data/English/sources/cspell-companies.txt",
+      "license_file": "Data/English/licenses/CSpellCompanies-MIT.txt",
+      "license_id": "MIT",
+      "origin": "https://github.com/streetsidesoftware/cspell-dicts/blob/main/dictionaries/companies/src/companies.txt",
+      "upstream": {
+        "repository": "streetsidesoftware/cspell-dicts",
+        "ref": "main",
+        "format": "cspell",
+        "path": "dictionaries/companies/src/companies.txt",
+        "license_path": "dictionaries/companies/LICENSE",
+        "minimum_words": 500,
+        "maximum_words": 3000,
+        "minimum_length": 2
+      },
+      "completion_score": 75
+    },
+    {
+      "id": "cspell-tools",
+      "priority": 2,
+      "path": "Data/English/sources/cspell-tools.txt",
+      "license_file": "Data/English/licenses/CSpellSoftwareTerms-MIT.txt",
+      "license_id": "MIT",
+      "origin": "https://github.com/streetsidesoftware/cspell-dicts/blob/main/dictionaries/software-terms/src/software-tools.txt",
+      "upstream": {
+        "repository": "streetsidesoftware/cspell-dicts",
+        "ref": "main",
+        "format": "cspell",
+        "path": "dictionaries/software-terms/src/software-tools.txt",
+        "license_path": "dictionaries/software-terms/LICENSE",
+        "minimum_words": 400,
+        "maximum_words": 2000,
+        "minimum_length": 2
+      },
+      "completion_score": 75
+    },
+    {
+      "id": "rime-ice-english",
+      "priority": 3,
+      "path": "Data/English/sources/rime-ice-english.txt",
+      "license_file": "Data/English/licenses/RimeIce-GPL-3.0.txt",
+      "license_id": "GPL-3.0-only (as declared by Rime Ice)",
+      "origin": "https://github.com/iDvel/rime-ice/blob/main/en_dicts/en_ext.dict.yaml",
+      "upstream": {
+        "repository": "iDvel/rime-ice",
+        "ref": "main",
+        "format": "rime",
+        "path": "en_dicts/en_ext.dict.yaml",
+        "license_path": "LICENSE",
+        "minimum_words": 1000,
+        "maximum_words": 4000,
+        "minimum_length": 2
+      },
+      "completion_score": 75
+    },
+    {
       "id": "si-original",
       "priority": 100,
       "path": "Data/English/sources/si-original.txt",

@@ -1,13 +1,16 @@
 {
   "inactive_overrides": [],
-  "inputs_sha256": "c9aabf91ea3f0ee3219b7b0a499d905f6c3e35cede0965cb2a081b8d7923a952",
-  "merged_words": 61216,
-  "overlapping_spellings": 616,
+  "inputs_sha256": "425bdb5618fb3e5d3d367fb1e38ea0f07eb5f3afb16b4a01cf9c67204f4c0a83",
+  "merged_words": 63602,
+  "overlapping_spellings": 940,
   "schema_version": 1,
   "source_words": {
+    "cspell-companies": 718,
+    "cspell-tools": 572,
+    "rime-ice-english": 1447,
     "scowl": 61172,
     "si-original": 638,
     "si-terms": 22
   },
-  "words_sha256": "23fc9809b49724376e960fa879664eedc67528b798bc392bb5d5cb25750b4a37"
+  "words_sha256": "ce8cae1ea9660b4d42dfd297886a3aa98fea674ca8a13232289a3d707bfeb14b"
 }

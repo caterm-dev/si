@@ -95,7 +95,7 @@ def configuration(root, pending=None, refreshing=None, data_dir=DATA):
             raise VocabularyError(sid + ": empty license")
         if "upstream" in source:
             upstream = source["upstream"]
-            if upstream["format"] not in ("scowl", "wordlist", "rime", "rime-pinyin"):
+            if upstream["format"] not in ("scowl", "wordlist", "cspell", "rime", "rime-pinyin"):
                 raise VocabularyError(sid + ": unsupported importer")
             if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", upstream["repository"]):
                 raise VocabularyError(sid + ": invalid GitHub repository")
@@ -277,12 +277,19 @@ def import_words(data, kind, minimum_length=2):
         if "\n...\n" not in text:
             raise VocabularyError("Rime source lacks a dictionary header terminator")
         text = text.split("\n...\n", 1)[1]
-    elif kind != "wordlist":
+    elif kind not in ("wordlist", "cspell"):
         raise VocabularyError("Unsupported text importer: " + kind)
+    inline_comments = 0
     for line in text.splitlines():
+        if kind == "cspell":
+            # Only whitespace-delimited annotations are comments. C#, foo#bar and
+            # compound/suggestion syntax remain unsupported rather than rewritten.
+            parts = re.split(r"\s+#", line, maxsplit=1)
+            line = parts[0].strip()
+            inline_comments += len(parts) - 1
         if not line or line.startswith("#"):
             continue
-        columns = line.split("\t")
+        columns = [line] if kind == "cspell" else line.split("\t")
         word = columns[0]
         if kind == "rime" and len(columns) >= 2 and columns[1].lower() != word.lower():
             skipped += 1
@@ -298,9 +305,12 @@ def import_words(data, kind, minimum_length=2):
         words[key] = word
     if not words:
         raise VocabularyError("Importer produced no supported words")
-    return ("\n".join(words[key] for key in sorted(words)) + "\n").encode(), {
+    filtering = {
         "unsupported_rows": skipped, "collapsed_case_variants": collapsed,
     }
+    if kind == "cspell":
+        filtering["inline_comments_removed"] = inline_comments
+    return ("\n".join(words[key] for key in sorted(words)) + "\n").encode(), filtering
 
 
 def scowl_export(archive, size, expected_license=None, accept_license_change=False):

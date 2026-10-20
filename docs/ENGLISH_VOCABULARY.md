@@ -4,17 +4,47 @@ SI maintains English source files separately and queries one generated vocabular
 
 ## Current sources
 
-| Source | Purpose | Initial words | Completion score |
+| Source | Purpose | Pinned words | Completion score |
 | --- | --- | ---: | ---: |
 | `scowl` | ESDB/SCOWL medium-size American English selection | 61,172 | 75 |
 | `si-original` | All words from SI's original English vocabulary | 638 | 85 |
 | `si-terms` | SI-maintained terminology and explicit coverage additions | 22 | 85 |
+| `cspell-tools` | CSpell software tools, products and services | 572 | 75 |
+| `cspell-companies` | CSpell company and organization names | 718 | 75 |
+| `rime-ice-english` | Rime Ice English extension names and abbreviations | 1,447 | 75 |
 
-The initial merged result contains **61,216** case-insensitively unique words, including `subtitle` and `subtitles`. These are word forms, not headwords or a measured coverage score. Run `./scripts/vocabulary.sh stats` for current counts. Importing more words does not establish production ranking, correction, or host compatibility.
+The merged result contains **63,602** case-insensitively unique words, including `subtitle`, `Gmail`, `GitHub`, `OpenAI`, `ChatGPT`, and `WeChat`. The three technology sources add 2,386 unique spellings to the earlier 61,216-word vocabulary. These are word forms, not headwords or a measured coverage score. Run `./scripts/vocabulary.sh stats` for current counts. Importing more words does not establish production ranking, correction, or host compatibility.
 
 The initial SCOWL commit is `1e5b7d3a72f47a71da5d28686c1dd4b397178485`. The export selects size 50, American spelling `A`, variant level 1, the default category and POS class, and excludes abbreviations. SCOWL's POS classifications are incomplete, so this selection can still contain proper names and uncommon words. Only ASCII alphabetic forms of 2–64 letters are imported. Apostrophes, spaces, hyphens, accents, numbers, and standalone letter names are filtered rather than rewritten. SI's original `a` and `I` remain available. No diacritics are stripped and no text is silently transliterated.
 
 `si-original` and `si-terms` are original SI data under GPLv3. The full upstream SCOWL copyright notice is retained in [the license directory](../Data/English/licenses/SCOWL.txt). SCOWL explicitly permits use, modification and redistribution of generated word lists while preserving its notices. Keep those permissive notices alongside SI's GPLv3 distribution. The generated app resource `EnglishVocabularyNotices.txt` contains the applicable source notices and pinned revisions. No installed system dictionary is copied.
+
+## Technology sources and selection
+
+CSpell is pinned to `5f051955183427037faba538a3e102a94951d003`; Rime Ice English is pinned independently to `da1fbe602e38f26db846fa10120ee64c2b0324c0`:
+
+- [CSpell software tools](https://github.com/streetsidesoftware/cspell-dicts/blob/5f051955183427037faba538a3e102a94951d003/dictionaries/software-terms/src/software-tools.txt) supplies products, tools and services, including upstream `GMail`.
+- [CSpell companies](https://github.com/streetsidesoftware/cspell-dicts/blob/5f051955183427037faba538a3e102a94951d003/dictionaries/companies/src/companies.txt) supplies company and organization names. It also contains non-technology names and stock symbols; accepted entries are not a curated list of popular technology products.
+- [Rime Ice English extension](https://github.com/iDvel/rime-ice/blob/da1fbe602e38f26db846fa10120ee64c2b0324c0/en_dicts/en_ext.dict.yaml) supplies names and abbreviations from `en_ext`. The pinned README describes this as its maintained internet/abbreviation extension and declares GPL-3.0-only. This import uses that extension file, with its explicit output/code pairs, rather than Rime's other English dictionaries.
+
+CSpell package-specific MIT notices are retained in [CSpellSoftwareTerms-MIT.txt](../Data/English/licenses/CSpellSoftwareTerms-MIT.txt) and [CSpellCompanies-MIT.txt](../Data/English/licenses/CSpellCompanies-MIT.txt). The Rime Ice GPLv3 notice is retained in [RimeIce-GPL-3.0.txt](../Data/English/licenses/RimeIce-GPL-3.0.txt). Their copyright/license texts are included in the generated app notices. These data files are processed during maintenance; no CSpell or Rime runtime dependency is added.
+
+All three imports retain only ASCII alphabetic spellings of 2–64 letters. CSpell's `cspell` adapter removes whitespace-delimited inline comments, including tab-before-comment annotations; other tabs, compound markers, numbers, punctuation, spaces and accented forms are rejected as complete rows. For example, `C#` is rejected rather than reduced to `C`. Rime rows must have matching word/code spellings, ignoring case; shortcut expansions, multiword outputs and upstream weights are excluded. Filtering and case-collapse counts are recorded in the lock. Multiword company names are not split into unrelated tokens, and unsupported forms remain available as exact literal input where composition permits them.
+
+Source priority chooses casing and completion score for duplicates: `cspell-companies` (1), `cspell-tools` (2), `rime-ice-english` (3), SCOWL (10), SI original (100), SI terminology (200), then explicit overrides. All 61,216 pre-existing spellings retain their prior casing and completion score at this import. This preserves ordinary `may`, `can` and `will` while adding previously absent names. The durable `gmail` override changes upstream `GMail` to `Gmail`. Contributions from every source remain traceable with `explain`.
+
+All new completions score 75; exact matches use the existing 110 score. These lists provide spellings, not measured input-method frequencies. Added words and abbreviations can change mixed segmentation, ranking and bounded unknown-span choices. For example, `QWERT` becomes a known prefix; privacy fixtures therefore use a synthetic span without that lexical prefix and check unknown text after a known product. Any generated path still containing an unrecognized span remains excluded from learning/context, and the complete exact input remains independently available.
+
+The existing monthly upstream audit includes these registered sources automatically. Reproduce the pinned imports with:
+
+```sh
+./scripts/vocabulary.sh refresh cspell-tools
+./scripts/vocabulary.sh refresh cspell-companies
+./scripts/vocabulary.sh refresh rime-ice-english
+./scripts/vocabulary.sh explain gmail
+```
+
+Use the existing review/refresh workflow for updates; source-specific license changes still stop an unapproved refresh. The English Rime pin is independent of the Chinese sources so updates can be reviewed separately.
 
 ## Files and offline generation
 
@@ -90,6 +120,6 @@ After refreshing, review the snapshot, lock, notices, merged table and summary t
 
 For another authored list, add its word file and license notice, then register a distinct ID and priority in `sources.json`. Keep the existing IDs stable for provenance. `completion_score` must be between 0 and 85.
 
-For a reviewed external source, the importer also supports GitHub-hosted plain word lists (`format: wordlist`) and English Rime dictionaries (`format: rime`). Add an `upstream` object with `repository`, `ref`, `format`, `path`, `license_path`, `minimum_words`, `maximum_words`, and optional `minimum_length` (default 2). A Rime import reads the table after the header terminator; explicit codes must match the English word case-insensitively. Chinese entries, shortcut expansions and unsupported spellings are excluded. The source-specific license and its upstream data origins must be reviewed; a repository-wide license alone may not cover every constituent dataset.
+For a reviewed external source, the importer also supports GitHub-hosted plain word lists (`format: wordlist`), annotated CSpell source lists (`format: cspell`), and English Rime dictionaries (`format: rime`). Add an `upstream` object with `repository`, `ref`, `format`, `path`, `license_path`, `minimum_words`, `maximum_words`, and optional `minimum_length` (default 2). A Rime import reads the table after the header terminator; explicit codes must match the English word case-insensitively. Chinese entries, shortcut expansions and unsupported spellings are excluded. The source-specific license and its upstream data origins must be reviewed; a repository-wide license alone may not cover every constituent dataset.
 
 After registering a new remote source, inspect its data and license at the intended revision, then initialize its snapshot, notice and lock entry with `./scripts/vocabulary.sh refresh SOURCE_ID --revision FULL_40_CHARACTER_COMMIT_SHA --accept-license-change`. First imports require explicit license acceptance; a source with no snapshot cannot pass offline validation until initialized. Subsequent imports use `refresh`. No tool guesses licenses or automatically adopts new sources. Follow [CONTRIBUTING.md](../CONTRIBUTING.md) when proposing another third-party dataset.
