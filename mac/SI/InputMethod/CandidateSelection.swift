@@ -24,8 +24,11 @@ struct CandidateSelection {
         return start..<min(start + visiblePageSize, candidates.count)
     }
 
-    static func action(keyCode: UInt16, characters: String?, pageSize: Int = Self.pageSize) -> Action? {
+    static func action(keyCode: UInt16, characters: String?, pageSize: Int = Self.pageSize,
+                       isExpanded: Bool = false) -> Action? {
         switch keyCode {
+        case 123: return isExpanded ? .move(-pageSize) : nil
+        case 124: return isExpanded ? .move(pageSize) : nil
         case 125: return .move(1)
         case 126: return .move(-1)
         case 116: return .move(-pageSize)

@@ -125,6 +125,50 @@ struct CandidateSelectionTests {
         #expect(selection.candidate(number: 10) == nil)
     }
 
+    @Test func horizontalArrowsPageOnlyWhileExpanded() throws {
+        var selection = CandidateSelection()
+        let values = candidates(22)
+        selection.update(values)
+        func action(_ keyCode: UInt16) -> CandidateSelection.Action? {
+            CandidateSelection.action(keyCode: keyCode, characters: nil,
+                                      pageSize: selection.visiblePageSize, isExpanded: selection.isExpanded)
+        }
+        #expect(action(123) == nil)
+        #expect(action(124) == nil)
+        selection.setExpanded(true)
+        #expect(action(123) == .move(-9))
+        #expect(action(124) == .move(9))
+
+        func press(_ keyCode: UInt16) throws {
+            let navigation = try #require(action(keyCode))
+            guard case .move(let distance) = navigation else {
+                Issue.record("Expected candidate navigation")
+                return
+            }
+            selection.move(by: distance)
+        }
+        try press(123)
+        #expect(selection.selected == values[0])
+        try press(124)
+        #expect(selection.page == 1 && selection.visibleRange == 9..<18)
+        #expect(selection.selected == selection.candidate(number: 1))
+        #expect(selection.candidate(number: 2) == values[10])
+        try press(124)
+        #expect(selection.page == 2 && selection.visibleRange == 18..<22)
+        #expect(selection.candidate(number: 4) == values[21])
+        #expect(selection.candidate(number: 5) == nil)
+        try press(123)
+        #expect(selection.page == 1 && selection.selected == values[9])
+        selection.move(by: 100)
+        try press(124)
+        #expect(selection.selected == values.last)
+
+        let chosen = selection.selected
+        selection.setExpanded(false)
+        #expect(action(123) == nil && action(124) == nil)
+        #expect(selection.selected == chosen)
+    }
+
     @Test(arguments: [false, true])
     func largeResultSetsKeepLanguageIdentitiesFeaturedPrefixesAndExactLiteral(expanded: Bool) throws {
         let whole = candidates(900)

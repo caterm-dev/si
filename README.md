@@ -149,7 +149,7 @@ Each new release increments the last version component (`0.1.0` → `0.1.1`) and
 | Apostrophe | Separate Pinyin syllables, e.g. `ni'hao` |
 | Space | Commit the selected candidate; append a space for English, English-ending mixed candidates, or literal input |
 | Return / Enter | Commit the original text without adding a newline |
-| Left / Right | Move the composition caret by a whole character |
+| Left / Right | Page through expanded candidates; move the composition caret by a whole character when collapsed |
 | Home / End | Move to the start/end of the composition |
 | Up / Down, Page Up / Page Down | Navigate SI's candidate window |
 | 1–9 | Select candidates on the current numbered page |
@@ -161,7 +161,7 @@ Each new release increments the last version component (`0.1.0` → `0.1.1`) and
 
 Outside composition, control keys and punctuation pass through. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to five numbered choices. Short candidates such as `a` remain visible beside their numbers. Click the chevron to expand to a vertical list of up to nine choices per page, or collapse again. Expansion keeps the current selection and lasts until the composition ends; the next composition starts collapsed. The same shortlist is used in both layouts: at most six compact pages or three expanded pages, including each matching language identity and the exact original input.
 
-Number shortcuts select the currently visible candidates (1–5 in the single line, 1–9 when expanded), including after paging. Up/Down changes the highlighted choice, Page Up/Page Down moves by the current layout's page size, and Space confirms the highlighted candidate. Expanded pages also have previous/next buttons. Mouse-wheel and trackpad scrolling do not change pages or selection. Left/Right edits the composition caret.
+Number shortcuts select the currently visible candidates (1–5 in the single line, 1–9 when expanded), including after paging. Up/Down changes the highlighted choice, Page Up/Page Down moves by the current layout's page size, and Space confirms the highlighted candidate. When expanded, Left/Right also moves to the previous/next page using the same selection behavior as Page Up/Page Down; previous/next buttons remain available. Mouse-wheel and trackpad scrolling do not change pages or selection. Collapse the list to edit the composition caret with Left/Right; Home/End remain available in either layout.
 
 Ordinary typing updates marked spelling before searching candidates off the main thread. A separate bounded search supplies provisional hints for the latest spelling while the full search runs, so an obsolete full search does not hold up every update. Both stages use the same decoder and maintain one running request plus one latest replacement per client. Provisional hints have narrower lexical coverage and may change when full results arrive; they do not replace the final candidate set. Only matching composition revisions may update the window. Pending hints refresh the rows without hiding the panel or shrinking its current size; mouse, page and expansion controls remain disabled until full results arrive. Space, digits, candidate navigation, and optional punctuation confirmation resolve full current candidates before selecting; these confirmation boundaries can still wait for a search. Return, Escape, and shortcuts preserve/cancel spelling without waiting.
 

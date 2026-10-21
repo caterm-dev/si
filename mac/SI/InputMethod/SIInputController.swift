@@ -59,7 +59,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
         if !session.buffer.isEmpty,
            let action = CandidateSelection.action(keyCode: event.keyCode, characters: event.characters,
-                                                  pageSize: selection.visiblePageSize) {
+                                                  pageSize: selection.visiblePageSize, isExpanded: selection.isExpanded) {
             resolveCandidates(to: client)
             switch action {
             case .move(let distance): moveCandidateSelection(by: distance, to: client)
