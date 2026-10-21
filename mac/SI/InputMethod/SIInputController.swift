@@ -205,7 +205,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func presentCandidates(to client: any IMKTextInput) {
         let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
-        let caret = candidateAnchor.resolve(cursorUTF16Offset: session.cursorUTF16Offset, screens: screens) { index in
+        let caret = candidateAnchor.resolve(cursorUTF16Offset: session.cursorUTF16Offset, markedRange: client.markedRange(),
+                                             screens: screens, queryRange: { range in
+            client.firstRect(forCharacterRange: range, actualRange: nil)
+        }) { index in
             var rect = NSRect.zero
             // The SDK specifies inline-session-relative UTF-16 indexes, not document offsets.
             _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
