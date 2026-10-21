@@ -54,7 +54,7 @@ struct EnglishVocabularyTests {
                 let exact = word.lowercased() == key
                 return InputCandidate(text: text, language: .english,
                                       score: Int(referenceScore(word, input: input)), rankingScore: referenceScore(word, input: input),
-                                      hasCompletion: !exact)
+                                      hasCompletion: !exact, lexicalTokenCount: 1)
             } : []
             let actual = provider.candidates(for: input)
             #expect(actual.map(\.id) == expected.map(\.id))

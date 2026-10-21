@@ -38,15 +38,31 @@ struct CandidateSelection {
     }
 
     mutating func update(_ candidates: [InputCandidate], prefixScore: ((InputCandidate) -> Double)? = nil) {
-        // Feature two complete choices, then useful word/character prefixes before shortlisting.
         let whole = candidates.indices.filter { !candidates[$0].isPartial && !candidates[$0].isLiteral }.prefix(2)
         let partialIndices = candidates.indices.filter { candidates[$0].isPartial }
         let scored: [(index: Int, score: Double)] = partialIndices.map {
             (index: $0, score: prefixScore?(candidates[$0]) ?? candidates[$0].rankingScore)
         }
-        let prefixes = scored.sorted {
+        let rankedPrefixes = scored.sorted {
             $0.score == $1.score ? $0.index < $1.index : $0.score > $1.score
-        }.prefix(7).map { $0.index }
+        }.map { $0.index }
+        let lexical = rankedPrefixes.filter { candidates[$0].isLexicalPrefix }
+        if let first = whole.first, (candidates[first].lexicalTokenCount ?? 0) > 1, !lexical.isEmpty {
+            // A sentence fallback should help choose the next word, not fill later pages with more sentences.
+            let characters = lexical.filter { candidates[$0].language == .simplifiedChinese && candidates[$0].text.count == 1 }
+            let characterIndices = Set(characters)
+            let words = lexical.filter { !characterIndices.contains($0) }
+            let featured = Array(whole) + words + characters
+            let featuredIndices = Set(featured)
+            let required = Self.protectedIDs(candidates)
+            let fallbacks = candidates.indices.filter { !featuredIndices.contains($0) && required.contains(candidates[$0].id) }
+            let ordered = (featured + fallbacks).map { candidates[$0] }
+            self.candidates = Self.shortlist(ordered, engineCandidates: candidates)
+            selectedIndex = 0
+            return
+        }
+        // Single words and unknown provider results retain the ordinary ranked shortlist.
+        let prefixes = Array(rankedPrefixes.prefix(7))
         let featured = Array(whole) + prefixes
         let featuredIndices = Set(featured)
         let ordered = prefixes.isEmpty ? candidates
@@ -56,8 +72,7 @@ struct CandidateSelection {
         if candidates.isEmpty { isExpanded = false }
     }
 
-    private static func shortlist(_ ordered: [InputCandidate], engineCandidates: [InputCandidate]) -> [InputCandidate] {
-        guard ordered.count > maximumCandidates else { return ordered }
+    private static func protectedIDs(_ engineCandidates: [InputCandidate]) -> Set<String> {
         // Reserve a complete choice per language identity before considering prefix-only fallbacks.
         var languages: Set<InputLanguage> = []
         var includesMixed = false
@@ -74,6 +89,12 @@ struct CandidateSelection {
                 }
             }
         }
+        return retainedIDs
+    }
+
+    private static func shortlist(_ ordered: [InputCandidate], engineCandidates: [InputCandidate]) -> [InputCandidate] {
+        guard ordered.count > maximumCandidates else { return ordered }
+        var retainedIDs = protectedIDs(engineCandidates)
         for candidate in ordered {
             guard retainedIDs.count < maximumCandidates else { break }
             retainedIDs.insert(candidate.id)

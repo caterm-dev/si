@@ -14,7 +14,7 @@ public struct EnglishCandidateProvider: CandidateProvider {
             InputCandidate(text: entry.text(for: style), language: language,
                            score: Int(-entry.cost(typedLength: length) * LexicalLanguageModel.pointsPerBit),
                            rankingScore: -entry.cost(typedLength: length) * LexicalLanguageModel.pointsPerBit,
-                           hasCompletion: entry.length != length)
+                           hasCompletion: entry.length != length, lexicalTokenCount: 1)
         }
     }
 }

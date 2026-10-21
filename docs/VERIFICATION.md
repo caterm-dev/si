@@ -2,6 +2,14 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Sequential first-word selection — 2026-10-21
+
+Constructed sentence results now present two leading whole choices followed by exact first-word and Chinese single-character alternatives, without filling later pages with more sentence completions. Language/mixed/literal reservations remain available. Synthetic `biruzhege` offers `比如这个`, a second ranked whole, `比如`, then `比`, `必`, `毕`, `笔` and other first-character choices; the second expanded page contains character alternatives instead of repeated whole-sentence extensions. Selecting `比如` consumes exactly `biru` (or `bi'ru'`) and leaves `zhege` editable for `这个`.
+
+Transient lexical-node evidence distinguishes a single exact word/personal unit from a composed prefix or abbreviation-only match. Deduplication preserves that evidence while retaining the stronger derivation's score and identity. Prefix presentation retains up to 24 exact lexical alternatives per language/span alongside the two composed alternatives; continuation and terminal beams remain unchanged. Single-word and English-completion presentation keep the ordinary ranked shortlist. This changes selection organization, not grammatical scoring. Expanded prefix rows no longer display `First N`; tooltips and accessibility descriptions retain exact consumption information.
+
+All 249 Swift tests (175 core, 43 presentation, 19 settings, 12 storage), the Debug app build and whitespace checks passed. Offscreen AppKit renders of both actual candidate pages were inspected in light/dark appearances. Coverage includes both search stages, language/literal reachability, paging, exact sequential source commits, bounded lexical alternatives, learning/clear, and score-preserving lexical evidence. No installation, live host typing, VoiceOver or system preference change was performed.
+
 ## Unified statistical ranking — 2026-10-20
 
 The default English, Chinese and mixed providers now share additive negative log probabilities, with wordfreq 3.1.1 English frequencies, Chinese word/reading priors, finite spelling likelihood, language-transition calibration and vocabulary-derived Chinese character-boundary Witten–Bell backoff. Direct, composed and prefix scores use one bit scale. Explicit preferred personal codes retain categorical user priority; ordinary phrase paths use the shared cost scale. Existing aggregate learning caps, exclusions, retention and schema remain intact. See [equations, data, licensing and limits](UNIFIED_RANKING.md).

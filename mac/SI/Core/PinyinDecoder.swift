@@ -39,6 +39,7 @@ public struct PinyinDecoder: Sendable {
         let preferred: Bool
         let personal: Bool
         let verbatim: Bool
+        let abbreviated: Bool
         let completion: Bool
         let learnedSum: Double
         let consumedLetters: Int
@@ -234,7 +235,7 @@ public struct PinyinDecoder: Sendable {
         var prefixes = Array(repeating: [PresentationPath](), count: count + 1)
         var prefixRankings: [Int: LearningProfile.Ranking] = [:]
         paths[0] = [Path(text: "", englishText: "", cost: 0, languages: 0, lastLanguage: 0, segments: 0, lastToken: 0, contextID: 0,
-                         preferred: false, personal: false, verbatim: false, completion: false, learnedSum: 0, consumedLetters: 0,
+                         preferred: false, personal: false, verbatim: false, abbreviated: false, completion: false, learnedSum: 0, consumedLetters: 0,
                          supportsByteComparison: true, englishWordEnd: 0, splitsEnglishWord: false)]
         for start in 0..<count where !paths[start].isEmpty {
             var options = outgoing[start]
@@ -274,7 +275,8 @@ public struct PinyinDecoder: Sendable {
                                                languages: path.languages | edge.languages, lastLanguage: edge.languages,
                                                segments: path.segments + 1,
                                                lastToken: edge.token, contextID: contextID, preferred: path.segments == 0 && edge.preferred, personal: path.personal || edge.personal,
-                                               verbatim: path.verbatim || edge.verbatim, completion: path.completion || edge.completion,
+                                               verbatim: path.verbatim || edge.verbatim, abbreviated: path.abbreviated || edge.abbreviated,
+                                               completion: path.completion || edge.completion,
                                                learnedSum: path.learnedSum + edge.learningBonus * Double(edge.end - start),
                                                consumedLetters: edge.end,
                                                supportsByteComparison: path.supportsByteComparison && supportsBytes,
@@ -311,7 +313,7 @@ public struct PinyinDecoder: Sendable {
         for edge in outgoing[0] where edge.end == count && edge.languages == 1 {
             results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: Int(-edge.cost * LexicalLanguageModel.pointsPerBit),
                                           isUserPhrase: edge.personal, rankingScore: -edge.cost * LexicalLanguageModel.pointsPerBit, hasCompletion: edge.completion,
-                                          isPreferred: edge.preferred))
+                                          isPreferred: edge.preferred, lexicalTokenCount: edge.abbreviated ? nil : 1))
         }
         for path in paths[count] where eligible(path) {
             results.append(candidate(path))
@@ -326,12 +328,17 @@ public struct PinyinDecoder: Sendable {
         var best: [String: (candidate: InputCandidate, score: Double)] = [:]
         best.reserveCapacity(results.count)
         for result in results {
+            var result = result
             let spelling = result.consumedInputCount.map { String(input.prefix($0)) } ?? input
             let score = learning.rankingScore(for: result, input: spelling, now: now, context: context)
             if let previous = best[result.id],
                (previous.candidate.isPreferred && !result.isPreferred)
                 || (previous.candidate.isPreferred == result.isPreferred
-                    && (previous.score > score || (previous.score == score && !result.isUserPhrase))) { continue }
+                    && (previous.score > score || (previous.score == score && !result.isUserPhrase))) {
+                best[result.id]?.candidate.retainLexicalEvidence(from: result)
+                continue
+            }
+            if let previous = best[result.id] { result.retainLexicalEvidence(from: previous.candidate) }
             best[result.id] = (result, score)
         }
         return best.values.sorted {
@@ -469,7 +476,8 @@ public struct PinyinDecoder: Sendable {
                               score: Int(score), isMixed: path.languages == 3, isUserPhrase: path.personal,
                               hasLiteralSegments: path.verbatim, consumedInputCount: consumed, rankingScore: score,
                               hasCompletion: path.completion, tokenLearningBonus: path.segments > 1 ? path.learningBonus : 0,
-                              isPreferred: consumed == nil && path.segments == 1 && path.preferred)
+                              isPreferred: consumed == nil && path.segments == 1 && path.preferred,
+                              lexicalTokenCount: path.segments == 1 && path.abbreviated ? nil : path.segments)
     }
 
     private func baseScore(_ path: Path, consumed: Int?) -> Double {
@@ -544,9 +552,12 @@ public struct PinyinDecoder: Sendable {
     private func selectPrefixes(_ paths: [PresentationPath]) -> [PresentationPath] {
         var groups: [Int: [PresentationPath]] = [:]
         for value in paths {
-            let key = value.path.languages
+            // Keep a bounded set of first-word alternatives independently of composed prefixes.
+            let lexical = value.path.segments == 1 && !value.path.abbreviated
+            let key = value.path.languages | (lexical ? 4 : 0)
+            let limit = lexical ? 24 : 2
             var group = groups[key, default: []]
-            if group.count == 2, !presentationPrecedes(value, group[1], personalized: true) { continue }
+            if group.count == limit, !presentationPrecedes(value, group[limit - 1], personalized: true) { continue }
             if let duplicate = group.firstIndex(where: { Self.textEquals($0.path, value.path) }) {
                 guard presentationPrecedes(value, group[duplicate], personalized: true) else { continue }
                 group[duplicate] = value
@@ -554,11 +565,11 @@ public struct PinyinDecoder: Sendable {
             } else {
                 let position = group.firstIndex { presentationPrecedes(value, $0, personalized: true) } ?? group.count
                 group.insert(value, at: position)
-                if group.count > 2 { group.removeLast() }
+                if group.count > limit { group.removeLast() }
             }
             groups[key] = group
         }
-        return [1, 2, 3].flatMap { groups[$0, default: []] }
+        return [1, 2, 3, 5, 6, 7].flatMap { groups[$0, default: []] }
     }
 
     private func state(_ path: Path) -> Int {

@@ -49,7 +49,6 @@ final class CandidateRowButton: NSButton {
         candidateLabel.stringValue = candidate.text
         // The strip uses small source symbols; the expanded list retains descriptive hints.
         var details: [String] = []
-        if let count = candidate.consumedInputCount { details.append("First \(count)") }
         if candidate.isLiteral { details.append("As Typed") }
         else if candidate.isUserPhrase { details.append("Personal") }
         else if candidate.hasLiteralSegments { details.append("Typed text") }

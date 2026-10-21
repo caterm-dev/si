@@ -41,7 +41,7 @@ public struct CandidateEngine: Sendable {
                 InputCandidate(text: $0.text(for: style), language: .english,
                                score: Int(-$0.cost(typedLength: key.utf8.count) * LexicalLanguageModel.pointsPerBit),
                                rankingScore: -$0.cost(typedLength: key.utf8.count) * LexicalLanguageModel.pointsPerBit,
-                               hasCompletion: $0.text.lowercased() != key)
+                               hasCompletion: $0.text.lowercased() != key, lexicalTokenCount: 1)
             }
         }
         generated += PinyinDecoder.standard.compositionCandidates(for: input, languages: languages,
@@ -55,6 +55,7 @@ public struct CandidateEngine: Sendable {
         var best: [String: (candidate: InputCandidate, score: Double)] = [:]
         best.reserveCapacity(generated.count)
         for candidate in generated {
+            var candidate = candidate
             guard let language = candidate.language, languages.contains(language), !candidate.text.isEmpty else { continue }
             if candidate.isMixed && (language != .simplifiedChinese || !languages.contains(.english)) { continue }
             if let count = candidate.consumedInputCount, count <= 0 || count >= input.count { continue }
@@ -63,7 +64,11 @@ public struct CandidateEngine: Sendable {
             if let previous = best[candidate.id],
                (previous.candidate.isPreferred && !candidate.isPreferred)
                 || (previous.candidate.isPreferred == candidate.isPreferred
-                    && (previous.score > score || (previous.score == score && !candidate.isUserPhrase))) { continue }
+                    && (previous.score > score || (previous.score == score && !candidate.isUserPhrase))) {
+                best[candidate.id]?.candidate.retainLexicalEvidence(from: candidate)
+                continue
+            }
+            if let previous = best[candidate.id] { candidate.retainLexicalEvidence(from: previous.candidate) }
             best[candidate.id] = (candidate, score)
         }
         let merged = best.values
