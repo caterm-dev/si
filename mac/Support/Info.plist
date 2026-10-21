@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>SUFeedURL</key><string>$(SI_UPDATE_FEED_URL)</string>
+    <key>SUPublicEDKey</key><string>jC3HVkVDxZvuxdzOJqXURwc5Mq/Ge5lgcIZVjcnTNr4=</string>
+    <key>SUEnableAutomaticChecks</key><false/>
+    <key>SUAllowsAutomaticUpdates</key><false/>
+    <key>SUAutomaticallyUpdate</key><false/>
+    <key>SUSendProfileInfo</key><false/>
+    <key>SUVerifyUpdateBeforeExtraction</key><true/>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleDisplayName</key><string>SI</string>
     <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>

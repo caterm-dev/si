@@ -1,6 +1,6 @@
 # DMG packaging and R2 publication
 
-SI is a development preview. These scripts build distributables; they do not establish host compatibility or provide automatic updates. Complete the relevant [manual integration checks](TESTING.md) before a public release.
+SI is a development preview. These scripts build distributables and the user-initiated Sparkle update channel; they do not establish host compatibility. Complete the relevant [manual integration checks](TESTING.md) before a public release.
 
 ## Local packaging
 
@@ -93,6 +93,29 @@ Configuration overrides (flags or environment):
 
 Use `--profile ''` with standard AWS environment/default credentials in CI. The public URL must already serve the bucket anonymously, without an Access login or WAF challenge; the script does not change bucket/domain policies. `--dry-run` reads local metadata and public Keychain identity names when automatic discovery is needed, then prints a plan without creating files, contacting Apple/R2, signing, or building. It cannot verify private-key signing access, notarization-profile/team association, service credentials, public access, or actual upload success. Supply both identities explicitly for an offline dry-run without Keychain access.
 
-After a real successful publication, update both website locales and the download URL as described in [WEBSITE.md](WEBSITE.md). A channel JSON is metadata for release tooling, not a built-in SI updater. Keep the website's unavailable-release status until an actual artifact has been published and verified.
+After a real successful publication, update both website locales and the download URL as described in [WEBSITE.md](WEBSITE.md). The channel JSON is metadata for release tooling; the separate XML feed serves the built-in updater. Keep the website's unavailable-release status until an actual artifact has been published and verified.
+
+## In-app updates
+
+SI uses [Sparkle 2.10.0](https://github.com/sparkle-project/Sparkle/tree/2.10.0), pinned in the Xcode project and `Package.resolved`, with the standard [programmatic updater UI](https://sparkle-project.org/documentation/programmatic-setup/). It is an MIT-licensed runtime dependency with permissively licensed components compatible with GPLv3 redistribution. The unchanged upstream notice is included in `mac/SI/Resources/Sparkle-LICENSE.txt` and the app resources; the framework retains its bundled notices. First app builds resolve the official package/binary through Xcode. No third-party update source code is generated. This dependency and use of Caterm's scheme were explicitly requested for this feature.
+
+**Check for Updates…** is available in Settings and the input menu for the installed Release app. Automatic checks, automatic installation and profile submission are disabled. Debug and uninstalled copies do not start Sparkle. Save work and finish composition before installing; Sparkle terminates/replaces/restarts the existing app, using normal termination to flush pending personal-data writes. If macOS does not resume typing, log out and back in. Native upgrade/registration behavior remains a required release check. Existing versions without Sparkle need one manual installation of an updater-enabled release.
+
+The public EdDSA key matches Caterm's existing key; signing uses Keychain account `com.caterm.agent`. No private key is exported, generated or stored in this repository. Before version mutation, publication downloads the official Sparkle 2.10.0 tools to `.build/Sparkle-2.10.0` and verifies distribution SHA-256 `c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c`, then requires the Keychain public key to match `SUPublicEDKey`. Tool/key failures stop the release. Local packaging and dry runs do not access this key or fetch signing tools. Release command output includes only public-key metadata/signatures, never private-key material.
+
+Publication signs Sparkle's XPC services, Autoupdate, Updater app and framework before the SI bundle. It separately submits an app-only ZIP to Apple, requires Accepted, staples/validates the app, then creates the final `SI-<version>-<arch>-update.zip`. The pkg-based first-install DMG still receives its existing signing/notarization. The final ZIP gets an EdDSA signature, byte size and SHA-256 in the manifest, with the integer build counter in `build` and signature in `update_signature`. Cached retries verify the ZIP signature again in addition to all existing file checks.
+
+For a Universal release, additional public paths are:
+
+```text
+si/releases/0.1.1/mac/universal/SI-0.1.1-universal-update.zip
+si/channels/mac/stable-universal.xml
+```
+
+The app-only ZIP is intentional: Sparkle's [package updates](https://sparkle-project.org/documentation/package-updates/) use a privileged installer, which does not match SI's home-only pkg contract. Sparkle instead replaces the running app at its current installed location. This path does not execute the initial installer's backup/logout flow; retain the previous DMG and existing Installer backups for recovery. Finish pending composition before installing. No code forces logout, changes enabled input sources, or bypasses the source installer's running-process guard.
+
+The XML appcast points only to the app ZIP, uses `CURRENT_PROJECT_VERSION` as `sparkle:version`, displays `MARKETING_VERSION`, requires macOS 14+, and includes the EdDSA signature. All immutable artifacts, including source, must pass public hash verification before conditional JSON promotion; XML promotion happens last, also using create-only/ETag conditions and anonymous verification. Existing newer feeds or conflicting same-version/build feeds stop publication. If JSON succeeds and XML fails, retry the same cached version (`--no-bump` if local pending state was lost); a partial promotion never authorizes overwriting a newer feed.
+
+Universal builds use `stable-universal.xml` on both CPUs; architecture-specific builds use their own `stable-arm64.xml` or `stable-x86_64.xml`. `SI_UPDATE_ARCH` and `SI_UPDATE_FEED_URL` are set during packaging and validated in the built Info.plist, including public URL/prefix overrides. Changing hosting later requires an explicit feed migration. A release without the final XML feed is not a working in-app update channel.
 
 References: [Cloudflare AWS CLI configuration](https://developers.cloudflare.com/r2/examples/aws/aws-cli/), [R2 S3 compatibility](https://developers.cloudflare.com/r2/api/s3/api/), [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution), [Apple Installer distribution domains and conclusion actions](https://developer.apple.com/library/archive/documentation/DeveloperTools/Reference/DistributionDefinitionRef/Chapters/Distribution_XML_Ref.html).

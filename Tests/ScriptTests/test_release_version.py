@@ -42,7 +42,8 @@ class ReleaseVersionTests(unittest.TestCase):
         return release.prepare_version(self.root, self.args, release.project_version(self.root), self.git("rev-parse", "HEAD"))
 
     def invoke_main(self):
-        with patch.object(release, "ROOT", self.root), patch.object(release.shutil, "which", return_value="fixture-tool"):
+        with patch.object(release, "ROOT", self.root), patch.object(release.shutil, "which", return_value="fixture-tool"), \
+                patch.object(release, "sparkle_tools"):
             release.main(["--publish", "--arch", "arm64", "--sign", IDENTITY,
                           "--installer-sign", INSTALLER_IDENTITY, "--notarize-profile", "test-notary"])
 

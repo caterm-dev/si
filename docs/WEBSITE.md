@@ -39,7 +39,7 @@ The bilingual installation summary tells visitors to open the DMG, run `Install 
 4. If the architecture changes, also update `requirement`, `releaseStatus`, and `releasesCta` in **both** locale dictionaries. The current copy explicitly targets Apple Silicon. Preserve the development-preview qualification.
 5. Run `node scripts/build-website.mjs`, inspect both locales and narrow screens, and commit/deploy the website changes through the existing Pages workflow. The build checks version/architecture, HTTPS asset URLs matching the release's version/architecture/filenames, positive byte sizes, and SHA-256 metadata before producing pages.
 
-The website build uses checked-in metadata and performs no network requests. Downloads work through ordinary HTML links, including with JavaScript disabled, so browser CORS configuration is not needed. Generated Pages output contains the two HTML files and presentation assets; release manifests, app source, and installer binaries are not copied into the Pages artifact. Source and checksum downloads are served directly from R2 alongside the DMG. No in-app updater is added.
+The website build uses checked-in metadata and performs no network requests. Downloads work through ordinary HTML links, including with JavaScript disabled, so browser CORS configuration is not needed. Generated Pages output contains the two HTML files and presentation assets; release manifests, app source, and installer binaries are not copied into the Pages artifact. Source and checksum downloads are served directly from R2 alongside the DMG. The app's separate Sparkle update feed is managed by the [release tooling](RELEASING.md#in-app-updates), independently of the website snapshot.
 
 ## GitHub Pages
 

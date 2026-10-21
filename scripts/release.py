@@ -16,10 +16,16 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 CHANNEL_CACHE = "no-cache, max-age=0, must-revalidate"
+SPARKLE_VERSION = "2.10.0"
+SPARKLE_SHA256 = "c2bf58aa8387266ac179357b1415d6f2635f044da8be41042af32425dae6da0c"
+SPARKLE_NAMESPACE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+SPARKLE_ACCOUNT = "com.caterm.agent"
+ET.register_namespace("sparkle", SPARKLE_NAMESPACE)
 
 
 def arguments(argv=None):
@@ -237,6 +243,100 @@ def digest(path, algorithm="sha256"):
     return hasher
 
 
+def sparkle_tools(root):
+    """Only execute tools from the pinned, checksum-verified official distribution."""
+    destination = root / ".build" / f"Sparkle-{SPARKLE_VERSION}"
+    archive = destination / "distribution.tar.xz"
+    if not (archive.is_file() and digest(archive).hexdigest() == SPARKLE_SHA256 and
+            all((destination / "bin" / name).is_file() for name in ("generate_keys", "sign_update"))):
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=".sparkle-", dir=destination.parent) as directory:
+            staging = Path(directory)
+            downloaded = staging / "distribution.tar.xz"
+            run(["curl", "--fail", "--location", "--silent", "--show-error", "--connect-timeout", "30",
+                 "--max-time", "600", f"https://github.com/sparkle-project/Sparkle/releases/download/"
+                 f"{SPARKLE_VERSION}/Sparkle-{SPARKLE_VERSION}.tar.xz", "-o", downloaded])
+            if digest(downloaded).hexdigest() != SPARKLE_SHA256:
+                raise ValueError("Sparkle distribution checksum mismatch")
+            run(["tar", "-xf", downloaded, "-C", staging])
+            if destination.exists():
+                shutil.rmtree(destination)
+            shutil.move(str(staging), str(destination))
+    tools = destination / "bin"
+    expected = plistlib.loads((root / "mac/Support/Info.plist").read_bytes())["SUPublicEDKey"]
+    public = subprocess.check_output([str(tools / "generate_keys"), "--account", SPARKLE_ACCOUNT, "-p"], text=True).strip()
+    if len(base64.b64decode(expected, validate=True)) != 32 or public != expected:
+        raise ValueError("Caterm Sparkle Keychain public key does not match SI's SUPublicEDKey")
+    return tools
+
+
+def sign_update(tools, archive):
+    signature = subprocess.check_output([str(tools / "sign_update"), "--account", SPARKLE_ACCOUNT,
+                                         "-p", str(archive)], text=True).strip()
+    verify_update(tools, archive, signature)
+    return signature
+
+
+def verify_update(tools, archive, signature):
+    if len(base64.b64decode(signature, validate=True)) != 64:
+        raise ValueError("Invalid Sparkle EdDSA signature")
+    run([tools / "sign_update", "--account", SPARKLE_ACCOUNT, "--verify", archive, signature])
+
+
+def appcast_bytes(content):
+    version_number(content["version"])
+    if not isinstance(content["build"], int) or content["build"] < 1:
+        raise ValueError("Sparkle requires a positive integer build number")
+    signature = content["update_signature"]
+    if len(base64.b64decode(signature, validate=True)) != 64:
+        raise ValueError("Invalid Sparkle EdDSA signature")
+    archive = content["assets"][f"SI-{content['version']}-{content['architecture']}-update.zip"]
+    root = ET.Element("rss", version="2.0")
+    channel = ET.SubElement(root, "channel")
+    ET.SubElement(channel, "title").text = f"SI for macOS ({content['architecture']})"
+    item = ET.SubElement(channel, "item")
+    ET.SubElement(item, "title").text = f"SI {content['version']}"
+    ET.SubElement(item, f"{{{SPARKLE_NAMESPACE}}}version").text = str(content["build"])
+    ET.SubElement(item, f"{{{SPARKLE_NAMESPACE}}}shortVersionString").text = content["version"]
+    ET.SubElement(item, f"{{{SPARKLE_NAMESPACE}}}minimumSystemVersion").text = "14.0"
+    ET.SubElement(item, "description").text = (
+        "Save your work and finish composing before installing. SI will restart. "
+        "If typing does not resume, log out and back in.")
+    ET.SubElement(item, "enclosure", {"url": archive["url"], "length": str(archive["size"]),
+                                    "type": "application/octet-stream",
+                                    f"{{{SPARKLE_NAMESPACE}}}edSignature": signature})
+    ET.indent(root)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True) + b"\n"
+
+
+def validate_appcast(path, proposed):
+    try:
+        current = ET.fromstring(path.read_bytes())
+        incoming = ET.fromstring(proposed)
+        for field, convert in (("version", int), ("shortVersionString", version_number)):
+            tag = f"./channel/item/{{{SPARKLE_NAMESPACE}}}{field}"
+            old, new = convert(current.findtext(tag)), convert(incoming.findtext(tag))
+            if old > new:
+                raise ValueError("Refusing to downgrade the Sparkle feed")
+            if old == new and path.read_bytes() != proposed:
+                raise ValueError("Conflicting Sparkle feed for this version/build; publish a new version")
+    except (ET.ParseError, TypeError) as error:
+        raise ValueError("Invalid existing Sparkle feed") from error
+
+
+def sign_nested_code(app, signing, dry):
+    # Match the pinned Sparkle framework layout, signing inner code before outer bundles.
+    framework = app / "Contents/Frameworks/Sparkle.framework"
+    base = framework / "Versions/B"
+    for path in (base / "XPCServices/Installer.xpc", base / "XPCServices/Downloader.xpc",
+                 base / "Autoupdate", base / "Updater.app", framework):
+        run([*signing, "--preserve-metadata=entitlements", path], dry)
+    if not dry:
+        for library in sorted((app / "Contents/MacOS").glob("*.dylib")):
+            run([*signing, library])
+    run([*signing, app], dry)
+
+
 def install_readme(root, contents):
     # Installation is handled by macOS Installer, including the final Log Out button.
     (contents / "Install SI.txt").write_text(
@@ -287,14 +387,16 @@ def build_installer(args, root, work, contents, version):
 def package(args, root, version, output):
     name = f"SI-{version}-{args.arch}.dmg"
     destination = output / name
-    if destination.exists() or destination.with_suffix(".dmg.sha256").exists():
+    update = output / f"SI-{version}-{args.arch}-update.zip"
+    if destination.exists() or destination.with_suffix(".dmg.sha256").exists() or update.exists():
         raise ValueError(f"Output already exists: {destination}; use another --output-dir")
     derived = root / ".build" / f"dmg-{args.arch}"
     architectures = ["arm64", "x86_64"] if args.arch == "universal" else [args.arch]
     build = ["xcodebuild", "-project", root / "mac/SI.xcodeproj", "-scheme", "SI",
              "-configuration", "Release", "-destination", "generic/platform=macOS",
              "-derivedDataPath", derived, "CODE_SIGNING_ALLOWED=NO", "ONLY_ACTIVE_ARCH=NO",
-             "ARCHS=" + " ".join(architectures), "build"]
+             "ARCHS=" + " ".join(architectures), f"SI_UPDATE_ARCH={args.arch}",
+             f"SI_UPDATE_FEED_URL={args.public_url}/{args.prefix}/channels/mac/stable-{args.arch}.xml", "build"]
     run(build, args.dry_run)
     if not args.dry_run:
         output.mkdir(parents=True, exist_ok=True)
@@ -313,7 +415,9 @@ def package(args, root, version, output):
         if not args.dry_run:
             info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
             if (info.get("CFBundleIdentifier") != "com.caterm.inputmethod.si" or
-                    info.get("CFBundleShortVersionString") != version):
+                    info.get("CFBundleShortVersionString") != version or
+                    info.get("CFBundleVersion") != str(project_build(root)) or
+                    info.get("SUFeedURL") != f"{args.public_url}/{args.prefix}/channels/mac/stable-{args.arch}.xml"):
                 raise ValueError("Built app identity/version does not match SI release")
         actual = run(["lipo", "-archs", app / "Contents/MacOS/SI"], args.dry_run, capture=True)
         if not args.dry_run and set(actual.split()) != set(architectures):
@@ -321,11 +425,19 @@ def package(args, root, version, output):
         signing = ["codesign", "--force", "--sign", args.sign or "-"]
         if args.sign:
             signing += ["--options", "runtime", "--timestamp"]
-        if not args.dry_run:
-            for library in sorted((app / "Contents/MacOS").glob("*.dylib")):
-                run([*signing, library])
-        run([*signing, app], args.dry_run)
+        sign_nested_code(app, signing, args.dry_run)
         run(["codesign", "--verify", "--deep", "--strict", app], args.dry_run)
+        update_archive = work / update.name
+        if args.publish:
+            # Notarize the app, staple it, then archive its final bytes for Sparkle.
+            # The first-install DMG contains a pkg, which is not an app-bundle update.
+            submission_archive = work / "notarize-app.zip"
+            run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, submission_archive], args.dry_run)
+            notarize(args, submission_archive)
+            run(["xcrun", "stapler", "staple", app], args.dry_run)
+            run(["xcrun", "stapler", "validate", app], args.dry_run)
+            run(["codesign", "--verify", "--deep", "--strict", app], args.dry_run)
+            run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, update_archive], args.dry_run)
         build_installer(args, root, work, contents, version)
         run(["hdiutil", "create", "-volname", "SI", "-srcfolder", contents,
              "-format", "UDZO", image], args.dry_run)
@@ -333,12 +445,7 @@ def package(args, root, version, output):
             run(["codesign", "--sign", args.sign, "--timestamp", image], args.dry_run)
             run(["codesign", "--verify", "--strict", image], args.dry_run)
         if args.notarize_profile:
-            response = run(["xcrun", "notarytool", "submit", image, "--keychain-profile",
-                            args.notarize_profile, "--wait", "--output-format", "json"], args.dry_run, capture=True)
-            if not args.dry_run:
-                submission = json.loads(response)
-                if submission.get("status") != "Accepted":
-                    raise ValueError(f"Apple notarization failed: {response.strip()}; use notarytool log with the submission ID")
+            notarize(args, image)
             run(["xcrun", "stapler", "staple", image], args.dry_run)
             run(["xcrun", "stapler", "validate", image], args.dry_run)
         run(["hdiutil", "verify", image], args.dry_run)
@@ -346,10 +453,19 @@ def package(args, root, version, output):
             checksum = digest(image).hexdigest()
             image.rename(destination)
             destination.with_suffix(".dmg.sha256").write_text(f"{checksum}  {name}\n")
+            if args.publish:
+                update_archive.rename(update)
     print(f"DMG: {destination}", flush=True)
     if not args.notarize_profile:
         print("Local preview only; not notarized for public distribution.", flush=True)
     return destination
+
+
+def notarize(args, artifact):
+    response = run(["xcrun", "notarytool", "submit", artifact, "--keychain-profile",
+                    args.notarize_profile, "--wait", "--output-format", "json"], args.dry_run, capture=True)
+    if not args.dry_run and json.loads(response).get("status") != "Accepted":
+        raise ValueError(f"Apple notarization failed: {response.strip()}; use notarytool log with the submission ID")
 
 
 class Storage:
@@ -422,7 +538,7 @@ def prepare_release(args, root, version, revision, output):
     prefix = f"{args.prefix}/releases/{version}/mac/{args.arch}"
     if manifest.exists():
         content = json.loads(manifest.read_text())
-        expected = metadata(args, version, revision)
+        expected = dict(metadata(args, version, revision), build=project_build(root))
         if {key: content.get(key) for key in expected} != expected:
             raise ValueError("Cached release metadata differs; use a new output directory")
         print(f"Reusing cached release: {manifest}", flush=True)
@@ -432,12 +548,15 @@ def prepare_release(args, root, version, revision, output):
         run(["git", "-C", root, "archive", "--format=tar.gz", f"--prefix=si-{version}/",
              "-o", source, revision])
         validate_checkout(root, version, revision)
-        content = metadata(args, version, revision)
+        content = dict(metadata(args, version, revision), build=project_build(root))
+        update = output / f"SI-{version}-{args.arch}-update.zip"
+        content["update_signature"] = sign_update(sparkle_tools(root), update)
         content["assets"] = {path.name: {"sha256": digest(path).hexdigest(), "size": path.stat().st_size,
                                          "url": f"{args.public_url}/{prefix}/{path.name}"}
-                             for path in (image, image.with_suffix(".dmg.sha256"), source)}
+                             for path in (image, image.with_suffix(".dmg.sha256"), source, update)}
         manifest.write_text(json.dumps(content, indent=2) + "\n")
-    names = {f"SI-{version}-{args.arch}.dmg", f"SI-{version}-{args.arch}.dmg.sha256", f"SI-{version}-source.tar.gz"}
+    names = {f"SI-{version}-{args.arch}.dmg", f"SI-{version}-{args.arch}.dmg.sha256",
+             f"SI-{version}-source.tar.gz", f"SI-{version}-{args.arch}-update.zip"}
     if set(content.get("assets", {})) != names:
         raise ValueError("Cached release has unexpected assets")
     for name, item in content["assets"].items():
@@ -445,6 +564,7 @@ def prepare_release(args, root, version, revision, output):
         if (path.is_symlink() or not path.is_file() or digest(path).hexdigest() != item["sha256"] or
                 path.stat().st_size != item["size"] or item["url"] != f"{args.public_url}/{prefix}/{name}"):
             raise ValueError(f"Cached release artifact differs: {name}")
+    verify_update(sparkle_tools(root), output / f"SI-{version}-{args.arch}-update.zip", content["update_signature"])
     image = output / f"SI-{version}-{args.arch}.dmg"
     run(["codesign", "--verify", "--strict", image])
     run(["xcrun", "stapler", "validate", image])
@@ -466,8 +586,19 @@ def publish(args, manifest, storage):
     content = json.loads(manifest.read_text())
     prefix = f"{args.prefix}/releases/{content['version']}/mac/{args.arch}"
     channel = f"{args.prefix}/channels/mac/stable-{args.arch}.json"
+    feed = f"{args.prefix}/channels/mac/stable-{args.arch}.xml"
+    appcast = appcast_bytes(content)
     with tempfile.TemporaryDirectory(prefix="si-channel-") as directory:
         current_path = Path(directory) / "current.json"
+        current_feed = Path(directory) / "current.xml"
+        appcast_path = Path(directory) / "appcast.xml"
+        appcast_path.write_bytes(appcast)
+
+        def read_feed():
+            result = storage.get(feed, current_feed)
+            if result:
+                validate_appcast(current_feed, appcast)
+            return result
 
         def read_channel():
             result = storage.get(channel, current_path)
@@ -476,11 +607,13 @@ def publish(args, manifest, storage):
             return current, result
 
         read_channel()
+        read_feed()
         for name in [*content["assets"], manifest.name]:
             path = manifest.parent / name
             content_type = ("application/x-apple-diskimage" if name.endswith(".dmg") else
                             "application/gzip" if name.endswith(".gz") else
-                            "application/json" if name.endswith(".json") else "text/plain; charset=utf-8")
+                            "application/json" if name.endswith(".json") else
+                            "application/zip" if name.endswith(".zip") else "text/plain; charset=utf-8")
             storage.immutable(f"{prefix}/{name}", path, content_type)
             verify_public(args, f"{prefix}/{name}", digest(path).hexdigest())
         # Compare-and-swap after all anonymous downloads pass; concurrent releases cannot clobber it.
@@ -489,6 +622,12 @@ def publish(args, manifest, storage):
             condition = ("--if-match", result["ETag"]) if result else ("--if-none-match", "*")
             storage.put(channel, manifest, "application/json", CHANNEL_CACHE, condition)
         verify_public(args, channel, digest(manifest).hexdigest())
+        # Promote Sparkle last, after the artifacts and JSON are publicly verified.
+        result = read_feed()
+        if not result or current_feed.read_bytes() != appcast:
+            condition = ("--if-match", result["ETag"]) if result else ("--if-none-match", "*")
+            storage.put(feed, appcast_path, "application/rss+xml", CHANNEL_CACHE, condition)
+        verify_public(args, feed, digest(appcast_path).hexdigest())
     print(f"Published: {args.public_url}/{channel}", flush=True)
     image_name = f"SI-{content['version']}-{args.arch}.dmg"
     print(f"Download: {content['assets'][image_name]['url']}", flush=True)
@@ -519,6 +658,8 @@ def main(argv=None):
                   f"R2 {args.bucket}/{args.prefix}/releases/{version}/mac/{args.arch}/")
             print(f"Verify public downloads, then conditionally promote "
                   f"{args.public_url}/{args.prefix}/channels/mac/stable-{args.arch}.json")
+            print("Notarize the app; sign its final update ZIP with the Caterm Sparkle Keychain key.")
+            print(f"Promote {args.public_url}/{args.prefix}/channels/mac/stable-{args.arch}.xml last.")
         return
     if sys.platform != "darwin":
         raise ValueError("DMG packaging requires macOS; use --dry-run to inspect the plan")
@@ -538,6 +679,7 @@ def main(argv=None):
             validate_checkout(ROOT, version, revision)
             storage = Storage(args)
             storage.preflight()
+            sparkle_tools(ROOT)  # Verify update signing access before incrementing the version.
             version, revision = prepare_version(ROOT, args, version, revision)
             output = (args.output_dir or ROOT / ".build/releases" / version / args.arch).resolve()
             manifest = prepare_release(args, ROOT, version, revision, output)

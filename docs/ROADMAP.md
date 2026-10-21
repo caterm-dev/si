@@ -46,6 +46,8 @@ SI is currently a development preview. Checked items have implementations; unche
 - [ ] Latency and memory benchmarks using realistic lexicons.
 - [x] Reproducible Release-mode synthetic candidate-generation benchmark with a full learning profile.
 - [ ] Signed and notarized releases, installer/update flow, and recovery instructions.
+- [x] Manual Sparkle update checks in Settings/input menu, signed app archives and separate R2 update feeds.
+- [ ] Native signed input-method update/relaunch, registration recovery and host-compatibility verification.
 - [ ] Document support policy and release process before the first stable release.
 
 ## Additional languages

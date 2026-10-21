@@ -23,7 +23,7 @@ SI combines known words and syllables, including phrases not explicitly stored i
 
 When the leading candidate is a constructed sentence, the input window offers its first two whole choices, then exact first-word candidates and single-character alternatives. Later pages continue word/character selection rather than filling with more sentence completions. For `biruzhege`, choose `比如` to consume only `biru`, then choose `这个` from the remaining `zhege`. First-word choices must be single lexical entries or saved personal units; constructed fragments and abbreviated spellings are not treated as first words. Single-word lookup and English completion keep the ordinary ranked alternatives. The input window shows at most 27 candidates (three expanded pages), preserving a complete candidate for each matching language identity before prefix-only fallbacks and the exact original input; these protected alternatives may add a whole candidate beyond the first two. Lower-ranked choices remain available in the engine and Settings preview. Prefix choices show a small arrow in the single line; the expanded list omits consumed-length labels. Tooltips and accessibility descriptions retain the exact source characters consumed. Return commits exact remaining spelling. Provisional hints can change when full results arrive. This organization supports sequential selection; it does not judge sentence meaning.
 
-All processing is local. SI has no network client, analytics, keystroke logging, or cloud dependency. Language and learning settings are saved in UserDefaults. Personal learning is off by default; when explicitly enabled it retains aggregate input-to-candidate preferences on this Mac. See [personalization and privacy](docs/PRIVACY.md) for retained fields, expiry, pause, deletion, and storage limitations.
+All input processing is local. SI has no analytics, keystroke logging, or cloud dependency for typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal learning is off by default; when explicitly enabled it retains aggregate input-to-candidate preferences on this Mac. See [personalization and privacy](docs/PRIVACY.md) for retained fields, expiry, pause, deletion, and storage limitations.
 
 ## Vocabulary maintenance
 
@@ -75,7 +75,7 @@ The manager supports search, editing, deletion, clear, and additive JSON import/
 
 - macOS 14 or later.
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.
-- No third-party runtime libraries or Apple Developer account are needed for an unsigned development build. Vocabulary data includes attributed SCOWL English words, CSpell tool/company names, and selected Rime Ice English and Chinese entries.
+- Xcode resolves the pinned Sparkle 2.10.0 update framework on the first app build; no Apple Developer account is needed for an unsigned development build. Vocabulary data includes attributed SCOWL English words, CSpell tool/company names, and selected Rime Ice English and Chinese entries.
 
 ## Get started
 
@@ -134,6 +134,12 @@ xcrun swift scripts/register-input-source.swift --check "$HOME/Library/Input Met
 The corrected bundle/input-source identifier is `com.caterm.inputmethod.si`. The installer can replace the earlier `com.caterm.si` preview and keeps its backup. Language, punctuation, and learning-consent settings continue using the original `com.caterm.si` preferences domain; personal phrases and learning archives keep their existing locations. If an earlier SI source was manually added, remove its stale entry in Keyboard settings and add the corrected SI source.
 
 To uninstall, select another input source, remove SI in Keyboard settings, then move `~/Library/Input Methods/SI.app` to Trash and log out. Installer backups, when present, are stored in `~/Library/Application Support/SI/Backups/` until you remove them.
+
+## Check for updates
+
+In the installed Release app, choose **Check for Updates…** from the SI input menu or **SI Settings → Software Updates**. SI uses Sparkle, as Caterm does, with a separate SI update feed. Checking is manual; background checks, automatic installation and system-profile submission are disabled. Sparkle verifies the update signature and asks before downloading/installing. Save your work and finish composing before installing; SI restarts and flushes pending personal-data writes through its normal termination path. If typing does not resume, log out and back in. Debug builds and copies outside `~/Library/Input Methods/SI.app` show an explanation in Settings and disable checking.
+
+Versions without the updater need one manual installation of an updater-enabled release. A check requires a published SI Sparkle feed; adding this implementation does not publish a release or establish native update/host compatibility. See [release and update configuration](docs/RELEASING.md#in-app-updates).
 
 ## Package and publish a DMG
 

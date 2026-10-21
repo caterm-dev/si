@@ -39,8 +39,15 @@ for library in "$staging/SI.app/Contents/MacOS/"*.dylib; do
         /usr/bin/codesign --force --sign - "$library"
     fi
 done
+# Re-sign Sparkle from the inside out for an entirely local ad hoc installation.
+sparkle="$staging/SI.app/Contents/Frameworks/Sparkle.framework"
+for component in "$sparkle/Versions/B/XPCServices/Installer.xpc" \
+    "$sparkle/Versions/B/XPCServices/Downloader.xpc" "$sparkle/Versions/B/Autoupdate" \
+    "$sparkle/Versions/B/Updater.app" "$sparkle"; do
+    /usr/bin/codesign --force --sign - --preserve-metadata=entitlements "$component"
+done
 /usr/bin/codesign --force --sign - "$staging/SI.app"
-/usr/bin/codesign --verify --strict "$staging/SI.app"
+/usr/bin/codesign --verify --deep --strict "$staging/SI.app"
 ensure_si_stopped
 if [[ -e "$destination" ]]; then
     identifier="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$destination/Contents/Info.plist")"

@@ -4,6 +4,7 @@ import OSLog
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    let updater = AppUpdater()
     private var server: IMKServer?
     private var settingsWindow: NSWindow?
     private let logger = Logger(subsystem: "com.caterm.si", category: "Lifecycle")
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         self.server = server
+        updater.start()
         Task {
             async let learning: Void = PersonalizationSettings.shared.start()
             async let phrases: Void = UserDictionarySettings.shared.start()
@@ -53,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 backing: .buffered, defer: false
             )
             window.title = "SI Settings"
-            window.contentViewController = NSHostingController(rootView: SettingsView(settings: .shared))
+            window.contentViewController = NSHostingController(rootView: SettingsView(settings: .shared, updater: updater))
             window.isReleasedWhenClosed = false
             window.center()
             settingsWindow = window

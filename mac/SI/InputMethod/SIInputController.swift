@@ -240,8 +240,21 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     nonisolated override func menu() -> NSMenu! {
         let menu = NSMenu(title: "SI")
+        menu.autoenablesItems = false
         menu.addItem(withTitle: "SI Settings…", action: #selector(showPreferences(_:)), keyEquivalent: "")
+        // IMK dispatches menu selectors here via doCommandBySelector:commandDictionary:.
+        let item = menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
+        item.isEnabled = MainActor.assumeIsolated {
+            (NSApplication.shared.delegate as? AppDelegate)?.updater.canCheckForUpdates ?? false
+        }
         return menu
+    }
+
+    @objc nonisolated private func checkForUpdates(_ sender: Any!) {
+        // The same main-thread callback assumption as showPreferences; no client data crosses it.
+        MainActor.assumeIsolated {
+            (NSApplication.shared.delegate as? AppDelegate)?.updater.checkForUpdates()
+        }
     }
 
     nonisolated override func showPreferences(_ sender: Any!) {

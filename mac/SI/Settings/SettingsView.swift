@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var settings: LanguageSettings
+    var updater: AppUpdater
     var personalization: PersonalizationSettings = .shared
     var dictionary: UserDictionarySettings = .shared
 
@@ -36,6 +37,7 @@ struct SettingsView: View {
                 }
                 PersonalizationView(personalization: personalization)
                 UserDictionarySection(dictionary: dictionary)
+                UpdateSettingsSection(updater: updater)
                 Section("Development Preview") {
                     Text("SI combines original English and Pinyin vocabularies, mixed-language composition, personal phrases, and optional local learning. The vocabulary is still limited; broad language coverage, sentence-level context, and host-app compatibility are in development.")
                         .foregroundStyle(.secondary)
@@ -54,6 +56,6 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView(settings: LanguageSettings(defaults: UserDefaults(suiteName: "SI.Preview") ?? .standard),
+    SettingsView(settings: LanguageSettings(defaults: UserDefaults(suiteName: "SI.Preview") ?? .standard), updater: AppUpdater(),
                  personalization: PersonalizationSettings(isPreview: true), dictionary: UserDictionarySettings(isPreview: true))
 }

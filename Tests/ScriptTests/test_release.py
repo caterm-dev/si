@@ -1,4 +1,5 @@
 import contextlib
+import base64
 import importlib.util
 import io
 import json
@@ -36,6 +37,11 @@ class MemoryStorage:
 
 
 class ReleaseTests(unittest.TestCase):
+    def feed_content(self, version, build):
+        content = dict(self.content, version=version, build=build)
+        content["assets"] = {f"SI-{version}-universal-update.zip": self.content["assets"][self.update.name]}
+        return content
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="si release ")
         self.addCleanup(self.temporary.cleanup)
@@ -47,10 +53,17 @@ class ReleaseTests(unittest.TestCase):
         self.image = self.directory / "SI-0.1.0-universal.dmg"
         self.image.write_bytes(b"synthetic disk image")
         self.content = release.metadata(self.args, "0.1.0", "a" * 40)
+        self.content["build"] = release.project_build(ROOT)
+        self.content["update_signature"] = base64.b64encode(bytes(64)).decode()
+        self.update = self.directory / "SI-0.1.0-universal-update.zip"
+        self.update.write_bytes(b"synthetic app update")
         self.content["assets"] = {self.image.name: {"sha256": release.digest(self.image).hexdigest(),
-                                                "size": self.image.stat().st_size, "url": "synthetic"}}
+                                                "size": self.image.stat().st_size, "url": "synthetic"},
+                                  self.update.name: {"sha256": release.digest(self.update).hexdigest(),
+                                                     "size": self.update.stat().st_size, "url": "synthetic-update"}}
         self.manifest = self.directory / "manifest.json"
         self.manifest.write_text(json.dumps(self.content))
+        self.feed = "si/channels/mac/stable-universal.xml"
 
     def test_invalid_or_mismatched_signing_identities_are_rejected(self):
         with patch.dict("os.environ", {}, clear=True), contextlib.redirect_stderr(io.StringIO()):
@@ -141,26 +154,102 @@ class ReleaseTests(unittest.TestCase):
         def verify(args, key, expected):
             checked.append(key)
             self.assertIn(key, self.storage.objects)
-            if key != self.channel:
+            if key not in (self.channel, self.feed):
                 self.assertNotIn(self.channel, self.storage.objects)
+            if key != self.feed:
+                self.assertNotIn(self.feed, self.storage.objects)
 
         with patch.object(release, "verify_public", side_effect=verify):
             release.publish(self.args, self.manifest, self.storage)
-        self.assertEqual(checked[-1], self.channel)
-        self.assertEqual(self.storage.writes[-1], (self.channel, ("--if-none-match", "*")))
+        self.assertEqual(checked[-2:], [self.channel, self.feed])
+        self.assertEqual(self.storage.writes[-1], (self.feed, ("--if-none-match", "*")))
 
     def test_failed_anonymous_download_leaves_channel_unchanged(self):
         with patch.object(release, "verify_public", side_effect=ValueError("bad checksum")):
             with self.assertRaisesRegex(ValueError, "bad checksum"):
                 release.publish(self.args, self.manifest, self.storage)
         self.assertNotIn(self.channel, self.storage.objects)
+        self.assertNotIn(self.feed, self.storage.objects)
+
+    def test_appcast_uses_build_counter_and_app_archive_instead_of_installer(self):
+        xml = release.ET.fromstring(release.appcast_bytes(dict(self.content, build=42)))
+        item = xml.find("./channel/item")
+        namespace = release.SPARKLE_NAMESPACE
+        self.assertEqual(item.findtext(f"{{{namespace}}}version"), "42")
+        self.assertEqual(item.findtext(f"{{{namespace}}}shortVersionString"), "0.1.0")
+        self.assertEqual(item.findtext(f"{{{namespace}}}minimumSystemVersion"), "14.0")
+        enclosure = item.find("enclosure")
+        self.assertEqual(enclosure.get("url"), "synthetic-update")
+        self.assertEqual(enclosure.get("length"), str(self.update.stat().st_size))
+        self.assertEqual(enclosure.get(f"{{{namespace}}}edSignature"), self.content["update_signature"])
+        for invalid in (dict(self.content, build=0), dict(self.content, update_signature="invalid")):
+            with self.assertRaises(ValueError):
+                release.appcast_bytes(invalid)
+
+    def test_newer_conflicting_and_malformed_feeds_prevent_uploads(self):
+        for content in (self.feed_content("0.2.0", self.content["build"] + 1),
+                        dict(self.content, update_signature=base64.b64encode(bytes([1]) * 64).decode())):
+            self.storage.objects[self.feed] = release.appcast_bytes(content)
+            with self.assertRaises(ValueError):
+                release.publish(self.args, self.manifest, self.storage)
+            self.assertEqual(self.storage.writes, [])
+        self.storage.objects[self.feed] = b"invalid XML"
+        with self.assertRaisesRegex(ValueError, "Invalid existing Sparkle feed"):
+            release.publish(self.args, self.manifest, self.storage)
+
+    def test_feed_uses_etag_and_identical_retry_makes_no_channel_writes(self):
+        old = self.feed_content("0.0.9", 1)
+        self.content["build"] = 2
+        self.manifest.write_text(json.dumps(self.content))
+        self.storage.objects[self.feed] = release.appcast_bytes(old)
+        with patch.object(release, "verify_public"):
+            release.publish(self.args, self.manifest, self.storage)
+        self.assertEqual(self.storage.writes[-1], (self.feed, ("--if-match", "original-etag")))
+        self.storage.writes.clear()
+        with patch.object(release, "verify_public"):
+            release.publish(self.args, self.manifest, self.storage)
+        self.assertFalse(any(key in (self.channel, self.feed) for key, _ in self.storage.writes))
+
+    def test_concurrent_feed_advance_is_not_overwritten(self):
+        newer = self.feed_content("0.2.0", self.content["build"] + 1)
+
+        def competing_release(args, key, expected):
+            if key == self.channel:
+                self.storage.objects[self.feed] = release.appcast_bytes(newer)
+
+        with patch.object(release, "verify_public", side_effect=competing_release):
+            with self.assertRaisesRegex(ValueError, "downgrade"):
+                release.publish(self.args, self.manifest, self.storage)
+        self.assertFalse(any(key == self.feed for key, _ in self.storage.writes))
+
+    def test_sparkle_key_mismatch_stops_before_signing(self):
+        destination = self.directory / ".build" / f"Sparkle-{release.SPARKLE_VERSION}"
+        (destination / "bin").mkdir(parents=True)
+        (destination / "distribution.tar.xz").write_bytes(b"synthetic pinned tools")
+        for name in ("generate_keys", "sign_update"):
+            (destination / "bin" / name).touch()
+        info = self.directory / "mac/Support/Info.plist"
+        info.parent.mkdir(parents=True)
+        info.write_bytes(release.plistlib.dumps({"SUPublicEDKey": base64.b64encode(bytes(32)).decode()}))
+        with patch.object(release, "SPARKLE_SHA256", release.digest(destination / "distribution.tar.xz").hexdigest()), \
+                patch.object(release.subprocess, "check_output", return_value="different-key"), \
+                patch.object(release, "run") as run:
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                release.sparkle_tools(self.directory)
+            run.assert_not_called()
+
+    def test_nested_signing_reaches_helpers_before_framework_and_app(self):
+        with patch.object(release, "run") as run:
+            release.sign_nested_code(self.directory / "SI.app", ["codesign", "--sign", IDENTITY], True)
+        names = [call.args[0][-1].name for call in run.call_args_list]
+        self.assertEqual(names, ["Installer.xpc", "Downloader.xpc", "Autoupdate", "Updater.app", "Sparkle.framework", "SI.app"])
 
     def test_replacement_uses_etag_and_rechecks_competing_release(self):
         old = dict(self.content, version="0.0.9")
         self.storage.objects[self.channel] = json.dumps(old).encode()
         with patch.object(release, "verify_public"):
             release.publish(self.args, self.manifest, self.storage)
-        self.assertEqual(self.storage.writes[-1], (self.channel, ("--if-match", "original-etag")))
+        self.assertIn((self.channel, ("--if-match", "original-etag")), self.storage.writes)
 
         self.storage = MemoryStorage()
 
@@ -216,13 +305,14 @@ class ReleaseTests(unittest.TestCase):
         self.content["assets"] = {path.name: {"sha256": release.digest(path).hexdigest(),
                                              "size": path.stat().st_size,
                                              "url": f"{self.args.public_url}/{prefix}/{path.name}"}
-                                  for path in (self.image, checksum, source)}
+                                  for path in (self.image, checksum, source, self.update)}
         self.manifest.write_text(json.dumps(self.content))
-        with patch.object(release, "package") as package, patch.object(release, "run") as run:
+        with patch.object(release, "package") as package, patch.object(release, "run") as run, \
+                patch.object(release, "sparkle_tools", return_value=self.directory):
             result = release.prepare_release(self.args, ROOT, "0.1.0", "a" * 40, self.directory)
             self.assertEqual(result, self.manifest)
             package.assert_not_called()
-            self.assertEqual(run.call_count, 2)  # Signature and stapled ticket checks remain mandatory.
+            self.assertEqual(run.call_count, 3)  # EdDSA, code signature and stapled ticket checks remain mandatory.
             self.image.write_bytes(b"tampered")
             with self.assertRaisesRegex(ValueError, "artifact differs"):
                 release.prepare_release(self.args, ROOT, "0.1.0", "a" * 40, self.directory)
@@ -259,7 +349,9 @@ class ReleaseTests(unittest.TestCase):
 
         with patch.object(release, "run", side_effect=command), patch.object(release, "install_readme"), \
                 patch.object(release.plistlib, "loads", return_value={
-                    "CFBundleIdentifier": "com.caterm.inputmethod.si", "CFBundleShortVersionString": "0.1.0"}):
+                    "CFBundleIdentifier": "com.caterm.inputmethod.si", "CFBundleShortVersionString": "0.1.0",
+                    "CFBundleVersion": str(release.project_build(ROOT)),
+                    "SUFeedURL": "https://downloads.caterm.com/si/channels/mac/stable-universal.xml"}):
             # Emulate only the bundle metadata read and architecture query; no real build or Apple request.
             original = Path.read_bytes
 
