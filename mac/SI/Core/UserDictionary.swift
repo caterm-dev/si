@@ -114,7 +114,7 @@ public struct UserDictionary: Equatable, Sendable {
             guard phrase.input.hasPrefix(code) else { return nil }
             let exact = phrase.input == code
             let cost = baseCost + (exact && phrase.isPinned ? 0 : 1)
-                + (exact ? 0 : SpellingChannel.cost(fullLength: phrase.input.count, typedLength: code.count))
+                + (exact ? 0 : WordPrefixChannel.cost(fullLength: phrase.input.count, typedLength: code.count))
             return InputCandidate(text: phrase.text, language: phrase.language,
                                   score: Int(-cost), isUserPhrase: true, rankingScore: -cost, hasCompletion: !exact,
                                   isPreferred: exact && phrase.isPinned)

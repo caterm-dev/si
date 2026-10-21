@@ -1,0 +1,107 @@
+[
+  {
+    "input": "dierye",
+    "expected": "第二页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "di'er'ye",
+    "expected": "第二页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "disanye",
+    "expected": "第三页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "disiye",
+    "expected": "第四页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "diwuye",
+    "expected": "第五页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "diliuye",
+    "expected": "第六页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "diqiye",
+    "expected": "第七页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "dibaye",
+    "expected": "第八页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "dijiuye",
+    "expected": "第九页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "dishiye",
+    "expected": "第十页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "dishierye",
+    "expected": "第十二页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "dishisanye",
+    "expected": "第十三页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "diershiye",
+    "expected": "第二十页",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "dierzhang",
+    "expected": "第二章",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "disanzhang",
+    "expected": "第三章",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "dieryue",
+    "expected": "第二月",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "eryueer",
+    "expected": "二月二",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "erye",
+    "expected": "二爷",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "nhao",
+    "expected": "你好",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "srf",
+    "expected": "输入法",
+    "category": "phonetic-regression"
+  },
+  {
+    "input": "nihaoability",
+    "expected": "你好ability",
+    "category": "phonetic-regression"
+  }
+]

@@ -162,3 +162,9 @@ Export a test JSON file, inspect its fields, then import it with duplicates and 
 ## Website verification
 
 For the independent static landing page, use the build, browser, localization, accessibility, and deployment checks in [WEBSITE.md](WEBSITE.md). These checks do not install or exercise the input method.
+
+## Language-specific spelling and bounded search
+
+Run `./scripts/test.sh --filter 'UnifiedRankingTests|SpellingEvidenceTests|UnifiedRankingPresentationTests'` and `./scripts/benchmark.sh --quality`. Fixed regressions cover normalized probabilities, character relabeling invariance, segmentation-independent Chinese spelling costs, preservation of full-spelling paths against high-frequency abbreviations, associative large-batch compaction, English completion and exact literal/commit preservation. The 21 phonetic fixtures report unresolved ordinal/date ambiguities as well as initial and mixed spellings; their expected outputs do not authorize phrase-specific score rules. The historical holdout has been inspected during development and is no longer an independent estimate.
+
+On an intentionally installed build, type synthetic `danci`, `dan'ci`, `dierye`, `nhao` and `abilit` in TextEdit and a browser field. Check actual candidate ranking, select visible alternatives from compact/expanded panels with Space and a number, then exercise Escape, focus changes and a shortcut. Check that learned overrides remain deliberate, paused/secure input disables them, and no previously pending candidate returns after cancellation. A core test/build does not establish these native host checks.

@@ -104,6 +104,7 @@ public struct PinyinDecoder: Sendable {
     private let fullReadings: [Int]
     private let maximumCodeLength: Int
     private static let beamWidth = 12
+    private static let protectedFullSpellings = 2
 
     public init(entries source: [PinyinLexiconEntry]) {
         let entries = source.filter { entry in
@@ -128,8 +129,7 @@ public struct PinyinDecoder: Sendable {
         var maximum = 0
         let model = LexicalLanguageModel(entries: entries)
         let exactChannelCosts = entries.map { entry in
-            SpellingChannel.fullCost(length: entry.code.count,
-                abbreviatableSyllables: entry.syllables.count > 1 ? entry.syllables.filter { $0.count > 1 }.count : 0)
+            PinyinSpellingChannel.cost(syllables: entry.syllables, typedLength: entry.code.count)
         }
         let lexicalScores = entries.indices.map {
             -(model.costs[model.chineseIDs[$0]] + model.readingCosts[$0] + exactChannelCosts[$0]) * LexicalLanguageModel.pointsPerBit
@@ -149,22 +149,22 @@ public struct PinyinDecoder: Sendable {
             full.append((entry.code, index))
             guard entry.syllables.count > 1 else { continue }
             let masks = entry.syllables.count <= 6 ? Array(1..<(1 << entry.syllables.count)) : [-1]
-            let variants = entry.syllables.count > 6 ? 1 : max(1, (1 << entry.syllables.filter { $0.count > 1 }.count) - 1)
-            let abbreviationCost = SpellingChannel.abbreviationCost(variants: variants)
             var seen: Set<String> = [entry.code]
             for mask in masks {
                 var code = ""
                 var boundaries = Set<Int>()
+                var channelCost = 0.0
                 for (position, syllable) in entry.syllables.enumerated() {
                     let initial = mask == -1 || mask & (1 << position) != 0
                     let token = initial ? String(syllable.prefix(1)) : syllable
                     code += token
+                    channelCost += PinyinSpellingChannel.cost(length: syllable.count, typedLength: token.count)
                     if position < entry.syllables.count - 1 { boundaries.insert(code.count) }
                 }
                 guard seen.insert(code).inserted else { continue }
                 exact[code, default: []].append(readings.count)
                 readings.append(Reading(entries: group, previewEntries: previewEntries, boundaries: boundaries,
-                                        channelCost: abbreviationCost,
+                                        channelCost: channelCost,
                                         abbreviated: true))
             }
         }
@@ -368,7 +368,12 @@ public struct PinyinDecoder: Sendable {
                 let code = String(input.letters[start..<end])
                 if chinese {
                     // Early hints bound lexical fanout in the same lattice; final search stays exhaustive at lookup.
-                    let matches = preview ? Array(fullReadingRange(from: code, to: code + "a").prefix(8)) : exact[code] ?? []
+                    let matches: [Int]
+                    if preview {
+                        let full = Array(fullReadingRange(from: code, to: code + "a").prefix(8))
+                        let initial = (exact[code] ?? []).lazy.filter { readings[$0].abbreviated }.prefix(8 - full.count)
+                        matches = full + initial
+                    } else { matches = exact[code] ?? [] }
                     for index in matches {
                         let match = readings[index]
                         guard input.respects(match.boundaries, from: start, to: end) else { continue }
@@ -377,7 +382,8 @@ public struct PinyinDecoder: Sendable {
                             let channel = match.abbreviated ? match.channelCost : exactChannelCosts[index]
                             result[start].append(Edge(end: end, text: entry.text, languages: 1,
                                                       cost: model.costs[model.chineseIDs[index]] + model.readingCosts[index] + channel,
-                                                      token: model.chineseIDs[index], channelCost: model.readingCosts[index] + channel, abbreviated: match.abbreviated))
+                                                      token: model.chineseIDs[index], channelCost: model.readingCosts[index] + channel,
+                                                      abbreviated: match.abbreviated))
                         }
                     }
                 }
@@ -408,8 +414,7 @@ public struct PinyinDecoder: Sendable {
                     for index in preview ? match.previewEntries : match.entries {
                         let entry = entries[index]
                         let channel = model.readingCosts[index]
-                            + SpellingChannel.cost(fullLength: entry.code.count, typedLength: count - start)
-                            + (entry.syllables.count > 1 && entry.syllables.contains { $0.count > 1 } ? 1 : 0)
+                            + PinyinSpellingChannel.cost(syllables: entry.syllables, typedLength: count - start)
                         result[start].append(Edge(end: count, text: entry.text, languages: 1,
                                                   cost: model.costs[model.chineseIDs[index]] + channel,
                                                   token: model.chineseIDs[index], channelCost: channel, completion: true))
@@ -453,9 +458,9 @@ public struct PinyinDecoder: Sendable {
                     if $0.end != $1.end { return $0.end > $1.end }
                     return $0.text < $1.text
                 }.filter {
-                    let key = $0.languages | ($0.completion ? 4 : 0)
-                    let spanKey = key | ($0.end << 3)
-                    guard counts[spanKey, default: 0] < 8,
+                    let key = $0.languages | ($0.completion ? 4 : 0) | ($0.abbreviated ? 8 : 0)
+                    let spanKey = key | ($0.end << 4)
+                    guard counts[spanKey, default: 0] < ($0.abbreviated ? 8 : 16),
                           spans[key, default: []].contains($0.end) || spans[key, default: []].count < 4 else { return false }
                     spans[key, default: []].insert($0.end)
                     counts[spanKey, default: 0] += 1
@@ -530,12 +535,13 @@ public struct PinyinDecoder: Sendable {
         return Self.textPrecedes(left.path, right.path)
     }
 
-    private func selectTerminal(_ paths: [PresentationPath], personalized: Bool) -> [PresentationPath] {
+    private func selectTerminal(_ paths: [PresentationPath], personalized: Bool,
+                                limit: Int = Self.beamWidth, reservingFull: Bool = true) -> [PresentationPath] {
         var groups: [Int: [PresentationPath]] = [:]
         for value in paths {
-            let key = state(value.path)
+            let key = state(value.path) & ~64
             var group = groups[key, default: []]
-            if group.count == Self.beamWidth,
+            if group.count == limit,
                !presentationPrecedes(value, group[group.count - 1], personalized: personalized) { continue }
             if let duplicate = group.firstIndex(where: { Self.textEquals($0.path, value.path) }) {
                 guard presentationPrecedes(value, group[duplicate], personalized: personalized) else { continue }
@@ -543,8 +549,21 @@ public struct PinyinDecoder: Sendable {
             }
             let position = group.firstIndex { presentationPrecedes(value, $0, personalized: personalized) } ?? group.count
             group.insert(value, at: position)
-            if group.count > Self.beamWidth { group.removeLast() }
+            if group.count > limit { group.removeLast() }
             groups[key] = group
+        }
+        if reservingFull && paths.contains(where: { $0.path.abbreviated }) {
+            let full = selectTerminal(paths.filter { !$0.path.abbreviated }, personalized: personalized,
+                                      limit: Self.protectedFullSpellings, reservingFull: false)
+            for (key, protected) in Dictionary(grouping: full, by: { state($0.path) & ~64 }) {
+                let general = groups[key, default: []]
+                // Keep both top sets independently. Replacing general slots with
+                // protected paths would make incremental compaction non-associative.
+                let additional = protected.filter { value in
+                    !general.contains { !$0.path.abbreviated && Self.textEquals($0.path, value.path) }
+                }
+                groups[key] = (general + additional).sorted { presentationPrecedes($0, $1, personalized: personalized) }
+            }
         }
         return groups.values.flatMap { $0 }.sorted { presentationPrecedes($0, $1, personalized: personalized) }
     }
@@ -573,7 +592,10 @@ public struct PinyinDecoder: Sendable {
     }
 
     private func state(_ path: Path) -> Int {
-        path.languages | (path.verbatim ? 4 : 0) | (path.lastLanguage << 3) | (path.completion ? 32 : 0)
+        // Spelling provenance participates in path identity; selection shares its
+        // budget across spellings with up to two additional full-spelling alternatives.
+        path.languages | (path.verbatim ? 4 : 0) | (path.lastLanguage << 3)
+            | (path.completion ? 32 : 0) | (path.abbreviated ? 64 : 0)
     }
 
     private func preferred(_ left: Path, _ right: Path) -> Bool {
@@ -583,7 +605,8 @@ public struct PinyinDecoder: Sendable {
         return Self.continuationPrecedes(left, right)
     }
 
-    private func select(_ paths: [Path], personalized: Bool) -> [Path] {
+    private func select(_ paths: [Path], personalized: Bool,
+                        limit: Int = Self.beamWidth, reservingFull: Bool = true) -> [Path] {
         func precedes(_ left: Path, _ right: Path) -> Bool {
             let a = personalized ? left.searchCost : left.cost
             let b = personalized ? right.searchCost : right.cost
@@ -596,11 +619,12 @@ public struct PinyinDecoder: Sendable {
         // The budget and identity include the same future boundary/learning information.
         var groups: [Int: [(path: Path, order: Int)]] = [:]
         for (order, path) in paths.enumerated() {
-            let key = state(path)
+            let key = state(path) & ~64
             var group = groups[key, default: []]
-            if group.count == Self.beamWidth, !precedes(path, group[group.count - 1].path) { continue }
+            if group.count == limit, !precedes(path, group[group.count - 1].path) { continue }
             if let duplicate = group.firstIndex(where: {
                 $0.path.contextID == path.contextID && $0.path.englishWordEnd == path.englishWordEnd && $0.path.splitsEnglishWord == path.splitsEnglishWord
+                    && $0.path.abbreviated == path.abbreviated
                     && Self.textEquals($0.path, path)
             }) {
                 guard precedes(path, group[duplicate].path) else { continue }
@@ -608,8 +632,21 @@ public struct PinyinDecoder: Sendable {
             }
             let position = group.firstIndex { precedes(path, $0.path) } ?? group.count
             group.insert((path, order), at: position)
-            if group.count > Self.beamWidth { group.removeLast() }
+            if group.count > limit { group.removeLast() }
             groups[key] = group
+        }
+        if reservingFull && paths.contains(where: \.abbreviated) {
+            let full = select(paths.filter { !$0.abbreviated }, personalized: personalized,
+                              limit: Self.protectedFullSpellings, reservingFull: false)
+            for (key, protected) in Dictionary(grouping: full, by: { state($0) & ~64 }) {
+                let reserved = protected.enumerated().map { index, path in
+                    groups[key, default: []].first {
+                        PathIdentity(state: state($0.path), path: $0.path, continuing: true)
+                            == PathIdentity(state: state(path), path: path, continuing: true)
+                    } ?? (path: path, order: paths.count + index)
+                }
+                groups[key, default: []].append(contentsOf: reserved.filter { $0.order >= paths.count })
+            }
         }
         return groups.values.flatMap { $0 }.sorted {
             if precedes($0.path, $1.path) { return true }

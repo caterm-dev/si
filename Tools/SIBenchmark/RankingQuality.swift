@@ -44,8 +44,10 @@ enum RankingQuality {
     static func run() throws {
         let path = URL(fileURLWithPath: "Data/Ranking/evaluation.json")
         let holdout = URL(fileURLWithPath: "Data/Ranking/holdout.json")
+        let phonetic = URL(fileURLWithPath: "Data/Ranking/phonetic-regressions.json")
         let examples = try JSONDecoder().decode([Example].self, from: Data(contentsOf: path))
             + JSONDecoder().decode([Example].self, from: Data(contentsOf: holdout))
+            + JSONDecoder().decode([Example].self, from: Data(contentsOf: phonetic))
         let engine = CandidateEngine()
         var results: [Result] = []
         for example in examples {
@@ -62,11 +64,12 @@ enum RankingQuality {
                                   previewTopFive: Array(preview.prefix(5).map(\.text)),
                                   characterErrors: distance(candidates.first?.text ?? "", example.expected)))
         }
-        let partitions = Dictionary(grouping: results) { $0.example.category.hasPrefix("holdout-") ? "holdout" : "regression-and-development" }
+        let partitions = Dictionary(grouping: results) { $0.example.category.hasPrefix("holdout-") ? "historical-holdout"
+            : ($0.example.category == "phonetic-regression" ? "phonetic-regressions" : "regression-and-development") }
             .mapValues { rows in Metrics(examples: rows.count, topOne: rows.count { $0.rank == 1 },
                                         topFive: rows.count { ($0.rank ?? .max) <= 5 }, recall: rows.count { $0.rank != nil },
                                         previewTopFive: rows.count { ($0.previewRank ?? .max) <= 5 }) }
-        let report = Report(model: "SI unified lexical Witten-Bell + wordfreq 3.1.1", examples: results.count,
+        let report = Report(model: "SI syllable spelling + generic character context + wordfreq 3.1.1", examples: results.count,
                             topOne: results.count { $0.rank == 1 }, topFive: results.count { ($0.rank ?? .max) <= 5 },
                             engineRecall: results.count { $0.rank != nil },
                             previewTopFive: results.count { ($0.previewRank ?? .max) <= 5 },

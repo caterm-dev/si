@@ -20,6 +20,36 @@ struct UnifiedRankingTests {
         }
     }
 
+    @Test func contextScoresDependOnVocabularyEvidenceRatherThanSelectedCharacterMeanings() {
+        let source: [PinyinLexiconEntry] = [
+            .init(syllables: ["di"], text: "第", upstreamWeight: 100),
+            .init(syllables: ["yi"], text: "一", upstreamWeight: 200),
+            .init(syllables: ["er"], text: "二", upstreamWeight: 150),
+            .init(syllables: ["ye"], text: "页", upstreamWeight: 20),
+            .init(syllables: ["ye"], text: "爷", upstreamWeight: 80),
+            .init(syllables: ["di", "yi"], text: "第一", upstreamWeight: 30),
+            .init(syllables: ["di", "yi", "ye"], text: "第一页", upstreamWeight: 10),
+            .init(syllables: ["er", "ye"], text: "二爷", upstreamWeight: 40),
+        ]
+        let mapping: [Character: Character] = ["第": "甲", "一": "乙", "二": "丙", "页": "丁", "爷": "戊"]
+        let renamed = source.map {
+            PinyinLexiconEntry(syllables: $0.syllables, text: String($0.text.map { mapping[$0]! }),
+                               upstreamWeight: $0.upstreamWeight!)
+        }
+        let originalModel = LexicalLanguageModel(entries: source)
+        let renamedModel = LexicalLanguageModel(entries: renamed)
+        // Relabeling a vocabulary preserves its frequencies and adjacency graph.
+        // No selected character or numeral class may introduce extra evidence.
+        let originalIDs = [0, 1] + originalModel.chineseIDs
+        let renamedIDs = [0, 1] + renamedModel.chineseIDs
+        for (previous, renamedPrevious) in zip(originalIDs, renamedIDs) {
+            for (token, renamedToken) in zip(originalIDs, renamedIDs) {
+                #expect(abs(originalModel.cost(token: token, after: previous)
+                            - renamedModel.cost(token: renamedToken, after: renamedPrevious)) < 1e-12)
+            }
+        }
+    }
+
     @Test func vocabularySuffixesWithoutAWordInitialDoNotLoseProbabilityMass() {
         let model = LexicalLanguageModel(entries: [
             PinyinLexiconEntry(syllables: ["jia", "yi"], text: "甲乙"),
@@ -49,15 +79,13 @@ struct UnifiedRankingTests {
 
     @Test func truncatedSpellingIsAFiniteNormalizedDistributionWithoutScoreTiers() {
         for length in 1...64 {
-            let mass = (1...length).reduce(0.0) { $0 + exp2(-SpellingChannel.cost(fullLength: length, typedLength: $1)) }
+            let mass = (1...length).reduce(0.0) { $0 + exp2(-WordPrefixChannel.cost(fullLength: length, typedLength: $1)) }
             #expect(abs(mass - 1) < 1e-12)
             for typed in 1..<length {
-                #expect(abs(SpellingChannel.cost(fullLength: length, typedLength: typed)
-                            - SpellingChannel.cost(fullLength: length, typedLength: typed + 1) - 1) < 1e-12)
+                #expect(abs(WordPrefixChannel.cost(fullLength: length, typedLength: typed)
+                            - WordPrefixChannel.cost(fullLength: length, typedLength: typed + 1) - 1) < 1e-12)
             }
         }
-        let fullChannel = (1...5).reduce(0.0) { $0 + 0.5 * exp2(-SpellingChannel.cost(fullLength: 5, typedLength: $1)) }
-        #expect(abs(fullChannel + 3 * exp2(-SpellingChannel.abbreviationCost(variants: 3)) - 1) < 1e-12)
     }
 
     @Test func alternativePronunciationsCannotBorrowEachOthersFrequency() throws {
@@ -75,7 +103,7 @@ struct UnifiedRankingTests {
         let model = LexicalLanguageModel(entries: entries)
         for key in ["abilit", "ability", "develo", "SwiftUI"] {
             for entry in EnglishLexicon.matches(for: key.lowercased()) {
-                let expected = model.cost(token: entry.id) + SpellingChannel.cost(fullLength: entry.length, typedLength: key.count)
+                let expected = model.cost(token: entry.id) + WordPrefixChannel.cost(fullLength: entry.length, typedLength: key.count)
                 #expect(abs(entry.cost(typedLength: key.count) - expected) < 1e-12)
             }
         }

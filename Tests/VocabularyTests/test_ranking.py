@@ -31,6 +31,18 @@ class RankingDataTests(unittest.TestCase):
         for text in ['Robyn Speer', 'creativecommons.org/licenses/by-sa/4.0/', 'SUBTLEX', 'Brysbaert', 'Google Books', 'OpenSubtitles']:
             self.assertIn(text, notices)
 
+    def test_phonetic_regressions_are_explicit_unique_and_separate_from_historical_cases(self):
+        rows = json.loads((ROOT / 'Data/Ranking/phonetic-regressions.json').read_text())
+        previous = json.loads((ROOT / 'Data/Ranking/evaluation.json').read_text())
+        previous += json.loads((ROOT / 'Data/Ranking/holdout.json').read_text())
+        inputs = [row['input'] for row in rows]
+        self.assertEqual(len(inputs), len(set(inputs)))
+        self.assertTrue(set(inputs).isdisjoint(row['input'] for row in previous))
+        for row in rows:
+            self.assertEqual(row['category'], 'phonetic-regression')
+            self.assertTrue(row['expected'])
+            self.assertTrue(0 < len(row['input']) <= 64)
+
     def test_calibration_and_quality_partitions_are_disjoint(self):
         calibration = json.loads((ROOT / 'Data/Ranking/calibration.json').read_text())['examples']
         development = json.loads((ROOT / 'Data/Ranking/evaluation.json').read_text())

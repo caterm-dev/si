@@ -128,16 +128,33 @@ struct LexicalLanguageModel: Sendable {
 
 /// A finite geometric truncation channel, normalized over the word's nonempty prefixes.
 /// Each omitted source letter halves likelihood; exact/completed matches share this model.
-enum SpellingChannel {
+enum WordPrefixChannel {
     private static let offsets = (1...64).map { 1 + log2(1 - exp2(-Double($0))) }
     static func cost(fullLength: Int, typedLength: Int) -> Double {
         precondition(fullLength > 0 && fullLength <= 64 && typedLength > 0 && typedLength <= fullLength)
         return Double(fullLength - typedLength) + offsets[fullLength - 1]
     }
+}
 
-    static func fullCost(length: Int, abbreviatableSyllables: Int) -> Double {
-        cost(fullLength: length, typedLength: length) + (abbreviatableSyllables > 0 ? 1 : 0)
+/// Chinese observations operate on syllables, independently of dictionary word boundaries.
+/// For a syllable of length L, k=0...L observed letters have probability
+/// 2^k / (2^(L+1)-1). Zero letters cover later syllables in an unfinished reading.
+/// This is an explicit geometric default, not an estimate of population typing habits.
+enum PinyinSpellingChannel {
+    private static let offsets = (1...64).map { 1 + log2(1 - exp2(-Double($0 + 1))) }
+
+    static func cost(length: Int, typedLength: Int) -> Double {
+        precondition((1...64).contains(length) && (0...length).contains(typedLength))
+        return Double(length - typedLength) + offsets[length - 1]
     }
 
-    static func abbreviationCost(variants: Int) -> Double { 1 + log2(Double(variants)) }
+    static func cost(syllables: [String], typedLength: Int) -> Double {
+        var remaining = typedLength
+        return syllables.reduce(0) { result, syllable in
+            let length = syllable.utf8.count
+            let consumed = min(length, remaining)
+            remaining -= consumed
+            return result + cost(length: length, typedLength: consumed)
+        }
+    }
 }

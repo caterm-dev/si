@@ -113,7 +113,7 @@ struct ChineseVocabularyTests {
         ])
         let values = decoder.candidates(for: "guo")
         let country = try #require(values.first { $0.text == "国" })
-        #expect(abs(country.rankingScore - log2(0.5 * 3_063_867.0 / (3_063_867.0 + 7_307_184.0 + 2) * 4 / 7)) < 1e-12)
+        #expect(abs(country.rankingScore - log2(0.5 * 3_063_867.0 / (3_063_867.0 + 7_307_184.0 + 2) * 8 / 15)) < 1e-12)
         #expect(values.first?.text == "过")
         #expect(values.contains { $0.text == "果" && $0.rankingScore < country.rankingScore })
         let unweighted = PinyinDecoder(entries: [
@@ -160,7 +160,7 @@ struct ChineseVocabularyTests {
         var combinations: [(text: String, cost: Double)] = []
         for first in entries {
             for second in entries {
-                let cost = 2 * log2(total) - Double(first.score + second.score) / 10 + 1 - log2(1 - RankingCalibration.switchProbability)
+                let cost = 2 * log2(total) - Double(first.score + second.score) / 10 + 1 - log2(1 - RankingCalibration.switchProbability) + 2 * log2(1.5)
                 combinations.append((first.text + second.text, cost))
             }
         }

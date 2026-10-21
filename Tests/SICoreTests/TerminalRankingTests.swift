@@ -28,8 +28,8 @@ struct TerminalRankingTests {
         ])
         let candidates = decoder.candidates(for: "woshi")
         let result = try #require(candidates.first { $0.text == "我是" })
-        let pFirst = 0.5 * 1024 / 2050 * 2 / 3
-        let pSecond = (1 - RankingCalibration.switchProbability) * (0.5 + 0.5 * 1024 / 2050) * 4 / 7
+        let pFirst = 0.5 * 1024 / 2050 * 4 / 7
+        let pSecond = (1 - RankingCalibration.switchProbability) * (0.5 + 0.5 * 1024 / 2050) * 8 / 15
         #expect(abs(result.rankingScore - log2(pFirst * pSecond)) < 1e-10)
         #expect(candidates.count { $0.text == "我是" } == 1)
     }

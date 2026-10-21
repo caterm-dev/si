@@ -42,7 +42,7 @@ struct BoundedSearchTests {
             exhaustive = exhaustive.flatMap { path in
                 words.map { word in
                     let language = path.text.isEmpty ? 1.0 : -log2(1 - RankingCalibration.switchProbability)
-                    return (path.text + word.text, path.cost + log2(total) - Double(word.score) / 10 + language)
+                    return (path.text + word.text, path.cost + log2(total) - Double(word.score) / 10 + language + log2(1.5))
                 }
             }
         }

@@ -30,7 +30,7 @@ enum EnglishLexicon {
             id = index + 1
             probability = frequencies[index] / totalFrequency
             lexicalCost = -log2(0.5 * probability)
-            truncationOffset = SpellingChannel.cost(fullLength: length, typedLength: length)
+            truncationOffset = WordPrefixChannel.cost(fullLength: length, typedLength: length)
             capitalizedText = word.prefix(1).uppercased() + word.dropFirst()
             uppercaseText = word.uppercased()
         }

@@ -2,6 +2,57 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## General scoring without ordinal exceptions — 2026-10-21
+
+The hand-authored `第 + numerals + continuation` class and all associated transition tables, cached entry effects and search states have been removed at the user's request. All Chinese entries now use the same vocabulary-derived character-boundary model. Per-syllable Chinese spelling likelihoods, the unchanged English word-prefix channel, bounded full-spelling protection and abbreviation preview coverage remain. No external model/data or per-phrase score was introduced.
+
+A regression relabels the characters of an injected vocabulary while preserving weights, readings and the adjacency graph, and checks identical conditional scores for corresponding words, English and unknown outcomes. This guards against hidden character-specific evidence. Ordinary normalization, bounded compaction, personalized search, literal preservation and both-layout commit tests also remain.
+
+Current synthetic quality is **72/86 first**, **73/86 top five**, **75/86 engine target recall** and **73/86 provisional top five**; first choices agree between stages on all 86. The 45 development cases are 45/45 first, the 20 historical cases are 19/20 first and 20/20 top five, and the 21 phonetic cases are 8/21 first, 8/21 top five and 10/21 recall. `dierye` and `di'er'ye` again omit `第二页` from returned results; `第二爷` and `第二月二` remain ahead. These unresolved cases remain in the quality fixtures rather than receiving a structural exception. The withdrawn experiment's higher counts below must not be attributed to this version. None of these inspected suites is an independent production accuracy estimate.
+
+The complete current worktree passed **270 Swift tests** (193 core, 45 presentation, 20 settings, 12 storage), the Debug app build, local documentation link checks and whitespace checks. This includes concurrent automatic-confirmation work; that feature was not changed as part of removing the ordinal rule. Raw evidence is in `.build/ranking-generic/tests.log`, `debug-build.log` and `quality.json`/`.log`. No installation, live host typing or VoiceOver validation was performed. No new performance claim is made; the experiment's timings below describe the removed version.
+
+The ranking-only staged snapshot was also validated independently before commit: all **256 Swift tests** (180 core, 45 presentation, 19 settings, 12 storage) and **33 Python data tests** passed without the separate automatic-confirmation changes. Logs are `staged-tests.log` and `staged-data-tests.log` under `.build/ranking-generic/`.
+
+## Withdrawn ordinal-context experiment — 2026-10-21
+
+This experimental checkpoint was withdrawn at the user’s request: its hand-authored ordinal class has been removed. Results and timings in this historical section describe the removed version, not the current engine.
+
+Chinese observations now use per-syllable geometric likelihoods, while English retains its word-prefix channel. Equivalent exact Chinese spellings have the same cost across lexical segmentations. A small ordinal continuation class derives normalized Witten–Bell evidence from existing `第…` vocabulary entries across token boundaries. Raw dictionary weights and English frequency data are unchanged; no external model, corpus or runtime dependency was added. This is limited vocabulary structure, not sentence semantics. See [the model and its limits](UNIFIED_RANKING.md).
+
+Continuation and terminal lanes retain twelve general paths plus at most two additional full-spelling paths, independently selected. Three ordinal suffix states retain distinct future contexts. Provisional lookup also includes bounded initial/mixed readings and sixteen full-spelling homophones per span. A 1,024-alternative synthetic test checks insertion-order-independent terminal compaction. Direct lexical/personal results, literal input and learning exclusions remain intact.
+
+The baseline is committed core `351c35e`, archived locally without user records. Both versions ran the same 86 synthetic fixtures; the baseline harness was extended only to read the new fixtures.
+
+| Synthetic partition | Baseline first / top five | Current first / top five |
+| --- | --- | --- |
+| Development regressions, 45 examples | 44 / 45 | 45 / 45 |
+| Historical holdout, 20 examples | 19 / 20 | 19 / 20 |
+| Phonetic regressions, 21 examples | 7 / 8 | 19 / 21 |
+| Total, 86 examples | 70 / 73 | 83 / 86 |
+
+Engine target recall is 73 → 86; provisional top-five recall is 71 → 86. Current provisional/final first choices agree on all 86. `dierye` and `di'er'ye` select `第二页` first in both stages and layouts, with exact confirmation covered by tests. Intended date, initial/mixed spelling and literal alternatives remain available. Remaining first-choice differences are `第企业` before intended `第七页` (rank five), `敌视野` before `第十页` (rank two), and `现在添加字母` before `现在添加字幕` (rank two). These are inspected, authored examples, not representative accuracy estimates. The historical holdout is no longer independent.
+
+All **260 Swift tests** (184 core, 45 presentation, 19 settings, 12 storage), all **33 Python data tests**, `scripts/ranking.py --check`, Debug and Release builds, and whitespace checks passed. No installation, live host typing, InputMethodKit focus/event validation or VoiceOver interaction was performed.
+
+Release full-search P95 timings on this Mac, ten warmups and 200 iterations per scenario with 5,000 synthetic preferences and up to 1,000 synthetic personal phrases:
+
+| Scenario | Baseline ms | Current ms |
+| --- | ---: | ---: |
+| short | 4.819 | 5.058 |
+| partial | 3.743 | 4.886 |
+| phrase construction | 29.306 | 33.850 |
+| mixed | 8.520 | 9.994 |
+| long ambiguous composition | 86.832 | 100.512 |
+| dense known composition | 20.027 | 23.590 |
+| dense prefix with unknown tail | 136.119 | 152.320 |
+| learned tokens in longer composition | 44.723 | 54.065 |
+| English prefix | 0.137 | 0.130 |
+
+Initialization is 689.9 → 756.7 ms outside keystroke handling. Peak benchmark-process RSS is 285.2 → 285.7 MiB, not installed-app idle memory. Additional alternatives and context increase several Chinese search costs; this is a quality/coverage tradeoff, not a latency improvement. Provisional P95 is 0.109 → 0.202 ms for short input, 1.472 → 4.223 ms for phrase construction, 0.717 → 1.803 ms for mixed input and 11.947 → 25.853 ms for long ambiguous input. These exclude host IPC, scheduling and rendering and do not establish native key-to-screen responsiveness.
+
+Raw evidence is local under `.build/ranking-repair/`: `expanded-before-quality.json`, `ready-quality.json`, `before-performance.json`/`.log`, `final-performance.json`/`.log`, `before-previews.json`, `final-previews.json`, `ready-tests.log`, `ready-data-tests.log`, `ready-generated-check.log` and Debug/Release build logs. Reproduce with [testing commands](TESTING.md#language-specific-spelling-and-bounded-search).
+
 ## Sequential first-word selection — 2026-10-21
 
 Constructed sentence results now present two leading whole choices followed by exact first-word and Chinese single-character alternatives, without filling later pages with more sentence completions. Language/mixed/literal reservations remain available. Synthetic `biruzhege` offers `比如这个`, a second ranked whole, `比如`, then `比`, `必`, `毕`, `笔` and other first-character choices; the second expanded page contains character alternatives instead of repeated whole-sentence extensions. Selecting `比如` consumes exactly `biru` (or `bi'ru'`) and leaves `zhege` editable for `这个`.

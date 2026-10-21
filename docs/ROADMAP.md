@@ -28,6 +28,7 @@ SI is currently a development preview. Checked items have implementations; unche
 - [x] Existing single-language preferences influence internal tokens with bounded, length-weighted scoring and a separate base beam.
 - [x] Optional previous-word pair ranking across languages, with shared retention/deletion controls.
 - [x] Unified local probability scoring, English corpus-frequency priors and limited Chinese character-boundary backoff.
+- [x] Language-specific word/syllable spelling channels and bounded full-spelling search protection.
 - [ ] Broader sentence-level context scoring and representative independent input-quality evaluation.
 - [x] Composition-caret movement and whole-character forward/backward deletion with UTF-16 marked offsets.
 - [x] Editable punctuation/symbols by default, optional punctuation confirmation, and no-learning delimiter commits.
