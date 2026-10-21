@@ -27,6 +27,7 @@ public struct PinyinDecoder: Sendable {
         var learningBonus = 0.0
     }
     private struct Path {
+        var confirmationTrace: ConfirmationTrace?
         let text: String
         // Only all-lexical English paths carry word spacing. Mixed/personal output keeps its exact bytes.
         let englishText: String?
@@ -52,6 +53,29 @@ public struct PinyinDecoder: Sendable {
         }
         var searchCost: Double { cost - learningBonus / LexicalLanguageModel.pointsPerBit }
         var comparisonText: String { englishText ?? text }
+    }
+    // Shared immutable tails avoid copying an array on every lattice expansion. Capture is opt-in,
+    // full-search only, and stops after eight leading words or the first non-exact Chinese edge.
+    private final class ConfirmationTrace {
+        let boundary: ConfirmationBoundary
+        let previous: ConfirmationTrace?
+        let count: Int
+
+        init(boundary: ConfirmationBoundary, previous: ConfirmationTrace?) {
+            self.boundary = boundary
+            self.previous = previous
+            count = (previous?.count ?? 0) + 1
+        }
+
+        var boundaries: [ConfirmationBoundary] {
+            var result: [ConfirmationBoundary] = []
+            var trace: ConfirmationTrace? = self
+            while let current = trace {
+                result.append(current.boundary)
+                trace = current.previous
+            }
+            return result.reversed()
+        }
     }
     private struct PathIdentity: Hashable {
         let state: Int
@@ -211,7 +235,7 @@ public struct PinyinDecoder: Sendable {
                                       learning: LearningProfile = LearningProfile(), now: Date = .now,
                                       context: CandidateContext? = nil,
                                       includesPartials: Bool = true, allowsVerbatim: Bool = true,
-                                      preview: Bool = false) -> [InputCandidate] {
+                                      preview: Bool = false, includesConfirmationEvidence: Bool = false) -> [InputCandidate] {
         guard let reading = PinyinInput(input), !languages.isEmpty else { return [] }
         let count = reading.letters.count
         let terminalRanking = learning.ranking(for: input, now: now, context: context)
@@ -271,7 +295,7 @@ public struct PinyinDecoder: Sendable {
                     let englishText = edge.languages == 2 && !edge.personal && !edge.verbatim
                         ? path.englishText.map { $0.isEmpty ? edge.text : $0 + " " + edge.text } : nil
                     guard englishText.map({ $0.utf8.count <= Self.maximumOutputBytes }) ?? true else { continue }
-                    paths[edge.end].append(Path(text: text, englishText: englishText, cost: path.cost + increment,
+                    var next = Path(text: text, englishText: englishText, cost: path.cost + increment,
                                                languages: path.languages | edge.languages, lastLanguage: edge.languages,
                                                segments: path.segments + 1,
                                                lastToken: edge.token, contextID: contextID, preferred: path.segments == 0 && edge.preferred, personal: path.personal || edge.personal,
@@ -280,7 +304,18 @@ public struct PinyinDecoder: Sendable {
                                                learnedSum: path.learnedSum + edge.learningBonus * Double(edge.end - start),
                                                consumedLetters: edge.end,
                                                supportsByteComparison: path.supportsByteComparison && supportsBytes,
-                                               englishWordEnd: englishWordEnd, splitsEnglishWord: splitsEnglishWord))
+                                               englishWordEnd: englishWordEnd, splitsEnglishWord: splitsEnglishWord)
+                    if includesConfirmationEvidence && !preview {
+                        next.confirmationTrace = path.confirmationTrace
+                        if path.segments < 8, (path.segments == 0 || path.confirmationTrace?.count == path.segments),
+                           edge.languages == 1, !edge.personal, !edge.verbatim, !edge.abbreviated, !edge.completion {
+                            next.confirmationTrace = ConfirmationTrace(
+                                boundary: ConfirmationBoundary(sourceCount: reading.rawBoundaries[edge.end],
+                                                               outputByteCount: text.utf8.count),
+                                previous: path.confirmationTrace)
+                        }
+                    }
+                    paths[edge.end].append(next)
                 }
                 // Terminal scores are final, so retaining their bounded best sets is associative.
                 // Compact large completion batches before they allocate an unbounded temporary pool.
@@ -482,7 +517,8 @@ public struct PinyinDecoder: Sendable {
                               hasLiteralSegments: path.verbatim, consumedInputCount: consumed, rankingScore: score,
                               hasCompletion: path.completion, tokenLearningBonus: path.segments > 1 ? path.learningBonus : 0,
                               isPreferred: consumed == nil && path.segments == 1 && path.preferred,
-                              lexicalTokenCount: path.segments == 1 && path.abbreviated ? nil : path.segments)
+                              lexicalTokenCount: path.segments == 1 && path.abbreviated ? nil : path.segments,
+                              confirmationBoundaries: consumed == nil ? path.confirmationTrace?.boundaries ?? [] : [])
     }
 
     private func baseScore(_ path: Path, consumed: Int?) -> Double {

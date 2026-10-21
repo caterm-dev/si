@@ -457,3 +457,29 @@ The full-capacity prefix scenario returns 1,078 candidates. Sampling only the se
 - Signed/notarized distribution, installer runtime recovery, other macOS versions, and host compatibility remain unverified.
 
 See `docs/IMPLEMENTATION_PLAN.md` for the preserved objective and remaining work. These automated results do not establish that the full objective is complete.
+
+## Automatic prefix confirmation — October 21, 2026
+
+The optional implementation supports both continued-typing and pause-triggered prefix confirmation, with an editable ending. The Typing option defaults to off. Relative-score consensus and exact lexical source/output boundaries are required; this is a conservative heuristic, not a semantic correctness guarantee.
+
+Final-source automated checks:
+
+- `./scripts/test.sh`: passed 272 tests across core, storage, Settings and presentation (12 + 20 + 45 + 195). This includes continued typing with the standard vocabulary, pause timing, single-character pause suppression, editable/exact remainders, ü/u: and separators, near-candidate disagreement, Unicode grapheme boundaries, English safeguards with English disabled, edits/navigation/configuration reset, stale/cross-client/provisional results, and no implicit learning/context.
+- `./scripts/build.sh`: Debug universal macOS app build passed with signing disabled.
+- `./scripts/benchmark.sh --automatic-confirmation`: Release benchmark and regression gates passed. Six paired workloads retained identical candidate IDs/order, ranking scores and output bytes. All 600 combinations (100 fixed synthetic inputs, two language configurations, three result-delivery patterns) had correct committed prefixes; 133 combinations activated and 467 abstained. Continued typing activated in 58 combinations and a final pause in 83, with overlap. This includes development data and an already inspected historical holdout, so it is not an independent accuracy estimate.
+- `git diff --check` and local documentation-link checks passed. Source hashes were unchanged between the final test/build snapshot and benchmark completion.
+
+Paired full-search medians in milliseconds, including evidence extraction when enabled:
+
+| Synthetic input | Without automatic evidence | With automatic evidence |
+| --- | ---: | ---: |
+| `nihaopengyou` | 20.419 | 21.572 |
+| `womenxuexizhongwen` | 36.191 | 39.678 |
+| `wojintianxiangqugongzuo` | 15.078 | 16.467 |
+| `nihaopengyouxuexizhongwen` | 42.207 | 44.446 |
+| `shi` repeated 20 times | 111.362 | 119.329 |
+| `MySwiftType` | 7.002 | 7.015 |
+
+Caller-side deferred append p95 was at most 0.018458 ms, and accepted-result delivery/decision p95 at most 0.007333 ms. These regions exclude decoding, panel/marked-text updates, timer scheduling, IPC and host processing. Full-search medians add roughly 5–10% on the measured Pinyin workloads; searches still run on the background worker. The long ambiguous full search remains about 119 ms. This does not establish native key-to-screen latency or a production latency target.
+
+Native verification remains pending. No input method was installed, no enabled input sources were changed, and no input-method process was stopped. Timer delivery, current-client/focus checks, insertion/marked-text behavior, keyboard/VoiceOver Settings access and actual host latency require the automatic-prefix checks in `docs/TESTING.md` on an intentionally installed build. Already committed text uses normal host editing; automatic original-Pinyin reconversion is not implemented.

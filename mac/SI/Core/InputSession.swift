@@ -10,10 +10,16 @@ public struct CandidateRequest: Sendable {
     fileprivate let dictionary: UserDictionary
     fileprivate let now: Date
     fileprivate let context: CandidateContext?
+    fileprivate let automaticConfirmationEnabled: Bool
 
     public func generate() -> CandidateResult {
-        CandidateResult(requestID: id, candidates: engine.candidates(
-            for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context))
+        let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
+                                           now: now, context: context,
+                                           includesConfirmationEvidence: automaticConfirmationEnabled)
+        return CandidateResult(requestID: id, candidates: candidates,
+                               confirmationPrefixes: automaticConfirmationEnabled
+                                ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
+                                                                 now: now, context: context) : [])
     }
 
     public func generatePreview() -> CandidateResult {
@@ -27,11 +33,14 @@ public struct CandidateResult: Sendable {
     fileprivate let requestID: UUID
     public let candidates: [InputCandidate]
     public let isPreview: Bool
+    fileprivate let confirmationPrefixes: [AutomaticConfirmation.Prefix]
 
-    fileprivate init(requestID: UUID, candidates: [InputCandidate], isPreview: Bool = false) {
+    fileprivate init(requestID: UUID, candidates: [InputCandidate], isPreview: Bool = false,
+                     confirmationPrefixes: [AutomaticConfirmation.Prefix] = []) {
         self.requestID = requestID
         self.candidates = candidates
         self.isPreview = isPreview
+        self.confirmationPrefixes = confirmationPrefixes
     }
 }
 
@@ -48,6 +57,8 @@ public struct InputSession: Sendable {
     public private(set) var candidates: [InputCandidate] = []
     public private(set) var pendingCandidateRequest: CandidateRequest?
     public private(set) var hasCandidatePreview = false
+    public static let automaticConfirmationPause = AutomaticConfirmation.pauseDelay
+    public private(set) var automaticConfirmationRevision: UInt64 = 0
     private var languages: Set<InputLanguage> = Set(InputLanguage.allCases)
     private let engine: CandidateEngine
     private let candidateGeneration: CandidateGeneration
@@ -56,6 +67,9 @@ public struct InputSession: Sendable {
     private var usesContext = false
     private var recentContext: RecentContext?
     private var contextGeneration: UInt64 = 0
+    private var automaticConfirmationEnabled = false
+    private var configurationGeneration: UInt64 = 0
+    private var automaticConfirmation = AutomaticConfirmation()
 
     public init(engine: CandidateEngine = CandidateEngine(), candidateGeneration: CandidateGeneration = .synchronous) {
         self.engine = engine
@@ -64,24 +78,31 @@ public struct InputSession: Sendable {
 
     public mutating func configure(languages: Set<InputLanguage>, learning: LearningProfile = LearningProfile(),
                                    dictionary: UserDictionary = UserDictionary(), usesContext: Bool = false,
-                                   contextGeneration: UInt64 = 0, now: Date = .now) {
+                                   contextGeneration: UInt64 = 0, automaticConfirmationEnabled: Bool = false,
+                                   configurationGeneration: UInt64 = 0, now: Date = .now) {
         let languagesChanged = self.languages != languages
         let contextChanged = self.contextGeneration != contextGeneration
         let expired = recentContext.map { now.timeIntervalSince($0.committedAt) >= Self.contextLifetime || now < $0.committedAt } ?? false
         if expired { recentContext = nil }
         guard self.languages != languages || self.learning != learning || self.dictionary != dictionary
-                || self.usesContext != usesContext || contextChanged || expired else { return }
+                || self.usesContext != usesContext || contextChanged || expired
+                || self.automaticConfirmationEnabled != automaticConfirmationEnabled
+                || self.configurationGeneration != configurationGeneration else { return }
         self.languages = languages
         self.learning = learning
         self.dictionary = dictionary
         self.usesContext = usesContext
         self.contextGeneration = contextGeneration
+        self.automaticConfirmationEnabled = automaticConfirmationEnabled
+        self.configurationGeneration = configurationGeneration
+        automaticConfirmation = AutomaticConfirmation()
         if !usesContext || languagesChanged || contextChanged { recentContext = nil }
         refresh(now: now)
     }
 
-    public mutating func append(_ text: String) {
+    public mutating func append(_ text: String, now: Date = .now) {
         guard !text.isEmpty else { return }
+        let wasAtEnd = cursor == buffer.count
         let insertionEnd = cursorUTF16Offset + text.utf16.count
         let index = buffer.index(buffer.startIndex, offsetBy: cursor)
         buffer.insert(contentsOf: text, at: index)
@@ -94,10 +115,12 @@ public struct InputSession: Sendable {
             utf16Offset += String(character).utf16.count
             cursor += 1
         }
-        refresh()
+        automaticConfirmation.appended(input: buffer, atEnd: wasAtEnd, now: now)
+        refresh(now: now)
     }
 
     public mutating func deleteBackward() {
+        suspendAutomaticConfirmation()
         guard cursor > 0 else { return }
         let index = buffer.index(buffer.startIndex, offsetBy: cursor - 1)
         buffer.remove(at: index)
@@ -106,17 +129,19 @@ public struct InputSession: Sendable {
     }
 
     public mutating func deleteForward() {
+        suspendAutomaticConfirmation()
         guard cursor < buffer.count else { return }
         buffer.remove(at: buffer.index(buffer.startIndex, offsetBy: cursor))
         refresh()
     }
 
     public mutating func moveCursor(by offset: Int) {
+        suspendAutomaticConfirmation()
         cursor += max(-cursor, min(offset, buffer.count - cursor))
     }
 
-    public mutating func moveToStart() { cursor = 0 }
-    public mutating func moveToEnd() { cursor = buffer.count }
+    public mutating func moveToStart() { suspendAutomaticConfirmation(); cursor = 0 }
+    public mutating func moveToEnd() { suspendAutomaticConfirmation(); cursor = buffer.count }
 
     @discardableResult
     public mutating func commit(_ candidate: InputCandidate? = nil) -> String {
@@ -136,6 +161,10 @@ public struct InputSession: Sendable {
             if let count = value.consumedInputCount, count <= 0 || count >= buffer.count { return nil }
             return value
         }
+        return commitValidated(validCandidate, reason: validCandidate == nil ? .literal : reason, now: now)
+    }
+
+    private mutating func commitValidated(_ validCandidate: InputCandidate?, reason: CommitReason, now: Date) -> InputCommit {
         let count = validCandidate?.consumedInputCount ?? buffer.count
         let remaining = String(buffer.dropFirst(count))
         let remainingCursor = max(0, cursor - count)
@@ -153,7 +182,27 @@ public struct InputSession: Sendable {
         return result
     }
 
+    /// Never resolves a pending search synchronously. The timer and result callback share this path.
+    public mutating func automaticallyConfirm(now: Date = .now, afterPause: Bool = false) -> InputCommit? {
+        guard automaticConfirmationEnabled, pendingCandidateRequest == nil, !hasCandidatePreview,
+              cursor == buffer.count, let candidate = automaticConfirmation.candidate(now: now, afterPause: afterPause)
+        else { return nil }
+        return commitValidated(candidate, reason: .automaticConfirmation, now: now)
+    }
+
+    public var hasAutomaticPauseCandidate: Bool {
+        automaticConfirmationEnabled && pendingCandidateRequest == nil && !hasCandidatePreview
+            && cursor == buffer.count && automaticConfirmation.hasPauseCandidate
+    }
+
+    public mutating func suspendAutomaticConfirmation() {
+        automaticConfirmation.suspend()
+        automaticConfirmationRevision &+= 1
+    }
+
     public mutating func reset() {
+        automaticConfirmation = AutomaticConfirmation()
+        automaticConfirmationRevision &+= 1
         buffer = ""
         cursor = 0
         candidates = []
@@ -163,6 +212,7 @@ public struct InputSession: Sendable {
     }
 
     public mutating func breakContext() {
+        suspendAutomaticConfirmation()
         guard recentContext != nil else { return }
         recentContext = nil
         refresh()
@@ -181,6 +231,7 @@ public struct InputSession: Sendable {
     }
 
     private mutating func refresh(now: Date = .now) {
+        automaticConfirmationRevision &+= 1
         guard !buffer.isEmpty else {
             candidates = []
             pendingCandidateRequest = nil
@@ -188,11 +239,12 @@ public struct InputSession: Sendable {
             return
         }
         let request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
-                                       dictionary: dictionary, now: now, context: currentContext(now: now))
+                                       dictionary: dictionary, now: now, context: currentContext(now: now),
+                                       automaticConfirmationEnabled: automaticConfirmationEnabled)
         pendingCandidateRequest = request
         hasCandidatePreview = false
         if candidateGeneration == .synchronous {
-            _ = accept(request.generate())
+            _ = accept(request.generate(), now: now)
         } else {
             // Old candidates must not be selected while new work is pending. Exact text remains available.
             candidates = [InputCandidate(text: buffer, language: nil, score: 0)]
@@ -200,12 +252,15 @@ public struct InputSession: Sendable {
     }
 
     @discardableResult
-    public mutating func accept(_ result: CandidateResult) -> Bool {
+    public mutating func accept(_ result: CandidateResult, now: Date = .now) -> Bool {
         guard pendingCandidateRequest?.id == result.requestID else { return false }
         if result.isPreview && hasCandidatePreview { return false }
         candidates = result.candidates
         hasCandidatePreview = result.isPreview
-        if !result.isPreview { pendingCandidateRequest = nil }
+        if !result.isPreview {
+            pendingCandidateRequest = nil
+            if automaticConfirmationEnabled { automaticConfirmation.observe(result.confirmationPrefixes, input: buffer, now: now) }
+        }
         return true
     }
 

@@ -1,5 +1,6 @@
 import AppKit
 import InputMethodKit
+import Carbon
 
 // InputMethodKit resolves this stable Objective-C name from Info.plist.
 @MainActor
@@ -17,6 +18,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var selection = CandidateSelection()
     private var candidateAnchor = CandidateAnchor()
     private var explicitlyNavigated = false
+    private var automaticConfirmationTask: Task<Void, Never>?
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
         panel.list.onSelect = { [weak self] id in
@@ -31,6 +33,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         panel.list.onToggleExpansion = { [weak self] in
             guard let self, self.session.pendingCandidateRequest == nil, let client = self.client() else { return }
+            self.session.suspendAutomaticConfirmation()
+            self.automaticConfirmationTask?.cancel()
             self.selection.setExpanded(!self.selection.isExpanded)
             self.presentCandidates(to: client)
         }
@@ -158,7 +162,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           learning: PersonalizationSettings.shared.rankingProfile,
                           dictionary: UserDictionarySettings.shared.dictionaryForInput,
                           usesContext: PersonalizationSettings.shared.usesContext,
-                          contextGeneration: PersonalizationSettings.shared.contextGeneration)
+                          contextGeneration: PersonalizationSettings.shared.contextGeneration,
+                          automaticConfirmationEnabled: LanguageSettings.shared.automaticConfirmationEnabled
+                            && !IsSecureEventInputEnabled(),
+                          configurationGeneration: LanguageSettings.shared.configurationGeneration)
     }
 
     private func receiveCandidates(_ result: CandidateResult) {
@@ -167,7 +174,11 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // Consent, secure input, language, dictionary, and context may change while work is running.
         configureSession()
         if session.accept(result) {
-            update(client)
+            if let commit = session.automaticallyConfirm() {
+                apply(commit, to: client)
+            } else {
+                update(client)
+            }
         } else if previousRequest != session.pendingCandidateRequest?.id {
             update(client)
         }
@@ -185,6 +196,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func moveCandidateSelection(by distance: Int, to eventClient: (any IMKTextInput)? = nil) {
         guard !session.buffer.isEmpty, let client = eventClient ?? client() else { return }
+        session.suspendAutomaticConfirmation()
+        automaticConfirmationTask?.cancel()
         selection.move(by: distance)
         explicitlyNavigated = true
         presentCandidates(to: client)
@@ -215,6 +228,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         commitComposition(sender)
         MainActor.assumeIsolated {
             session.breakContext()
+            automaticConfirmationTask?.cancel()
             candidatePipeline.invalidate()
             candidatePreviewPipeline.invalidate()
             candidateClient = nil
@@ -237,6 +251,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func update(_ client: any IMKTextInput) {
+        automaticConfirmationTask?.cancel()
         candidateClient = client
         let rankingTime = Date.now
         selection.update(session.candidates, prefixScore: { self.session.presentationScore(for: $0, now: rankingTime) })
@@ -256,6 +271,24 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             candidatePipeline.invalidate()
             candidatePreviewPipeline.invalidate()
             presentCandidates(to: client)
+            scheduleAutomaticConfirmation()
+        }
+    }
+
+    private func scheduleAutomaticConfirmation() {
+        guard session.hasAutomaticPauseCandidate else { return }
+        let revision = session.automaticConfirmationRevision
+        automaticConfirmationTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(InputSession.automaticConfirmationPause)) } catch { return }
+            guard !Task.isCancelled, let self,
+                  self.session.automaticConfirmationRevision == revision,
+                  let client = self.candidateClient, let currentClient = self.client(),
+                  (client as AnyObject) === (currentClient as AnyObject) else { return }
+            // A timer is another commit boundary: recheck settings, secure input and request revision.
+            self.configureSession()
+            guard self.session.automaticConfirmationRevision == revision else { self.update(client); return }
+            guard let commit = self.session.automaticallyConfirm(afterPause: true) else { return }
+            self.apply(commit, to: client)
         }
     }
 
@@ -266,6 +299,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func insert(_ text: String, into client: any IMKTextInput) {
+        automaticConfirmationTask?.cancel()
         candidatePipeline.invalidate()
         candidatePreviewPipeline.invalidate()
         candidateClient = nil

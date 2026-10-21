@@ -31,6 +31,8 @@ SI is currently a development preview. Checked items have implementations; unche
 - [x] Language-specific word/syllable spelling channels and bounded full-spelling search protection.
 - [ ] Broader sentence-level context scoring and representative independent input-quality evaluation.
 - [x] Composition-caret movement and whole-character forward/backward deletion with UTF-16 marked offsets.
+- [x] Optional automatic stable-prefix confirmation from continued typing or a pause, retaining an editable ending and excluding implicit learning.
+- [ ] Native automatic-confirmation timer/focus verification and broader independent false-confirmation evaluation.
 - [x] Editable punctuation/symbols by default, optional punctuation confirmation, and no-learning delimiter commits.
 - [ ] Real-host verification of punctuation, numbers, URLs, identifiers, and code entry.
 - [ ] Preserve exact literal text with a clear, discoverable selection path.

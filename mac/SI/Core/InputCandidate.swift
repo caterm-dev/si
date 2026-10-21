@@ -14,6 +14,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let consumedInputCount: Int?
     /// Transient lexical-node count for word-selection presentation, independent of identity and score.
     public private(set) var lexicalTokenCount: Int?
+    public let confirmationBoundaries: [ConfirmationBoundary]
 
     // Language is part of identity: matching text from two languages remains visible.
     public let id: String
@@ -33,7 +34,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public init(text: String, language: InputLanguage?, score: Int, isMixed: Bool = false, isUserPhrase: Bool = false,
                 hasLiteralSegments: Bool = false, consumedInputCount: Int? = nil, rankingScore: Double? = nil,
                 hasCompletion: Bool = false, tokenLearningBonus: Double = 0, isPreferred: Bool = false,
-                lexicalTokenCount: Int? = nil) {
+                lexicalTokenCount: Int? = nil, confirmationBoundaries: [ConfirmationBoundary] = []) {
         self.text = text
         self.language = language
         self.score = score
@@ -48,6 +49,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         self.consumedInputCount = consumedInputCount
         self.lexicalTokenCount = language != nil && !hasLiteralSegments
             ? lexicalTokenCount.flatMap { $0 > 0 ? $0 : nil } : nil
+        self.confirmationBoundaries = confirmationBoundaries
         let base = "\(isMixed && language != nil ? "zh-Hans+en" : language?.rawValue ?? "literal"):\(text)"
         id = consumedInputCount.map { "prefix\($0):\(base)" } ?? base
     }

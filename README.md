@@ -41,6 +41,14 @@ python3 scripts/ranking.py --check
 ./scripts/vocabulary.sh --language chinese explain 字幕
 ```
 
+## Automatic prefix confirmation
+
+Enable **Automatically confirm stable prefixes** in **SI Settings → Typing** to let SI confirm leading Chinese words while you continue typing or pause. It is off by default. SI keeps at least four output characters editable during continuous typing, or two after a pause of at least 1.8 seconds; complete-word boundaries can leave a longer ending. Only the confirmed source spelling is consumed, and the remaining exact spelling stays marked and editable without an extra space.
+
+Automatic confirmation requires matching source/output boundaries across nearby full-search alternatives. Continued typing must also preserve the prefix across multiple results with additional input. A pause relaxes the ending length, but requires a prefix of at least two characters and does not override disagreement between candidates. Ambiguous input can remain entirely editable. Provisional hints never trigger confirmation. English/mixed leaders, uppercase/code-like spelling, personal phrases and unrecognized spans are excluded. These are conservative local heuristics, not a guarantee of sentence meaning or a way to predict whether later typing will turn a spelling into an identifier.
+
+Editing, moving the caret, navigating/expanding candidates, or crossing a host boundary cancels automatic confirmation; fresh typing at the composition end starts new evidence. Settings changes, secure input, cancellation and stale asynchronous results cannot authorize a pending confirmation. Each pause can confirm at most once until more input arrives. Automatic confirmation does not train personal learning or become previous-word context, and saves no typing history. Return and shortcuts preserve only the remaining spelling once a prefix has been committed; editing already committed text uses the host application's normal editing tools. Native timer/focus behavior still requires the checks in [testing](docs/TESTING.md#automatic-prefix-confirmation).
+
 ## Personal learning
 
 Open **SI Settings → Personalization** and enable **Personal learning**. Repeatedly choosing a candidate raises its position for that spelling. Only deliberate selections train learning: number keys, mouse selection, or navigation followed by Space. Simply accepting the default with Space does not create or reinforce a preference; recent preferences matter more, with a 14-day half-life and a bounded ranking bonus. Other enabled languages and the original input remain available.

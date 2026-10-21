@@ -13,7 +13,7 @@ Personal learning is **off by default** and independent of enabled languages. En
 
 These records can reveal personal words or preferences. They are sensitive even though they are not a chronological record of typing. There is no sentence history, host-document content, per-keystroke log, or app-usage log. The current implementation does not harvest arbitrary literal text or create user phrases automatically.
 
-Language, punctuation, and learning-consent settings are stored in the stable `com.caterm.si` UserDefaults domain. This domain is retained when the input-method bundle identifier changes to `com.caterm.inputmethod.si`, preserving existing choices without granting new learning consent. Learned preferences are stored at:
+Language, punctuation, automatic-confirmation and learning-consent settings are stored in the stable `com.caterm.si` UserDefaults domain. This domain is retained when the input-method bundle identifier changes to `com.caterm.inputmethod.si`, preserving existing choices without granting new learning consent. Learned preferences are stored at:
 
 ```text
 ~/Library/Application Support/SI/Personalization/preferences-v1.json
@@ -27,7 +27,8 @@ The containing directory uses owner-only access (0700), and the file uses owner 
 - Literal candidates, candidates with unrecognized verbatim spans, personal phrases (including longer paths containing them), Return committing original text, cancelled compositions, and focus/shortcut boundaries do not contribute learning. Tab/punctuation commits do not train, whether they confirm a candidate or retain literal spelling.
 - macOS secure event input suppresses both learning updates and personalized ranking. This is a conservative process-wide check, not a general detector for every kind of sensitive field. Pause learning whenever input should not affect saved preferences.
 - Candidate preview never records preferences.
-- A prefix confirmation records only its consumed spelling and chosen output. The still-marked remainder stays in session memory and is not copied into that preference. Labels distinguish complete, prefix, personal, and verbatim-containing candidates.
+- An explicit prefix selection records only its consumed spelling and chosen output. The still-marked remainder stays in session memory and is not copied into that preference. Labels distinguish complete, prefix, personal, and verbatim-containing candidates.
+- Optional automatic prefix confirmation never trains learning or supplies previous-word context. Its bounded source/output boundary evidence and stability observations are transient and client-local, reset on composition/host/configuration boundaries, and are not stored in an archive or typing history. Enabling automatic confirmation does not enable learning.
 
 Ranking uses a 14-day half-life and logarithmic strength, with up to 32 points for frequency/recency and 12 additional points for an eligible previous-word pair. Whole/prefix preferences apply before bounded presentation selection, using only the relevant full or consumed spelling. This changes which bounded results survive; candidate merging retains all results produced by decoding and the literal fallback. Disabled languages cannot be revived by stored preferences. No active-language mode is inferred from recent choices.
 

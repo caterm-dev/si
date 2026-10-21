@@ -19,6 +19,7 @@ struct SettingsView: View {
                     Text("Enabled languages work together. When input matches more than one language, SI shows their candidates together. You can always keep the original text.")
                 }
                 Section {
+                    Toggle("Automatically confirm stable prefixes", isOn: $settings.automaticConfirmationEnabled)
                     Picker("Punctuation during composition", selection: $settings.punctuationBehavior) {
                         ForEach(PunctuationBehavior.allCases) { behavior in
                             Text(behavior.displayName).tag(behavior)
@@ -27,7 +28,8 @@ struct SettingsView: View {
                 } header: {
                     Text("Typing")
                 } footer: {
-                    Text(settings.punctuationBehavior.explanation + " Return and shortcuts always keep the original spelling. Punctuation outside composition passes through unchanged.")
+                    Text("Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train personal learning. Return and shortcuts keep the remaining original spelling.")
+                    Text(settings.punctuationBehavior.explanation + " Punctuation outside composition passes through unchanged.")
                 }
                 Section("Try the candidate engine") {
                     CandidatePreviewView(settings: settings, personalization: personalization, dictionary: dictionary)

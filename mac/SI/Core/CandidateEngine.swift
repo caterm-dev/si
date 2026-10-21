@@ -13,7 +13,8 @@ public struct CandidateEngine: Sendable {
 
     public func candidates(for input: String, languages: Set<InputLanguage>,
                            learning: LearningProfile = LearningProfile(), dictionary: UserDictionary = UserDictionary(),
-                           now: Date = .now, context: CandidateContext? = nil) -> [InputCandidate] {
+                           now: Date = .now, context: CandidateContext? = nil,
+                           includesConfirmationEvidence: Bool = false) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let generated: [InputCandidate]
         if let providers {
@@ -22,7 +23,8 @@ public struct CandidateEngine: Sendable {
         } else {
             generated = (languages.contains(.english) ? EnglishCandidateProvider().candidates(for: input) : [])
                 + PinyinDecoder.standard.compositionCandidates(for: input, languages: languages, dictionary: dictionary,
-                                                               learning: learning, now: now, context: context)
+                                                               learning: learning, now: now, context: context,
+                                                               includesConfirmationEvidence: includesConfirmationEvidence)
         }
         return merge(generated, input: input, languages: languages, learning: learning, now: now, context: context)
     }

@@ -19,8 +19,11 @@ case "${1:-}" in
     --previews)
         swift run --configuration release --scratch-path .build/swift SIBenchmark --previews
         ;;
+    --automatic-confirmation)
+        swift run --configuration release --scratch-path .build/swift SIBenchmark --automatic-confirmation
+        ;;
     *)
-        printf 'Usage: %s [--resources|--previews|--quality]\n' "$0" >&2
+        printf 'Usage: %s [--resources|--previews|--quality|--automatic-confirmation]\n' "$0" >&2
         exit 2
         ;;
 esac

@@ -1,6 +1,7 @@
 public enum CommitReason: String, Sendable {
     case explicitSelection
     case defaultAcceptance
+    case automaticConfirmation
     case literal
     case focusChange
     case passthrough
@@ -9,7 +10,7 @@ public enum CommitReason: String, Sendable {
     public var learningWeight: Double {
         switch self {
         case .explicitSelection: 1
-        case .defaultAcceptance, .literal, .focusChange, .passthrough: 0
+        case .defaultAcceptance, .automaticConfirmation, .literal, .focusChange, .passthrough: 0
         }
     }
 }
