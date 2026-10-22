@@ -71,6 +71,7 @@ enum SIBenchmark {
             ("ambiguous syllable boundaries", "woxianganzhao"),
             ("bounded ambiguous cuts", String(repeating: "fangan", count: 10)),
             ("mixed", "woaiSwiftshurufa"),
+            ("mixed deployment", "woxiangyaodeploy"),
             ("long ambiguous composition", String(repeating: "shi", count: 20)),
             ("literal fallback beyond decoder limit", String(repeating: "q", count: 128)),
             ("personal phrase prefix at full capacity", "b"),

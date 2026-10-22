@@ -564,6 +564,12 @@ struct ChineseDecoder: Sendable {
         wordLogScore(weight, syllables: syllables) * bitsPerNat
     }
 
+    /// Remove the Chinese-only lattice's fixed per-syllable offset before comparing
+    /// tokens across languages. Both dictionaries supply the same integer weight unit.
+    static func mixedWordCost(weight: Int64, isCharacter: Bool) -> Double {
+        (wordInsertionCost - log(Double(max(1, weight))) + (isCharacter ? characterInsertionCost : 0)) * bitsPerNat
+    }
+
     private static func wordLogScore(_ weight: Int64, syllables: Int) -> Double {
         let value = log(Double(max(1, weight)))
         // Sum(log(weight) - insertionCost) plus the path's constant syllable offset.

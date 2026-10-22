@@ -52,13 +52,15 @@ struct SequentialWordSelectionTests {
                 #expect(selection.candidates.first?.text == "比如这个")
                 #expect(selection.candidate(number: 3)?.text == "比如")
                 #expect(selection.candidate(number: 3)?.consumedInputCount == 4)
-                #expect(selection.candidate(number: 4)?.text == "比")
+                // A protected mixed whole choice can add a row ahead of character
+                // alternatives. The character must remain selectable in the same shortlist.
+                #expect(selection.candidates.contains { $0.text == "比" && $0.isLexicalPrefix })
                 #expect(!selection.candidates.contains { $0.text == "比如这" && $0.isPartial })
                 #expect(selection.candidates.count <= CandidateSelection.maximumCandidates)
                 #expect(session.candidates == engineCandidates)
                 #expect(selection.candidates.last?.text == "biruzhege" && selection.candidates.last?.isLiteral == true)
-                let whole = selection.candidates.filter { !$0.isPartial && !$0.isLiteral && !$0.isMixed }
-                #expect(whole.count == 2)
+                let whole = engineCandidates.filter { !$0.isPartial && !$0.isLiteral }.prefix(2)
+                #expect(selection.candidates.prefix(whole.count).map(\.id) == whole.map(\.id))
                 for expanded in [false, true] {
                     selection.setExpanded(expanded)
                     selection.move(by: -selection.selectedIndex)

@@ -6,7 +6,19 @@ The default Chinese decoder uses SI's native Swift MSIME adaptation. The former 
 
 `Data/DictionaryFormat.json` pins `si-relative-frequency-v1`: one point is one share of a fixed reference mass of 7,694,577,936, the initial Chinese text/reading weight sum. Chinese stored weights stay unchanged. Initial English probabilities, normalized over retained words and an unknown floor, were multiplied by that mass and rounded to integer weights. Snapshot provenance records the conversion and rounding. Both public overlays use these same units. Daily additions/deletions do not rescale stored weights. The shared schema stores `key`, `jp`, `value`, `weight` and versioned metadata; no English source-priority score or centibel encoding reaches the runtime.
 
-This aligns dictionary-relative priors, not underlying corpora or complete sentence-score calibration. English computes word probabilities from its integer weights plus the pinned unknown weight and retains its word-prefix/segmentation costs; small rounding differences from its previous centibel-derived probabilities are expected. Chinese keeps its insertion costs and word-context increments. CandidateEngine preserves the existing language/lexical placement policy. Shared storage and units do not implement mixed lexical paths or justify globally sorting the two decoders' full scores.
+This aligns dictionary-relative priors, not underlying corpora or complete sentence-score calibration. English computes word probabilities from its integer weights plus the pinned unknown weight and retains its word-prefix/segmentation costs; small rounding differences from its previous centibel-derived probabilities are expected. Chinese keeps its insertion costs and word-context increments. CandidateEngine preserves the Chinese provider's internal order while explicitly placing exact English, complete Chinese/English sentences and mixed choices; it does not globally sort the decoders' full scores.
+
+## Bounded mixed lexical search
+
+With English and Chinese enabled, the shared lexical decoder builds Chinese word edges from complete Pinyin readings and English word/completion edges from the trie. Its continuation cost in bits is:
+
+```text
+wordCost = (20 - ln(max(1, weight)) + (single Chinese character ? 2 : 0)) / ln(2)
+```
+
+This subtracts the Chinese-only lattice's fixed 20-nat offset per consumed syllable, allowing differing English and Chinese spans to compete without rewarding extra Chinese syllables. Both word types use the same relative weight points and insertion prior. English adds its finite word-prefix channel; a generated language-transition cost is applied separately. Positive Chinese bigram increments reduce continuation cost within Chinese runs, weighted by two; English/personal boundaries reset that context. Chinese-only decoding retains its existing score and trigram stage. Mixed search does not add a new corpus or claim calibrated probabilities.
+
+The existing bounded base/personalized beams and consumed-spelling prefix selection remain, with no learned preference for a path containing personal/verbatim nodes. Mixed leaders never authorize automatic confirmation. Full Chinese readings keep their Chinese leader; exact English words and fully lexical English sentences are protected from accidental mixed completions. Otherwise a mixed whole path such as `woxiangyaodeploy` → `我想要deploy` can lead. Alternative language identities and exact original spelling remain available. Bounded search can omit desired paths; mixed initial-only Chinese edges and incomplete Chinese-tail prediction remain outside this integration.
 
 ## Dictionary and sentence scores
 

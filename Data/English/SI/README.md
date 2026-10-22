@@ -41,7 +41,7 @@ python3 scripts/english_dictionary.py build --check
 
 One weight point is one share of the fixed **7,694,577,936** reference mass: the sum of the retained Chinese text/reading weights before public overlays at this migration. Chinese stored weights stay unchanged. Initial English weights are `max(1, round(p × reference_mass))`, where `p` is wordfreq frequency normalized over the retained English vocabulary plus its unknown floor. The snapshot lock records the normalization mass and the rounded unknown weight. The reference mass stays fixed when either dictionary changes; adding a word must not rescale every existing entry.
 
-This is a shared dictionary-relative frequency unit, not a claim that the two sources observed the same corpus or that complete candidate scores are calibrated probabilities. Chinese insertion/context costs and English spelling/segmentation costs remain distinct. The existing cross-language candidate placement and deferred mixed decoding are unchanged. A weight of zero is retained; scoring uses a one-point computational floor.
+This is a shared dictionary-relative frequency unit, not a claim that the two sources observed the same corpus or that complete candidate scores are calibrated probabilities. Chinese insertion/context costs and English spelling/segmentation costs remain distinct. The bounded mixed lexical decoder now uses these shared points for Chinese and English word edges; full candidate placement remains an explicit policy. Mixed initials and incomplete Chinese-tail prediction remain limited. A weight of zero is retained; scoring uses a one-point computational floor.
 
 ## Explicitly adopt retained imports
 

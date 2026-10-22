@@ -2,6 +2,8 @@
 
 User direction, 2026-10-21: implement MSIME's Chinese core in Swift, maintain an SI dictionary derived from its data, and establish Chinese conversion quality before adding English mixed lexical paths. Do not link Rust. The original code-only restriction was lifted by the user on October 22, 2026; validation is now authorized. Existing consent, deletion, client isolation and exact-source commit rules remain in force.
 
+On October 22 the user also requested mixed English lookup for `woxiangyaodeploy` → `我想要deploy`, authorizing bounded lexical integration alongside the Chinese baseline. Chinese quality parity remains open.
+
 The user subsequently confirmed that the reference MSIME installation uses default settings with no extra features enabled. The required baseline is therefore the default word-lattice and word-ngram pipeline. Optional neural reranking and general autocorrection remain future capabilities rather than prerequisites for this baseline; fixed spelling aliases still participate by default.
 
 ## Implementation and remaining work
@@ -15,7 +17,7 @@ The user subsequently confirmed that the reference MSIME installation uses defau
 | Personal data | Existing SI stores and consent remain authoritative; saved codes supplement the default reading rather than replacing it, direct prefixes retain all saved choices, and personal nodes respect typed boundaries and remain excluded from learning/context | Private-profile and storage regression checks are deferred |
 | Correction and sparse lookup | Fixed spelling aliases, full/prefix/mixed-initial cascade, bounded retroflex-initial splitting and sparse dictionary fallbacks written with typed-source spans; default alternative-cut gates, per-table 128-row pages and merge/dedup sequence aligned in source | New lookup behavior remains unverified; general autocorrection is outside the confirmed default baseline |
 | Optional neural reranking | Not migrated; disabled in the confirmed reference configuration | Future capability; not required for default baseline parity |
-| English | Existing lookup/English word composition retained; English now uses the same weighted-snapshot, SI-overlay, SQLite schema, reader and relative-frequency unit as Chinese | Mixed lexical paths and complete cross-language sentence-score calibration remain separate work; no quality claim is made |
+| English | Existing lookup/English word composition retained; English now uses the same weighted-snapshot, SI-overlay, SQLite schema, reader and relative-frequency unit as Chinese | Bounded full-Pinyin/English lexical paths are connected; mixed initials, Chinese-tail completion, calibrated sentence scores and native checks remain incomplete |
 | App/Settings packaging | Package resource declaration and default core facade changed; Xcode shares the same Swift sources/resources | Compiler, bundle and native host checks are deferred |
 | Quality parity | Unproven | After authorization to run checks, compare pinned resources and isolated profiles, then independent word/sentence and native host cases |
 

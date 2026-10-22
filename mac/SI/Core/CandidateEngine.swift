@@ -75,7 +75,10 @@ public struct CandidateEngine: Sendable {
             // A dictionary/completion/sentence placement policy is not a corpus score. Keep
             // the Chinese decoder's order rather than sorting it back into the old model.
             let ordered = best.values.sorted { $0.position < $1.position }
-            let chinese = ordered.filter { $0.candidate.language == .simplifiedChinese && !$0.candidate.isPartial }
+            let chinese = ordered.filter { $0.candidate.language == .simplifiedChinese && !$0.candidate.isMixed && !$0.candidate.isPartial }
+            let mixed = ordered.filter { $0.candidate.isMixed && !$0.candidate.isPartial }.sorted {
+                $0.score == $1.score ? $0.candidate.id < $1.candidate.id : $0.score > $1.score
+            }
             let english = ordered.filter { $0.candidate.language == .english && !$0.candidate.isPartial }.sorted {
                 $0.score == $1.score ? $0.candidate.id < $1.candidate.id : $0.score > $1.score
             }
@@ -86,10 +89,37 @@ public struct CandidateEngine: Sendable {
                 return $0.score == $1.score ? $0.candidate.id < $1.candidate.id : $0.score > $1.score
             }
             var merged: [InputCandidate] = []
-            if let leader = chinese.first { merged.append(leader.candidate) }
-            if let englishLeader = english.first { merged.append(englishLeader.candidate) }
-            merged += chinese.dropFirst().map(\.candidate)
-            merged += english.dropFirst().map(\.candidate)
+            let exactEnglish = english.first {
+                !$0.candidate.hasCompletion && $0.candidate.text.lowercased() == input.lowercased()
+            }
+            let completeChinese = !mixed.isEmpty && PinyinInput(input).map {
+                !ChineseSyllables.alternatives($0, limit: 1, minimumOnly: true).isEmpty
+            } == true
+            // Exact English words retain their identity. A complete mixed path leads
+            // when the entire spelling cannot form complete Chinese syllables.
+            if let exactEnglish { merged.append(exactEnglish.candidate) }
+            else if let leader = chinese.first, completeChinese || mixed.isEmpty { merged.append(leader.candidate) }
+            else if let leader = english.first(where: { !$0.candidate.hasCompletion && !$0.candidate.isUserPhrase }) {
+                merged.append(leader.candidate)
+            }
+            else if let leader = mixed.first { merged.append(leader.candidate) }
+            for leader in [chinese.first, english.first].compactMap({ $0 })
+                where !merged.contains(where: { $0.id == leader.candidate.id }) {
+                merged.append(leader.candidate)
+            }
+            // The panel features its first two whole choices. Preserve the existing
+            // Chinese pair before adding a protected mixed alternative on a full reading.
+            if completeChinese, merged.first?.language == .simplifiedChinese, merged.first?.isMixed == false,
+               let second = chinese.dropFirst().first, !merged.contains(where: { $0.id == second.candidate.id }) {
+                merged.append(second.candidate)
+            }
+            if let leader = mixed.first, !merged.contains(where: { $0.id == leader.candidate.id }) {
+                merged.append(leader.candidate)
+            }
+            let leadingIDs = Set(merged.map(\.id))
+            merged += chinese.filter { !leadingIDs.contains($0.candidate.id) }.map(\.candidate)
+            merged += mixed.filter { !leadingIDs.contains($0.candidate.id) }.map(\.candidate)
+            merged += english.filter { !leadingIDs.contains($0.candidate.id) }.map(\.candidate)
             merged += prefixes.map(\.candidate)
             if let preferred = merged.firstIndex(where: \.isPreferred), preferred > 0 {
                 merged.insert(merged.remove(at: preferred), at: 0)

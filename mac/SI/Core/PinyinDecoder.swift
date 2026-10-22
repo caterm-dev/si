@@ -1,17 +1,23 @@
 import Foundation
 
 /// Shared facade used by the input method, Settings preview and package callers.
-/// Chinese decoding is the Swift MSIME adaptation; English remains an independent lane.
+/// Chinese sentences retain their Swift MSIME lane; bounded lexical search also joins enabled languages.
 public struct PinyinDecoder: Sendable {
     public static let standard = PinyinDecoder()
     public static let maximumOutputBytes = 4_096
     private let chinese: ChineseDecoder?
+    private let mixed: LexicalCompositionDecoder?
 
     public init(entries: [PinyinLexiconEntry]) {
-        chinese = ChineseDecoder(lexicon: ChineseLexicon(entries: entries))
+        let lexicon = ChineseLexicon(entries: entries)
+        chinese = ChineseDecoder(lexicon: lexicon)
+        mixed = LexicalCompositionDecoder(chineseLexicon: lexicon)
     }
 
-    private init() { chinese = nil }
+    private init() {
+        chinese = nil
+        mixed = nil
+    }
 
     public func candidates(for input: String) -> [InputCandidate] {
         compositionCandidates(for: input, languages: [.simplifiedChinese], includesPartials: false,
@@ -19,9 +25,8 @@ public struct PinyinDecoder: Sendable {
     }
 
     public func mixedCandidates(for input: String) -> [InputCandidate] {
-        // Mixed lexical paths return after the Chinese baseline has been established. Keeping
-        // this entry point does not let the former model alter Chinese sentence candidates.
-        []
+        compositionCandidates(for: input, languages: [.english, .simplifiedChinese],
+                              includesPartials: false, allowsVerbatim: false).filter(\.isMixed)
     }
 
     public func compositionCandidates(for input: String, languages: Set<InputLanguage>,
@@ -37,10 +42,15 @@ public struct PinyinDecoder: Sendable {
                                          includesConfirmationEvidence: includesConfirmationEvidence, preview: preview)
         }
         if languages.contains(.english) {
-            result += EnglishCompositionDecoder.standard.compositionCandidates(
+            result += LexicalCompositionDecoder.standard.compositionCandidates(
                 for: input, languages: [.english], dictionary: dictionary, learning: learning, now: now,
                 context: context, includesPartials: includesPartials, allowsVerbatim: allowsVerbatim,
                 preview: preview, includesConfirmationEvidence: false)
+        }
+        if languages.contains(.english) && languages.contains(.simplifiedChinese) {
+            result += (mixed ?? .mixed).compositionCandidates(for: input, languages: languages, dictionary: dictionary,
+                learning: learning, now: now, context: context, includesPartials: includesPartials,
+                allowsVerbatim: allowsVerbatim, preview: preview).filter(\.isMixed)
         }
         return result
     }
