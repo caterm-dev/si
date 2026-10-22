@@ -68,6 +68,8 @@ enum SIBenchmark {
         let cases = [
             ("short", "shi"), ("ambiguous", "he"), ("partial", "niha"),
             ("phrase construction", "womenxuexizhongwen"),
+            ("ambiguous syllable boundaries", "woxianganzhao"),
+            ("bounded ambiguous cuts", String(repeating: "fangan", count: 10)),
             ("mixed", "woaiSwiftshurufa"),
             ("long ambiguous composition", String(repeating: "shi", count: 20)),
             ("literal fallback beyond decoder limit", String(repeating: "q", count: 128)),

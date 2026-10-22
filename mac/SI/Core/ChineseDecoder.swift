@@ -24,6 +24,8 @@ struct ChineseDecoder: Sendable {
 
     private struct Edge {
         let end: Int
+        let sourceStart: Int
+        let sourceEnd: Int
         let text: String
         let score: Double
         let personal: Bool
@@ -33,6 +35,7 @@ struct ChineseDecoder: Sendable {
 
     private struct Path {
         var arrival = 0
+        var sourceEnd = 0
         var text = ""
         var words: [String] = []
         /// Keep natural-log arithmetic through search and trigram rescoring.
@@ -66,9 +69,22 @@ struct ChineseDecoder: Sendable {
         let alias = ChineseSpellingAliases.readings(input).first
         let primary = alias ?? (literal.isEmpty ? nil : ChineseReading(syllables: literal))
         var cuts = primary.map { [$0] } ?? []
-        // Default MSIME uses only the leading fixed-alias cut. Additional alias readings
-        // belong to enabled autocorrection; complete raw alternatives require no manual
-        // separator and an all-complete primary of at most four syllables.
+        // Ambiguous consonant boundaries must compete in sentence search too:
+        // wo/xian/gan/zhao and wo/xiang/an/zhao have equal spelling evidence.
+        var sentenceReadings = cuts
+        if let primary, !primary.isCorrected,
+           primary.syllables.allSatisfy(ChineseSyllables.complete.contains) {
+            var seen: Set<[String]> = [primary.syllables.map(ChineseSyllables.canonical)]
+            for cut in ChineseSyllables.alternatives(input, minimumOnly: true)
+                where cut.count == primary.syllables.count && sentenceReadings.count < 32 {
+                if seen.insert(cut.map(ChineseSyllables.canonical)).inserted {
+                    sentenceReadings.append(ChineseReading(syllables: cut))
+                }
+            }
+        }
+        // Broader full-key lookup alternatives remain limited to short unseparated
+        // input. Sentence cuts above use only equally short complete segmentations;
+        // additional corrected alias readings still belong to optional autocorrection.
         if input.separators.isEmpty, let primary, primary.syllables.count <= 4,
            primary.syllables.allSatisfy(ChineseSyllables.complete.contains) {
             var seen: Set<[String]> = [primary.syllables.map(ChineseSyllables.canonical)]
@@ -151,32 +167,38 @@ struct ChineseDecoder: Sendable {
             }
 
             if includesPartials, cut.count > 1 {
-                for end in 1..<cut.count {
-                    let span = Array(normalized[..<end])
-                    let prefixReading = ChineseReading(syllables: Array(cut[..<end]),
-                        offsets: Array(offsets[...end]), isCorrected: reading.isCorrected)
-                    let prefixReadings = [prefixReading] + ChineseLookupReadings.splitInitials(prefixReading, input: input)
-                    for prefix in prefixReadings {
-                        for row in lexicon.matches(prefix.syllables, limit: preview ? 16 : nil) {
-                            let full = row.reading == prefix.syllables.map(ChineseSyllables.canonical)
-                            prefixes.append(InputCandidate(text: row.text, language: .simplifiedChinese,
-                                score: Int(Self.wordScore(row.weight, syllables: span.count)),
-                                consumedInputCount: input.rawBoundaries[offsets[end]],
-                                rankingScore: Self.wordScore(row.weight, syllables: span.count),
-                                hasCompletion: Self.completes(row.reading, typed: prefix.syllables),
-                                lexicalTokenCount: full ? 1 : nil))
+                var seenPrefixes = Set<[String]>()
+                for sentenceReading in sentenceReadings {
+                    for end in 1..<sentenceReading.syllables.count {
+                        let offsets = sentenceReading.offsets
+                        let span = Array(sentenceReading.syllables[..<end])
+                        let prefixReading = ChineseReading(syllables: span,
+                            offsets: Array(offsets[...end]), isCorrected: sentenceReading.isCorrected)
+                        let prefixReadings = [prefixReading] + ChineseLookupReadings.splitInitials(prefixReading, input: input)
+                        for prefix in prefixReadings {
+                            guard seenPrefixes.insert(prefix.syllables).inserted else { continue }
+                            for row in lexicon.matches(prefix.syllables, limit: preview ? 16 : nil) {
+                                let full = row.reading == prefix.syllables.map(ChineseSyllables.canonical)
+                                prefixes.append(InputCandidate(text: row.text, language: .simplifiedChinese,
+                                    score: Int(Self.wordScore(row.weight, syllables: span.count)),
+                                    consumedInputCount: input.rawBoundaries[offsets[end]],
+                                    rankingScore: Self.wordScore(row.weight, syllables: span.count),
+                                    hasCompletion: Self.completes(row.reading, typed: prefix.syllables),
+                                    lexicalTokenCount: full ? 1 : nil))
+                            }
                         }
                     }
                 }
             }
 
-            // Only the primary complete reading drives the word-context sentence search.
+            // Equal-length complete cuts share one bounded word-context search.
             if cut.count >= 2,
                normalized.allSatisfy(ChineseSyllables.complete.contains) || dictionary.phraseCount > 0 || includesPartials {
                 let paths = decode(normalized, offsets: offsets, input: input, source: source,
                                    dictionary: dictionary, learning: learning, now: now, context: context,
                                    evidence: includesConfirmationEvidence && !preview && !reading.isCorrected,
-                                   includesPartials: includesPartials, prefixes: &prefixes)
+                                   includesPartials: includesPartials, prefixes: &prefixes,
+                                   alternatives: Array(sentenceReadings.dropFirst()))
                 for path in paths {
                     let score = path.score * Self.bitsPerNat
                     let candidate = InputCandidate(text: path.text, language: .simplifiedChinese,
@@ -337,35 +359,52 @@ struct ChineseDecoder: Sendable {
     private func decode(_ syllables: [String], offsets: [Int], input: PinyinInput, source: String,
                         dictionary: UserDictionary, learning: LearningProfile, now: Date,
                         context: CandidateContext?, evidence: Bool, includesPartials: Bool,
-                        prefixes: inout [InputCandidate], personalOnly: Bool = false) -> [Path] {
+                        prefixes: inout [InputCandidate], personalOnly: Bool = false,
+                        alternatives: [ChineseReading] = []) -> [Path] {
         let count = syllables.count
         var graph = Array(repeating: [Edge](), count: count)
         var lookup: [String: [ChineseLexeme]] = [:]
-        for start in 0..<count {
-            for end in start + 1...min(count, start + max(Self.maximumWordSyllables, dictionary.maximumCodeLength)) {
-                let span = Array(syllables[start..<end])
-                let key = span.joined(separator: "'")
-                let rows: [ChineseLexeme]
-                if let cached = lookup[key] { rows = cached }
-                else {
-                    rows = span.count <= Self.maximumWordSyllables && span.allSatisfy(ChineseSyllables.complete.contains)
-                        ? lexicon.exactMatches(span, limit: Self.spanLimit) : []
-                    lookup[key] = rows
-                }
-                let spelling = input.rawText(from: offsets[start], to: offsets[end])
-                for row in rows {
-                    graph[start].append(Edge(end: end, text: row.text,
-                        score: Self.wordLogScore(row.weight, syllables: end - start), personal: false,
-                        tokenBonus: learning.tokenBonus(input: spelling, text: row.text, language: .simplifiedChinese, now: now),
-                        letters: offsets[end] - offsets[start]))
-                }
-                let code = String(input.letters[offsets[start]..<offsets[end]])
-                for phrase in dictionary.phrases(for: code) where phrase.language == .simplifiedChinese
-                    && input.respects(phrase.boundaries, from: offsets[start], to: offsets[end]) {
-                    graph[start].append(Edge(end: end, text: phrase.text,
-                        score: Self.wordLogScore(Self.personalInitialWeight, syllables: end - start)
-                            + (phrase.isPinned ? log(2.0) : 0), personal: true,
-                        tokenBonus: 0, letters: offsets[end] - offsets[start]))
+        struct Span: Hashable {
+            let end: Int
+            let sourceStart: Int
+            let sourceEnd: Int
+            let syllables: [String]
+        }
+        var spans = Array(repeating: Set<Span>(), count: count)
+        let readings = [ChineseReading(syllables: syllables, offsets: offsets, isCorrected: false)] + alternatives
+        // Columns retain a fixed syllable ordinal. Source offsets keep edges from
+        // incompatible cuts from joining, while shared spans are looked up only once.
+        for reading in readings {
+            let syllables = reading.syllables.map(ChineseSyllables.canonical)
+            let offsets = reading.offsets
+            for start in 0..<count {
+                for end in start + 1...min(count, start + max(Self.maximumWordSyllables, dictionary.maximumCodeLength)) {
+                    let span = Array(syllables[start..<end])
+                    guard spans[start].insert(Span(end: end, sourceStart: offsets[start], sourceEnd: offsets[end],
+                                                   syllables: span)).inserted else { continue }
+                    let key = span.joined(separator: "'")
+                    let rows: [ChineseLexeme]
+                    if let cached = lookup[key] { rows = cached }
+                    else {
+                        rows = span.count <= Self.maximumWordSyllables && span.allSatisfy(ChineseSyllables.complete.contains)
+                            ? lexicon.exactMatches(span, limit: Self.spanLimit) : []
+                        lookup[key] = rows
+                    }
+                    let spelling = input.rawText(from: offsets[start], to: offsets[end])
+                    for row in rows {
+                        graph[start].append(Edge(end: end, sourceStart: offsets[start], sourceEnd: offsets[end], text: row.text,
+                            score: Self.wordLogScore(row.weight, syllables: end - start), personal: false,
+                            tokenBonus: learning.tokenBonus(input: spelling, text: row.text, language: .simplifiedChinese, now: now),
+                            letters: offsets[end] - offsets[start]))
+                    }
+                    let code = String(input.letters[offsets[start]..<offsets[end]])
+                    for phrase in dictionary.phrases(for: code) where phrase.language == .simplifiedChinese
+                        && input.respects(phrase.boundaries, from: offsets[start], to: offsets[end]) {
+                        graph[start].append(Edge(end: end, sourceStart: offsets[start], sourceEnd: offsets[end], text: phrase.text,
+                            score: Self.wordLogScore(Self.personalInitialWeight, syllables: end - start)
+                                + (phrase.isPinned ? log(2.0) : 0), personal: true,
+                            tokenBonus: 0, letters: offsets[end] - offsets[start]))
+                    }
                 }
             }
         }
@@ -381,10 +420,16 @@ struct ChineseDecoder: Sendable {
         let tokenPreferences = learning.hasTokenPreferences
         var arrival = 0
         columns[0].append(Path(), score: 0)
+        func prefixGroups(_ paths: [Path]) -> [[Path]] {
+            let groups = Dictionary(grouping: paths, by: \.sourceEnd)
+            return groups.keys.sorted().map { groups[$0]! }
+        }
         for start in 0..<count {
             if includesPartials, start > 0 {
-                prefixes += prefixCandidates(prefixColumns[start], consumed: input.rawBoundaries[offsets[start]],
-                                             source: source, learning: learning, now: now, context: context)
+                for group in prefixGroups(prefixColumns[start]) {
+                    prefixes += prefixCandidates(group, consumed: input.rawBoundaries[group[0].sourceEnd],
+                                                 source: source, learning: learning, now: now, context: context)
+                }
                 prefixColumns[start].removeAll()
             }
             let base = columns[start].finish()
@@ -405,10 +450,12 @@ struct ChineseDecoder: Sendable {
                     bigramRows[previous] = bonuses
                 }
                 for (index, edge) in graph[start].enumerated() {
+                    guard edge.sourceStart == path.sourceEnd else { continue }
                     guard path.text.utf8.count + edge.text.utf8.count <= PinyinDecoder.maximumOutputBytes else { continue }
                     var next = path
                     arrival += 1
                     next.arrival = arrival
+                    next.sourceEnd = edge.sourceEnd
                     next.text += edge.text
                     next.words.append(edge.text)
                     next.score += edge.score
@@ -417,7 +464,7 @@ struct ChineseDecoder: Sendable {
                     next.tokenSum += edge.tokenBonus * Double(edge.letters)
                     next.letters += edge.letters
                     if evidence, !next.personal, path.words.count < 8 {
-                        next.boundaries.append(ConfirmationBoundary(sourceCount: input.rawBoundaries[offsets[edge.end]],
+                        next.boundaries.append(ConfirmationBoundary(sourceCount: input.rawBoundaries[edge.sourceEnd],
                                                                     outputByteCount: next.text.utf8.count))
                     }
                     columns[edge.end].append(next, score: next.score)
@@ -431,9 +478,10 @@ struct ChineseDecoder: Sendable {
                     if includesPartials, edge.end < count, next.words.count > 1, !personalOnly || next.personal {
                         prefixColumns[edge.end].append(next)
                         if prefixColumns[edge.end].count > Self.beam * Self.spanLimit * 2 {
-                            prefixColumns[edge.end] = prefixPaths(prefixColumns[edge.end],
-                                consumed: input.rawBoundaries[offsets[edge.end]], source: source,
-                                learning: learning, now: now, context: context)
+                            prefixColumns[edge.end] = prefixGroups(prefixColumns[edge.end]).flatMap { group in
+                                prefixPaths(group, consumed: input.rawBoundaries[group[0].sourceEnd], source: source,
+                                            learning: learning, now: now, context: context)
+                            }
                         }
                     }
                 }

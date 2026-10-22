@@ -70,17 +70,23 @@ enum ChineseSyllables {
         return result
     }
 
-    /// Complete alternative segmentations of short input, in longest-edge-first order.
-    static func alternatives(_ input: PinyinInput, limit: Int = 32) -> [[String]] {
+    /// Bounded complete segmentations, in longest-edge-first order. Sentence search
+    /// uses only minimum-length cuts so every path has the same syllable score offset.
+    static func alternatives(_ input: PinyinInput, limit: Int = 32, minimumOnly: Bool = false) -> [[String]] {
         let count = input.letters.count
         var edges = Array(repeating: [(end: Int, text: String)](), count: count + 1)
         var reachable = Array(repeating: false, count: count + 1)
+        var minimum = Array(repeating: Int.max, count: count + 1)
         reachable[count] = true
+        minimum[count] = 0
         for start in (0..<count).reversed() {
             for end in (start + 1...min(count, start + 6)).reversed() where reachable[end] {
                 guard !input.separators.contains(where: { $0 > start && $0 < end }) else { continue }
                 let piece = String(input.letters[start..<end])
-                if complete.contains(piece) { edges[start].append((end, piece)) }
+                if complete.contains(piece) {
+                    edges[start].append((end, piece))
+                    minimum[start] = min(minimum[start], minimum[end] + 1)
+                }
             }
             reachable[start] = !edges[start].isEmpty
         }
@@ -90,6 +96,7 @@ enum ChineseSyllables {
             guard paths.count < limit else { return }
             if start == count { paths.append(current); return }
             for edge in edges[start] {
+                if minimumOnly && minimum[start] != minimum[edge.end] + 1 { continue }
                 current.append(edge.text)
                 visit(edge.end)
                 current.removeLast()

@@ -2,6 +2,19 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Ambiguous complete syllable cuts — 2026-10-22
+
+The reported `woxianganzhao` first choice was `我先感召`. The primary cut is `wo / xian / gan / zhao`; the equally short `wo / xiang / an / zhao` was excluded from sentence search. Alternative full-key dictionary lookup did not help because `我想按照` is constructed from multiple words. This is a search-coverage defect before sentence ranking, not evidence that the desired words are absent from the dictionary.
+
+Up to 32 uncorrected complete minimum-syllable cuts now share the existing bounded lattice and base/personalized beams. Edges carry source start/end offsets, so only compatible spelling spans join. Repeated spans share lookup work; lexical prefixes include alternative cuts, and composed-prefix ranking groups paths by their actual consumed source boundary. The word-frequency/context formula, data resources and learning retention are unchanged. Higher-syllable-count cuts, general typo decoding and semantic accuracy remain outside this fix.
+
+- Before the fix, the initial four focused tests report 11 assertion issues. After the fix, all seven final `ChineseSegmentationTests` pass, including the reported sentence in provisional/full searches, Chinese-only/combined languages, partial/explicit separators and a longer input; synthetic frequency/order, prefix commits, learning/clear, confirmation disagreement and 32-cut bounds also pass.
+- `./scripts/test.sh`: 313 tests run. Storage (12) and Settings (23) pass; presentation (59) retains 27 assertion issues and core (219) retains 104. Compared with a fresh 306-test baseline, the assertion locations/messages and counts are identical. The full suite still fails; existing migration defects remain unresolved.
+- `./scripts/benchmark.sh`: Release synthetic measurements complete with 200 timed iterations per scenario. For `woxianganzhao`, median/p95 are 4.053/4.225 ms; ten repeated `fangan` spans measure 54.994/56.919 ms. These are in-process timings with the benchmark's synthetic 5,000-entry learning profile and 1,000 personal phrases, not host-event latency or a before/after speedup. `./scripts/benchmark.sh --quality` retains 68/86 first choices across the known repository fixtures, with preview/final first-choice agreement on all 86; this is regression evidence, not independent semantic accuracy.
+- `./scripts/build.sh`: Debug app builds successfully for arm64 and x86_64 with signing disabled. No installation, app launch, live host typing, VoiceOver check, private archive read or publication was performed. The installed input method has not been updated by this task.
+
+Local logs/reports: `.build/ambiguous-cut-baseline.log`, `ambiguous-cut-before.log`, `ambiguous-cut-tests.log`, `ambiguous-cut-debug.log`, `ambiguous-cut-benchmark.json` and `ambiguous-cut-quality.json`.
+
 ## Frequency and segmentation balance — 2026-10-22
 
 The user requested stronger dictionary-frequency influence after `nawomenzaichaxun` produced `那我闷在查询`. Read-only SQL/context inspection and a standalone probe linked against the existing shared core reproduced the base result without personal learning. The winning split was `那我 / 闷在 / 查询`; `我们` itself has weight 13,696,325, while `闷在` has weight 3,036. The source data was not changed.

@@ -10,6 +10,8 @@ Chinese maintenance is consolidated to MSIME. Existing English vocabulary, frequ
 
 `ChineseFrequencyRankingTests` checks the reported `nawomenzaichaxun` sentence in provisional/full searches, Chinese-only/combined settings and apostrophe-separated input, with exact literal/prefix boundaries. Injected fixtures require a tenfold frequency advantage to beat an all-multi-character segmentation, keep rare words and explicit learning available, and test longer low-frequency fragments. `haodewozhidaole` guards against the over-splitting observed when the character cost was removed entirely. Run `./scripts/test.sh --filter 'ChineseFrequencyRankingTests|ChineseMigrationTests|InputQualityTests|DictionaryConsolidationTests'`. These tests do not operate a live host or establish general semantic accuracy.
 
+`ChineseSegmentationTests` covers `woxianganzhao` → `我想按照` in preview/final generation with Chinese-only and combined languages, including explicit/partial separators and inputs longer than four syllables. Injected lexicons check frequency competition across cuts, insertion-order independence, exact `ü/u:` prefix commits, deliberate learning and clear, unchanged visible results with confirmation evidence, disagreement vetoes and the deterministic 32-cut bound. On an intentionally installed build, repeat `woxianganzhao` and `wo'xiang'an'zhao` in TextEdit and a browser field, confirm with Space/number/mouse, then edit, cancel, use a shortcut and change focus. Check that choosing `我想` consumes exactly `woxiang` and leaves `anzhao` editable. These native checks remain separate from the core tests. The benchmark includes the reported ambiguous boundary and ten repeated `fangan` spans.
+
 ## Automated checks
 
 ```sh
