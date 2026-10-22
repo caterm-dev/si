@@ -16,23 +16,26 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         self?.receiveCandidates(result)
     }
     private var selection = CandidateSelection()
+    private var markedTextState = MarkedTextState()
+    private var presentationRevision: UInt64 = 0
     private var candidateAnchor = CandidateAnchor()
     private var explicitlyNavigated = false
     private var automaticConfirmationTask: Task<Void, Never>?
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
         panel.list.onSelect = { [weak self] id in
-            guard let self, let client = self.client(),
+            guard let self, self.candidatePanel.ownsPresentation, let client = self.client(),
                   self.session.pendingCandidateRequest == nil,
                   let candidate = self.session.candidates.first(where: { $0.id == id }) else { return }
             self.commitCandidate(candidate, to: client)
         }
         panel.list.onMovePage = { [weak self] offset in
-            guard let self else { return }
+            guard let self, self.candidatePanel.ownsPresentation else { return }
             self.moveCandidateSelection(by: offset * self.selection.visiblePageSize)
         }
         panel.list.onToggleExpansion = { [weak self] in
-            guard let self, self.session.pendingCandidateRequest == nil, let client = self.client() else { return }
+            guard let self, self.candidatePanel.ownsPresentation,
+                  self.session.pendingCandidateRequest == nil, let client = self.client() else { return }
             self.session.suspendAutomaticConfirmation()
             self.automaticConfirmationTask?.cancel()
             self.selection.setExpanded(!self.selection.isExpanded)
@@ -51,6 +54,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func handleOnMain(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event, event.type == .keyDown, let client = sender as? any IMKTextInput else { return false }
+        candidatePanel.claimPresentation()
         let previousCandidates = session.candidates
         let previousRequest = session.pendingCandidateRequest?.id
         configureSession()
@@ -169,7 +173,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func receiveCandidates(_ result: CandidateResult) {
-        guard let client = candidateClient else { return }
+        guard candidatePanel.ownsPresentation, let client = candidateClient, let activeClient = self.client(),
+              (client as AnyObject) === (activeClient as AnyObject) else { return }
         let previousRequest = session.pendingCandidateRequest?.id
         // Consent, secure input, language, dictionary, and context may change while work is running.
         configureSession()
@@ -204,18 +209,28 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func presentCandidates(to client: any IMKTextInput) {
+        guard candidatePanel.ownsPresentation else { return }
+        let revision = presentationRevision
         let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
-        let caret = candidateAnchor.resolve(cursorUTF16Offset: session.cursorUTF16Offset, markedRange: client.markedRange(),
+        // Host geometry calls can synchronously service another IMK event. Resolve on
+        // a value copy so reentry cannot overlap a mutating access to controller state.
+        var nextAnchor = candidateAnchor
+        let caret = nextAnchor.resolve(cursorUTF16Offset: session.cursorUTF16Offset, markedRange: client.markedRange(),
                                              screens: screens, queryRange: { range in
-            client.firstRect(forCharacterRange: range, actualRange: nil)
+            var actualRange = NSRange(location: NSNotFound, length: 0)
+            let rect = client.firstRect(forCharacterRange: range, actualRange: &actualRange)
+            return CandidateAnchor.documentRect(rect, actualRange: actualRange, requestedRange: range)
         }) { index in
             var rect = NSRect.zero
             // The SDK specifies inline-session-relative UTF-16 indexes, not document offsets.
             _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
             return rect
         }
+        let clientLevel = Int(client.windowLevel())
+        guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
+        candidateAnchor = nextAnchor
         guard let caret else { candidatePanel.orderOut(nil); return }
-        candidatePanel.show(selection: selection, caret: caret, clientLevel: Int(client.windowLevel()), screens: screens,
+        candidatePanel.show(selection: selection, caret: caret, clientLevel: clientLevel, screens: screens,
                             isPending: session.pendingCandidateRequest != nil, refreshPendingRows: session.hasCandidatePreview)
     }
 
@@ -227,16 +242,28 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
     }
 
+    nonisolated override func activateServer(_ sender: Any!) {
+        super.activateServer(sender)
+        MainActor.assumeIsolated {
+            presentationRevision &+= 1
+            candidateAnchor.reset()
+            markedTextState.reset()
+            candidatePanel.claimPresentation()
+        }
+    }
+
     nonisolated override func deactivateServer(_ sender: Any!) {
         commitComposition(sender)
         MainActor.assumeIsolated {
+            presentationRevision &+= 1
             session.breakContext()
             automaticConfirmationTask?.cancel()
             candidatePipeline.invalidate()
             candidatePreviewPipeline.invalidate()
             candidateClient = nil
+            markedTextState.reset()
             candidateAnchor.reset()
-            candidatePanel.orderOut(nil)
+            candidatePanel.releasePresentation()
         }
         super.deactivateServer(sender)
     }
@@ -267,26 +294,42 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func update(_ client: any IMKTextInput) {
+        guard candidatePanel.ownsPresentation else { return }
+        presentationRevision &+= 1
+        let revision = presentationRevision
         automaticConfirmationTask?.cancel()
+        let sameClient = candidateClient.map { ($0 as AnyObject) === (client as AnyObject) } ?? false
+        if !sameClient {
+            markedTextState.reset()
+            candidateAnchor.reset()
+        }
         candidateClient = client
         let rankingTime = Date.now
         selection.update(session.candidates, prefixScore: { self.session.presentationScore(for: $0, now: rankingTime) })
         explicitlyNavigated = false
-        client.setMarkedText(session.buffer, selectionRange: NSRange(location: session.cursorUTF16Offset, length: 0),
-                             replacementRange: NSRange(location: NSNotFound, length: 0))
+        let markedSelection = NSRange(location: session.cursorUTF16Offset, length: 0)
+        if markedTextState.shouldSend(session.buffer, selection: markedSelection) {
+            client.setMarkedText(session.buffer, selectionRange: markedSelection,
+                                 replacementRange: NSRange(location: NSNotFound, length: 0))
+        }
+        // A nested key, commit or focus callback supersedes this host update.
+        guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
         if session.buffer.isEmpty {
+            markedTextState.reset()
             candidatePipeline.invalidate()
             candidatePreviewPipeline.invalidate()
             candidateAnchor.reset()
             candidatePanel.orderOut(nil)
         } else if let request = session.pendingCandidateRequest {
             presentCandidates(to: client)
+            guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
             if !session.hasCandidatePreview { candidatePreviewPipeline.submit(request) }
             candidatePipeline.submit(request)
         } else {
             candidatePipeline.invalidate()
             candidatePreviewPipeline.invalidate()
             presentCandidates(to: client)
+            guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
             scheduleAutomaticConfirmation()
         }
     }
@@ -297,6 +340,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         automaticConfirmationTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(InputSession.automaticConfirmationPause)) } catch { return }
             guard !Task.isCancelled, let self,
+                  self.candidatePanel.ownsPresentation,
                   self.session.automaticConfirmationRevision == revision,
                   let client = self.candidateClient, let currentClient = self.client(),
                   (client as AnyObject) === (currentClient as AnyObject) else { return }
@@ -314,20 +358,26 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         insert(session.commit(), into: client)
     }
 
-    private func insert(_ text: String, into client: any IMKTextInput) {
+    @discardableResult
+    private func insert(_ text: String, into client: any IMKTextInput) -> Bool {
+        presentationRevision &+= 1
+        let revision = presentationRevision
         automaticConfirmationTask?.cancel()
         candidatePipeline.invalidate()
         candidatePreviewPipeline.invalidate()
         candidateClient = nil
+        markedTextState.reset()
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
+        guard revision == presentationRevision else { return false }
         selection.update([])
         candidateAnchor.reset()
         explicitlyNavigated = false
         candidatePanel.orderOut(nil)
+        return true
     }
 
     private func apply(_ commit: InputCommit, suffix: String = "", to client: any IMKTextInput) {
-        insert(commit.text + suffix, into: client)
+        guard insert(commit.text + suffix, into: client) else { return }
         if !session.buffer.isEmpty { update(client) }
     }
 }

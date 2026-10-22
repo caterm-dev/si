@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "reviewed_at_utc": "2026-10-21 13:52:53 UTC",
+  "scope": "Public upstream source identity review only; this does not validate the Swift implementation or establish input quality.",
+  "engine_repository": "https://github.com/metasequoiaime/msime",
+  "latest_default_branch": "develop",
+  "latest_default_revision": "d05c33e54ff72673fd583f5ac0f79c4fe5688560",
+  "latest_main_revision": "0fce42f0dd22fe6930b5a1942498280df8073396",
+  "retained_source_revision": "0fce42f0dd22fe6930b5a1942498280df8073396",
+  "dictionary_repository": "https://github.com/metasequoiaime/msime-dictionary",
+  "dictionary_revision": "b32ac7227135255a3351f02ec5bdfc983741e81a",
+  "unchanged_engine_components": [
+    {
+      "path": "crates/engine/src/dictionary",
+      "retained_git_object": "ef717dd9b4172b7867aea33b9884e703b2868def",
+      "latest_default_git_object": "ef717dd9b4172b7867aea33b9884e703b2868def"
+    },
+    {
+      "path": "crates/engine/src/format.rs",
+      "retained_git_object": "9f6f37bcd2165b6c03c5a42d163284e1732156d8",
+      "latest_default_git_object": "9f6f37bcd2165b6c03c5a42d163284e1732156d8"
+    },
+    {
+      "path": "crates/engine/src/lattice",
+      "retained_git_object": "fc60930fef2ca227667e3d1880f6258879bee5d9",
+      "latest_default_git_object": "fc60930fef2ca227667e3d1880f6258879bee5d9"
+    },
+    {
+      "path": "crates/engine/src/pinyin",
+      "retained_git_object": "0654baab834255795135f450a5253212d498cb99",
+      "latest_default_git_object": "0654baab834255795135f450a5253212d498cb99"
+    },
+    {
+      "path": "crates/engine/src/quanpin",
+      "retained_git_object": "df285b6df4892171dd23a391235017f1bf7bce11",
+      "latest_default_git_object": "df285b6df4892171dd23a391235017f1bf7bce11"
+    },
+    {
+      "path": "crates/engine/src/types.rs",
+      "retained_git_object": "4d3ad2619fedb484cd664f87202e709966a592ad",
+      "latest_default_git_object": "4d3ad2619fedb484cd664f87202e709966a592ad"
+    }
+  ],
+  "unchanged_runtime_session_files": [
+    {
+      "path": "crates/engine/src/session/candidates.rs",
+      "retained_git_blob": "28bb7805986b695db5d65b7a9691eb5dd9d28b9b",
+      "latest_default_git_blob": "28bb7805986b695db5d65b7a9691eb5dd9d28b9b"
+    },
+    {
+      "path": "crates/engine/src/session/chain.rs",
+      "retained_git_blob": "850605bbbd6b98778f8fa58d5d781b5bff62601a",
+      "latest_default_git_blob": "850605bbbd6b98778f8fa58d5d781b5bff62601a"
+    },
+    {
+      "path": "crates/engine/src/session/clock.rs",
+      "retained_git_blob": "fc334a401aa0f8773fa5f2a2ec95e517fb499430",
+      "latest_default_git_blob": "fc334a401aa0f8773fa5f2a2ec95e517fb499430"
+    },
+    {
+      "path": "crates/engine/src/session/commit.rs",
+      "retained_git_blob": "8232798678290b3e9f21b57d1db1676ee3f35cee",
+      "latest_default_git_blob": "8232798678290b3e9f21b57d1db1676ee3f35cee"
+    },
+    {
+      "path": "crates/engine/src/session/composition.rs",
+      "retained_git_blob": "9bfc82180420590b694ca037ec8298205eeadf5d",
+      "latest_default_git_blob": "9bfc82180420590b694ca037ec8298205eeadf5d"
+    },
+    {
+      "path": "crates/engine/src/session/conversion.rs",
+      "retained_git_blob": "b1a64b056b34d8c9edeec70fe3d8ffe3fe7f6b11",
+      "latest_default_git_blob": "b1a64b056b34d8c9edeec70fe3d8ffe3fe7f6b11"
+    },
+    {
+      "path": "crates/engine/src/session/editing.rs",
+      "retained_git_blob": "437f3fbabd37c2604fed1cfbbe0c9daadbb0a5c7",
+      "latest_default_git_blob": "437f3fbabd37c2604fed1cfbbe0c9daadbb0a5c7"
+    },
+    {
+      "path": "crates/engine/src/session/glide.rs",
+      "retained_git_blob": "5db1921dba2dc5a09a21ae9440b1d5e3d000a3f2",
+      "latest_default_git_blob": "5db1921dba2dc5a09a21ae9440b1d5e3d000a3f2"
+    },
+    {
+      "path": "crates/engine/src/session/input.rs",
+      "retained_git_blob": "4186dad2379b6993f586fe2d6f99622cdc71a82f",
+      "latest_default_git_blob": "4186dad2379b6993f586fe2d6f99622cdc71a82f"
+    },
+    {
+      "path": "crates/engine/src/session/learning.rs",
+      "retained_git_blob": "8161fa6d2180ce7b00144c929a94bb3f909a6ad3",
+      "latest_default_git_blob": "8161fa6d2180ce7b00144c929a94bb3f909a6ad3"
+    },
+    {
+      "path": "crates/engine/src/session/literal.rs",
+      "retained_git_blob": "2527ec36f6fbf0d4a135858ce9b4c955e129d30b",
+      "latest_default_git_blob": "2527ec36f6fbf0d4a135858ce9b4c955e129d30b"
+    },
+    {
+      "path": "crates/engine/src/session/mod.rs",
+      "retained_git_blob": "41a001b43e8811c8585a08d3b98e2d780171314a",
+      "latest_default_git_blob": "41a001b43e8811c8585a08d3b98e2d780171314a"
+    },
+    {
+      "path": "crates/engine/src/session/online.rs",
+      "retained_git_blob": "26a80f6db4c85d22f94ad5b92e14065ee6cf8259",
+      "latest_default_git_blob": "26a80f6db4c85d22f94ad5b92e14065ee6cf8259"
+    },
+    {
+      "path": "crates/engine/src/session/options.rs",
+      "retained_git_blob": "6c021e4b83e7fe39a49275c1d2bbb8e760548722",
+      "latest_default_git_blob": "6c021e4b83e7fe39a49275c1d2bbb8e760548722"
+    },
+    {
+      "path": "crates/engine/src/session/plugin_commands.rs",
+      "retained_git_blob": "31fc91070d288f2af5f993b456448b93934740c4",
+      "latest_default_git_blob": "31fc91070d288f2af5f993b456448b93934740c4"
+    }
+  ],
+  "reading_corrections": {
+    "path": "resources/dictionary-sources/pinyin-reading-corrections.txt",
+    "retained_git_blob": "6be35ba9b70e859df7a34018138d66bde66b99cd",
+    "latest_default_git_blob": "6be35ba9b70e859df7a34018138d66bde66b99cd"
+  }
+}

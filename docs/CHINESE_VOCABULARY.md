@@ -1,95 +1,67 @@
-# Chinese vocabulary maintenance
+# Chinese dictionary maintenance
 
-SI merges selected annotated [Rime Ice](https://github.com/iDvel/rime-ice) data with its original Chinese entries and local additions. The existing decoder and English provider continue to share one candidate engine. Rime's runtime, configuration, language switches, Lua extensions, automatic pronunciation generation and language models are not imported.
+SI maintains one Chinese dictionary family: the [MSIME-derived sources](../Data/Chinese/MSIME/README.md). The former direct Rime Chinese selection and original SI tables have been removed. English functionality and its existing independent word/frequency sources are temporarily retained; see [English maintenance](ENGLISH_VOCABULARY.md). MSIME's own upstream Rime Ice / rime-wanxiang attribution remains required; using one maintained source does not erase its underlying provenance.
 
-## Included data and selection
+## Source and runtime files
 
-The initial import pins Rime Ice commit `da1fbe602e38f26db846fa10120ee64c2b0324c0`.
+| Path | Role |
+| --- | --- |
+| `Data/Chinese/MSIME/sources/*.gz` | Byte-preserving compressed snapshots of the five pinned MSIME lexical inputs |
+| `Data/Chinese/MSIME/sources.lock.json` | Engine/dictionary revisions, source sizes and checksums |
+| `Data/Chinese/MSIME/reading-corrections.tsv` | Pinned upstream reading corrections |
+| `Data/Chinese/MSIME/si-entries.json` | SI-maintained public additions, exclusions and weight corrections |
+| `mac/SI/Core/Resources/Chinese/si-pinyin.sqlite` | Generated runtime words, explicit readings, weights, initials and lookup indexes |
+| `mac/SI/Core/Resources/Chinese/dictionary-manifest.json` | Build provenance, count and generated database checksum |
+| `Data/Chinese/MSIME/resources.lock.json` | Independently pinned MSIME word-context artifacts and corpus attribution |
 
-| Source | Initial entries | Selection |
-| --- | ---: | --- |
-| `rime-ice-characters` | 8,757 | Explicit readings in `cn_dicts/8105.dict.yaml`, including its additions and polyphonic readings |
-| `rime-ice-base` | 76,827 | Explicit readings in `cn_dicts/base.dict.yaml` with upstream weight at least 10,000 |
-| `si-original` | 979 | Every original SI text/reading, without an authored weight |
-| `si-terms` | 3 | Unweighted original SI additions for vocabulary maintenance and mixed input |
+The SQLite file is a compiled dictionary containing both data and indexes. It is not the editable source or an index pointing back into source text files. App and package use the same read-only database; no source parsing, regeneration or downloads occur on a keystroke.
 
-The initial merged result contains **85,596 text/reading pairs**, representing 84,880 distinct texts. A polyphonic word can have several entries. Current counts and hashes are in [the generated summary](../Data/Chinese/generated/summary.json); use `stats` after updates.
+The retained inputs produce 953,710 unique text/reading entries with an empty SI overlay. Different explicit pronunciations remain distinct. This count is not a quality or coverage measure. MSIME bigram/trigram tables remain part of the same dictionary family; they supply context scores rather than replacement word lists.
 
-The first default includes a weight-selected part of the base dictionary, not all Rime Ice data. The upstream base has over 540,000 annotated entries, and `ext` adds over 330,000 more. Their full import has not been validated for SI's startup, memory, candidate quality and key-event path. The cutoff is an explicit, editable import setting, not an independent measure of word quality or a trained language model. Some upstream weights are editorial. Change `minimum_weight` and count guards deliberately and rerun measurements before adopting a larger selection.
+## Make a public correction
 
-`ext.dict.yaml` and the optional 41,448-character dictionary are not currently registered. `tencent.dict.yaml` contains unannotated text/weight rows; Rime normally derives their readings, which this adapter deliberately does not guess. English dictionaries, user phrases, Emoji and schema files are also excluded.
+Edit `Data/Chinese/MSIME/si-entries.json`, then rebuild. Each entry requires nonempty `text`, apostrophe-separated lowercase `reading`, a `reason`, and either a nonnegative signed-64-bit integer `weight` or `exclude: true`. Duplicate text/reading pairs, unsupported fields, control characters and conflicting weight/exclusion fields are rejected.
 
-Rime Ice declares GPL-3.0-only, matching SI's GPLv3 distribution. Its complete license and the exact selected files' original headers are retained in [licenses](../Data/Chinese/licenses/) and [attributions](../Data/Chinese/attributions/). Those headers list their source materials, including THUOCL, the Tencent word-vector vocabulary, reference dictionaries, Wiktionary's character table and the BLCU character-frequency table. THUOCL's MIT notice is also retained. These notices remain part of the generated `ChineseVocabularyNotices.txt` app resource. This imports the Rime Ice-maintained dictionary tables under their declared license, not their upstream corpora, vectors or software. New sources still need origin and license review under [CONTRIBUTING.md](../CONTRIBUTING.md).
-
-## Commands
-
-Use the shared vocabulary command with the language option **before** its subcommand. Existing commands without this option continue to maintain English.
-
-```sh
-./scripts/vocabulary.sh --language chinese stats
-./scripts/vocabulary.sh --language chinese explain 字幕
-./scripts/vocabulary.sh --language chinese build
-./scripts/vocabulary.sh --language chinese build --check
-./scripts/vocabulary.sh --language chinese audit --report .build/vocabulary-chinese-audit.json
-# Review the upstream revision, then refresh the entire registered Rime Ice group:
-./scripts/vocabulary.sh --language chinese refresh rime-ice --revision FULL_40_CHARACTER_COMMIT_SHA
-# Explicitly import the tracked branch's latest revision:
-./scripts/vocabulary.sh --language chinese refresh rime-ice --latest
-# Reproduce the currently pinned imports:
-./scripts/vocabulary.sh --language chinese refresh rime-ice
-```
-
-A group refresh resolves one latest revision for both Rime Ice tables and stages their snapshots, license, headers, lock and merged outputs before validation/writes. A failed download, malformed table, empty/out-of-bounds result, checksum failure or unaccepted license change leaves existing files intact. A specific source ID can also be refreshed on its own. License changes require inspection and the explicit `--accept-license-change` option; accepting a changed notice does not establish its suitability.
-
-`Data/Chinese/sources.json` registers sources, priorities, selection and weight provenance. `sources.lock.json` pins revisions, upstream download hashes, normalized snapshot hashes, license/header hashes and filtering counts. Sources, locks, generated outputs and notices must be reviewed together. The monthly vocabulary workflow audits both English and Chinese and retains comparison links and JSON reports. It does not update repository files, install SI, or read personal dictionaries. The workflow must reach the default branch with Actions enabled before its schedule applies.
-
-## Add, correct or exclude entries
-
-Edit [si-terms.tsv](../Data/Chinese/sources/si-terms.tsv) for original local additions. Rows contain Han text and space-separated Pinyin, separated by one actual Tab character. A third weight/score column is rejected:
-
-```text
-字幕	zi mu
-词库维护	ci ku wei hu
-```
-
-Use `v` for ü; explicit `ü` and `u:` spellings normalize to the same lookup reading. The text is preserved exactly. There must be one syllable per Han character, no tone numbers, no empty syllables and at most 64 normalized letters. Unsupported text/reading pairs in upstream tables are counted and filtered, never silently auto-pronounced. Invalid or duplicate local entries fail validation. Polyphonic readings remain distinct.
-
-Use [overrides.json](../Data/Chinese/overrides.json) for lasting changes to an upstream text/reading pair rather than editing its snapshot. This synthetic example excludes one reading and replaces another:
+Synthetic format examples, not proposed dictionary changes:
 
 ```json
-{
-  "schema_version": 1,
-  "rules": [
-    {"text": "示例", "reading": "shi lie", "action": "exclude", "reason": "Incorrect reading"},
-    {"text": "词库", "reading": "ci gu", "action": "replace", "reason": "Correct pronunciation",
-     "replacement": {"text": "词库", "reading": "ci ku"}}
-  ]
-}
+[
+  {"text": "示例", "reading": "shi'li", "weight": 100, "reason": "Synthetic format example"},
+  {"text": "示例", "reading": "shi'lie", "exclude": true, "reason": "Synthetic wrong-reading exclusion"}
+]
 ```
 
-Rules require a reason and a unique original text/reading. Exclusions run last as well, so replacements cannot reintroduce an excluded pair. Inactive rules are reported and retained for future upstream versions. The generated provenance table records every contributing source. Source priority resolves competing upstream frequencies. Original/local spelling coverage never overrides an upstream weight. Corrections preserve the existing upstream weight and may not assign a score or weight; genuinely unweighted additions remain explicitly unweighted. Personal phrases and learning data are separate and unchanged.
+The builder imports checksum-verified snapshots, merges duplicate text/readings using upstream weight/row-order policy, applies pinned reading corrections, then applies the SI overlay. It stores the resulting data and key/initial indexes. Do not edit the SQLite file or imported snapshots to make lasting local corrections. Weights are model inputs, not measured probabilities or guaranteed candidate positions.
 
-Imported integer weights are preserved exactly in generated data and provenance, including zero; `-` identifies missing upstream weights. Original/local files retain spelling coverage and cannot override frequencies. `explain` reports those source weights.
+## Build and check
 
-The [unified ranking model](UNIFIED_RANKING.md) normalizes unique word priors and conditional reading probabilities, then combines them with spelling likelihood, language transitions and limited character-boundary context in one logarithmic scale. Zero/missing weights receive a one-count computational floor without changing their stored value. Multiple readings of one word share its word prior but retain distinct pronunciation likelihoods. Direct words, partial actions and constructed paths use this same model; the earlier whole-code-to-100 experiment is removed. Raw weights are unchanged, and no per-word authored score is introduced. Injected score lexicons remain supported for isolated algorithm tests.
-
-The 85,596 text/readings are retained. Of the 979 original spellings, 10 have no weight in the selected upstream tables and therefore remain unweighted coverage. This change does not import additional tables or increase the upstream base cutoff selection. Chinese spelling cost is computed per syllable, independently of word segmentation. The vocabulary-derived boundary model remains limited and can still prefer unnatural sentences. See [current verification](VERIFICATION.md) for those explicit quality limits.
-
-## Runtime and validation
-
-The generated Swift data is compiled into both the package and app. The app does not download or parse external vocabulary files. Decoder initialization groups words sharing a syllable sequence, shares their abbreviation/boundary metadata and stores IDs in exact indexes. Full-spelling completion uses binary-search ranges rather than a copy of each entry under every prefix. The default engine prepares the shared decoder on construction.
-
-Complete and incomplete terminal paths have separate bounded pools per language/verbatim/last-language state. Each retains 12 base and up to 12 personalized alternatives, plus up to two full-spelling alternatives outside the general set in each lane, rather than doubling width for abbreviations. Completion edges always finish the input, so intermediate continuation budgets do not grow. Large terminal batches are compacted with a bounded ordered selection after applying actual scores and eligible learning. Direct lexical/personal matches and literal fallback remain independently available; the merged result has no global cap. Prefix presentation still retains two distinct results per language combination and consumed span.
-
-A Chinese abbreviation that stops inside an exact English word cannot gain token-learning bonuses for that split path. Explicit whole-input choices can still prefer alternative segmentations. This extends the existing English boundary safeguard to new Chinese abbreviation matches without hiding them.
+Run from the repository root:
 
 ```sh
+python3 scripts/msime_dictionary.py build
+python3 scripts/msime_dictionary.py build --check
+python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
-./scripts/vocabulary.sh build --check
-./scripts/vocabulary.sh --language chinese build --check
 ./scripts/test.sh
 ./scripts/build.sh
-./scripts/benchmark.sh --resources
 ```
 
-The tests cover imports, weighting, polyphony, normalization, persistent overrides, source/hash/license checks, failed group updates, original-entry preservation, mixed input, completion crowding and independent exhaustive terminal ranking. Vocabulary changes can still alter segmentation and which constructed paths survive the bounded search. Follow [manual typing checks](TESTING.md) for `zimu`, `shujuku`, `rengongzhineng`, `zimusubtitle`, `nihaotitle`, language settings, broad-prefix paging, focus and shortcuts. See [measured verification](VERIFICATION.md) for results and remaining limits. No command commits, publishes, installs or changes enabled input sources.
+`build` works offline from retained sources. `build --check` rebuilds into a temporary file, checks schema, row order, data, indexes and the retained database hash/manifest, verifies context sizes/hashes, and leaves packaged outputs unchanged. Equivalent databases from another SQLite version are accepted even when header or page bytes differ; source/overlay checks and retained binary hashes must still agree. A source or overlay error must not replace the existing dictionary. The Python fixtures check ties, duplicate merging, overlay exclusions/additions, invalid edits, reproducibility and preservation on failure. Full core/quality failures remain visible; removing old data does not establish MSIME conversion parity.
+
+## Adopt upstream changes
+
+Review the new revisions, data changes and notices first. Snapshot adoption is explicit:
+
+```sh
+python3 scripts/msime_dictionary.py snapshot --dictionary /path/to/msime-dictionary --engine /path/to/msime
+python3 scripts/msime_dictionary.py build
+python3 scripts/msime_dictionary.py build --check
+# Only when the pinned context artifacts are intentionally needed:
+python3 scripts/msime_dictionary.py fetch-context
+```
+
+Review `sources.lock.json`, the independently retained upstream/license/review records and generated manifest together when adopting revisions. Context releases have a separate pin; updating lexical sources does not automatically regenerate or upgrade context tables. New words use unigram backoff where context entries are absent. Keep all required notices with distributed data; see [the retained attribution](../Data/Chinese/MSIME/README.md#attribution) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+The existing monthly audit checks MSIME engine/dictionary revision metadata, retained-file consistency and the preserved English sources. `python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json` produces a read-only comparison report; neither audit nor CI adopts updates automatically. The schedule takes effect only after the workflow reaches the default branch with Actions enabled.
+
+Private personal phrases and opt-in aggregate learning remain separate, with their existing retention/deletion controls. Maintenance tools never inspect those archives.

@@ -5,6 +5,29 @@ import SICore
 
 @MainActor
 struct CandidateViewTests {
+    @Test(arguments: [false, true])
+    func unchangedPreviewAndFinalResultsKeepTheExistingRows(expanded: Bool) {
+        var selection = CandidateSelection()
+        selection.setExpanded(expanded)
+        selection.update([
+            InputCandidate(text: "今天", language: .simplifiedChinese, score: 100),
+            InputCandidate(text: "尽头", language: .simplifiedChinese, score: 90),
+        ])
+        let view = CandidateListView()
+        view.render(selection)
+        let rows = view.rows
+        view.render(selection, isPending: true, refreshPendingRows: true)
+        #expect(view.rows.elementsEqual(rows, by: { $0 === $1 }))
+        #expect(view.rows.allSatisfy { !$0.isEnabled })
+        view.render(selection)
+        #expect(view.rows.elementsEqual(rows, by: { $0 === $1 }))
+        #expect(view.rows.allSatisfy { $0.isEnabled })
+        selection.move(by: 1)
+        view.render(selection)
+        #expect(view.rows.elementsEqual(rows, by: { $0 === $1 }))
+        #expect(view.rows[1].isCurrent && !view.rows[0].isCurrent)
+    }
+
     @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
     func singleLetterCandidateRemainsVisibleAndSelectable(appearance: NSAppearance.Name) throws {
         var session = InputSession()

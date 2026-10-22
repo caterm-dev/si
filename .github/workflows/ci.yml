@@ -24,11 +24,11 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
-      - name: Validate English and Chinese vocabularies
+      - name: Validate MSIME Chinese and retained English dictionaries
         run: |
           python3 -m unittest discover -s Tests/VocabularyTests -v
+          python3 scripts/msime_dictionary.py build --check
           ./scripts/vocabulary.sh build --check
-          ./scripts/vocabulary.sh --language chinese build --check
           python3 scripts/ranking.py --check
       - name: Test shared core
         run: ./scripts/test.sh

@@ -1,26 +1,30 @@
 import SwiftUI
 
+@MainActor
 struct CandidatePreviewView: View {
     let settings: LanguageSettings
     let personalization: PersonalizationSettings
     let dictionary: UserDictionarySettings
     @State private var input = "shi"
     @State private var page = 0
-    private let engine = CandidateEngine()
+    @State private var preview = CandidatePreviewModel()
     private let pageSize = 8
 
-    private var candidates: [InputCandidate] {
-        engine.candidates(for: input, languages: settings.enabledLanguages, learning: personalization.rankingProfile,
-                          dictionary: dictionary.dictionaryForInput)
-    }
-
     var body: some View {
+        let query = CandidatePreviewQuery(input: input, languages: settings.enabledLanguages,
+                                          learning: personalization.rankingProfile, dictionary: dictionary.dictionaryForInput)
         TextField("Type English or Pinyin", text: $input)
             .textFieldStyle(.roundedBorder)
             .accessibilityLabel("Candidate preview input")
-            .onChange(of: input) { page = 0 }
-            .onChange(of: settings.enabledLanguages) { page = 0 }
-        let results = candidates
+            .task(id: query) {
+                page = 0
+                preview.submit(query) {
+                    query == CandidatePreviewQuery(input: input, languages: settings.enabledLanguages,
+                        learning: personalization.rankingProfile, dictionary: dictionary.dictionaryForInput)
+                }
+            }
+            .onDisappear { preview.cancel() }
+        let results = preview.candidates
         let lastPage = max(0, (results.count - 1) / pageSize)
         let currentPage = min(page, lastPage)
         ForEach(results.dropFirst(currentPage * pageSize).prefix(pageSize)) { candidate in
@@ -30,6 +34,10 @@ struct CandidatePreviewView: View {
                 Text(candidate.label).font(.caption).foregroundStyle(.secondary)
             }
             .accessibilityElement(children: .combine)
+        }
+        if preview.isSearching {
+            Text("Searching…").font(.caption).foregroundStyle(.secondary)
+                .accessibilityLabel("Updating candidate preview")
         }
         if !results.isEmpty {
             HStack {

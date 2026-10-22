@@ -24,29 +24,28 @@ jobs:
       - name: Validate checked-in vocabulary and maintenance tools
         run: |
           python3 -m unittest discover -s Tests/VocabularyTests -v
+          python3 scripts/msime_dictionary.py build --check
           ./scripts/vocabulary.sh build --check
-          ./scripts/vocabulary.sh --language chinese build --check
           python3 scripts/ranking.py --check
       - name: Check upstream revisions without changing vocabulary
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json
           ./scripts/vocabulary.sh audit --report .build/vocabulary-english-audit.json
-          ./scripts/vocabulary.sh --language chinese audit --report .build/vocabulary-chinese-audit.json
       - name: Add audit to job summary
         run: |
           python3 - <<'PY'
           import json, os
           from pathlib import Path
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              for language in ['english', 'chinese']:
-                  report = json.loads(Path(f'.build/vocabulary-{language}-audit.json').read_text())
-                  summary.write(f"### {language.title()} vocabulary\n\n")
+              for family in ['msime', 'english']:
+                  report = json.loads(Path(f'.build/vocabulary-{family}-audit.json').read_text())
+                  summary.write(f"### {family.title()} sources\n\n")
                   for source in report['sources']:
                       status = 'Update available' if source['update_available'] else 'Up to date'
                       summary.write(f"- {source['source']}: {status}. [Compare revisions]({source['compare_url']}).\n")
-                      if source['update_available']:
-                          summary.write(f"\nRefresh after reviewing the source: `{source['refresh_command']}`\n\n")
+              summary.write("\nReview revisions and notices before adopting updates.\n")
           PY
       - uses: actions/upload-artifact@v4
         with:

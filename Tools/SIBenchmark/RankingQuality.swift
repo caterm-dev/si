@@ -69,7 +69,7 @@ enum RankingQuality {
             .mapValues { rows in Metrics(examples: rows.count, topOne: rows.count { $0.rank == 1 },
                                         topFive: rows.count { ($0.rank ?? .max) <= 5 }, recall: rows.count { $0.rank != nil },
                                         previewTopFive: rows.count { ($0.previewRank ?? .max) <= 5 }) }
-        let report = Report(model: "SI syllable spelling + generic character context + wordfreq 3.1.1", examples: results.count,
+        let report = Report(model: "SI frequency-balanced Chinese MSIME lattice + independent English wordfreq 3.1.1", examples: results.count,
                             topOne: results.count { $0.rank == 1 }, topFive: results.count { ($0.rank ?? .max) <= 5 },
                             engineRecall: results.count { $0.rank != nil },
                             previewTopFive: results.count { ($0.previewRank ?? .max) <= 5 },

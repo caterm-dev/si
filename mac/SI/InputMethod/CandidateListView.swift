@@ -69,15 +69,24 @@ final class CandidateListView: NSView {
         expandButton.setAccessibilityLabel(expansionLabel)
         expandButton.setAccessibilityValue(isExpanded ? "Expanded" : "Collapsed")
         expandButton.toolTip = expansionLabel
-        rows.forEach { $0.removeFromSuperview() }
-        rows = selection.visibleRange.enumerated().map { number, index in
-            let row = CandidateRowButton()
+        let visible = Array(selection.visibleRange)
+        let canReuse = rows.count == visible.count && zip(rows, visible).allSatisfy {
+            $0.0.candidateID == selection.candidates[$0.1].id
+        }
+        if !canReuse {
+            rows.forEach { $0.removeFromSuperview() }
+            rows = visible.map { _ in
+                let row = CandidateRowButton()
+                row.target = self
+                row.action = #selector(selectRow(_:))
+                addSubview(row)
+                return row
+            }
+        }
+        for (number, index) in visible.enumerated() {
+            let row = rows[number]
             row.configure(candidate: selection.candidates[index], number: number + 1,
                           selected: index == selection.selectedIndex, compact: !isExpanded)
-            row.target = self
-            row.action = #selector(selectRow(_:))
-            addSubview(row)
-            return row
         }
         showsPagination = selection.pageCount > 1
         pageLabel.stringValue = "\(selection.page + 1) / \(max(1, selection.pageCount))"

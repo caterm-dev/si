@@ -1,3 +1,28 @@
+# Chinese engine refactor — current objective
+
+User direction, 2026-10-21: implement MSIME's Chinese core in Swift, maintain an SI dictionary derived from its data, and establish Chinese conversion quality before adding English mixed lexical paths. Do not link Rust. The original code-only restriction was lifted by the user on October 22, 2026; validation is now authorized. Existing consent, deletion, client isolation and exact-source commit rules remain in force.
+
+The user subsequently confirmed that the reference MSIME installation uses default settings with no extra features enabled. The required baseline is therefore the default word-lattice and word-ngram pipeline. Optional neural reranking and general autocorrection remain future capabilities rather than prerequisites for this baseline; fixed spelling aliases still participate by default.
+
+## Implementation and remaining work
+
+| Component | Current state | Completion evidence still required |
+| --- | --- | --- |
+| Native Swift core | Read-only lexical lookup, canonical syllables, per-chunk primary/alias segmentation, word lattice, streaming heap beam selection, terminal libc++ introsort tie movement and word bigram/trigram rescoring written and connected to the default engine | Compilation and comparison with the pinned MSIME implementation are deferred |
+| SI-owned dictionary | Compressed pinned sources, source hashes, reading corrections, SI additions/exclusions overlay and read-only SQLite resource generator written; packaged dictionary generated | Reproducibility and source/data comparison are deferred |
+| Exact candidate placement | Chinese provider order preserved across engine merge; exact words precede constructed sentences and completions | Word-level comparison, ambiguity and learning checks are deferred |
+| Source boundary editing | Existing session revision/caret/commit pipeline retained; new decoder maps prefixes through normalized source boundaries | Unicode, apostrophes, prefix commits and native host checks are deferred |
+| Personal data | Existing SI stores and consent remain authoritative; saved codes supplement the default reading rather than replacing it, direct prefixes retain all saved choices, and personal nodes respect typed boundaries and remain excluded from learning/context | Private-profile and storage regression checks are deferred |
+| Correction and sparse lookup | Fixed spelling aliases, full/prefix/mixed-initial cascade, bounded retroflex-initial splitting and sparse dictionary fallbacks written with typed-source spans; default alternative-cut gates, per-table 128-row pages and merge/dedup sequence aligned in source | New lookup behavior remains unverified; general autocorrection is outside the confirmed default baseline |
+| Optional neural reranking | Not migrated; disabled in the confirmed reference configuration | Future capability; not required for default baseline parity |
+| English | Existing lookup/English word composition and separate dictionaries retained; former Chinese/English mixed lattice does not participate in the new Chinese baseline | Mixed lexical paths wait for the Chinese baseline; no quality claim is made |
+| App/Settings packaging | Package resource declaration and default core facade changed; Xcode shares the same Swift sources/resources | Compiler, bundle and native host checks are deferred |
+| Quality parity | Unproven | After authorization to run checks, compare pinned resources and isolated profiles, then independent word/sentence and native host cases |
+
+The current changes pass Debug/Release compilation and focused migration checks, but the complete regression suite and Chinese quality still fail. This is not a completed parity milestone. The October 22 record in `docs/VERIFICATION.md` supersedes the deferred-check states in the table above. The user's `ne` and `julitebieyuan` examples are known development cases and cannot serve as independent quality evaluation. No per-word special-case scoring has been introduced.
+
+## Historical checkpoint before the refactor
+
 # Daily-use input method implementation
 
 Objective: complete SI as a reliable macOS input method, including personal learning. A passing core suite alone does not establish completion.
@@ -6,7 +31,7 @@ Objective: complete SI as a reliable macOS input method, including personal lear
 
 - One input source, enabled-language set, combined candidates, exact literal fallback.
 - Local processing, no text logs, no remote inference or telemetry.
-- User decision (2026-10-18): use original vocabularies and implement learning first; do not introduce third-party dictionaries yet.
+- Historical decision (2026-10-18), superseded on 2026-10-21: original vocabularies only. The user now explicitly authorizes MSIME-derived Chinese algorithms and dictionary data.
 - Explicitly enabled learning may retain aggregate input-to-candidate preferences locally. Users must be able to pause learning, remove entries, and clear the store. No automatic collection of arbitrary literal input.
 - Previous-word pairs require a separate opt-in, share the learning capacity/expiry policy, and use only bounded client-local context. Explicit personal phrases retain until deletion with a separate 1,000-entry cap and additive, validated import/export.
 

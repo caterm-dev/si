@@ -39,7 +39,7 @@ struct SettingsView: View {
                 UserDictionarySection(dictionary: dictionary)
                 UpdateSettingsSection(updater: updater)
                 Section("Development Preview") {
-                    Text("SI combines original English and Pinyin vocabularies, mixed-language composition, personal phrases, and optional local learning. The vocabulary is still limited; broad language coverage, sentence-level context, and host-app compatibility are in development.")
+                    Text("SI offers Chinese conversion and English suggestions through one input source, with personal phrases and optional local learning. Chinese sentence quality and host-app compatibility are still under development.")
                         .foregroundStyle(.secondary)
                     Text("Space selects a candidate. Return keeps the original text. Escape cancels. Left and Right edit the composition; Up, Down, page keys, and number keys navigate candidates.")
                         .foregroundStyle(.secondary)

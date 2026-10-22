@@ -14,6 +14,10 @@ public struct UserDictionary: Equatable, Sendable {
     private var codeIndex: [String: [UserPhrase]] = [:]
     private(set) var maximumCodeLength = 0
 
+    /// Direct prefix choices are independent of the constructed-node fanout bound.
+    /// The existing code index is already sorted and contains no chronological history.
+    func directPhrases(for code: String) -> [UserPhrase] { codeIndex[code] ?? [] }
+
     public static func == (lhs: UserDictionary, rhs: UserDictionary) -> Bool { lhs.phrases == rhs.phrases }
 
     /// Bound constructed-path fanout; direct matches are returned separately without this cap.

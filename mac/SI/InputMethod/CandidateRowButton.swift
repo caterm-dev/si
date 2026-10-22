@@ -12,6 +12,7 @@ final class CandidateRowButton: NSButton {
     private(set) var candidateID = ""
     private(set) var isCurrent = false
     private(set) var isCompact = false
+    private var configuredCandidate: InputCandidate?
 
     override var acceptsFirstResponder: Bool { false }
 
@@ -42,6 +43,10 @@ final class CandidateRowButton: NSButton {
     }
 
     func configure(candidate: InputCandidate, number: Int, selected: Bool, compact: Bool = false) {
+        if let previous = configuredCandidate, previous == candidate,
+           previous.text.utf8.elementsEqual(candidate.text.utf8),
+           numberLabel.stringValue == String(number), isCurrent == selected, isCompact == compact { return }
+        configuredCandidate = candidate
         candidateID = candidate.id
         isCurrent = selected
         isCompact = compact

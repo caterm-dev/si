@@ -1,88 +1,44 @@
-# Unified local statistical ranking
+# Candidate ranking
 
-SI merges built-in English, Chinese and mixed candidates on one additive base-2 log score. English word completion and Chinese syllable matching use different observation models; a shared unit does not imply shared linguistic assumptions or calibrated population posteriors. The implementation is a compact statistical baseline with bounded search. It does not provide a broadly trained sentence model, English grammar correction or neural inference.
+The default Chinese decoder uses SI's native Swift MSIME adaptation. The former bilingual wordfreq/character-boundary objective no longer defines default Chinese ranking. Existing English word lists, wordfreq bins and English functionality are retained. Private personal phrases and aggregate preference records remain separate from public dictionary data.
 
-## Objective and units
+## Dictionary and sentence scores
 
-For lexical tokens `w` and their consumed spellings `x`, the base cost is:
+The [MSIME maintenance pipeline](CHINESE_VOCABULARY.md) preserves integer source weights and explicit readings in a generated SQLite dictionary. For a word of `n` syllables, the current base score in natural-log units is:
 
-```
-cost = sum(-log2 P(language | previous language)
-           -log2 P(word | language, Chinese character context)
-           -log2 P(reading | word)
-           -log2 P(typed prefix / initials | reading))
-rankingScore = -cost
-personalizedScore = rankingScore + max(tokenPreference, wholePreference) + previousWordPreference
+```text
+score = ln(max(1, weight)) + 20 × (n - 1) - (n == 1 ? 2 : 0)
 ```
 
-English has one supported spelling per word, so its reading cost is zero. BOS has a uniform English/Chinese prior; subsequent language transitions use the same fitted switch prior for both directions. Scoring conditions on the known input boundary: every direct, composed and prefix path has neutral terminal cost. Vocabulary ends are not treated as sentence/EOS training data.
+Characters and words use the same log-frequency coefficient. SI deliberately replaces upstream's single-character `ln(1,000,000)` deduction (about 13.82 nats) with a small two-nat insertion cost. A tenfold frequency advantage contributes `ln(10)` (about 2.30 nats), enough to overcome that extra cost when coverage and token count otherwise agree. The residual cost discourages excessive character splitting. Multiplying weights without changing the structural scale would not solve the imbalance.
 
-Output identities retain the strongest derivation (Viterbi), so scores describe paths rather than marginalized posteriors over every segmentation.
+For a path consuming `N` syllables and `K` tokens, the length term sums to `20 × (N - K)`: at fixed coverage this is an ordinary per-token insertion prior, not an unlimited bonus for splitting into more fragments. The 20-nat insertion prior is retained after development comparisons; reducing it substantially regressed everyday sentences. Candidate weights, readings and context resources are unchanged. No word-specific exclusions or bonuses were added.
 
-There are no English exact/completion 110/75/85 tiers, constructed-path 94-point origin/floor, Chinese whole-code-to-100 normalization, prefix subtraction or separate continuation/presentation scale. Source compatibility integer fields remain for injected providers; the production ordering retains the fractional `rankingScore`. The old English source completion fields remain provenance metadata and are not read by runtime ranking.
+The zero floor is computational; stored weights retain their original values. Positive word-bigram increments contribute during continuation search with multiplier two. Up to six distinct terminal sentences survive before word-trigram rescoring; a sole surviving sentence does not receive that comparison increment. These remain heuristic model scores, not normalized sentence probabilities or estimates of linguistic correctness. Bounded search can discard a desired sentence.
 
-Learning remains an explicitly enabled, bounded log-linear preference term. One point is one bit; the existing 32-point frequency cap and optional 12-point previous-word cap remain unchanged. Token/whole frequency uses the maximum, not their sum. Search and final ranking apply the same units. These are bounded preferences, not calibrated posterior probabilities or user-model interpolation trained from a sentence corpus. Existing retention, pause, secure-input suppression, deletion and aggregate-only persistence remain intact.
+The lattice retains a 32-path base beam, a separately bounded personalized lane, at most seven syllables and 32 lexical rows per span. Direct lexical and personal matches remain independently available. Natural-log arithmetic continues through search and rescoring; presentation/preference boundaries convert into bits. Equal-score heap and terminal sorting follow the pinned upstream behavior. See [the source study](MSIME_ALGORITHM.md) for the upstream algorithm and resource revisions; the smaller character cost is an intentional SI divergence.
 
-## Word priors and pronunciation
+## Presentation and personalization
 
-- English: wordfreq 3.1.1 English large-list frequency bins, restricted to the existing 63,602 ASCII word forms. Exact lowercase token lookup suffices for this vocabulary; no multi-token, number, CJK or transliteration behavior is ported. Absent words receive `10^-9`, one decade below the source large-list cutoff. Normalize the retained masses plus one unknown bucket. No new words are imported through the frequency source.
-- Chinese: retain raw Rime/SI provenance unchanged. Each unique text receives the maximum supplied reading weight; missing/zero weights receive a one-count computational floor. Normalize text weights plus an unknown bucket. The source weights include editorial choices and are not a shared sentence-corpus count with English.
-- Alternative Chinese readings receive their own conditional mass, normalized over distinct codes for that text. A rare `a` reading of `呵` cannot borrow the frequency of its `he` reading. Duplicate canonical output/code aliases share the strongest reading mass while weaker injected derivations retain their own likelihood.
-- Injected score-based test/extension lexicons map ten compatibility points to one bit before normalization. Bundled Chinese data does not use this API.
+Exact lexical placement, constructed sentences and incomplete/initial choices follow explicit candidate policy. The engine preserves Chinese provider order rather than comparing unrelated Chinese and English raw weights. Language-aware identity and exact literal fallback remain intact. The input window shortlists at most 27 results; engine and preview retain full results.
 
-The language switch prior is an add-one estimate from authored language runs in `Data/Ranking/calibration.json`, generated by `scripts/ranking.py`. The English and Chinese geometric spelling channels are explicit defaults, not empirical keystroke models. English operates on a word prefix; Chinese operates on individual syllables, independently of lexical segmentation. These modeling choices are visible and reproducible, and require broader calibration before production claims.
+Whole-input and eligible previous-word preferences apply before presentation limits. Token and whole-input frequency share a 32-point cap through their maximum; previous-word preferences add at most 12 points. Prefix preferences use only consumed source spelling. Personal or verbatim paths never train learning/context, and no sentence is automatically split into retained token records. English preferences continue to rank matching English lexical entries.
 
-## Boundary context and backoff
+Explicit personal nodes use the retained 10,000 insertion prior, with a one-bit preferred-phrase adjustment; these are user override priors, not corpus frequency. The 12-alternative personal-node fanout and 4,096-byte constructed-output bound remain. Retention, expiry, consent and deletion rules are unchanged.
 
-`LexicalLanguageModel` collects adjacent character **types** inside unique Chinese vocabulary texts. It does not interpret upstream word weights as sentence-transition counts or inspect user text. For previous character `h`, let `C(h)` be the adjacency count and `T(h)` its distinct successor count. Interpolated Witten–Bell uses:
+Automatic confirmation retains its English/code lexical safeguard and existing opt-in rules. Manual selection and exact original-input commits remain available.
 
-```
-lambda(h) = T(h) / (C(h) + T(h))
-P(firstCharacter | h) = count(h, firstCharacter) / (C(h) + T(h))
-                       + lambda(h) * P0(firstCharacter)
-P(word | h) = P(firstCharacter(word) | h) * P0(word) / P0(firstCharacter(word))
-```
+## Retained fixtures and validation
 
-This factors a normalized character-boundary distribution into a normalized word distribution. Missing histories use the unigram; unseen successors retain backoff mass. Only characters that can start a model token participate. The unknown outcome retains its language-conditioned backoff mass. The model scores cross-word boundaries during search, including `想` → `办` in a phrase such as `能想办法…`. Within-word evidence is represented by the lexical prior. English transitions back off to word frequency; there is no English bigram/trigram corpus.
-
-This limited evidence can still prefer an unintended sequence: `现在添加字母` precedes the requested `现在添加字幕` in a tracked synthetic case. It is a vocabulary-derived context model, not sentence-level semantic understanding. Mature statistical IMEs and learned/neural models remain research references; SI does not embed libime/KenLM or claim their accuracy.
-
-The same character-boundary model applies to all Chinese vocabulary entries. No hand-authored ordinal, date, unit or phrase-specific scoring class is active. Improvements to general context require broadly applicable evidence and evaluation, rather than a targeted structural exception.
-
-## Spelling and explicit phrases
-
-English words and arbitrary personal codes retain the finite nonempty-prefix channel `P(k|L) = 2^k / (2^(L+1)-2)`, for `1 <= k <= L`.
-
-Chinese uses `P(k|L) = 2^k / (2^(L+1)-1)` for each syllable, with `0 <= k <= L`; probabilities multiply across syllables. Full and initial spellings use the actual number of letters observed in each syllable. An unfinished reading observes complete leading syllables, a possibly incomplete final syllable, and zero letters in later syllables. Each omitted letter adds one bit. The distribution includes prefix shapes outside the decoder's accepted full/initial/trailing-completion subset; it is not a posterior over only returned candidates. Crucially, exact `di + er + ye` has the same spelling cost whether tokenized as `第二 + 页` or `第 + 二 + 页`. There is no per-word half-mass split or uniform cost over all abbreviation masks.
-
-Full/initial variants remain bounded to six-syllable enumeration/all-initial policy. Source offsets, apostrophes, ü aliases and exact committed bytes remain session/decoder responsibilities.
-
-Explicit personal phrases use a local prior based on dictionary size, restricted to matching codes. Preferred exact full codes retain an explicit priority ahead of statistical ranking; this is candidate policy, not an invented probability bonus. Their lexical mass is twice the unpreferred mass for constructed paths; incomplete codes use the same geometric channel. This is a user override, not corpus frequency. Direct and constructed phrase edges share this scale; all private/verbatim paths remain excluded from learning and previous-word context. Unrecognized verbatim spans use an unknown-word mass and a uniform 26-letter spelling cost; literal input remains independent and exact.
-
-## Search, presentation and performance
-
-- IDs, unigram/reading/spelling costs and character-boundary interpolation deltas are prepared once outside keystroke handling. Seen transitions use one packed integer-key lookup; unseen transitions use an array backoff. There are no logarithms, file reads or model initialization in ordinary lexical path expansion.
-- The English Trie keeps full lexical ranges plus a packed top-eight preview cache. Single-child chains reuse cache slices; direct lookup remains unbounded. The cache is ranked by the same word/channel objective, not source order.
-- Both stages use the same decoder/model. Provisional Chinese pools retain 16 entries per reading and at most eight reading groups per span. Exact full readings precede bounded initial/mixed readings, so `nhao` and `srf` receive provisional hints as well. Edge limits are 16 full-spelling or eight abbreviated choices per span, with four spans per language/completion/abbreviation class. This retains contextual homophones such as `页` before path scoring. Full lookup retains all matching lexical entries.
-- Continuation and terminal search preserve the original 12 base and up to 12 personalized alternatives per state, two distinct composed prefixes plus up to 24 lexical alternatives per language/span and the 4,096-byte output bound. Each lane also retains its two best full-spelling derivations when they are absent from the general set (at most 14 paths per lane). General and protected top sets stay independent, preserving associative terminal compaction; replacing general slots would lose that property. Continuation identity retains future context and distinct token preference values so deduplication cannot erase a base derivation that becomes preferable under whole-input learning.
-- Direct lexical/personal candidates and exact original input remain independently available. The 27-item panel reserves complete language representatives before falling back to prefixes. A short English `a` cannot satisfy the reservation when a complete English completion is available.
-
-## Reproduction, licensing and quality limits
+`Data/Ranking/calibration.json` and the evaluation/holdout/phonetic JSON files contain authored synthetic examples, not imported vocabulary or personal history. `scripts/ranking.py` reproduces the retained English frequency bins and the synthetic transition constant. Wordfreq 3.1.1 supplies English frequency estimates under its retained CC-BY-SA-4.0 attribution; code notices and corpus credits remain in `Data/Ranking/wordfreq-3.1.1/` and bundled `RankingNotices.txt`. English vocabulary pins, licenses and selection remain documented in [English maintenance](ENGLISH_VOCABULARY.md). Historical mixed and former-model tests remain visible as unmet capability checks.
 
 ```sh
-python3 scripts/ranking.py                 # Offline native bins and switch calibration
+python3 scripts/msime_dictionary.py build --check
+./scripts/vocabulary.sh build --check
 python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 ./scripts/test.sh
 ./scripts/build.sh
-./scripts/build.sh Release
-./scripts/benchmark.sh --quality
-./scripts/benchmark.sh --resources
-./scripts/benchmark.sh --previews
 ```
 
-The user approved wordfreq English data for this integration. `Data/Ranking/wordfreq-3.1.1/source.json` pins the wheel/data checksums and scope. Its original English cBpack is retained for offline reproducibility; only selected frequency bins are compiled into the app. The complete distribution README, Apache code notice, data attribution and SUBTLEX bibliography are retained. Native derived frequency data is CC-BY-SA-4.0, with modifications and credits in the app's `RankingNotices.txt`. The application remains GPLv3. Creative Commons lists GPLv3 as one-way compatible with CC-BY-SA-4.0 for adaptations; the frequency artifacts also retain their original CC-BY-SA attribution and source access. See [the official compatibility list](https://creativecommons.org/compatible-licenses/). No Python package/runtime or networking is included in SI. Source usage reflects approximately 2021 and is not expected to refresh automatically.
-
-`evaluation.json` contains 45 tracked regression/development examples and was inspected while selecting this implementation. `holdout.json` originally contained 20 cases held out from the October 20 model; those cases were inspected during the current repair and are now historical regressions. `phonetic-regressions.json` adds 21 inspected ordinal, date, abbreviation and mixed-input cases. None is a representative production corpus or a fresh independent accuracy estimate. The quality CLI reports partitions, first-choice/top-five counts, engine recall, preview agreement and character errors; it never reads a learning archive or host text. Probability normalization, independent small exhaustive ranking, source integrity and presentation/commit regressions have separate tests. See [verification](VERIFICATION.md) for actual checks, timing tradeoffs and unperformed native host/VoiceOver checks.
-
-References: [wordfreq source and notices](https://github.com/rspeer/wordfreq), [Witten and Bell (1991)](https://doi.org/10.1109/18.87000), [Rime word-graph search](https://github.com/rime/librime/blob/master/src/rime/gear/poet.cc), [libpinyin lookup](https://github.com/libpinyin/libpinyin/blob/main/src/lookup/phonetic_lookup.h), [libime language model](https://github.com/fcitx/libime/blob/master/src/libime/core/languagemodel.cpp), [joint input modeling](https://www.microsoft.com/en-us/research/wp-content/uploads/2012/07/emnlpl2012spellerIME.pdf).
+Compilation and dictionary reproducibility do not establish Chinese quality or host compatibility. See [the current verification record](VERIFICATION.md) and [unfinished work](IMPLEMENTATION_PLAN.md).

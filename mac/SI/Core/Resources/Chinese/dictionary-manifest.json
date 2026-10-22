@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "dictionary_repository": "https://github.com/metasequoiaime/msime-dictionary",
+  "dictionary_revision": "b32ac7227135255a3351f02ec5bdfc983741e81a",
+  "engine_repository": "https://github.com/metasequoiaime/msime",
+  "engine_revision": "0fce42f0dd22fe6930b5a1942498280df8073396",
+  "sources": [
+    {
+      "path": "sources/sources-pinyin-single-chars.txt.gz",
+      "upstream_path": "sources/pinyin/single-chars.txt",
+      "sha256": "bc70b486619eb8866821937cda4cd1aaa2fc08e5f64543530dcd4d7c2fd225b2",
+      "size": 619679
+    },
+    {
+      "path": "sources/sources-pinyin-rime-ice.txt.gz",
+      "upstream_path": "sources/pinyin/rime-ice.txt",
+      "sha256": "76252df96ac5e287d81b498f96fe2ec211861caa2f4423b2d30fbe331fc1d264",
+      "size": 28590541
+    },
+    {
+      "path": "sources/sources-pinyin-rime-ice-supplement.txt.gz",
+      "upstream_path": "sources/pinyin/rime-ice-supplement.txt",
+      "sha256": "41c50c9b452c89d4accd3abac57a40312a861ad36611850d584fc7d25609ffd3",
+      "size": 1341839
+    },
+    {
+      "path": "sources/sources-pinyin-places.txt.gz",
+      "upstream_path": "sources/pinyin/places.txt",
+      "sha256": "db828ded4b3dc568c14f172209a3e5acd094a196c89843dc23ac7097068b00c4",
+      "size": 28248
+    },
+    {
+      "path": "sources/custom-words.txt.gz",
+      "upstream_path": "custom/words.txt",
+      "sha256": "63984700a2a44c43e5ccff47de448eec456196261b56656e02bdebdf655b263c",
+      "size": 17858
+    }
+  ],
+  "corrections_sha256": "d77fb4183d3df50ca3ebd4de6a482d5b3bc3051ed18fa7300e70fa4c7c34eb5f",
+  "input_rows": 962998,
+  "entries": 953710,
+  "runtime_sha256": "b55d65ba5a30f4061cec30ebf7d89b9fadb974dcebdfa923faebab45e8a680c1",
+  "si_overlay_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+}

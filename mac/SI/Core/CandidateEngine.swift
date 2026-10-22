@@ -5,10 +5,8 @@ public struct CandidateEngine: Sendable {
 
     public init(providers: [any CandidateProvider]? = nil) {
         self.providers = providers
-        if providers == nil {
-            EnglishLexicon.prepare()
-            _ = PinyinDecoder.standard
-        }
+        // Creating a deferred client session must not load dictionaries on the main actor.
+        // The shared immutable resources initialize when its worker first generates candidates.
     }
 
     public func candidates(for input: String, languages: Set<InputLanguage>,
@@ -54,9 +52,9 @@ public struct CandidateEngine: Sendable {
     private func merge(_ generated: [InputCandidate], input: String, languages: Set<InputLanguage>,
                        learning: LearningProfile, now: Date, context: CandidateContext?) -> [InputCandidate] {
         // Personal entries may share text with a built-in candidate. Keep the stronger derivation.
-        var best: [String: (candidate: InputCandidate, score: Double)] = [:]
+        var best: [String: (candidate: InputCandidate, score: Double, position: Int)] = [:]
         best.reserveCapacity(generated.count)
-        for candidate in generated {
+        for (position, candidate) in generated.enumerated() {
             var candidate = candidate
             guard let language = candidate.language, languages.contains(language), !candidate.text.isEmpty else { continue }
             if candidate.isMixed && (language != .simplifiedChinese || !languages.contains(.english)) { continue }
@@ -71,7 +69,32 @@ public struct CandidateEngine: Sendable {
                 continue
             }
             if let previous = best[candidate.id] { candidate.retainLexicalEvidence(from: previous.candidate) }
-            best[candidate.id] = (candidate, score)
+            best[candidate.id] = (candidate, score, best[candidate.id]?.position ?? position)
+        }
+        if providers == nil {
+            // A dictionary/completion/sentence placement policy is not a corpus score. Keep
+            // the Chinese decoder's order rather than sorting it back into the old model.
+            let ordered = best.values.sorted { $0.position < $1.position }
+            let chinese = ordered.filter { $0.candidate.language == .simplifiedChinese && !$0.candidate.isPartial }
+            let english = ordered.filter { $0.candidate.language == .english && !$0.candidate.isPartial }.sorted {
+                $0.score == $1.score ? $0.candidate.id < $1.candidate.id : $0.score > $1.score
+            }
+            let prefixes = ordered.filter { $0.candidate.isPartial }.sorted {
+                if $0.candidate.consumedInputCount != $1.candidate.consumedInputCount {
+                    return ($0.candidate.consumedInputCount ?? 0) > ($1.candidate.consumedInputCount ?? 0)
+                }
+                return $0.score == $1.score ? $0.candidate.id < $1.candidate.id : $0.score > $1.score
+            }
+            var merged: [InputCandidate] = []
+            if let leader = chinese.first { merged.append(leader.candidate) }
+            if let englishLeader = english.first { merged.append(englishLeader.candidate) }
+            merged += chinese.dropFirst().map(\.candidate)
+            merged += english.dropFirst().map(\.candidate)
+            merged += prefixes.map(\.candidate)
+            if let preferred = merged.firstIndex(where: \.isPreferred), preferred > 0 {
+                merged.insert(merged.remove(at: preferred), at: 0)
+            }
+            return merged + [InputCandidate(text: input, language: nil, score: 0)]
         }
         let merged = best.values
             .sorted {
@@ -80,7 +103,7 @@ public struct CandidateEngine: Sendable {
                     return ($0.candidate.consumedInputCount ?? 0) > ($1.candidate.consumedInputCount ?? 0)
                 }
                 if $0.candidate.isPreferred != $1.candidate.isPreferred { return $0.candidate.isPreferred }
-            if $0.score != $1.score { return $0.score > $1.score }
+                if $0.score != $1.score { return $0.score > $1.score }
                 return $0.candidate.id < $1.candidate.id
             }
             .map(\.candidate)

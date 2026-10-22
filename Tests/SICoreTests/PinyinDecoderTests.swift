@@ -59,11 +59,10 @@ struct PinyinDecoderTests {
         #expect(candidates == decoder.candidates(for: "nihao"))
     }
 
-    @Test func originalsHaveValidReadingsAndConsistentCharacterCounts() {
-        for entry in OriginalPinyinLexicon.entries {
-            #expect(entry.syllables.count == entry.text.count)
-            #expect(!entry.syllables.isEmpty)
-            #expect(entry.syllables.allSatisfy { $0.utf8.allSatisfy { $0 >= 97 && $0 <= 122 } })
+    @Test func bundledDictionaryKeepsExplicitPolyphonicReadings() {
+        for reading in ["xing", "hang"] {
+            let matches = ChineseLexicon.standard.exactMatches([reading])
+            #expect(matches.contains { $0.text == "行" && $0.reading == [reading] })
         }
     }
 }

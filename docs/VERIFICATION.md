@@ -2,6 +2,124 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Frequency and segmentation balance — 2026-10-22
+
+The user requested stronger dictionary-frequency influence after `nawomenzaichaxun` produced `那我闷在查询`. Read-only SQL/context inspection and a standalone probe linked against the existing shared core reproduced the base result without personal learning. The winning split was `那我 / 闷在 / 查询`; `我们` itself has weight 13,696,325, while `闷在` has weight 3,036. The source data was not changed.
+
+SI now uses `ln(max(1, weight)) + 20 × (syllables - 1) - (syllables == 1 ? 2 : 0)`. The extra single-character cost drops from upstream's `ln(1e6)` (about 13.82 nats) to two nats. This is an intentional local algorithm divergence, not an upstream-equivalence claim. The shared log-frequency coefficient, existing 20-nat token insertion prior, context models, beams, source bounds, separate base/personalized lanes and preference limits remain. No word-specific scoring or exclusion was added.
+
+Exploratory offline calculations used only the development examples and reported cases to compare common token insertion costs from 8 to 24. Large reductions broke ordinary sentence boundaries; retaining 20 and testing character costs from zero to eight preserved a useful range at one to four. Removing the character cost entirely introduced `好的我指导了` on the historical `haodewozhidaole` fixture; a small cost prevents it. That historical holdout was inspected during validation and now informs a named regression guard for this change. It must not be presented as untouched independent generalization evidence. The selected two-nat cost also lets a tenfold frequency advantage beat a competing all-multi-character segmentation in a separate injected fixture.
+
+| Synthetic input | Before first choice | After first choice |
+| --- | --- | --- |
+| `nawomenzaichaxun` | 那我闷在查询 | 那我们在查询 |
+| `nengxiangbanfayouhuama` | 能像办法优化吗 | 能想办法优化吗 |
+| `haodewozhidaole` | 好的我知道了 | 好的我知道了 |
+| `julitebieyuan` | 距离特别圆 | 距离特别圆 — still wrong for the requested 远 |
+| `bangwozaixie` | 帮我在写 | 帮我在写 — still wrong for the requested 再 |
+
+- Before/after standalone Debug probes linked the actual shared core with empty private profiles. Across 45 development examples, first-choice accuracy changes from 35 to 36; historical holdout stays 15/20; phonetic regressions stay 17/21. Two reported cases change from 0/2 to 1/2. Preview first choices have the same counts. None of these 88 examples loses a previously correct first choice. These are small, known synthetic sets, not a representative language benchmark.
+- `./scripts/benchmark.sh --quality`: Release evaluation passes and reports 68/86 first choices for the three retained repository partitions. The two extra reported cases above are covered by probes/tests, not included in that tool's 86-row total. The report's model name now describes the Chinese lattice and independent English model accurately.
+- `./scripts/test.sh`: ran 306 tests. Storage (12) and Settings (23) pass; presentation (59) still reports 27 assertion issues, and core (212) reports 104. Total issues fall from 135 to 131. Comparison with the prior log finds no newly failing test names or increased assertion count within an already failing test. The full command still fails; it is not a green regression baseline.
+- All 19 focused Chinese frequency/migration/everyday-quality/English-preservation/homophone tests pass. Five new tests cover the reported case in full/provisional searches, enabled-language combinations, apostrophes, exact prefix/literal boundaries, tenfold frequency competition, over-splitting, rare-word availability, and explicit preference override with the base path retained. Arithmetic fixtures were updated only for the deliberate new score/output and independently checked against SQL/ngram calculations.
+- `./scripts/build.sh` and `./scripts/build.sh Release`: passed for arm64 and x86_64, signing disabled; only the existing AppIntents metadata warning remains. Both packaged dictionaries match the unchanged manifest hash `b55d65ba5a30f4061cec30ebf7d89b9fadb974dcebdfa923faebab45e8a680c1`. Whitespace and local Markdown target checks pass.
+- No installation, application launch, live host typing, VoiceOver check, new data import, private archive access or publication was performed. Context-sensitive 在/再 and 远/圆 mistakes remain unresolved. The change improves the observed frequency/segmentation imbalance without establishing semantic quality, broader generalization or host compatibility.
+
+Local probes, calibration results and logs are in `.build/frequency-ranking/`; the fixed before/after outputs are `quality-before.json` and `quality-after.json`, with `quality-release.json`, `full-tests.log`, `final-focused.log`, `debug-build.log` and `release-build.log` recording the checks above.
+
+## Dictionary consolidation — 2026-10-22
+
+The user requested MSIME as the sole Chinese dictionary source and explicitly retained existing English functionality and vocabulary. Removed the former direct Rime Chinese snapshots, original SI tables, generated Swift Chinese table, old Chinese adapter/tests and old notice. The pinned MSIME snapshots, public SI overlay, SQLite and context resources remain. Private archives were not accessed or changed. English data, its runtime implementation and the automatic-confirmation implementation match the pre-consolidation checkout.
+
+- `python3 scripts/msime_dictionary.py build --check`: passed with 953,710 entries. Source/overlay hashes, generated dictionary/manifest and pinned context resources match. SQLite integrity returns `ok`. The check also supports equivalent schema, row order, data and indexes across SQLite versions without replacing outputs; the retained binary must still match its recorded hash.
+- `python3 -m unittest discover -s Tests/VocabularyTests -v`: all 27 tests passed, including six new MSIME pipeline fixtures for source checksum failure, overlay validation/merging/ties, read-only checks, SQLite-version header compatibility/index loss, context checks and mocked upstream audit. The actual network audit was not run.
+- `./scripts/vocabulary.sh build --check` and `python3 scripts/ranking.py --check`: passed for the retained English data.
+- `./scripts/test.sh`: ran 301 tests. Storage (12) and Settings (23) pass; presentation (59) has 27 assertion issues, and core (207) has 108. The full command fails. Compared with the previous 136-issue checkpoint, replacing the obsolete homophone fixture with actual MSIME weights removes one stale assertion; other existing quality/behavior failures remain visible.
+- A focused run of Chinese migration, consolidation, everyday sentence quality, homophone-weight and polyphonic-reading checks passed all 15 tests. It preserves the existing everyday-sentence quality gate and checks that `ne` leads with `呢` while English `new`/`need`/`next` and literal input remain available.
+- `./scripts/build.sh` and `./scripts/build.sh Release`: passed for arm64 and x86_64, signing disabled. Both bundles contain copies identical to current Chinese resources, retain English vocabulary/ranking notices, and omit the obsolete Chinese notice. Only the existing AppIntents metadata warning remains.
+- Whitespace and local Markdown target checks passed. No installation, launch, native host typing, live UI/VoiceOver check, publication or private-data migration was performed. Full regression failure and Chinese quality limitations remain unresolved.
+
+Local logs are `.build/msime-only-{dictionary,maintenance-tests,english-check,ranking-check,tests,focused,debug,release}.log`. Historical records below describe earlier source/data states.
+
+## Swift Chinese migration validation — 2026-10-22
+
+The user authorized validation. **The migration is not ready: compilation succeeds, but full regressions and Chinese quality still fail.** Existing pre-migration pass counts below do not apply to this worktree.
+
+- `./scripts/build.sh` and `./scripts/build.sh Release`: passed for arm64 and x86_64 with signing disabled. Only the existing AppIntents metadata warning remains. Both app bundles contain byte-identical copies of the SQLite dictionary, manifest and two context models. No app was launched or installed.
+- `./scripts/test.sh`: ran 289 tests across four targets. Storage (12) and Settings (23) pass. Core (205) reports 109 issues; presentation (49) reports 27 issues. These are assertion issues, not counts of distinct defects. The complete command exits unsuccessfully.
+- All 13 newly added tests pass: nine Chinese resource/lookup/boundary/scoring/evidence/binary-format checks, one libc++ ordering comparison across five tied-score batch sizes, and three asynchronous Settings preview checks for replacement, consent recheck and cancellation/reopening. The new tests do not establish overall language quality.
+- Rebuilt the dictionary into `.build/chinese-dictionary-rebuild` from retained snapshots and overlay. SQLite and manifest bytes match the packaged sources exactly; `PRAGMA integrity_check` returns `ok`, with 953,710 entries. Both context-file lengths and SHA-256 values match `resources.lock.json`.
+- Initial compilation found an ambiguous map/sort expression in prefix selection; explicit tuple typing fixes it. Regression checks also found that collecting automatic-confirmation evidence emitted extra visible sentences. Hidden alternatives now veto disputed boundaries internally, while visible candidate IDs, scores and exact output bytes remain unchanged. Incomplete trailing syllables now retain valid preceding composed prefixes without inventing a whole sentence.
+
+Observed Chinese-only first choices on synthetic development inputs:
+
+| Input | Actual first choice | Quality interpretation |
+| --- | --- | --- |
+| `ne` | 呢 | Reported single-syllable problem is resolved in the shared core; English `new` remains available when enabled |
+| `julitebieyuan` | 距离特别圆 | Still fails the requested 距离特别远 outcome |
+| `bangwozaixie` | 帮我在写 | Fails the existing 帮我再写 quality fixture |
+| `nengxiangbanfayouhuama` | 能像办法优化吗 | Fails the existing 能想办法优化吗 quality fixture |
+
+An independent Python calculation of SQL spans, lexical natural-log scores and binary ngram increments reproduces the four arithmetic fixtures in `ChineseMigrationTests`, including the undesirable results. For `julitebieyuan`, the winning words are `距离` + `特别圆`: the pinned source contains `特别圆 / te'bie'yuan / 3984`, and the multi-syllable edge bonus favors that path. This comparison checks a simplified calculation with these pinned resources; it does **not** execute MSIME's full application/session or establish what the user's installation does. No per-word scoring exception was added and the desired quality failure remains open. The pinned shared host preference source also confirms both neural switches default to false, independently of engine session defaults.
+
+Remaining failures include old mixed-language requirements deliberately deferred by the objective, former score/beam expectations incompatible with the new algorithm, and unresolved learning, prefix-presentation and automatic-confirmation behavior. They remain visible rather than being disabled or rewritten to make the suite green. Continuous automatic confirmation does not activate in two prior standard-vocabulary fixtures; native typing, focus, shortcuts, VoiceOver and host compatibility are unverified. No input source, installed app, user archive or running input-method process was changed.
+
+Raw local evidence: `.build/chinese-validation-tests.log`, `chinese-validation-debug.log`, `chinese-validation-release.log`, `chinese-migration-focused.log`, `chinese-dictionary-validation.log`, and `chinese-reference-results.json`. Reference ordering fixtures were generated with Apple clang/libc++ `std::sort` and `std::partial_sort` using a score-only record comparator. These are regression and arithmetic checks, not a production accuracy estimate.
+
+### Reported abbreviated input — 2026-10-22
+
+Synthetic `jintjiushi` reproduces the reported list: the primary cut is `jin / t / jiu / shi`, with no complete alias reading. Sentence edges require complete syllables, so the abbreviated `t` leaves no whole-sentence lattice path. Direct full-input lookup has no matching word, and the remaining Chinese results are prefix choices such as 今天 and 尽头. This is a decoding-coverage limitation, not a comparison of 今天 and 今天就是 by frequency. Full `jintianjiushi` and explicit `jin'tian'jiu'shi` both lead with 今天就是.
+
+Two focused characterization/commit tests pass: 今天 consumes exactly `jint`, leaving `jiushi` editable with 就是 available; full spellings supply the whole sentence and preserve exact literal input. No production behavior was changed for this diagnosis. Logs: `.build/reported-abbreviation.log` and `.build/reported-abbreviation-regression.log`. The 289-test complete run above predates these two follow-up tests and was not repeated solely for them.
+
+A read-only process query found one SI process at the installed input-method path. Its dictionary, manifest and two context files match the worktree by SHA-256. The screenshot shows a marked-Pinyin area above the custom horizontal candidate panel. The controller calls the host's `setMarkedText` separately from displaying its `CandidatePanel`; it does not construct an `IMKCandidates` list. This establishes the roles of the two visible areas, not whether a separate, unpictured window can appear. No process, installed app or input source was changed.
+
+## Candidate refresh follow-up — 2026-10-22
+
+The user clarified that another window briefly appears at the lower-left display corner on keystrokes while SI's candidate panel also flickers. The earlier screenshot alone did not capture that transient window, so its owner and exact cause remain unconfirmed.
+
+Source inspection found that each append, accepted provisional result and accepted full result called the host's `setMarkedText`, even when composition bytes and UTF-16 selection were unchanged. Candidate rendering also removed/recreated all visible row views, and window resizing synchronously painted before completing row layout. The controller now deduplicates identical host updates with client/composition-local `MarkedTextState`, resets that state across commit/cancel/deactivation/client changes, and checks the active client before async delivery. Unchanged visible identities reuse rows, while changed identities still invalidate removed controls. Panel layout completes before display.
+
+The final `./scripts/test.sh` run executes 295 tests. The four new refresh test methods pass, including both compact/expanded parameter cases, candidate-only delivery without extra host sends, caret updates, cancellation/reset and exact UTF-8/UTF-16 behavior. Storage and Settings pass; the core/presentation targets still report the same 109/27 assertion issues recorded before this fix. This is not a green full suite. Debug and Release compilation pass with signing disabled. Logs: `.build/candidate-refresh-tests.log`, `.build/candidate-refresh-debug.log` and `.build/candidate-refresh-release.log`.
+
+The targeted computer-use read of SI's window was rejected by automatic approval review because it would send accessibility content and screenshots, potentially containing sensitive composition text, to the computer-control connection. No alternate capture/control backend was used. Native flicker and transient-window ownership remain unverified. The installed app and running input-method process were not changed; these source/build changes are not yet an installed fix.
+
+## Candidate ownership and anchor follow-up — 2026-10-22
+
+The user reported that flashing persisted after the first refresh changes. The installed executable's arm64 and x86_64 UUIDs match the preceding Release build; this checks the file on disk, not the image loaded by a process. The previous change removed redundant host writes and row recreation, but did not address multi-controller window ownership or geometry-channel switching.
+
+Added a failing geometry regression before changing `CandidateAnchor`: after a valid document rectangle, ten temporary document-query misses with a valid-looking inline rectangle at `(0,0)` moved the anchor into the screen corner. The old implementation produced 11 assertion issues. The fix retains an established document anchor through temporary misses, still follows fresh document geometry, and invalidates caches on reset/disconnected displays. Legacy-only hosts retain their initial fallback path. This proves a concrete corner-jump path, not the identity of the unobserved native window.
+
+Candidate panels now have one weak main-actor visibility owner, claimed only by activation/current key handling. Superseded panels hide and cannot reclaim visibility from late results, timers or row actions; late old-client deactivation cannot release the new owner's lease. Buffers and selections remain per client. Host text/geometry calls also receive per-controller revision checks against synchronous reentry, and geometry resolves on a local value copy. The SDK declaration of `activateServer:` was checked; its bridge retains the existing IMK main-thread assumption. MSIME's pinned macOS controller independently uses a weak candidate-panel owner for missed deactivation; see `platforms/macos/src/input/InputController.mm` at the retained engine revision.
+
+`./scripts/test.sh --filter 'CandidatePanelOwnershipTests|CandidatePlacementTests|MarkedTextStateTests|CandidatePipelineTests'` passes 20 tests across four suites. Offscreen panel tests reject old-client render/show requests without showing a test window. Final complete regression executes 298 tests: storage (12) and Settings (23) pass; presentation (56) and core (207) retain their prior 27/109 assertion issues. Debug and Release app builds pass with signing disabled. Logs: `.build/candidate-anchor-before.log`, `candidate-ownership-focused.log`, `candidate-ownership-tests.log`, `candidate-ownership-debug.log`, and `candidate-ownership-release.log`.
+
+The new build has not been installed or launched, and no running input method was stopped. No screenshot, accessibility read, window capture workaround or native typing was performed after the earlier approval rejection. Live flicker, first-frame fallback geometry and native callback/reentry ordering remain unverified; the automated results must not be presented as confirmation that the user's flicker has disappeared.
+
+## Candidate coordinate-source correction — 2026-10-22
+
+A subsequent screenshot shows a stationary candidate panel at the left edge while marked input is in the right-hand editor. The prior document-first/cached-document policy did not establish a correct anchor. It is superseded here: retaining a rectangle through failures cannot establish that its original coordinate source was correct.
+
+The SDK's `IMKInputSession.h` explicitly provides `attributesForCharacterIndex:lineHeightRectangle:` for candidate-window placement. It is now primary, queried at inline-session UTF-16 offset zero and then the current composition offset when needed. Fresh inline geometry replaces any cached document fallback. An established inline position survives temporary misses; `firstRectForCharacterRange:actualRange:` is only a fallback and its returned actual range must contain the requested insertion position. Unknown, unrelated and overflowing actual ranges are rejected. Ambiguous global-origin results require independent geometry corroboration. Activation clears both anchor and marked-text caches, including when an IMK controller/client wrapper is reused.
+
+The updated source-priority regression first failed on the preceding implementation with five assertion issues: a displaced document rectangle near `(8,8)` overrode a valid inline caret in the right-hand editor. It passes after the correction. Additional regressions cover recovery from that cached document fallback, actual-range validation, origin corroboration and retention during temporary failures. The previous test's requirement to avoid inline queries after document success was removed: that policy prevented recovery to a fresh correct inline coordinate. Existing reflow, source-boundary, disconnected-screen, ownership and cache-isolation checks remain.
+
+The focused coordinate/ownership/marked-text command passes 19 tests. Final `./scripts/test.sh` executes 301 tests: storage (12) and Settings (23) pass; presentation (59) and core (207) retain the preceding 27/109 assertion issues. Debug and Release builds pass with signing disabled. Logs: `.build/candidate-coordinate-before.log`, `candidate-coordinate-focused.log`, `candidate-coordinate-tests.log`, `candidate-coordinate-debug.log`, and `candidate-coordinate-release.log`.
+
+No application was installed/launched, no process was stopped and no native capture/typing was performed. This is an implemented and automatically checked coordinate-source correction, not proof that the installed input method is positioned correctly in the user's live host.
+
+## Swift Chinese migration — 2026-10-21, historical code-only checkpoint
+
+The current worktree contains a new Swift MSIME-derived Chinese decoder, packaged SQLite dictionary and word-context resources. The retained source snapshots generated 953,710 unique lexical entries; generation is a maintainer data operation, not compilation or an engine check. Source revisions and resource hashes are recorded under `Data/Chinese/MSIME/` and in the packaged manifest. New Settings preview search runs on a worker actor with stale-result rejection.
+
+At this historical checkpoint, the user had prohibited tests, compiler runs, app builds, benchmarks, installation and native typing checks for the migration. That restriction was lifted on October 22; the newer record above supersedes this checkpoint. Prior pass counts, quality figures and performance measurements below apply to the previous implementation. They must not be attributed to the new Chinese engine. Default-algorithm fidelity, optional correction/neural work, packaging and independent quality comparison remain in [the implementation plan](IMPLEMENTATION_PLAN.md).
+
+Further source alignment ports MSIME's streaming heap selection and terminal libc++ introsort tie movement to Swift, keeps natural-log accumulation through sentence rescoring, reuses each previous-word bigram row within a column, and separates prefix presentation pools from continuation selection. Explicit Pinyin chunks now cut independently; an invalid chunk cannot erase valid preceding prefixes. Default alternative readings use the upstream gates, table-name ordering and 128-row pages per table; the earlier global-cap interpretation was corrected after reading the actual batch function. Main-query word deduplication precedes page-count policy, and split-initial rows retain primary word identities. The user confirmed default MSIME settings as the comparison target, so optional AI and general autocorrection are outside that baseline. These are source edits only, without executable validation.
+
+The user subsequently requested the latest open-source code. GitHub branch metadata and Git object IDs show default develop at d05c33e54ff72673fd583f5ac0f79c4fe5688560, with unchanged Chinese algorithm subtrees and runtime session files relative to the retained engine snapshot; dictionary main remains b32ac7227135255a3351f02ec5bdfc983741e81a. The source-only review is recorded in `Data/Chinese/MSIME/upstream-review.json`. No runtime or quality conclusion follows from those matching upstream objects.
+
+Personal-code integration was adjusted so a saved code cannot erase the canonical Chinese reading. Separate supplemental cuts emit only personal-derived paths; all direct personal prefixes remain independent of constructed fanout, and typed apostrophe constraints apply to saved nodes. The upstream 10,000 insertion prior is named explicitly and the one-bit pin preference is retained. Direct personal choices are ordered deterministically. These changes have not been executed or tested.
+
 ## General scoring without ordinal exceptions — 2026-10-21
 
 The hand-authored `第 + numerals + continuation` class and all associated transition tables, cached entry effects and search states have been removed at the user's request. All Chinese entries now use the same vocabulary-derived character-boundary model. Per-syllable Chinese spelling likelihoods, the unchanged English word-prefix channel, bounded full-spelling protection and abbreviation preview coverage remain. No external model/data or per-phrase score was introduced.

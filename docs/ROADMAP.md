@@ -2,12 +2,18 @@
 
 SI is currently a development preview. Checked items have implementations; unchecked items remain planned. Automated engine coverage does not replace host-app verification.
 
+## Chinese migration — 2026-10-21
+
+The current worktree replaces the historical Chinese/mixed decoder with a Swift MSIME adaptation and an SI-maintained dictionary. Full/prefix/initial lookup, spelling aliases, word-lattice search and word bigram/trigram ranking are written. The user authorized validation on October 22. Builds pass, while full regressions and Chinese quality remain unresolved; live host checks remain unverified. MSIME quality parity is unproven; optional general typo paths and neural reranking remain incomplete. Chinese/English mixed lexical paths are deferred. The checked historical Chinese/mixed milestones below describe the previous implementation, not verification of this migration. See [the implementation plan](IMPLEMENTATION_PLAN.md) and [algorithm study](MSIME_ALGORITHM.md).
+
+The October 22 dictionary consolidation removes old Chinese sources and their maintenance adapter. Existing English sources, wordfreq data and functionality are temporarily retained.
+
 ## Foundation — included
 
 - [x] One InputMethodKit input source without internal language modes.
 - [x] Persistent English and Simplified Chinese language preferences.
 - [x] Unified candidate engine with ambiguity preservation and literal fallback.
-- [x] Offline English and Chinese vocabularies, with documented origins and coverage limits.
+- [x] Offline MSIME Chinese dictionary with pinned provenance and a public SI correction overlay.
 - [x] Multi-source English vocabulary maintenance, pinned imports, local overrides, source tracing and scheduled upstream audits.
 - [x] Selected annotated Rime Ice Chinese character/base vocabulary, preserved SI entries, explicit weighting, local overrides and shared upstream audits.
 - [x] Native marked text, candidate presentation, and commit/cancel integration.

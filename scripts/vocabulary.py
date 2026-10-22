@@ -399,7 +399,7 @@ def refresh(root, source_id, revision=None, latest=False, accept_license_change=
     return summary
 
 
-def audit(root, download=fetch, data_dir=DATA, language="english"):
+def audit(root, download=fetch, data_dir=DATA):
     config, lock = configuration(root, data_dir=data_dir)
     results, revisions = [], {}
     for source in config["sources"]:
@@ -410,19 +410,18 @@ def audit(root, download=fetch, data_dir=DATA, language="english"):
         if key not in revisions:
             revisions[key] = latest_revision(source, download)
         latest = revisions[key]
-        language_option = " --language chinese" if language == "chinese" else ""
         results.append({
             "source": source["id"], "pinned_revision": current, "latest_revision": latest,
             "update_available": current != latest,
             "compare_url": f'https://github.com/{source["upstream"]["repository"]}/compare/{current}...{latest}',
-            "refresh_command": f"python3 scripts/vocabulary.py{language_option} refresh {source['id']} --revision {latest}",
+            "refresh_command": f"python3 scripts/vocabulary.py refresh {source['id']} --revision {latest}",
         })
     return {"schema_version": 1, "sources": results}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--language", choices=("english", "chinese"), default="english")
+    parser.add_argument("--language", choices=("english",), default="english")
     sub = parser.add_subparsers(dest="command", required=True)
     build = sub.add_parser("build", help="Validate and generate the unified vocabulary, offline")
     build.add_argument("--check", action="store_true")
@@ -439,10 +438,6 @@ def main():
     check.add_argument("--report", type=Path)
     args = parser.parse_args()
     try:
-        if args.language == "chinese":
-            import chinese_vocabulary
-            chinese_vocabulary.execute(ROOT, args)
-            return
         if args.command in ("build", "stats"):
             outputs, summary = compile_vocabulary(ROOT)
             if args.command == "build":

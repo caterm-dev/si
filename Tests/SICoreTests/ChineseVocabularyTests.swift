@@ -75,25 +75,15 @@ struct ChineseVocabularyTests {
         #expect(engine.candidates(for: "hang", languages: [.simplifiedChinese]).contains { $0.text == "行" })
     }
 
-    @Test func everyOriginalEntryKeepsItsReadingWithoutAnEditorialScoreOverride() {
-        let merged = Dictionary(grouping: ChineseLexiconData.entries, by: { $0.code })
-        for original in OriginalPinyinLexicon.entries {
-            #expect(merged[original.code, default: []].contains {
-                $0.text == original.text && $0.syllables == original.syllables
-                    && $0.upstreamWeight == original.upstreamWeight && $0.usesUpstreamWeight
-            })
-        }
-    }
-
     @Test func upstreamHomophoneWeightsKeepTheirRatioAndReachConstructedSentences() throws {
         let engine = CandidateEngine()
         let values = engine.candidates(for: "guo", languages: [.simplifiedChinese])
         let past = try #require(values.first { $0.text == "过" })
         let country = try #require(values.first { $0.text == "国" })
-        let pastEntry = try #require(ChineseLexiconData.entries.first { $0.text == "过" && $0.code == "guo" })
-        let countryEntry = try #require(ChineseLexiconData.entries.first { $0.text == "国" && $0.code == "guo" })
-        #expect(pastEntry.upstreamWeight == 7_307_184 && countryEntry.upstreamWeight == 3_063_867)
-        #expect(abs(past.rankingScore - country.rankingScore - log2(7_307_184.0 / 3_063_867.0)) < 1e-12)
+        let pastEntry = try #require(ChineseLexicon.standard.exactMatches(["guo"]).first { $0.text == "过" })
+        let countryEntry = try #require(ChineseLexicon.standard.exactMatches(["guo"]).first { $0.text == "国" })
+        #expect(pastEntry.weight == 3_229_619 && countryEntry.weight == 188_165)
+        #expect(abs(past.rankingScore - country.rankingScore - log2(Double(pastEntry.weight) / Double(countryEntry.weight))) < 1e-12)
         #expect(values.first?.text == "过")
         for preview in [false, true] {
             let sentence = PinyinDecoder.standard.compositionCandidates(for: "tianjiaguonameduo",

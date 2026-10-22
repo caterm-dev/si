@@ -1,10 +1,20 @@
 # Testing SI
 
+The user lifted the code-only restriction on October 22, 2026. Debug/Release builds and the new migration-focused checks pass; the complete suite still fails. Some existing fixtures assume the former scoring and mixed decoder, while presentation, learning and automatic-confirmation failures also need resolution. Preserve those failures until reviewed against the product contract; see [the current evidence](VERIFICATION.md).
+
+For candidate refresh changes, run `./scripts/test.sh --filter 'MarkedTextStateTests|unchangedPreviewAndFinalResultsKeepTheExistingRows|CandidatePipelineTests|CandidatePlacementTests'`. The marked-text fixture exercises append → provisional → final delivery, caret movement, cancellation, exact Unicode bytes and reset; the view fixture checks row retention and interaction in both layouts. On an intentionally installed build, type synthetic `jintjiushi` rapidly and slowly, then edit, page, cancel and change focus. Watch for transient windows at the display corner and host/preedit or candidate-panel flicker. Repeat in a browser and TextEdit; automated geometry and view checks do not identify the owner of a transient native window.
+
+`CandidatePanelOwnershipTests` checks two offscreen client panels, late old-client deactivation, and rejection of a stale panel's render/show request without displaying test windows. The placement suite reproduces an established document anchor followed by temporary misses and a valid-looking screen-corner legacy fallback; it must retain the established anchor, then follow fresh document reflow. In live hosts, switch rapidly between two text fields/apps while full decoding is pending, continue typing, and commit/cancel. Only the active client's panel may appear. Check first composition, document reflow and display changes as well as the cached-position case; source tests do not validate actual IMK activation/deactivation or synchronous reentry delivery.
+
+Chinese maintenance is consolidated to MSIME. Existing English vocabulary, frequency bins and functionality are retained. `DictionaryConsolidationTests` checks that Chinese `ne` still leads with `呢`, English `new`/`need`/`next` remain available, and exact literal input is preserved.
+
+`ChineseFrequencyRankingTests` checks the reported `nawomenzaichaxun` sentence in provisional/full searches, Chinese-only/combined settings and apostrophe-separated input, with exact literal/prefix boundaries. Injected fixtures require a tenfold frequency advantage to beat an all-multi-character segmentation, keep rare words and explicit learning available, and test longer low-frequency fragments. `haodewozhidaole` guards against the over-splitting observed when the character cost was removed entirely. Run `./scripts/test.sh --filter 'ChineseFrequencyRankingTests|ChineseMigrationTests|InputQualityTests|DictionaryConsolidationTests'`. These tests do not operate a live host or establish general semantic accuracy.
+
 ## Automated checks
 
 ```sh
+python3 scripts/msime_dictionary.py build --check
 ./scripts/vocabulary.sh build --check
-./scripts/vocabulary.sh --language chinese build --check
 python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 python3 -m unittest discover -s Tests/ScriptTests -v
@@ -50,7 +60,7 @@ Set `SI_CANDIDATE_SNAPSHOT_PATH` to an output PNG path to retain the synthetic o
 
 `SequentialWordSelectionTests` verifies `biruzhege` in both languages/search stages and layouts: two whole choices, `比如` before character choices, useful second-page prefixes, preserved language/mixed/literal fallbacks, deterministic paging and exact `biru`/apostrophe-aware source commits followed by `zhege` → `这个`. It also protects ordinary word/English-completion results and consumed-spelling preference ordering. `FirstWordPrefixTests` checks the bounded 24-word pool, learning/clear, and lexical evidence surviving stronger composed derivations without changing their score or identity. Offscreen view tests render actual first/second pages in light and dark appearances; set `SI_WORD_SELECTION_SNAPSHOT_PATH=/tmp/si-word-selection` to retain images. These checks do not establish live host routing, VoiceOver, or positioning.
 
-`CandidatePlacementTests` checks synthetic host geometry separately: document-relative marked-start insertion rectangles taking priority over displaced inline geometry, UTF-16 offsets after supplementary characters, invalid/unavailable marked ranges and rectangle fallback, fresh geometry after reflow, composition-start queries, caret fallback, composition-local cached coordinates, invalid/missing coordinates, edge clamping, left/above displays, and display removal. It does not exercise InputMethodKit's actual coordinate delivery.
+`CandidatePlacementTests` checks synthetic host geometry separately: inline-session coordinates taking priority over displaced document geometry, recovery from a cached document fallback, actual-range validation and ambiguous-origin corroboration, UTF-16 offsets after supplementary characters, invalid/unavailable marked ranges and rectangle fallback, fresh geometry after reflow, composition-start queries, caret fallback, composition-local cached coordinates, invalid/missing coordinates, edge clamping, left/above displays, and display removal. It does not exercise InputMethodKit's actual coordinate delivery.
 
 `EnglishVocabularyTests` compares direct candidates against a source-list reference, checks technology exact/completion/mixed candidates and disabled languages, checks every English word and every nonempty prefix against the complete vocabulary, verifies cached casing and probability costs, and exercises mixed exact/completion walks with apostrophe boundaries and the two-letter completion minimum. Run it with `./scripts/test.sh --filter EnglishVocabularyTests`. Lexical order, full result ranges, exact literals and language filtering must remain intact.
 

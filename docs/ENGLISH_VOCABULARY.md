@@ -1,6 +1,6 @@
 # English vocabulary maintenance
 
-SI maintains English source files separately and queries one generated vocabulary. Source boundaries are for attribution, updates, and editorial control; they do not create input modes or Settings toggles. Chinese data has a separate [maintenance configuration](CHINESE_VOCABULARY.md), selected with `--language chinese`; existing commands still default to English.
+SI maintains English source files separately and queries one generated vocabulary. Source boundaries are for attribution, updates, and editorial control; they do not create input modes or Settings toggles. Chinese data uses its separate [MSIME maintenance pipeline](CHINESE_VOCABULARY.md); `scripts/vocabulary.py` maintains English only.
 
 ## Current sources
 
