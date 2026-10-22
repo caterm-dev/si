@@ -13,7 +13,6 @@ SPEC.loader.exec_module(RANKING)
 
 class RankingDataTests(unittest.TestCase):
     def test_checked_in_native_model_matches_pinned_source(self):
-        self.assertEqual(RANKING.OUTPUT.read_text(), RANKING.build())
         self.assertEqual((ROOT / 'mac/SI/Core/RankingCalibration.swift').read_text(), RANKING.calibration())
         self.assertEqual((ROOT / 'mac/SI/Resources/RankingNotices.txt').read_text(), RANKING.notices())
 
@@ -25,6 +24,7 @@ class RankingDataTests(unittest.TestCase):
     def test_known_source_frequencies_and_complete_attribution_are_retained(self):
         buckets = RANKING.unpack(gzip.decompress((RANKING.SOURCE / 'large_en.msgpack.gz').read_bytes()))
         bins = {word: index for index, bucket in enumerate(buckets) for word in bucket}
+        self.assertEqual(RANKING.frequency_bins(['ability', 'the', 'zzzzqxz']), [bins['ability'], bins['the'], 900])
         self.assertLess(bins['ability'], bins['abilities'])
         self.assertLess(bins['the'], bins['ability'])
         notices = (ROOT / 'mac/SI/Resources/RankingNotices.txt').read_text()

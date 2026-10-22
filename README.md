@@ -32,10 +32,12 @@ Chinese data is now maintained under [Data/Chinese/MSIME](Data/Chinese/MSIME/REA
 ```sh
 python3 scripts/msime_dictionary.py build
 python3 scripts/msime_dictionary.py build --check
+python3 scripts/english_dictionary.py build
+python3 scripts/english_dictionary.py build --check
 python3 scripts/msime_dictionary.py fetch-context
 ```
 
-The Chinese dictionary currently contains 953,710 unique text/reading entries. Its coverage, new ranking and optional-learning interactions remain unverified. The former Chinese Swift tables, direct Rime imports and their maintenance pipeline have been removed. English vocabulary, wordfreq data and functionality are temporarily retained; see [English maintenance](docs/ENGLISH_VOCABULARY.md). Public corrections and additions belong in `Data/Chinese/MSIME/si-entries.json`; private personal phrases and learning archives are preserved. [The implementation plan](docs/IMPLEMENTATION_PLAN.md) tracks unfinished correction, optional neural reranking and parity work.
+The Chinese dictionary currently contains 953,710 unique text/reading entries. Its coverage, new ranking and optional-learning interactions remain unverified. The former Chinese Swift tables, direct Rime imports and their maintenance pipeline have been removed. English now has the same weighted-snapshot, SI-overlay and read-only SQLite workflow, with 63,602 retained word forms; see [English maintenance](docs/ENGLISH_VOCABULARY.md). Both databases share their schema, reader and dictionary-relative weight unit, defined in `Data/DictionaryFormat.json`; this does not make complete candidate scores calibrated across languages. Public corrections and additions belong in `Data/Chinese/MSIME/si-entries.json` and `Data/English/SI/si-entries.json`. Private personal phrases and learning archives are preserved. [The implementation plan](docs/IMPLEMENTATION_PLAN.md) tracks unfinished correction, optional neural reranking and parity work.
 
 ## Automatic prefix confirmation
 

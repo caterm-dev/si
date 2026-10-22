@@ -3,12 +3,15 @@ import Testing
 @testable import SICore
 
 struct EnglishVocabularyTests {
-    private static let frequencies = EnglishFrequencyData.centibels.map { pow(10, -Double($0) / 100) }
-    private static let total = frequencies.reduce(0, +) + 1e-9
-    private static let indices = Dictionary(uniqueKeysWithValues: EnglishLexiconData.words.enumerated().map { ($0.element, $0.offset) })
+    private static let database = LexiconDatabase(url:
+        DictionaryResources.url("si-english", extension: "sqlite", languageDirectory: "English"))
+    private static let rows = database.allEntries()
+    private static let words = rows.map(\.text)
+    private static let total = rows.reduce(Double(database.unknownWeight)) { $0 + Double(max(1, $1.weight)) }
+    private static let weights = Dictionary(uniqueKeysWithValues: rows.map { ($0.text, Double(max(1, $0.weight))) })
 
     private func referenceScore(_ word: String, input: String) -> Double {
-        let probability = Self.frequencies[Self.indices[word]!] / Self.total / 2
+        let probability = Self.weights[word]! / Self.total / 2
         let missing = word.utf8.count - input.lowercased().utf8.count
         let channel = exp2(-Double(missing + 1)) / (1 - exp2(-Double(word.utf8.count)))
         return log2(probability * channel)
@@ -46,7 +49,7 @@ struct EnglishVocabularyTests {
                       "subtitle", "zzzzzz", "", "a1", "a'b", "é", "👩🏽‍💻", "K"] {
             let key = input.lowercased()
             let supported = !key.isEmpty && key.utf8.allSatisfy { $0 >= 97 && $0 <= 122 }
-            let expected: [InputCandidate] = supported ? EnglishLexiconData.words.filter { $0.lowercased().hasPrefix(key) }.map { word in
+            let expected: [InputCandidate] = supported ? Self.words.filter { $0.lowercased().hasPrefix(key) }.map { word in
                 let text: String
                 if input == input.uppercased() { text = word.uppercased() }
                 else if input.first?.isUppercase == true { text = word.prefix(1).uppercased() + word.dropFirst() }
@@ -64,7 +67,7 @@ struct EnglishVocabularyTests {
     }
 
     @Test func everyWordHasExactTrieMetadataAndEveryPrefixKeepsItsFullRange() {
-        let words = EnglishLexiconData.words
+        let words = Self.words
         var prefixRanges: [String: Range<Int>] = [:]
         for (index, word) in words.enumerated() {
             let key = word.lowercased()
@@ -126,7 +129,7 @@ struct EnglishVocabularyTests {
                 }
                 node = next
             }
-            let expected = EnglishLexiconData.words.filter {
+            let expected = Self.words.filter {
                 $0.lowercased().hasPrefix(prefix) && $0.lowercased() != prefix
             }
             #expect(EnglishLexicon.completions(at: node).map(\.text) == expected)

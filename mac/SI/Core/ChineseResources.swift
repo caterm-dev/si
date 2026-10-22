@@ -3,14 +3,7 @@ import Foundation
 /// Packaged, immutable Chinese data. No network access or user archive is involved.
 enum ChineseResources {
     static func url(_ name: String, extension suffix: String) -> URL? {
-        #if SWIFT_PACKAGE
-        let bundle = Bundle.module
-        #else
-        let bundle = Bundle.main
-        #endif
-        return bundle.url(forResource: name, withExtension: suffix, subdirectory: "Chinese")
-            ?? bundle.url(forResource: name, withExtension: suffix, subdirectory: "Resources/Chinese")
-            ?? bundle.url(forResource: name, withExtension: suffix)
+        DictionaryResources.url(name, extension: suffix, languageDirectory: "Chinese")
     }
 }
 

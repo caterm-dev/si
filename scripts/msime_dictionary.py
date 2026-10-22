@@ -4,7 +4,6 @@
 import argparse
 import gzip
 import hashlib
-from itertools import zip_longest
 import json
 import os
 from pathlib import Path
@@ -13,6 +12,8 @@ import sqlite3
 import subprocess
 import tempfile
 import urllib.request
+
+import lexicon_database as lexicon
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "Data/Chinese/MSIME"
@@ -62,59 +63,17 @@ def table_for(reading):
         raise ValueError("Invalid explicit Pinyin reading")
     if syllables[0][0] not in INITIALS:
         return None
-    bucket = str(len(syllables)) if len(syllables) <= 7 else "others"
-    return f"tbl_{bucket}_{syllables[0][0]}"
+    return lexicon.table_for(reading)
 
 
 def overlay_entries():
-    entries = json.loads((DATA / "si-entries.json").read_text())
-    if not isinstance(entries, list):
-        raise ValueError("SI entries must be a list")
-    identities = set()
-    for entry in entries:
-        if not isinstance(entry, dict) or set(entry) - {"text", "reading", "weight", "exclude", "reason"}:
-            raise ValueError("Unsupported SI entry fields")
-        for field in ("text", "reading", "reason"):
-            if not isinstance(entry.get(field), str) or not entry[field].strip():
-                raise ValueError("SI entries require nonempty text, reading and reason")
-        if any(ord(c) < 32 for c in entry["text"]) or len(entry["text"].encode()) > 4096:
-            raise ValueError("Invalid SI text")
-        if table_for(entry["reading"]) is None:
+    def validate_reading(text, reading):
+        if table_for(reading) is None:
             raise ValueError("Unsupported SI reading")
-        identity = (entry["text"], entry["reading"])
-        if identity in identities:
-            raise ValueError("Duplicate SI text/reading pair")
-        identities.add(identity)
-        if type(entry.get("exclude", False)) is not bool:
-            raise ValueError("SI exclusion must be Boolean")
-        if entry.get("exclude", False):
-            if "weight" in entry:
-                raise ValueError("Excluded SI entries must not specify a weight")
-        elif type(entry.get("weight")) is not int or not 0 <= entry["weight"] <= 2**63 - 1:
-            raise ValueError("Invalid SI weight")
-    return entries
+    return lexicon.overlay_entries(DATA / "si-entries.json", validate_reading)
 
 
-def same_dictionary(expected, actual, tables):
-    """SQLite headers/page layouts vary by SQLite version; compare schema and ordered data."""
-    left = sqlite3.connect(Path(expected).resolve().as_uri() + "?mode=ro&immutable=1", uri=True)
-    right = None
-    try:
-        right = sqlite3.connect(actual.resolve().as_uri() + "?mode=ro&immutable=1", uri=True)
-        schema = "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name"
-        if left.execute(schema).fetchall() != right.execute(schema).fetchall():
-            return False
-        for table in tables:
-            query = f'SELECT rowid,key,jp,value,weight FROM {table} ORDER BY rowid'
-            if any(a != b for a, b in zip_longest(left.execute(query), right.execute(query))):
-                return False
-        return right.execute("PRAGMA integrity_check").fetchone() == ("ok",)
-    except sqlite3.DatabaseError:
-        return False
-    finally:
-        left.close()
-        if right is not None:
-            right.close()
+same_dictionary = lexicon.same_dictionary
 
 
 def build(check=False):
@@ -126,13 +85,8 @@ def build(check=False):
     connection = None
     try:
         connection = sqlite3.connect(temporary)
-        connection.execute("PRAGMA page_size=4096")
-        connection.execute("PRAGMA journal_mode=OFF")
-        connection.execute("PRAGMA synchronous=OFF")
-        tables = [f"tbl_{bucket}_{initial}" for bucket in [*map(str, range(1, 8)), "others"] for initial in INITIALS]
-        for table in tables:
-            connection.execute(f'CREATE TABLE {table} (key TEXT, jp TEXT, value TEXT, weight INTEGER NOT NULL)')
-            connection.execute(f'CREATE UNIQUE INDEX identity_{table} ON {table}(key,value)')
+        lexicon.create_schema(connection)
+        tables = lexicon.TABLES
         imported = 0
         for source in lock["sources"]:
             content = gzip.decompress((DATA / source["path"]).read_bytes())
@@ -177,23 +131,10 @@ def build(check=False):
                 raise ValueError("Reading correction would remove every correct reading")
         # SI owns this overlay. It never changes upstream snapshots or their provenance.
         overlay = DATA / "si-entries.json"
-        for entry in entries:
-            table = table_for(entry["reading"])
-            connection.execute(f'DELETE FROM {table} WHERE key=? AND value=?', (entry["reading"], entry["text"]))
-            if not entry.get("exclude", False):
-                weight = entry["weight"]
-                connection.execute(f'INSERT INTO {table} VALUES (?,?,?,?)',
-                                   (entry["reading"], "".join(s[0] for s in entry["reading"].split("'")), entry["text"], weight))
-        count = 0
-        for table in tables:
-            connection.execute(f'CREATE INDEX idx_key_{table} ON {table}(key,weight DESC)')
-            connection.execute(f'CREATE INDEX idx_jp_{table} ON {table}(jp,weight DESC)')
-            connection.execute(f'DROP INDEX identity_{table}')
-            count += connection.execute(f'SELECT count(*) FROM {table}').fetchone()[0]
-        connection.execute("ANALYZE")
-        connection.commit()
+        lexicon.apply_overlay(connection, entries)
+        count = lexicon.finish_schema(connection)
         connection.close()
-        manifest = {**lock, "input_rows": imported, "entries": count,
+        manifest = {**lock, "dictionary_format": lexicon.FORMAT, "input_rows": imported, "entries": count,
                     "runtime_sha256": digest(Path(temporary).read_bytes()),
                     "si_overlay_sha256": digest(overlay.read_bytes())}
         manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode()

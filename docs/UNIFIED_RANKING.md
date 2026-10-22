@@ -1,6 +1,12 @@
 # Candidate ranking
 
-The default Chinese decoder uses SI's native Swift MSIME adaptation. The former bilingual wordfreq/character-boundary objective no longer defines default Chinese ranking. Existing English word lists, wordfreq bins and English functionality are retained. Private personal phrases and aggregate preference records remain separate from public dictionary data.
+The default Chinese decoder uses SI's native Swift MSIME adaptation. The former bilingual wordfreq/character-boundary objective no longer defines default Chinese ranking. English spellings and functionality are retained through a maintained SQLite dictionary with the same schema, immutable reader and weight unit as Chinese. Private personal phrases and aggregate preference records remain separate from public dictionary data.
+
+## Shared dictionary weight unit
+
+`Data/DictionaryFormat.json` pins `si-relative-frequency-v1`: one point is one share of a fixed reference mass of 7,694,577,936, the initial Chinese text/reading weight sum. Chinese stored weights stay unchanged. Initial English probabilities, normalized over retained words and an unknown floor, were multiplied by that mass and rounded to integer weights. Snapshot provenance records the conversion and rounding. Both public overlays use these same units. Daily additions/deletions do not rescale stored weights. The shared schema stores `key`, `jp`, `value`, `weight` and versioned metadata; no English source-priority score or centibel encoding reaches the runtime.
+
+This aligns dictionary-relative priors, not underlying corpora or complete sentence-score calibration. English computes word probabilities from its integer weights plus the pinned unknown weight and retains its word-prefix/segmentation costs; small rounding differences from its previous centibel-derived probabilities are expected. Chinese keeps its insertion costs and word-context increments. CandidateEngine preserves the existing language/lexical placement policy. Shared storage and units do not implement mixed lexical paths or justify globally sorting the two decoders' full scores.
 
 ## Dictionary and sentence scores
 
@@ -20,7 +26,7 @@ The lattice retains a 32-path base beam, a separately bounded personalized lane,
 
 ## Presentation and personalization
 
-Exact lexical placement, constructed sentences and incomplete/initial choices follow explicit candidate policy. The engine preserves Chinese provider order rather than comparing unrelated Chinese and English raw weights. Language-aware identity and exact literal fallback remain intact. The input window shortlists at most 27 results; engine and preview retain full results.
+Exact lexical placement, constructed sentences and incomplete/initial choices follow explicit candidate policy. The engine preserves Chinese provider order; sharing dictionary weight units does not make the decoders' full scoring objectives interchangeable. Language-aware identity and exact literal fallback remain intact. The input window shortlists at most 27 results; engine and preview retain full results.
 
 Whole-input and eligible previous-word preferences apply before presentation limits. Token and whole-input frequency share a 32-point cap through their maximum; previous-word preferences add at most 12 points. Prefix preferences use only consumed source spelling. Personal or verbatim paths never train learning/context, and no sentence is automatically split into retained token records. English preferences continue to rank matching English lexical entries.
 
@@ -30,10 +36,11 @@ Automatic confirmation retains its English/code lexical safeguard and existing o
 
 ## Retained fixtures and validation
 
-`Data/Ranking/calibration.json` and the evaluation/holdout/phonetic JSON files contain authored synthetic examples, not imported vocabulary or personal history. `scripts/ranking.py` reproduces the retained English frequency bins and the synthetic transition constant. Wordfreq 3.1.1 supplies English frequency estimates under its retained CC-BY-SA-4.0 attribution; code notices and corpus credits remain in `Data/Ranking/wordfreq-3.1.1/` and bundled `RankingNotices.txt`. English vocabulary pins, licenses and selection remain documented in [English maintenance](ENGLISH_VOCABULARY.md). Historical mixed and former-model tests remain visible as unmet capability checks.
+`Data/Ranking/calibration.json` and the evaluation/holdout/phonetic JSON files contain authored synthetic examples, not imported vocabulary or personal history. `scripts/english_dictionary.py build` reproduces the maintained English database from its adopted weighted snapshot and SI overlay. `scripts/ranking.py` reproduces retained attribution and the synthetic transition constant; its wordfreq importer is used only by explicit English `snapshot` adoption. Wordfreq 3.1.1 supplies English frequency estimates under its retained CC-BY-SA-4.0 attribution; code notices and corpus credits remain in `Data/Ranking/wordfreq-3.1.1/` and bundled `RankingNotices.txt`. English vocabulary pins, licenses and selection remain documented in [English maintenance](ENGLISH_VOCABULARY.md). Historical mixed and former-model tests remain visible as unmet capability checks.
 
 ```sh
 python3 scripts/msime_dictionary.py build --check
+python3 scripts/english_dictionary.py build --check
 ./scripts/vocabulary.sh build --check
 python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v

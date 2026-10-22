@@ -124,7 +124,7 @@ struct ChineseDecoder: Sendable {
             var lexical = direct
             // Longer completions remain available, but do not fill a page of exact homophones.
             if cutIndex == 0, exactCount < 5 { lexical += lexicon.completions(normalized) }
-            var lexicalChoices: [(row: ChineseLexeme, candidate: InputCandidate, exact: Bool, order: Int)] = []
+            var lexicalChoices: [(row: DictionaryLexeme, candidate: InputCandidate, exact: Bool, order: Int)] = []
             for (index, row) in lexical.enumerated() {
                 let exact = row.reading == normalized
                 let completion = Self.completes(row.reading, typed: normalized)
@@ -363,7 +363,7 @@ struct ChineseDecoder: Sendable {
                         alternatives: [ChineseReading] = []) -> [Path] {
         let count = syllables.count
         var graph = Array(repeating: [Edge](), count: count)
-        var lookup: [String: [ChineseLexeme]] = [:]
+        var lookup: [String: [DictionaryLexeme]] = [:]
         struct Span: Hashable {
             let end: Int
             let sourceStart: Int
@@ -383,7 +383,7 @@ struct ChineseDecoder: Sendable {
                     guard spans[start].insert(Span(end: end, sourceStart: offsets[start], sourceEnd: offsets[end],
                                                    syllables: span)).inserted else { continue }
                     let key = span.joined(separator: "'")
-                    let rows: [ChineseLexeme]
+                    let rows: [DictionaryLexeme]
                     if let cached = lookup[key] { rows = cached }
                     else {
                         rows = span.count <= Self.maximumWordSyllables && span.allSatisfy(ChineseSyllables.complete.contains)

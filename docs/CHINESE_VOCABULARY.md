@@ -1,6 +1,6 @@
 # Chinese dictionary maintenance
 
-SI maintains one Chinese dictionary family: the [MSIME-derived sources](../Data/Chinese/MSIME/README.md). The former direct Rime Chinese selection and original SI tables have been removed. English functionality and its existing independent word/frequency sources are temporarily retained; see [English maintenance](ENGLISH_VOCABULARY.md). MSIME's own upstream Rime Ice / rime-wanxiang attribution remains required; using one maintained source does not erase its underlying provenance.
+SI maintains one Chinese dictionary family: the [MSIME-derived sources](../Data/Chinese/MSIME/README.md). The former direct Rime Chinese selection and original SI tables have been removed. [English maintenance](ENGLISH_VOCABULARY.md) now uses the same weighted-snapshot, SI-overlay and SQLite contract. Both share the schema and fixed dictionary-relative weight unit defined in `Data/DictionaryFormat.json`; Chinese entries and numerical weights are unchanged. MSIME's own upstream Rime Ice / rime-wanxiang attribution remains required; using one maintained source does not erase its underlying provenance.
 
 ## Source and runtime files
 
@@ -40,6 +40,7 @@ Run from the repository root:
 ```sh
 python3 scripts/msime_dictionary.py build
 python3 scripts/msime_dictionary.py build --check
+python3 scripts/english_dictionary.py build --check
 python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 ./scripts/test.sh

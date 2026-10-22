@@ -2,6 +2,21 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Shared English/Chinese dictionary contract — 2026-10-22
+
+English now has a pinned weighted text snapshot, a public `si-entries.json` overlay, and a generated read-only SQLite database. It retains all 63,602 canonical word forms from the existing imports. Both languages use identical schema/index definitions, a shared immutable reader and the fixed dictionary-relative frequency unit in `Data/DictionaryFormat.json`. The initial English wordfreq estimates are converted once into that unit; ordinary builds apply public edits without reimporting sources or rescaling stored weights. Original pins and notices remain. Generated English word/frequency Swift arrays have been removed.
+
+- All 34 Python maintenance tests pass, including English additions/exclusions/weight/case edits, source/notice validation, output preservation, shared schema/unit and initial conversion checks. Both dictionary `build --check` commands, retained spelling-import checks and ranking notice/calibration checks pass offline. Chinese context checksums remain pinned and verified.
+- A direct comparison against the pre-change Git database confirms all 953,710 Chinese rows, source keys, weights and rowid order are identical. Only shared metadata and empty ASCII-initial buckets were added.
+- `./scripts/test.sh` runs 316 tests, including the three new database tests (one parameterized for incompatible units/scales). Storage (12) and Settings (23) pass. Presentation (59) still has 27 assertion issues; Core (222) still has 104. The baseline ran 313 tests with the same 27/104 issues. Recorded failure test/expectation signatures match after ignoring shifted source line numbers. The full suite still fails; the existing migration defects are not resolved by dictionary-format unification.
+- Debug and Release app builds succeed for arm64 and x86_64 with signing disabled. Xcode now preserves both language directories rather than flattening same-named manifests. Both packaged databases and manifests match the generated source hashes, without stale flattened database copies. All 75 local link targets in changed documentation resolve; whitespace checks pass.
+
+No installation, app launch, live host typing, VoiceOver check, private-data read or publication was performed. Dictionary-unit parity does not establish common-corpus statistics, calibrated complete sentence scores, restored mixed lexical paths or host compatibility. Existing candidate placement and decoder objectives remain in place; English probability rounding can cause small score differences.
+
+Local evidence: `.build/english-db-baseline.log`, `english-db-tests.log`, `english-db-focused.log`, `english-db-data-tests.log`, `english-db-chinese-check.log`, `english-db-import-check.log`, `english-db-debug-build.log` and `english-db-release-build.log`. The focused pre-final run contains the same existing mixed-path failures; the final complete run includes all new resource tests.
+
+The subsequent readable-weight view adds `Data/English/SI/generated/weights.tsv`: all 63,602 effective English entries, sorted by descending weight after public SI edits. Builds regenerate it and `--check` rejects stale exports. All 35 Python maintenance tests pass; the Debug app build passes, and the full Swift suite retains the identical baseline failure signatures. Evidence: `.build/english-weights-data-tests.log`, `english-weights-tests.log` and `english-weights-build.log`.
+
 ## Ambiguous complete syllable cuts — 2026-10-22
 
 The reported `woxianganzhao` first choice was `我先感召`. The primary cut is `wo / xian / gan / zhao`; the equally short `wo / xiang / an / zhao` was excluded from sentence search. Alternative full-key dictionary lookup did not help because `我想按照` is constructed from multiple words. This is a search-coverage defect before sentence ranking, not evidence that the desired words are absent from the dictionary.

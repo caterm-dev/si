@@ -70,12 +70,13 @@ class VocabularyTests(unittest.TestCase):
         with self.assertRaisesRegex(vocabulary.VocabularyError, "Stale generated"):
             vocabulary.write_outputs(self.root, vocabulary.compile_vocabulary(self.root)[0], check=True)
 
-    def test_default_completion_scores_generate_a_valid_empty_dictionary_literal(self):
+    def test_legacy_scores_remain_import_metadata_without_generated_swift(self):
         for source in self.sources:
             source["completion_score"] = 75
         self.configure()
-        generated = vocabulary.compile_vocabulary(self.root)[0][vocabulary.GENERATED]
-        self.assertIn(b"completionScores: [String: Int] = [:]", generated)
+        outputs = vocabulary.compile_vocabulary(self.root)[0]
+        self.assertTrue(all(path.suffix != ".swift" for path in outputs))
+        self.assertIn(b"apple\tbase,terms\t75\n", outputs[vocabulary.MERGED])
 
     def test_exclusion_and_corrections_survive_new_source_versions(self):
         self.rules([{"word": "subtitle", "action": "exclude", "reason": "Synthetic exclusion"},
@@ -96,7 +97,7 @@ class VocabularyTests(unittest.TestCase):
             self.save("terms.txt", words)
             with self.assertRaises((vocabulary.VocabularyError, UnicodeError)):
                 vocabulary.compile_vocabulary(self.root)
-            self.assertFalse((self.root / vocabulary.GENERATED).exists())
+            self.assertFalse((self.root / vocabulary.MERGED).exists())
         self.save("terms.txt", baseline[Path("terms.txt")])
         self.rules([{"word": "apple", "action": "exclude", "reason": ""}])
         with self.assertRaisesRegex(vocabulary.VocabularyError, "reason"):

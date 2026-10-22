@@ -1,12 +1,18 @@
 # Testing SI
 
+## Shared dictionary format
+
+Run `python3 scripts/msime_dictionary.py build --check`, `python3 scripts/english_dictionary.py build --check`, `./scripts/vocabulary.sh build --check`, `python3 scripts/ranking.py --check`, and `python3 -m unittest discover -s Tests/VocabularyTests -v`. The builders reproduce both SQLite resources offline; schema, metadata, row order, indexes, provenance and checksums are checked. Synthetic fixtures exercise public additions/exclusions/weight edits, casing replacement, invalid-input preservation and the common weight conversion. `DictionaryDatabaseTests` verifies identical bundled schemas/units, concurrent lookups, and read-only failure for missing/incompatible resources. English lookup/trie/completion tests use the bundled SQLite rows as their reference.
+
+Run `./scripts/test.sh` and `./scripts/build.sh`. On an intentionally installed build, check English-only and combined-language `he`, `shi`, `abilit`, `Gmail`, `GMAIL`, `iwanttobuild` and an unknown synthetic identifier in TextEdit and a browser field. Exercise selection, exact literal Return, cancellation, shortcuts and focus changes; compare initial hints with full candidates and verify capitalization. No installation is required for ordinary code validation. Database parity and core tests do not establish host compatibility, cross-language sentence-score calibration or restoration of mixed lexical paths.
+
 The user lifted the code-only restriction on October 22, 2026. Debug/Release builds and the new migration-focused checks pass; the complete suite still fails. Some existing fixtures assume the former scoring and mixed decoder, while presentation, learning and automatic-confirmation failures also need resolution. Preserve those failures until reviewed against the product contract; see [the current evidence](VERIFICATION.md).
 
 For candidate refresh changes, run `./scripts/test.sh --filter 'MarkedTextStateTests|unchangedPreviewAndFinalResultsKeepTheExistingRows|CandidatePipelineTests|CandidatePlacementTests'`. The marked-text fixture exercises append → provisional → final delivery, caret movement, cancellation, exact Unicode bytes and reset; the view fixture checks row retention and interaction in both layouts. On an intentionally installed build, type synthetic `jintjiushi` rapidly and slowly, then edit, page, cancel and change focus. Watch for transient windows at the display corner and host/preedit or candidate-panel flicker. Repeat in a browser and TextEdit; automated geometry and view checks do not identify the owner of a transient native window.
 
 `CandidatePanelOwnershipTests` checks two offscreen client panels, late old-client deactivation, and rejection of a stale panel's render/show request without displaying test windows. The placement suite reproduces an established document anchor followed by temporary misses and a valid-looking screen-corner legacy fallback; it must retain the established anchor, then follow fresh document reflow. In live hosts, switch rapidly between two text fields/apps while full decoding is pending, continue typing, and commit/cancel. Only the active client's panel may appear. Check first composition, document reflow and display changes as well as the cached-position case; source tests do not validate actual IMK activation/deactivation or synchronous reentry delivery.
 
-Chinese maintenance is consolidated to MSIME. Existing English vocabulary, frequency bins and functionality are retained. `DictionaryConsolidationTests` checks that Chinese `ne` still leads with `呢`, English `new`/`need`/`next` remain available, and exact literal input is preserved.
+Chinese maintenance is consolidated to MSIME. English spellings and functionality are retained in the shared SQLite format, with initial frequency estimates converted to the common relative-weight unit. `DictionaryConsolidationTests` checks that Chinese `ne` still leads with `呢`, English `new`/`need`/`next` remain available, and exact literal input is preserved.
 
 `ChineseFrequencyRankingTests` checks the reported `nawomenzaichaxun` sentence in provisional/full searches, Chinese-only/combined settings and apostrophe-separated input, with exact literal/prefix boundaries. Injected fixtures require a tenfold frequency advantage to beat an all-multi-character segmentation, keep rare words and explicit learning available, and test longer low-frequency fragments. `haodewozhidaole` guards against the over-splitting observed when the character cost was removed entirely. Run `./scripts/test.sh --filter 'ChineseFrequencyRankingTests|ChineseMigrationTests|InputQualityTests|DictionaryConsolidationTests'`. These tests do not operate a live host or establish general semantic accuracy.
 
@@ -16,6 +22,7 @@ Chinese maintenance is consolidated to MSIME. Existing English vocabulary, frequ
 
 ```sh
 python3 scripts/msime_dictionary.py build --check
+python3 scripts/english_dictionary.py build --check
 ./scripts/vocabulary.sh build --check
 python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v

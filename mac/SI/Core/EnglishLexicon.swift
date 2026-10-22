@@ -2,7 +2,7 @@ import Foundation
 
 /// One immutable vocabulary shared by direct English lookup and mixed decoding.
 /// Trie nodes refer to ranges of sorted entries, never copies of completion lists.
-/// Generated words are unique ASCII spellings sorted by their lowercase key.
+/// Database words are unique ASCII spellings sorted by their lowercase key.
 enum EnglishLexicon {
     enum CaseStyle {
         case original, capitalized, uppercase
@@ -18,17 +18,20 @@ enum EnglishLexicon {
         let text: String
         let length: Int
         let id: Int
+        let weight: Int64
         let probability: Double
         let lexicalCost: Double
         private let truncationOffset: Double
         private let capitalizedText: String
         private let uppercaseText: String
 
-        init(_ word: String, index: Int) {
+        init(_ row: DictionaryLexeme, index: Int, totalWeight: Double) {
+            let word = row.text
             text = word
             length = word.utf8.count
             id = index + 1
-            probability = frequencies[index] / totalFrequency
+            weight = row.weight
+            probability = Double(max(1, row.weight)) / totalWeight
             lexicalCost = -log2(0.5 * probability)
             truncationOffset = WordPrefixChannel.cost(fullLength: length, typedLength: length)
             capitalizedText = word.prefix(1).uppercased() + word.dropFirst()
@@ -143,14 +146,27 @@ enum EnglishLexicon {
         }
     }
 
-    static let words = EnglishLexiconData.words
-    private static let frequencies = EnglishFrequencyData.centibels.map { pow(10, -Double($0) / 100) }
-    private static let totalFrequency = frequencies.reduce(1e-9, +)
-    static let unknownProbability = 1e-9 / totalFrequency
-    static let entries: [Entry] = {
-        precondition(words.count == frequencies.count, "Regenerate ranking data after vocabulary changes")
-        return words.enumerated().map { Entry($0.element, index: $0.offset) }
+    private static let loaded: (entries: [Entry], unknownProbability: Double) = {
+        let database = LexiconDatabase(url:
+            DictionaryResources.url("si-english", extension: "sqlite", languageDirectory: "English"))
+        let rows = database.allEntries()
+        // Reject a corrupt/incompatible English resource as a whole. Literal fallback
+        // and the independent Chinese dictionary remain available.
+        var previous = ""
+        for row in rows {
+            let key = row.text.lowercased()
+            guard (1...64).contains(row.text.utf8.count),
+                  row.text.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) }),
+                  row.reading == [key], row.weight >= 0, key > previous else { return ([], 1) }
+            previous = key
+        }
+        let unknown = Double(max(1, database.unknownWeight))
+        let total = rows.reduce(unknown) { $0 + Double(max(1, $1.weight)) }
+        return (rows.enumerated().map { Entry($0.element, index: $0.offset, totalWeight: total) }, unknown / total)
     }()
+    static let entries = loaded.entries
+    static let words = entries.map(\.text)
+    static let unknownProbability = loaded.unknownProbability
     static let maximumLength = entries.map(\.length).max() ?? 0
     private static let trie = Trie(entries: entries)
 

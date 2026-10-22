@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "weight_unit": "si-relative-frequency-v1",
+  "reference_mass": 7694577936,
+  "reference": "Sum of the 953710 retained Chinese text/reading weights before SI overlays on 2026-10-22. One point is one share of this fixed mass. Imported English probabilities are normalized over its retained vocabulary and unknown floor, then rounded to these points. This is a dictionary-relative prior, not a shared corpus count. Keep the mass fixed when either dictionary changes."
+}

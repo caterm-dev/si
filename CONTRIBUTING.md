@@ -11,7 +11,7 @@ Thanks for helping build SI. The product principle is simple: users enable langu
 
 The Swift package tests the same core files compiled by the macOS app. Use Swift 6 language mode. Keep language providers independent of AppKit and SwiftUI. Add focused tests for candidate ranking, ambiguity, state transitions, or regressions when behavior changes.
 
-For dictionary changes, follow the [MSIME maintenance workflow](docs/CHINESE_VOCABULARY.md). SI maintains its Chinese dictionary solely from MSIME-derived data and its public SI overlay; existing [English maintenance](docs/ENGLISH_VOCABULARY.md) remains separate. Keep snapshots, provenance, licenses and generated resources together. Run `python3 scripts/msime_dictionary.py build --check`, `./scripts/vocabulary.sh build --check`, `python3 scripts/ranking.py --check`, and the Python maintenance tests before the shared-core checks. Private personal phrases and learning archives are separate from public dictionary maintenance.
+For dictionary changes, follow the [Chinese maintenance workflow](docs/CHINESE_VOCABULARY.md) or [English maintenance](docs/ENGLISH_VOCABULARY.md). Both use pinned weighted snapshots, an SI-owned `si-entries.json` overlay and the shared SQLite/weight contract in `Data/DictionaryFormat.json`. Keep snapshots, provenance, licenses and generated resources together. Run `python3 scripts/msime_dictionary.py build --check`, `python3 scripts/english_dictionary.py build --check`, `./scripts/vocabulary.sh build --check`, `python3 scripts/ranking.py --check`, and the Python maintenance tests before the shared-core checks. Private personal phrases and learning archives are separate from public dictionary maintenance.
 
 ## Pull requests
 

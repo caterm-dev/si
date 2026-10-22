@@ -9,7 +9,7 @@ let package = Package(
         .executable(name: "SIBenchmark", targets: ["SIBenchmark"]),
     ],
     targets: [
-        .target(name: "SICore", path: "mac/SI/Core", resources: [.copy("Resources/Chinese")],
+        .target(name: "SICore", path: "mac/SI/Core", resources: [.copy("Resources/Chinese"), .copy("Resources/English")],
                 linkerSettings: [.linkedLibrary("sqlite3")]),
         .target(name: "SIStorage", dependencies: ["SICore"], path: "mac/SI/Storage"),
         .target(name: "SIPresentation", dependencies: ["SICore"], path: "mac/SI/InputMethod",

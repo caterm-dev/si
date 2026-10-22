@@ -1,92 +1,17 @@
 import Foundation
-import SQLite3
-
-struct ChineseLexeme: Sendable {
-    let text: String
-    let reading: [String]
-    let weight: Int64
-    let ordinal: Int64
-    var key: String { reading.joined(separator: "'") }
-}
-
-/// A dictionary connection is immutable to SQLite. The lock owns every cached statement and
-/// every SQLite call, including finalization. Sendability relies on this lock, not IMK callbacks.
-private final class ChineseDatabase: @unchecked Sendable {
-    private let connection: OpaquePointer?
-    private let lock = NSLock()
-    private var statements: [String: OpaquePointer] = [:]
-    let isAvailable: Bool
-
-    init(url: URL?) {
-        var connection: OpaquePointer?
-        if let url {
-            var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            components?.queryItems = [URLQueryItem(name: "mode", value: "ro"), URLQueryItem(name: "immutable", value: "1")]
-            if let address = components?.string,
-               sqlite3_open_v2(address, &connection, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) != SQLITE_OK {
-                if let connection { sqlite3_close(connection) }
-                connection = nil
-            }
-        }
-        self.connection = connection
-        isAvailable = connection != nil
-    }
-
-    deinit {
-        for statement in statements.values { sqlite3_finalize(statement) }
-        if let connection { sqlite3_close(connection) }
-    }
-
-    func rows(table: String, condition: String, values: [String], limit: Int?) -> [ChineseLexeme] {
-        guard let connection else { return [] }
-        // Table names are made solely from the fixed syllable bucket and ASCII initial below.
-        let sql = "SELECT key,value,weight,rowid FROM \(table) WHERE \(condition) ORDER BY weight DESC,rowid ASC"
-            + (limit.map { " LIMIT \(max(0, $0))" } ?? "")
-        return lock.withLock {
-            let statement: OpaquePointer
-            if let cached = statements[sql] { statement = cached }
-            else {
-                var prepared: OpaquePointer?
-                guard sqlite3_prepare_v2(connection, sql, -1, &prepared, nil) == SQLITE_OK, let prepared else { return [] }
-                if statements.count >= 512 {
-                    for old in statements.values { sqlite3_finalize(old) }
-                    statements.removeAll(keepingCapacity: true)
-                }
-                statements[sql] = prepared
-                statement = prepared
-            }
-            defer { sqlite3_reset(statement); sqlite3_clear_bindings(statement) }
-            for (index, value) in values.enumerated() {
-                let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-                let bound = value.withCString { sqlite3_bind_text(statement, Int32(index + 1), $0, -1, transient) }
-                guard bound == SQLITE_OK else { return [] }
-            }
-            var rows: [ChineseLexeme] = []
-            while sqlite3_step(statement) == SQLITE_ROW {
-                guard let key = sqlite3_column_text(statement, 0), let text = sqlite3_column_text(statement, 1) else { continue }
-                let reading = String(cString: key).split(separator: "'").map(String.init)
-                let value = String(cString: text)
-                guard !value.isEmpty, value.utf8.count <= PinyinDecoder.maximumOutputBytes else { continue }
-                rows.append(ChineseLexeme(text: value, reading: reading,
-                                          weight: sqlite3_column_int64(statement, 2), ordinal: sqlite3_column_int64(statement, 3)))
-            }
-            return rows
-        }
-    }
-}
 
 /// Production and injected lexicons implement the same lookup and feed the same decoder.
 struct ChineseLexicon: Sendable {
     static let standard = ChineseLexicon()
-    private let database: ChineseDatabase?
-    private let entries: [ChineseLexeme]
-    private let exact: [String: [ChineseLexeme]]
+    private let database: LexiconDatabase?
+    private let entries: [DictionaryLexeme]
+    private let exact: [String: [DictionaryLexeme]]
     let bigram: ChineseNgramTable?
     let trigram: ChineseNgramTable?
     var isAvailable: Bool { database?.isAvailable ?? !entries.isEmpty }
 
     private init() {
-        database = ChineseDatabase(url: ChineseResources.url("si-pinyin", extension: "sqlite"))
+        database = LexiconDatabase(url: ChineseResources.url("si-pinyin", extension: "sqlite"))
         entries = []
         exact = [:]
         bigram = ChineseNgramTable(url: ChineseResources.url("msime-bigram", extension: "bin"))
@@ -102,21 +27,21 @@ struct ChineseLexicon: Sendable {
                   entry.syllables.allSatisfy({ !$0.isEmpty && $0.utf8.allSatisfy { (97...122).contains($0) } }) else { return nil }
             let weight = entry.usesUpstreamWeight ? Int64(clamping: entry.upstreamWeight ?? 1)
                 : Int64(exp2(Double(entry.score) / 10))
-            return ChineseLexeme(text: entry.text, reading: entry.syllables, weight: weight, ordinal: Int64(index))
+            return DictionaryLexeme(text: entry.text, reading: entry.syllables, weight: weight, ordinal: Int64(index))
         }
         exact = Dictionary(grouping: self.entries, by: \.key)
         bigram = nil
         trigram = nil
     }
 
-    func exactMatches(_ segments: [String], limit: Int? = nil) -> [ChineseLexeme] {
+    func exactMatches(_ segments: [String], limit: Int? = nil) -> [DictionaryLexeme] {
         let segments = segments.map(ChineseSyllables.canonical)
         return rows(segments: segments, kind: .exact, limit: limit)
     }
 
     /// Alternative cuts are batched by table, with a row budget for each table. MSIME
     /// then stable-sorts the concatenated pages and deduplicates when merging candidates.
-    func exactAlternatives(_ readings: [[String]], limit: Int = 128) -> [ChineseLexeme] {
+    func exactAlternatives(_ readings: [[String]], limit: Int = 128) -> [DictionaryLexeme] {
         var tables: [String] = []
         var groups: [String: [String]] = [:]
         for reading in readings {
@@ -129,7 +54,7 @@ struct ChineseLexicon: Sendable {
             if groups[table] == nil { tables.append(table) }
             if !(groups[table] ?? []).contains(key) { groups[table, default: []].append(key) }
         }
-        var result: [ChineseLexeme] = []
+        var result: [DictionaryLexeme] = []
         for table in tables.sorted() {
             guard let keys = groups[table] else { continue }
             if let database {
@@ -142,7 +67,7 @@ struct ChineseLexicon: Sendable {
         return result.sorted { $0.weight > $1.weight }
     }
 
-    func matches(_ segments: [String], limit: Int? = nil) -> [ChineseLexeme] {
+    func matches(_ segments: [String], limit: Int? = nil) -> [DictionaryLexeme] {
         guard !segments.isEmpty else { return [] }
         let normalized = segments.map(ChineseSyllables.canonical)
         // The single-letter channel deliberately includes all syllables with that initial,
@@ -161,9 +86,9 @@ struct ChineseLexicon: Sendable {
         return uniqueWords(rows(segments: normalized, kind: .initials, limit: limit))
     }
 
-    func completions(_ segments: [String], limit: Int = 3) -> [ChineseLexeme] {
+    func completions(_ segments: [String], limit: Int = 3) -> [DictionaryLexeme] {
         guard segments.count >= 2, segments.allSatisfy(ChineseSyllables.complete.contains) else { return [] }
-        var result: [ChineseLexeme] = []
+        var result: [DictionaryLexeme] = []
         for length in segments.count + 1...segments.count + min(3, max(1, 8 - segments.count)) {
             let rows = rows(segments: segments.map(ChineseSyllables.canonical), kind: .longer(length), limit: limit)
             result.append(contentsOf: rows)
@@ -174,14 +99,14 @@ struct ChineseLexicon: Sendable {
 
     private enum Lookup { case exact, prefix, initials, longer(Int) }
 
-    private func rows(segments: [String], kind: Lookup, limit: Int?) -> [ChineseLexeme] {
+    private func rows(segments: [String], kind: Lookup, limit: Int?) -> [DictionaryLexeme] {
         guard let first = segments.first?.first, "abcdefghjklmnopqrstwxyz".contains(first) else { return [] }
         let count: Int
         if case .longer(let length) = kind { count = length } else { count = segments.count }
         let bucket = count <= 7 ? String(count) : "others"
         let table = "tbl_\(bucket)_\(first)"
         let key = segments.joined(separator: "'")
-        let values: [ChineseLexeme]
+        let values: [DictionaryLexeme]
         if let database {
             switch kind {
             case .exact: values = database.rows(table: table, condition: "key=?", values: [key], limit: limit)
@@ -216,11 +141,11 @@ struct ChineseLexicon: Sendable {
         return limit.map { Array(ordered.prefix($0)) } ?? ordered
     }
 
-    private func ranked(_ values: [ChineseLexeme]) -> [ChineseLexeme] {
+    private func ranked(_ values: [DictionaryLexeme]) -> [DictionaryLexeme] {
         values.sorted { $0.weight == $1.weight ? $0.ordinal < $1.ordinal : $0.weight > $1.weight }
     }
 
-    private func uniqueWords(_ values: [ChineseLexeme]) -> [ChineseLexeme] {
+    private func uniqueWords(_ values: [DictionaryLexeme]) -> [DictionaryLexeme] {
         var seen = Set<String>()
         return values.filter { seen.insert($0.text).inserted }
     }

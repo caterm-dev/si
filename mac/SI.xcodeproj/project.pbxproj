@@ -17,6 +17,10 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* SI */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFolders = (
+				Core/Resources/Chinese,
+				Core/Resources/English,
+			);
 			path = SI;
 			sourceTree = "<group>";
 		};

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "dictionary_format": {
+    "schema_version": 1,
+    "weight_unit": "si-relative-frequency-v1",
+    "reference_mass": 7694577936
+  },
+  "sources": [
+    {
+      "path": "sources/english-base.txt.gz",
+      "size": 1486522,
+      "sha256": "711f8ffa77a21a77c521b98a5980dfefb9bcf1fc06768513ee440ea62141b5c5"
+    }
+  ],
+  "bootstrap": {
+    "vocabulary_inputs_sha256": "425bdb5618fb3e5d3d367fb1e38ea0f07eb5f3afb16b4a01cf9c67204f4c0a83",
+    "vocabulary_words_sha256": "ce8cae1ea9660b4d42dfd297886a3aa98fea674ca8a13232289a3d707bfeb14b",
+    "wordfreq_source_sha256": "ecad0026368281a0f48f099f04c86fd9adbfd7464ca1956eef405c76ea40090f",
+    "normalization_mass": 0.8916008665275356,
+    "missing_frequency": 1e-09,
+    "conversion": "max(1, round(frequency / normalization_mass * reference_mass))"
+  },
+  "unknown_weight": 9,
+  "notices": {
+    "mac/SI/Resources/EnglishVocabularyNotices.txt": "d278154cdfddf208c8ac2b494c42b0d709d5ce182186463fbce04ce9328be226",
+    "mac/SI/Resources/RankingNotices.txt": "6ea99ad62cf3c8370773259193c6a24cab81526288330bfc9443d9bd002709a9"
+  },
+  "input_rows": 63602,
+  "entries": 63602,
+  "runtime_sha256": "5e0b8c686057170840dd51825b36af7b9d42da8af6fe74fa8eb04f7e7796463c",
+  "si_overlay_sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+}

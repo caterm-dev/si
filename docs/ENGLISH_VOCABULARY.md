@@ -1,6 +1,23 @@
 # English vocabulary maintenance
 
-SI maintains English source files separately and queries one generated vocabulary. Source boundaries are for attribution, updates, and editorial control; they do not create input modes or Settings toggles. Chinese data uses its separate [MSIME maintenance pipeline](CHINESE_VOCABULARY.md); `scripts/vocabulary.py` maintains English only.
+SI maintains English using the same contract as [Chinese](CHINESE_VOCABULARY.md): pinned weighted source snapshots, an SI-owned public overlay, and a generated read-only SQLite database. Both languages share database schema, integer weight unit and runtime reader. Source attribution remains language-specific; these are not input modes or Settings toggles.
+
+## Daily SI maintenance
+
+The maintained runtime source lives in [Data/English/SI](../Data/English/SI/README.md). Edit `Data/English/SI/si-entries.json` for additions, exclusions, spelling/casing corrections and weight adjustments. It has the same `text`, `reading`, `weight`/`exclude`, and `reason` fields as Chinese. English readings are the exact lowercase form of 1–64 ASCII letters. A casing/spelling correction excludes the old identity and adds its replacement. Public edits never touch private phrases or learning archives.
+
+```sh
+python3 scripts/english_dictionary.py build
+python3 scripts/english_dictionary.py build --check
+```
+
+The result is `mac/SI/Core/Resources/English/si-english.sqlite`, plus a provenance/count/checksum manifest. The app and package use this same resource. No generated English word/frequency Swift arrays remain. Builds validate the retained weighted snapshot and notices, apply SI edits, and preserve existing outputs on invalid input. Ordinary builds do not reimport upstream sources or recalculate weights.
+
+To inspect weights without a database viewer, open [Data/English/SI/generated/weights.tsv](../Data/English/SI/generated/weights.tsv). Builds regenerate this text table from the final database, including public SI edits, sorted by descending weight; `--check` verifies it is current. Search for a word in a text editor. The columns are text, lowercase reading and integer weight. To change a value, edit the public overlay and rebuild; the TSV is a generated view. Weight is a base-frequency input, not the complete candidate score.
+
+`Data/DictionaryFormat.json` defines the common unit: one relative-frequency point in a fixed reference mass of 7,694,577,936. This is the initial retained Chinese text/reading weight sum; Chinese numeric weights remain unchanged. The initial English import normalizes wordfreq frequency across retained words plus an unknown floor, multiplies by this mass, and rounds to an integer of at least one. The conversion and unknown weight are pinned in `sources.lock.json`. Both languages' overlay weights use these same points, including zero with a one-point computational scoring floor. Never rescale stored weights merely because an entry is added or deleted. These are comparable dictionary-relative priors, not observations from a common corpus or calibrated complete-candidate scores.
+
+The remaining sections describe the retained materials used to bootstrap or explicitly refresh the weighted base snapshot. Editing those import materials alone does not change the runtime database. After reviewing and regenerating them, use `python3 scripts/english_dictionary.py snapshot` to adopt a new base, then `build`; the public SI overlay is preserved and reapplied. See [the complete workflow and attribution](../Data/English/SI/README.md).
 
 ## Current sources
 
@@ -33,7 +50,7 @@ All three imports retain only ASCII alphabetic spellings of 2–64 letters. CSpe
 
 Source priority chooses casing and completion score for duplicates: `cspell-companies` (1), `cspell-tools` (2), `rime-ice-english` (3), SCOWL (10), SI original (100), SI terminology (200), then explicit overrides. All 61,216 pre-existing spellings retain their prior casing and completion score at this import. This preserves ordinary `may`, `can` and `will` while adding previously absent names. The durable `gmail` override changes upstream `GMail` to `Gmail`. Contributions from every source remain traceable with `explain`.
 
-The 75/85 source fields remain legacy provenance metadata and do not affect runtime ranking. These lists provide spellings; wordfreq 3.1.1 supplies separately pinned frequency estimates. Added words and abbreviations can change mixed segmentation, ranking and bounded unknown-span choices. For example, `QWERT` becomes a known prefix; privacy fixtures therefore use a synthetic span without that lexical prefix and check unknown text after a known product. Any generated path still containing an unrecognized span remains excluded from learning/context, and the complete exact input remains independently available.
+The 75/85 source fields remain legacy import provenance metadata and do not affect runtime ranking. These lists provide spellings; wordfreq 3.1.1 supplies the initial base weights only during explicit snapshot adoption. Added words and abbreviations can change mixed segmentation, ranking and bounded unknown-span choices. For example, `QWERT` becomes a known prefix; privacy fixtures therefore use a synthetic span without that lexical prefix and check unknown text after a known product. Any generated path still containing an unrecognized span remains excluded from learning/context, and the complete exact input remains independently available.
 
 The existing monthly upstream audit includes these registered sources automatically. Reproduce the pinned imports with:
 
@@ -46,43 +63,35 @@ The existing monthly upstream audit includes these registered sources automatica
 
 Use the existing review/refresh workflow for updates; source-specific license changes still stop an unapproved refresh. The English Rime pin is independent of the Chinese sources so updates can be reviewed separately.
 
-## Files and offline generation
+## Import files and offline preparation
 
-- [sources.json](../Data/English/sources.json): source IDs, paths, priority, completion scores, provenance and upstream selection.
-- [sources.lock.json](../Data/English/sources.lock.json): exact upstream revisions, download/snapshot/license SHA-256 values and import filtering counts.
-- [sources/](../Data/English/sources/): checked-in plain UTF-8 snapshots and editable SI lists.
-- [overrides.json](../Data/English/overrides.json): lasting exclusions, spelling fixes and preferred capitalization.
-- [generated/words.tsv](../Data/English/generated/words.tsv): merged words, contributing sources and completion scores for review.
-- [generated/summary.json](../Data/English/generated/summary.json): counts and input/output fingerprints.
-- `mac/SI/Core/EnglishLexiconData.swift`: generated data compiled by both the Swift package and Xcode app.
+- [sources.json](../Data/English/sources.json) and [sources.lock.json](../Data/English/sources.lock.json): import IDs, priorities, provenance, pinned versions, filtering and checksums.
+- [sources/](../Data/English/sources/), [overrides.json](../Data/English/overrides.json) and [licenses/](../Data/English/licenses/): retained spelling imports, import-time overrides and notices.
+- [generated/words.tsv](../Data/English/generated/words.tsv) and [generated/summary.json](../Data/English/generated/summary.json): reviewable import output and fingerprints.
+- [SI/sources/](../Data/English/SI/sources/), [SI/sources.lock.json](../Data/English/SI/sources.lock.json) and [SI/si-entries.json](../Data/English/SI/si-entries.json): maintained weighted snapshot, provenance and daily public edits.
+- `mac/SI/Core/Resources/English/`: generated runtime database and manifest, sharing the Chinese schema and unit.
 
-Python 3.9 or later is needed only for maintenance. No additional Python packages are required. Normal app builds use the checked-in generated Swift file without Python, downloads, or a separate runtime vocabulary loader.
-
-On first default-engine construction, the app prepares a shared immutable English Trie and entry metadata from those generated words. Prefix nodes store ranges rather than duplicate word lists; metadata caches word length, casing variants, measured frequency and geometric spelling-channel costs. A packed top-eight preview cache shares slices across single-child chains. Restarting the process rebuilds these derived structures. The source format, compatibility metadata and deterministic lexical order remain unchanged; no input-result cache or serialized index is added. See [runtime indexing and limits](DICTIONARIES.md).
+Python 3.9+ and its standard library are needed only for maintenance. Normal app builds use the retained SQLite resource without Python or downloads. On the first English query, a candidate worker loads its database rows and constructs the shared immutable trie, metadata and top-eight provisional cache once. Direct lookup and English-only segmentation use that same vocabulary; no database file access is added to each keystroke. Missing or incompatible resources fail closed while exact literal fallback remains available.
 
 ```sh
-./scripts/vocabulary.sh build          # Validate sources and regenerate all outputs, offline
-./scripts/vocabulary.sh build --check  # Fail if sources, locks, notices or generated outputs disagree
-./scripts/vocabulary.sh stats
-./scripts/vocabulary.sh explain subtitle
+./scripts/vocabulary.sh build          # Prepare/review retained spelling imports, offline
+./scripts/vocabulary.sh build --check
+python3 scripts/ranking.py             # Prepare retained attribution and synthetic calibration
 python3 scripts/ranking.py --check
+# Explicitly adopt prepared imports only after reviewing changes:
+python3 scripts/english_dictionary.py snapshot
+python3 scripts/english_dictionary.py build
+python3 scripts/english_dictionary.py build --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 ```
 
-The source files contain one word per line. Blank lines and comments beginning with `#` are allowed. Local duplicates, unsupported characters, empty sources, duplicate IDs/priorities, invalid override rules, changed upstream snapshots and license checksum mismatches fail validation. Source priority chooses the canonical casing and completion score for a repeated spelling; all contributing sources remain visible in the merged table. Priority does not select a language or suppress another enabled language.
+Snapshot adoption reads the pinned wordfreq 3.1.1 English cBpack and notices in `Data/Ranking/wordfreq-3.1.1/`. Missing words use its documented frequency floor. Derived weighted data retains CC-BY-SA-4.0 attribution. Ordinary dictionary builds read only the adopted weighted snapshot and public overlay. Runtime adds no Python dependency or networking. Direct English lookup retains all matching candidates; bounded sentence/completion search does not establish broad coverage or mixed-language quality.
 
-Runtime ranking uses the [unified log-probability model](UNIFIED_RANKING.md), with approved wordfreq 3.1.1 English frequencies restricted to these existing words. `EnglishFrequencyData.swift` is generated separately by `python3 scripts/ranking.py`, from the pinned cBpack and notices in `Data/Ranking/wordfreq-3.1.1/`. Run that command after changing the word vocabulary, then use `--check`; CI verifies both outputs. Missing corpus terms receive a documented floor. Rare/new product names can fall outside bounded mixed completion pools while direct matching, exact spelling and literal fallback remain available. The app adds no Python runtime or networking. There is no global cap on direct English candidates.
+## Prepare import-level changes
 
-## Add or correct words
+Use `Data/English/SI/si-entries.json` for daily SI dictionary maintenance. To intentionally update the original import materials instead, add a spelling to `Data/English/sources/si-terms.txt`, run `./scripts/vocabulary.sh build`, and inspect it with `./scripts/vocabulary.sh explain WORD`. Only explicit `snapshot` adoption initializes its base weight and makes the import available to the runtime builder.
 
-Add a word, with its intended capitalization, to `Data/English/sources/si-terms.txt`. Then regenerate and inspect its provenance:
-
-```sh
-./scripts/vocabulary.sh build
-./scripts/vocabulary.sh explain subtitle
-```
-
-For a word already supplied upstream, use an override instead of editing its snapshot. For example, the following is a synthetic illustration of the supported rules; it is not the current configuration:
+For an import-level correction to a word already supplied upstream, use an import override instead of editing its pinned snapshot. For example, the following is a synthetic illustration of the supported rules; it is not the current configuration:
 
 ```json
 {
@@ -115,7 +124,7 @@ The monthly GitHub Actions workflow audits both English and Chinese; its manual 
 
 A changed license stops refresh before running the SCOWL exporter. Review the upstream `Copyright` file at the pinned candidate revision and its differences before explicitly supplying `--accept-license-change`. That flag records the new notice; it does not establish that an incompatible license is acceptable. Download, validation and export failures leave existing vocabulary files intact. A result outside the configured word-count bounds fails rather than replacing the vocabulary. Bounds and source-format changes need deliberate review.
 
-After refreshing, review the snapshot, lock, notices, merged table and summary together. Local additions and overrides are reapplied automatically. Run the offline check, maintenance tests, `./scripts/test.sh`, `./scripts/build.sh`, and synthetic benchmarks. Include relevant manual typing checks before release. Commit the source snapshots and generated outputs together through the normal review process; no command commits, publishes, installs, or changes personal data.
+After refreshing, review the import snapshot, lock, notices, merged table and summary together. Regenerate notices with `python3 scripts/ranking.py`, explicitly adopt the reviewed base with `python3 scripts/english_dictionary.py snapshot`, and build/check the runtime database. SI overlay entries continue to win. Local additions and overrides are reapplied automatically. Run the offline check, maintenance tests, `./scripts/test.sh`, `./scripts/build.sh`, and synthetic benchmarks. Include relevant manual typing checks before release. Commit the source snapshots and generated outputs together through the normal review process; no command commits, publishes, installs, or changes personal data.
 
 ## Add another source
 
