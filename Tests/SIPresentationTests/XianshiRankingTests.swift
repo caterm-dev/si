@@ -19,7 +19,7 @@ struct XianshiRankingTests {
                         let reality = try #require(engineCandidates.first { $0.text == "现实" && !$0.isPartial })
                         #expect(engineCandidates.first?.lexicalTokenCount == 1)
                         var selection = CandidateSelection()
-                        selection.update(engineCandidates, prefixScore: { session.presentationScore(for: $0) })
+                        selection.update(engineCandidates)
                         selection.setExpanded(expanded)
                         let firstPage = selection.visibleRange.map { selection.candidates[$0] }
                         #expect(firstPage.contains { $0.id == display.id })
@@ -40,7 +40,7 @@ struct XianshiRankingTests {
         }
     }
 
-    @Test func lexicalWordAlternativesPrecedeEvenHighScoringPrefixes() {
+    @Test func highScoringPrefixesHaveNoReservedWholeWordPositions() {
         let words = (0..<6).map {
             InputCandidate(text: "Whole \($0)", language: .english, score: 10 - $0, lexicalTokenCount: 1)
         }
@@ -48,8 +48,8 @@ struct XianshiRankingTests {
                                     consumedInputCount: 2, lexicalTokenCount: 1)
         let literal = InputCandidate(text: "Synthetic", language: nil, score: 0)
         var selection = CandidateSelection()
-        selection.update(words + [prefix, literal])
-        #expect(selection.candidates == Array(words.prefix(5)) + [prefix, words[5], literal])
+        selection.update([prefix] + words + [literal])
+        #expect(selection.candidates == [prefix] + words + [literal])
     }
 
     @Test func historyKeepsItsPositionAndPrefixesSurviveTheShortlist() {
@@ -62,8 +62,8 @@ struct XianshiRankingTests {
                                     consumedInputCount: 2, lexicalTokenCount: 1)
         let literal = InputCandidate(text: "Synthetic", language: nil, score: 0)
         var selection = CandidateSelection()
-        selection.update(Array(words.prefix(2)) + [history] + Array(words.dropFirst(2)) + [prefix, literal])
-        #expect(selection.candidate(number: 3)?.id == history.id)
+        selection.update([prefix] + Array(words.prefix(2)) + [history] + Array(words.dropFirst(2)) + [literal])
+        #expect(selection.candidate(number: 4)?.id == history.id)
         #expect(selection.candidates.contains { $0.id == prefix.id })
         #expect(selection.candidates.contains { $0.id == literal.id })
         #expect(selection.candidates.count == CandidateSelection.maximumCandidates)

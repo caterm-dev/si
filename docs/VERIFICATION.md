@@ -2,6 +2,18 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Score-only whole/prefix ordering — 2026-10-23
+
+This supersedes the single-word first-page policy below. The user rejected both forced prefix promotion and a five-whole-choice fallback. `CandidateEngine` now orders ordinary whole and prefix candidates together by effective score, removing whole-first and longest-consumed-span precedence. `CandidateSelection` only retains a bounded ordered subsequence and pages it; lexical-unit count, word/character type and sentence status no longer move or hide results. Explicit personal pins, separate history placement, exact literals and language-aware shortlist retention preserve their existing contracts. Dictionary frequencies and scoring formulas are unchanged.
+
+With empty learning in both Chinese-only and bilingual provisional/full searches, `biruzhege` gives `比如` -3.414 and `比如这个` -8.546, so the prefix naturally leads without promotion. `xianshi` retains `显示` at position 3 (-10.819) and `现实` at position 4 (-11.157). The existing scores also favor shorter prefixes for other inputs: `danci` gives `但` -5.144 and `单词` -9.960; `iwanttobuild` gives `I` -3.192 and `I want to build` -19.350. These are observed ranking limitations, not a vocabulary-quality improvement. No unsubstantiated frequency overrides were added.
+
+- The final focused run passes all 44 tests: 26 presentation tests and 18 engine/prefix-commit tests. Coverage includes fractional score ordering across source spans, deterministic input-order independence, consumed-spelling learning, an isolated dictionary-frequency increase that naturally moves a prefix above a whole phrase, exact numbered commits, source remainders, both search stages/layouts, history placement and ordered 27-choice shortlisting. Light/dark offscreen sentence-page rendering and click identity also pass.
+- `./scripts/test.sh` runs 330 tests: Settings (3), Storage (12) and Presentation (65) pass; Core (250) reports 141 issues. The pre-change baseline had 12 presentation and 51 core issues. Core first-choice/quality assertions remain active: the additional failures expose the changed score competition with shorter prefixes, including Chinese word/sentence and continuous English cases. This is not a passing full regression suite. No broad quality assertions were weakened to conceal these results.
+- `./scripts/build.sh` passes for the final Debug app with signing disabled. Compiler checks required normal Xcode/SwiftPM cache access outside the restricted sandbox. No installation, app launch, input-source change or private-data inspection was performed. Native host input, keyboard/mouse routing, focus/shortcuts, VoiceOver and candidate positioning remain unverified.
+
+Evidence: `/tmp/si-score-order-baseline.log`, `/tmp/si-score-order-focused.log` (synthetic score diagnostics), `/tmp/si-score-order-final-focused.log`, `/tmp/si-score-order-final-tests.log` and `/tmp/si-score-order-final-build.log`. See [ranking](UNIFIED_RANKING.md) and [manual checks](TESTING.md).
+
 ## Single-word first-page alternatives — 2026-10-23
 
 With empty learning, synthetic `xianshi` produces `西安市` (-9.275), `先是` (-9.989), `显示` (-10.819) and `现实` (-11.157) in both Chinese-only and bilingual searches, including provisional results. Higher scores lead. The first two receive positive beginning-of-sequence word-context bonuses; `显示` has the highest dictionary weight among exact `xian'shi` words. The window previously inserted seven prefixes after the first two whole choices, moving `显示` from engine position 3 to window position 10.

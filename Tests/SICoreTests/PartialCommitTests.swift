@@ -1,14 +1,22 @@
+import Foundation
 import Testing
 @testable import SICore
 
 struct PartialCommitTests {
-    @Test func frequentShortWordsCannotReplaceTheDefaultCompleteComposition() {
+    @Test func frequentShortWordsCompeteByConsumedSpellingScoreWithCompleteCompositions() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
         var profile = LearningProfile()
         let you = InputCandidate(text: "你", language: .simplifiedChinese, score: 100)
-        for _ in 0..<100 { profile.record(InputCommit(input: "ni", candidate: you, reason: .explicitSelection)) }
-        let candidates = CandidateEngine().candidates(for: "nihaopengyou", languages: [.simplifiedChinese], learning: profile)
-        #expect(candidates.first?.isPartial == false)
-        #expect(candidates.first?.text == "你好朋友")
+        for _ in 0..<100 { profile.record(InputCommit(input: "ni", candidate: you, reason: .explicitSelection), now: now) }
+        let candidates = CandidateEngine().candidates(for: "nihaopengyou", languages: [.simplifiedChinese], learning: profile, now: now)
+        #expect(candidates.contains { $0.text == "你好朋友" && !$0.isPartial })
+        let ranked = candidates.dropLast()
+        for (left, right) in zip(ranked, ranked.dropFirst()) {
+            let leftInput = left.consumedInputCount.map { String("nihaopengyou".prefix($0)) } ?? "nihaopengyou"
+            let rightInput = right.consumedInputCount.map { String("nihaopengyou".prefix($0)) } ?? "nihaopengyou"
+            #expect(profile.rankingScore(for: left, input: leftInput, now: now, context: nil)
+                >= profile.rankingScore(for: right, input: rightInput, now: now, context: nil))
+        }
     }
 
     @Test func confirmedPrefixIsRemovedExactlyOnceAndRemainderStaysEditable() throws {

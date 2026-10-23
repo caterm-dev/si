@@ -235,14 +235,16 @@ struct TokenLearningTests {
         #expect(profile.entries.filter { $0.input == "shike" }.count == 1)
     }
 
-    @Test func prefixRankingUsesOnlyConsumedTokensAndStillFollowsWholeCandidates() throws {
+    @Test func prefixRankingUsesOnlyConsumedTokensAndCompetesByEffectiveScore() throws {
         let profile = try learned(input: "shike", text: "食客")
         let candidates = engine.candidates(for: "woshikenihao", languages: languages, learning: profile, now: now)
         let prefix = try #require(candidates.first { $0.text == "我食客" && $0.consumedInputCount == 7 })
         #expect(abs(prefix.tokenLearningBonus - 32 * 5 / 7) < 0.0001)
-        let firstPrefix = try #require(candidates.firstIndex { $0.isPartial })
-        #expect(candidates[..<firstPrefix].allSatisfy { !$0.isPartial })
-        #expect(candidates[firstPrefix..<candidates.count - 1].allSatisfy { $0.isPartial })
+        let scores = candidates.dropLast().map { candidate in
+            let spelling = candidate.consumedInputCount.map { String("woshikenihao".prefix($0)) } ?? "woshikenihao"
+            return profile.rankingScore(for: candidate, input: spelling, now: now, context: nil)
+        }
+        #expect(scores == scores.sorted(by: >))
     }
 
     @Test func canonicallyEquivalentTextStaysDeduplicatedThroughRepeatedPruning() throws {

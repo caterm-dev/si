@@ -40,12 +40,14 @@ struct UnifiedRankingPresentationTests {
                     selection.update(session.candidates)
                     for expanded in [false, true] {
                         selection.setExpanded(expanded)
+                        let index = try #require(selection.candidates.firstIndex { $0.text == "单词" && !$0.isPartial })
+                        selection.move(by: index - selection.selectedIndex)
                         #expect(selection.selected?.text == "单词")
-                        #expect(selection.candidate(number: 1)?.text == "单词")
+                        #expect(selection.candidate(number: index % selection.visiblePageSize + 1)?.text == "单词")
                         #expect(selection.candidates.contains { $0.isLiteral && $0.text == input })
                     }
                 }
-                let selected = try #require(selection.candidate(number: 1))
+                let selected = try #require(selection.selected)
                 let commit = session.commitResult(selected, reason: .explicitSelection)
                 #expect(commit.text == "单词" && commit.input == input)
                 #expect(session.buffer.isEmpty)

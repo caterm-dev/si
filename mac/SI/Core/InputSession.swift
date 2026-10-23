@@ -225,7 +225,7 @@ public struct InputSession: Sendable {
         refresh()
     }
 
-    /// Presentation may feature prefixes across spans using the same consent/context-aware score.
+    /// Inspect the consent/context-aware score using only a prefix's consumed spelling.
     public func presentationScore(for candidate: InputCandidate, now: Date = .now) -> Double {
         let spelling = candidate.consumedInputCount.map { String(buffer.prefix($0)) } ?? buffer
         return learning.rankingScore(for: candidate, input: spelling, now: now, context: currentContext(now: now))

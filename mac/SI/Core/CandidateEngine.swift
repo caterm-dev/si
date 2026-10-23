@@ -123,10 +123,7 @@ public struct CandidateEngine: Sendable {
         }
         let merged = best.values
             .sorted {
-                if $0.candidate.isPartial != $1.candidate.isPartial { return !$0.candidate.isPartial }
-                if $0.candidate.isPartial, $0.candidate.consumedInputCount != $1.candidate.consumedInputCount {
-                    return ($0.candidate.consumedInputCount ?? 0) > ($1.candidate.consumedInputCount ?? 0)
-                }
+                // Whole and prefix candidates share the effective-score objective.
                 if $0.candidate.isPreferred != $1.candidate.isPreferred { return $0.candidate.isPreferred }
                 if $0.score != $1.score { return $0.score > $1.score }
                 return $0.candidate.id < $1.candidate.id

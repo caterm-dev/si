@@ -40,41 +40,9 @@ struct CandidateSelection {
         }
     }
 
-    mutating func update(_ candidates: [InputCandidate], prefixScore: ((InputCandidate) -> Double)? = nil) {
-        let whole = candidates.indices.filter { !candidates[$0].isPartial && !candidates[$0].isLiteral && !candidates[$0].isHistory }
-        let history = candidates.indices.filter { candidates[$0].isHistory }
-        let partialIndices = candidates.indices.filter { candidates[$0].isPartial }
-        let scored: [(index: Int, score: Double)] = partialIndices.map {
-            (index: $0, score: prefixScore?(candidates[$0]) ?? candidates[$0].rankingScore)
-        }
-        let rankedPrefixes = scored.sorted {
-            $0.score == $1.score ? $0.index < $1.index : $0.score > $1.score
-        }.map { $0.index }
-        let lexical = rankedPrefixes.filter { candidates[$0].isLexicalPrefix }
-        if let first = whole.first, (candidates[first].lexicalTokenCount ?? 0) > 1, !lexical.isEmpty {
-            // A sentence fallback should help choose the next word, not fill later pages with more sentences.
-            let characters = lexical.filter { candidates[$0].language == .simplifiedChinese && candidates[$0].text.count == 1 }
-            let characterIndices = Set(characters)
-            let words = lexical.filter { !characterIndices.contains($0) }
-            let featured = Array(whole.prefix(2)) + history + words + characters
-            let featuredIndices = Set(featured)
-            let required = Self.protectedIDs(candidates)
-            let fallbacks = candidates.indices.filter { !featuredIndices.contains($0) && required.contains(candidates[$0].id) }
-            let ordered = (featured + fallbacks).map { candidates[$0] }
-            self.candidates = Self.shortlist(ordered, engineCandidates: candidates)
-            selectedIndex = 0
-            return
-        }
-        // Keep a compact page of lexical word alternatives before featuring shorter prefixes.
-        // Sentence and unknown-provider leaders retain the two-whole presentation.
-        let wholeCount = whole.first.map { candidates[$0].lexicalTokenCount == 1 ? 5 : 2 } ?? 2
-        let prefixes = Array(rankedPrefixes.prefix(7))
-        let featuredWhole = Array(whole.prefix(wholeCount))
-        let featured = Array(featuredWhole.prefix(2)) + history + Array(featuredWhole.dropFirst(2)) + prefixes
-        let featuredIndices = Set(featured)
-        let ordered = prefixes.isEmpty ? candidates
-            : (featured + candidates.indices.filter { !featuredIndices.contains($0) }).map { candidates[$0] }
-        self.candidates = Self.shortlist(ordered, engineCandidates: candidates)
+    mutating func update(_ candidates: [InputCandidate]) {
+        // Ranking belongs to the engine. Shortlisting never reorders retained choices.
+        self.candidates = Self.shortlist(candidates)
         selectedIndex = 0
         if candidates.isEmpty { isExpanded = false }
     }
@@ -100,14 +68,14 @@ struct CandidateSelection {
         return retainedIDs
     }
 
-    private static func shortlist(_ ordered: [InputCandidate], engineCandidates: [InputCandidate]) -> [InputCandidate] {
-        guard ordered.count > maximumCandidates else { return ordered }
-        var retainedIDs = protectedIDs(engineCandidates)
-        for candidate in ordered {
+    private static func shortlist(_ candidates: [InputCandidate]) -> [InputCandidate] {
+        guard candidates.count > maximumCandidates else { return candidates }
+        var retainedIDs = protectedIDs(candidates)
+        for candidate in candidates {
             guard retainedIDs.count < maximumCandidates else { break }
             retainedIDs.insert(candidate.id)
         }
-        return ordered.filter { retainedIDs.contains($0.id) }
+        return candidates.filter { retainedIDs.contains($0.id) }
     }
 
     mutating func setExpanded(_ expanded: Bool) { isExpanded = expanded }

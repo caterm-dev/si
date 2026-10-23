@@ -59,27 +59,27 @@ struct CandidateSelectionTests {
         #expect(!selection.isExpanded)
     }
 
-    @Test func twoWholeChoicesThenHighScoringPrefixesKeepAllOtherAlternatives() throws {
+    @Test func rankedPrefixesAndWholeChoicesKeepTheirEngineOrder() throws {
         let whole = candidates(14)
         let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
         let longPrefix = InputCandidate(text: "很长的组合", language: .simplifiedChinese, score: 62, consumedInputCount: 18)
         let word = InputCandidate(text: "词语", language: .simplifiedChinese, score: 74, consumedInputCount: 6)
         let letter = InputCandidate(text: "字", language: .simplifiedChinese, score: 74, consumedInputCount: 2)
-        let values = whole + [longPrefix, word, letter, literal]
+        let values = [word, letter, longPrefix] + whole + [literal]
         var selection = CandidateSelection()
         selection.update(values)
-        #expect(Array(selection.candidates.prefix(5)) == Array(whole.prefix(2)) + [word, letter, longPrefix])
-        #expect(selection.candidate(number: 3) == word)
+        #expect(Array(selection.candidates.prefix(5)) == [word, letter, longPrefix] + Array(whole.prefix(2)))
+        #expect(selection.candidate(number: 1) == word)
         #expect(selection.candidates.count == values.count)
         #expect(Set(selection.candidates.map(\.id)) == Set(values.map(\.id)))
         #expect(selection.candidates.last == literal)
         selection.setExpanded(true)
-        #expect(Array(selection.candidates.prefix(5)) == Array(whole.prefix(2)) + [word, letter, longPrefix])
+        #expect(Array(selection.candidates.prefix(5)) == [word, letter, longPrefix] + Array(whole.prefix(2)))
         selection.update(values)
-        #expect(Array(selection.candidates.prefix(5)) == Array(whole.prefix(2)) + [word, letter, longPrefix])
+        #expect(Array(selection.candidates.prefix(5)) == [word, letter, longPrefix] + Array(whole.prefix(2)))
     }
 
-    @Test func featuredPrefixesUseOnlyConsumedSpellingForLearningAndRemainCommittable() throws {
+    @Test func rankedPrefixesUseOnlyConsumedSpellingForLearningAndRemainCommittable() throws {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         var session = InputSession()
         let learning = LearningProfile(entries: [
@@ -91,10 +91,12 @@ struct CandidateSelectionTests {
         #expect(session.presentationScore(for: greeting, now: now) > greeting.rankingScore)
         let baseCandidates = session.candidates
         var selection = CandidateSelection()
-        selection.update(session.candidates, prefixScore: { session.presentationScore(for: $0, now: now) })
+        selection.update(session.candidates)
         #expect(session.candidates == baseCandidates)
-        #expect(selection.candidate(number: 3)?.id == greeting.id)
-        let commit = session.commitResult(selection.candidate(number: 3), reason: .explicitSelection, now: now)
+        let index = try #require(selection.candidates.firstIndex { $0.id == greeting.id })
+        selection.move(by: index)
+        let number = index % selection.visiblePageSize + 1
+        let commit = session.commitResult(selection.candidate(number: number), reason: .explicitSelection, now: now)
         #expect(commit.text == "你好" && commit.input == "nihao")
         #expect(session.buffer == "pengyou")
         session.configure(languages: [.simplifiedChinese], now: now)
@@ -190,7 +192,7 @@ struct CandidateSelectionTests {
     }
 
     @Test(arguments: [false, true])
-    func largeResultSetsKeepLanguageIdentitiesFeaturedPrefixesAndExactLiteral(expanded: Bool) throws {
+    func largeResultSetsKeepRankedOrderLanguageIdentitiesAndExactLiteral(expanded: Bool) throws {
         let whole = candidates(900)
         let chinese = InputCandidate(text: "word0", language: .simplifiedChinese, score: 0)
         let mixed = InputCandidate(text: "你好world", language: .simplifiedChinese, score: 0, isMixed: true)
@@ -205,7 +207,7 @@ struct CandidateSelectionTests {
         let shortlist = selection.candidates
         #expect(shortlist.count == 27)
         #expect(selection.pageCount == (expanded ? 3 : 6))
-        #expect(Array(shortlist.prefix(9)) == Array(whole.prefix(2)) + Array(prefixes.reversed().prefix(7)))
+        #expect(Array(shortlist.prefix(9)) == Array(whole.prefix(9)))
         #expect(shortlist.contains(whole[0]) && shortlist.contains(chinese) && shortlist.contains(mixed))
         #expect(shortlist.last == literal)
         #expect(Set(shortlist.map(\.id)).count == shortlist.count)

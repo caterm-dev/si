@@ -434,8 +434,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             candidateAnchor.reset()
         }
         candidateClient = client
-        let rankingTime = Date.now
-        selection.update(session.candidates, prefixScore: { self.session.presentationScore(for: $0, now: rankingTime) })
+        selection.update(session.candidates)
         explicitlyNavigated = false
         let markedSelection = NSRange(location: session.cursorUTF16Offset, length: 0)
         if markedTextState.shouldSend(session.buffer, selection: markedSelection) {

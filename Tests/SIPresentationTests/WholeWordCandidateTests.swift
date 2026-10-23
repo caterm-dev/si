@@ -16,13 +16,16 @@ struct WholeWordCandidateTests {
                     selection.update(session.candidates)
                     for expanded in [false, true] {
                         selection.setExpanded(expanded)
-                        let word = try #require(selection.candidate(number: 1))
+                        let index = try #require(selection.candidates.firstIndex { $0.text == "单词" && !$0.isPartial })
+                        selection.move(by: index - selection.selectedIndex)
+                        let number = index % selection.visiblePageSize + 1
+                        let word = try #require(selection.candidate(number: number))
                         #expect(word.text == "单词" && !word.isPartial && !word.hasCompletion)
                         #expect(word.language == .simplifiedChinese && !word.isMixed)
                         #expect(selection.candidates.last?.text == input && selection.candidates.last?.isLiteral == true)
                     }
                 }
-                let chosen = try #require(session.candidates.first)
+                let chosen = try #require(session.candidates.first { $0.text == "单词" && !$0.isPartial })
                 let commit = session.commitResult(chosen, reason: .explicitSelection)
                 #expect(commit.text == "单词" && commit.input == input && session.buffer.isEmpty)
             }
