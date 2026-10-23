@@ -9,4 +9,14 @@ struct CandidatePreviewQuery: Equatable, Sendable {
     let languages: Set<InputLanguage>
     let learning: LearningProfile
     let dictionary: UserDictionary
+    let applicationMemory: ApplicationMemorySnapshot
+
+    init(input: String, languages: Set<InputLanguage>, learning: LearningProfile, dictionary: UserDictionary,
+         applicationMemory: ApplicationMemorySnapshot = .empty) {
+        self.input = input
+        self.languages = languages
+        self.learning = learning
+        self.dictionary = dictionary
+        self.applicationMemory = applicationMemory
+    }
 }

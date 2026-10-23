@@ -22,7 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             async let learning: Void = PersonalizationSettings.shared.start()
             async let phrases: Void = UserDictionarySettings.shared.start()
-            _ = await (learning, phrases)
+            async let appMemory: Void = ApplicationMemorySettings.shared.start()
+            _ = await (learning, phrases, appMemory)
         }
         if ProcessInfo.processInfo.arguments.contains("--settings") {
             showSettings()
@@ -40,7 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             async let learning: Void = PersonalizationSettings.shared.flush()
             async let phrases: Void = UserDictionarySettings.shared.flush()
-            _ = await (learning, phrases)
+            async let appMemory: Void = ApplicationMemorySettings.shared.flush()
+            _ = await (learning, phrases, appMemory)
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

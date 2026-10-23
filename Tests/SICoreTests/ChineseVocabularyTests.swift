@@ -106,7 +106,7 @@ struct ChineseVocabularyTests {
         ])
         let values = decoder.candidates(for: "guo")
         let country = try #require(values.first { $0.text == "国" })
-        let expected = (log(3_063_867.0) - 22) / log(2.0) - 1 + log2(8.0 / 15)
+        let expected = (log(3_063_867.0) - 22) / log(2.0) - 1 + log2(128.0 / 135)
         #expect(abs(country.rankingScore - expected) < 1e-12)
         #expect(values.first?.text == "过")
         #expect(values.contains { $0.text == "果" && $0.rankingScore < country.rankingScore })

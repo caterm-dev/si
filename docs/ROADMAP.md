@@ -32,6 +32,8 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [x] Incomplete final mixed-word prediction and bounded preservation of unrecognized spans.
 - [ ] Broader unknown-word/language-boundary detection beyond bounded lexical heuristics.
 - [x] Opt-in local frequency/recency learning with pause, per-entry deletion, clear, expiry, and bounded persistence.
+- [x] Independently opted-in app vocabulary and Return-delimited history completion, local bounded storage, per-app pause and scoped deletion.
+- [ ] Native app-vocabulary/history verification, including WeChat, editors, Terminal, focus changes, keyboard/mouse selection and accessibility.
 - [x] Existing single-language preferences influence internal tokens with bounded, length-weighted scoring and a separate base beam.
 - [x] Optional previous-word pair ranking across languages, with shared retention/deletion controls.
 - [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, with retained Chinese word-context tables.

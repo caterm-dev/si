@@ -3,6 +3,29 @@ import SICore
 @testable import SIPresentation
 
 struct UnifiedRankingPresentationTests {
+    @Test func maExactReadingLeadsAndCommitsInBothLayoutsAndSearchStages() throws {
+        for preview in [true, false] {
+            for expanded in [false, true] {
+                var session = InputSession(candidateGeneration: .deferred)
+                session.configure(languages: Set(InputLanguage.allCases))
+                session.append("ma")
+                let request = try #require(session.pendingCandidateRequest)
+                let accepted = session.accept(preview ? request.generatePreview() : request.generate())
+                #expect(accepted)
+                var selection = CandidateSelection()
+                selection.update(session.candidates)
+                selection.setExpanded(expanded)
+                let candidate = try #require(selection.candidate(number: 1))
+                #expect(candidate.text == "吗" && candidate.language == .simplifiedChinese)
+                #expect(selection.candidates.contains { $0.text == "may" && $0.language == .english })
+                #expect(selection.candidates.last?.text == "ma" && selection.candidates.last?.isLiteral == true)
+                let commit = session.commitResult(candidate, reason: .explicitSelection)
+                #expect(commit.text == "吗" && commit.input == "ma")
+                #expect(session.buffer.isEmpty)
+            }
+        }
+    }
+
     @Test func fullSpellingSelectionsCommitExactlyInBothLayouts() throws {
         for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             for input in ["danci", "dan'ci"] {

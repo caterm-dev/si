@@ -12,7 +12,8 @@ struct EnglishVocabularyTests {
     private func referenceScore(_ word: String, input: String) -> Double {
         let lexicalScore = (log(Self.weights[word]!) - 20) / log(2.0) - 1
         let missing = word.utf8.count - input.lowercased().utf8.count
-        let channel = exp2(-Double(missing + 1)) / (1 - exp2(-Double(word.utf8.count)))
+        let normalizer = 16 + (1 - exp2(-Double(word.utf8.count - 1)))
+        let channel = (missing == 0 ? 16 : exp2(-Double(missing))) / normalizer
         return lexicalScore + log2(channel)
     }
 

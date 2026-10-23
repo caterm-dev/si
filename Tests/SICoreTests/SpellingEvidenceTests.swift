@@ -11,6 +11,8 @@ struct SpellingEvidenceTests {
             #expect(abs(mass - 1) < 1e-12)
             #expect(PinyinSpellingChannel.cost(length: length, typedLength: length)
                     < PinyinSpellingChannel.cost(length: length, typedLength: length - 1))
+            #expect(abs(PinyinSpellingChannel.cost(length: length, typedLength: length - 1)
+                - PinyinSpellingChannel.cost(length: length, typedLength: length) - 5) < 1e-12)
         }
         let whole = PinyinSpellingChannel.cost(syllables: ["di", "er", "ye"], typedLength: 6)
         let split = ["di", "er", "ye"].reduce(0.0) {

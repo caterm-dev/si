@@ -41,7 +41,8 @@ struct CandidateSelection {
     }
 
     mutating func update(_ candidates: [InputCandidate], prefixScore: ((InputCandidate) -> Double)? = nil) {
-        let whole = candidates.indices.filter { !candidates[$0].isPartial && !candidates[$0].isLiteral }.prefix(2)
+        let whole = candidates.indices.filter { !candidates[$0].isPartial && !candidates[$0].isLiteral && !candidates[$0].isHistory }.prefix(2)
+        let history = candidates.indices.filter { candidates[$0].isHistory }
         let partialIndices = candidates.indices.filter { candidates[$0].isPartial }
         let scored: [(index: Int, score: Double)] = partialIndices.map {
             (index: $0, score: prefixScore?(candidates[$0]) ?? candidates[$0].rankingScore)
@@ -55,7 +56,7 @@ struct CandidateSelection {
             let characters = lexical.filter { candidates[$0].language == .simplifiedChinese && candidates[$0].text.count == 1 }
             let characterIndices = Set(characters)
             let words = lexical.filter { !characterIndices.contains($0) }
-            let featured = Array(whole) + words + characters
+            let featured = Array(whole) + history + words + characters
             let featuredIndices = Set(featured)
             let required = Self.protectedIDs(candidates)
             let fallbacks = candidates.indices.filter { !featuredIndices.contains($0) && required.contains(candidates[$0].id) }
@@ -66,7 +67,7 @@ struct CandidateSelection {
         }
         // Single words and unknown provider results retain the ordinary ranked shortlist.
         let prefixes = Array(rankedPrefixes.prefix(7))
-        let featured = Array(whole) + prefixes
+        let featured = Array(whole) + history + prefixes
         let featuredIndices = Set(featured)
         let ordered = prefixes.isEmpty ? candidates
             : (featured + candidates.indices.filter { !featuredIndices.contains($0) }).map { candidates[$0] }
@@ -80,8 +81,9 @@ struct CandidateSelection {
         var languages: Set<InputLanguage> = []
         var includesMixed = false
         var retainedIDs: Set<String> = []
+        if let history = engineCandidates.first(where: \.isHistory) { retainedIDs.insert(history.id) }
         for partial in [false, true] {
-            for candidate in engineCandidates where candidate.isPartial == partial {
+            for candidate in engineCandidates where candidate.isPartial == partial && !candidate.isHistory {
                 if candidate.isLiteral {
                     retainedIDs.insert(candidate.id)
                 } else if candidate.isMixed {

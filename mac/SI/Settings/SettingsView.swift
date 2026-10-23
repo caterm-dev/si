@@ -5,6 +5,7 @@ struct SettingsView: View {
     var updater: AppUpdater
     var personalization: PersonalizationSettings = .shared
     var dictionary: UserDictionarySettings = .shared
+    var applicationMemory: ApplicationMemorySettings = .shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -33,8 +34,10 @@ struct SettingsView: View {
                     Text(settings.punctuationBehavior.explanation + " Punctuation outside composition passes through unchanged.")
                 }
                 Section("Try the candidate engine") {
-                    CandidatePreviewView(settings: settings, personalization: personalization, dictionary: dictionary)
+                    CandidatePreviewView(settings: settings, personalization: personalization, dictionary: dictionary,
+                                         applicationMemory: applicationMemory)
                 }
+                ApplicationMemorySection(settings: applicationMemory)
                 PersonalizationView(personalization: personalization)
                 UserDictionarySection(dictionary: dictionary)
                 UpdateSettingsSection(updater: updater)
@@ -57,5 +60,6 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView(settings: LanguageSettings(defaults: UserDefaults(suiteName: "SI.Preview") ?? .standard), updater: AppUpdater(),
-                 personalization: PersonalizationSettings(isPreview: true), dictionary: UserDictionarySettings(isPreview: true))
+                 personalization: PersonalizationSettings(isPreview: true), dictionary: UserDictionarySettings(isPreview: true),
+                 applicationMemory: ApplicationMemorySettings(isPreview: true))
 }

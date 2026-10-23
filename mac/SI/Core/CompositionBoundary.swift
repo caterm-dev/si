@@ -24,6 +24,7 @@ public enum CompositionBoundary {
         let literal = BoundaryResolution(continuesComposition: isSymbol(text))
         guard behavior != .asTyped, text == "\t" || (text.count == 1 && text.first.map(supported.contains) == true),
               let selected, !selected.isLiteral, !selected.isPartial else { return literal }
+        if selected.isHistory && !explicitlySelected { return literal }
         let chineseEnding = prefersChinesePunctuation(selected)
         if !explicitlySelected {
             if selected.language == .english && !selected.isUserPhrase { return literal }

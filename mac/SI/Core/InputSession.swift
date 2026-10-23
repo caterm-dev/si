@@ -11,11 +11,13 @@ public struct CandidateRequest: Sendable {
     fileprivate let now: Date
     fileprivate let context: CandidateContext?
     fileprivate let automaticConfirmationEnabled: Bool
+    fileprivate let applicationMemory: ApplicationMemorySnapshot
 
     public func generate() -> CandidateResult {
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context,
-                                           includesConfirmationEvidence: automaticConfirmationEnabled)
+                                           includesConfirmationEvidence: automaticConfirmationEnabled,
+                                           applicationMemory: applicationMemory)
         return CandidateResult(requestID: id, candidates: candidates,
                                confirmationPrefixes: automaticConfirmationEnabled
                                 ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
@@ -24,7 +26,8 @@ public struct CandidateRequest: Sendable {
 
     public func generatePreview() -> CandidateResult {
         CandidateResult(requestID: id, candidates: engine.previewCandidates(
-            for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context),
+            for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context,
+            applicationMemory: applicationMemory),
             isPreview: true)
     }
 }
@@ -64,6 +67,7 @@ public struct InputSession: Sendable {
     private let candidateGeneration: CandidateGeneration
     private var learning = LearningProfile()
     private var dictionary = UserDictionary()
+    private var applicationMemory: ApplicationMemorySnapshot = .empty
     private var usesContext = false
     private var recentContext: RecentContext?
     private var contextGeneration: UInt64 = 0
@@ -79,7 +83,8 @@ public struct InputSession: Sendable {
     public mutating func configure(languages: Set<InputLanguage>, learning: LearningProfile = LearningProfile(),
                                    dictionary: UserDictionary = UserDictionary(), usesContext: Bool = false,
                                    contextGeneration: UInt64 = 0, automaticConfirmationEnabled: Bool = false,
-                                   configurationGeneration: UInt64 = 0, now: Date = .now) {
+                                   configurationGeneration: UInt64 = 0, now: Date = .now,
+                                   applicationMemory: ApplicationMemorySnapshot = .empty) {
         let languagesChanged = self.languages != languages
         let contextChanged = self.contextGeneration != contextGeneration
         let expired = recentContext.map { now.timeIntervalSince($0.committedAt) >= Self.contextLifetime || now < $0.committedAt } ?? false
@@ -87,10 +92,12 @@ public struct InputSession: Sendable {
         guard self.languages != languages || self.learning != learning || self.dictionary != dictionary
                 || self.usesContext != usesContext || contextChanged || expired
                 || self.automaticConfirmationEnabled != automaticConfirmationEnabled
-                || self.configurationGeneration != configurationGeneration else { return }
+                || self.configurationGeneration != configurationGeneration
+                || self.applicationMemory != applicationMemory else { return }
         self.languages = languages
         self.learning = learning
         self.dictionary = dictionary
+        self.applicationMemory = applicationMemory
         self.usesContext = usesContext
         self.contextGeneration = contextGeneration
         self.automaticConfirmationEnabled = automaticConfirmationEnabled
@@ -240,7 +247,8 @@ public struct InputSession: Sendable {
         }
         let request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
                                        dictionary: dictionary, now: now, context: currentContext(now: now),
-                                       automaticConfirmationEnabled: automaticConfirmationEnabled)
+                                       automaticConfirmationEnabled: automaticConfirmationEnabled,
+                                       applicationMemory: applicationMemory)
         pendingCandidateRequest = request
         hasCandidatePreview = false
         if candidateGeneration == .synchronous {

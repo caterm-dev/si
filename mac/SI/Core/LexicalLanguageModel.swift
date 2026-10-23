@@ -127,26 +127,39 @@ struct LexicalLanguageModel: Sendable {
     static let terminalCost = 0.0
 }
 
-/// A finite geometric truncation channel, normalized over the word's nonempty prefixes.
-/// Each omitted source letter halves likelihood; exact/completed matches share this model.
+/// A normalized finite spelling channel with sixteen times the geometric mass at the
+/// exact endpoint. Incomplete observations still halve in weight per missing letter.
+/// This shared heuristic favors completed spellings without reserving ranking tiers.
+enum SpellingMatchChannel {
+    static let exactMatchAdvantage = 4.0
+    private static let offsets = (0...64).map {
+        log2(1 + (1 - exp2(-Double($0))) / exp2(exactMatchAdvantage))
+    }
+
+    static func cost(missingLetters: Int, maximumMissingLetters: Int) -> Double {
+        precondition((0...64).contains(maximumMissingLetters)
+            && (0...maximumMissingLetters).contains(missingLetters))
+        return offsets[maximumMissingLetters]
+            + (missingLetters == 0 ? 0 : exactMatchAdvantage + Double(missingLetters))
+    }
+}
+
+/// English observes nonempty word prefixes; the complete word has extra spelling weight.
 enum WordPrefixChannel {
-    private static let offsets = (1...64).map { 1 + log2(1 - exp2(-Double($0))) }
     static func cost(fullLength: Int, typedLength: Int) -> Double {
         precondition(fullLength > 0 && fullLength <= 64 && typedLength > 0 && typedLength <= fullLength)
-        return Double(fullLength - typedLength) + offsets[fullLength - 1]
+        return SpellingMatchChannel.cost(missingLetters: fullLength - typedLength,
+                                         maximumMissingLetters: fullLength - 1)
     }
 }
 
 /// Chinese observations operate on syllables, independently of dictionary word boundaries.
-/// For a syllable of length L, k=0...L observed letters have probability
-/// 2^k / (2^(L+1)-1). Zero letters cover later syllables in an unfinished reading.
-/// This is an explicit geometric default, not an estimate of population typing habits.
+/// Zero letters cover later syllables in an unfinished reading. Complete syllables
+/// receive the same exact-endpoint weight as English words, independently of word cuts.
 enum PinyinSpellingChannel {
-    private static let offsets = (1...64).map { 1 + log2(1 - exp2(-Double($0 + 1))) }
-
     static func cost(length: Int, typedLength: Int) -> Double {
         precondition((1...64).contains(length) && (0...length).contains(typedLength))
-        return Double(length - typedLength) + offsets[length - 1]
+        return SpellingMatchChannel.cost(missingLetters: length - typedLength, maximumMissingLetters: length)
     }
 
     static func cost(syllables: [String], typedLength: Int) -> Double {

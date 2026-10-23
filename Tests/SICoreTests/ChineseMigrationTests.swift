@@ -69,7 +69,7 @@ struct ChineseMigrationTests {
         #expect(values.first?.text == "你好吗" && values.first?.hasCompletion == true)
         #expect(values.contains { $0.text == "你好" && !$0.hasCompletion })
         if let full = values.first(where: { $0.text == "你好" }), let completion = values.first(where: { $0.text == "你好吗" }) {
-            let expectedDifference = log2(1_000_000.0 / 10) + log2(1.0 / 7)
+            let expectedDifference = log2(1_000_000.0 / 10) + log2(1.0 / 67)
             #expect(abs(completion.rankingScore - full.rankingScore - expectedDifference) < 1e-12)
         }
     }
@@ -83,7 +83,7 @@ struct ChineseMigrationTests {
         let sentence = try #require(values.first)
         #expect(sentence.text == "我是" && sentence.lexicalTokenCount == 2)
         let expected = (log(100_000_000_000.0) - 44) / log(2.0) - 1
-            + log2(1 - RankingCalibration.switchProbability) + log2(4.0 / 7) + log2(8.0 / 15)
+            + log2(1 - RankingCalibration.switchProbability) + log2(64.0 / 67) + log2(128.0 / 135)
         #expect(abs(sentence.rankingScore - expected) < 1e-12)
     }
 
@@ -130,7 +130,7 @@ struct ChineseMigrationTests {
             let candidate = try #require(PinyinDecoder.standard.candidates(for: input).first)
             // Convert the independently calculated legacy oracle to the shared scale:
             // remove its per-syllable offset, then include BOS, spelling and transitions.
-            let spelling = syllableLengths.reduce(0.0) { $0 + log2(1 - exp2(-Double($1 + 1))) + 1 }
+            let spelling = syllableLengths.reduce(0.0) { $0 + log2((16 + 1 - exp2(-Double($1))) / 16) }
             let score = legacyScore - 20 * Double(syllableLengths.count) / log(2.0) - 1 - spelling
                 + Double(words - 1) * log2(1 - RankingCalibration.switchProbability)
             #expect(candidate.text == text)

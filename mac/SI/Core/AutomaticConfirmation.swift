@@ -79,6 +79,7 @@ struct AutomaticConfirmation: Sendable {
         guard input == input.lowercased(), let reading = PinyinInput(input),
               let leader = candidates.first(where: { !$0.isPartial && !$0.isLiteral }),
               leader.language == .simplifiedChinese, !leader.isMixed, !leader.isUserPhrase, !leader.hasLiteralSegments,
+              !leader.isHistory, !leader.isApplicationVocabulary,
               !leader.confirmationBoundaries.isEmpty else { return [] }
         // Language selection must not remove code/English safeguards. Only test established Chinese
         // word boundaries: scanning every letter would mistake the overlapping "open" in nihaopengyou.
@@ -96,7 +97,7 @@ struct AutomaticConfirmation: Sendable {
         let ranking = learning.ranking(for: input, now: now, context: context)
         let threshold = ranking.score(leader) - competitorMargin
         let competitors = candidates.filter {
-            !$0.isLiteral && !$0.isPartial && (ranking.score($0) >= threshold || $0.isPreferred)
+            !$0.isLiteral && !$0.isPartial && !$0.isHistory && (ranking.score($0) >= threshold || $0.isPreferred)
         }
         var result: [Prefix] = []
         for boundary in leader.confirmationBoundaries where boundary.sourceCount < input.count {

@@ -5,6 +5,23 @@ import Testing
 struct CandidateScoringTests {
     private let languages = Set(InputLanguage.allCases)
 
+    @Test func exactShortSpellingsOutrankCompletionsInBothSearchStages() throws {
+        let engine = CandidateEngine()
+        for (input, expected, language) in [("ma", "吗", InputLanguage.simplifiedChinese),
+                                             ("ne", "呢", .simplifiedChinese), ("man", "man", .english)] {
+            for values in [engine.candidates(for: input, languages: languages),
+                           engine.previewCandidates(for: input, languages: languages, learning: LearningProfile(),
+                                                    dictionary: UserDictionary(), now: .now, context: nil)] {
+                #expect(values.first?.text == expected)
+                #expect(values.first?.language == language)
+                #expect(values.first?.hasCompletion == false)
+                #expect(values.contains { $0.language == .english && $0.hasCompletion })
+                #expect(values.contains { $0.language == .simplifiedChinese && !$0.isMixed })
+                #expect(values.last?.text == input && values.last?.isLiteral == true)
+            }
+        }
+    }
+
     @Test func lingHomophonesOutrankTheMixedSplitInPreviewAndFullSearch() throws {
         let engine = CandidateEngine()
         let profile = LearningProfile()
@@ -70,7 +87,7 @@ struct CandidateScoringTests {
         let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好", upstreamWeight: 100_000)])
         let complete = try #require(decoder.candidates(for: "nihao").first { $0.text == "你好" })
         let incomplete = try #require(decoder.candidates(for: "niha").first { $0.text == "你好" })
-        #expect(abs(complete.rankingScore - incomplete.rankingScore - 1) < 1e-12)
+        #expect(abs(complete.rankingScore - incomplete.rankingScore - 5) < 1e-12)
         #expect(incomplete.hasCompletion)
     }
 

@@ -21,7 +21,6 @@ enum EnglishLexicon {
         let weight: Int64
         let probability: Double
         let lexicalCost: Double
-        private let truncationOffset: Double
         private let capitalizedText: String
         private let uppercaseText: String
 
@@ -33,7 +32,6 @@ enum EnglishLexicon {
             weight = row.weight
             probability = Double(max(1, row.weight)) / totalWeight
             lexicalCost = CandidateScoring.wordCost(weight: row.weight)
-            truncationOffset = WordPrefixChannel.cost(fullLength: length, typedLength: length)
             capitalizedText = word.prefix(1).uppercased() + word.dropFirst()
             uppercaseText = word.uppercased()
         }
@@ -42,7 +40,9 @@ enum EnglishLexicon {
             CandidateScoring.initialLanguageCost + lexicalCost + channelCost(typedLength: typedLength)
         }
 
-        func channelCost(typedLength: Int) -> Double { Double(length - typedLength) + truncationOffset }
+        func channelCost(typedLength: Int) -> Double {
+            WordPrefixChannel.cost(fullLength: length, typedLength: typedLength)
+        }
 
         func text(for style: CaseStyle) -> String {
             switch style {

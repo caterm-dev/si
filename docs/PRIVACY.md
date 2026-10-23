@@ -17,7 +17,7 @@ Personal learning is **off by default** and independent of enabled languages. En
 - Decaying selection strength and the most recent use time.
 - With the separate previous-word option enabled: the preceding chosen candidate text and language/mixed identity, as an aggregate pair rather than an ordered history.
 
-These records can reveal personal words or preferences. They are sensitive even though they are not a chronological record of typing. There is no sentence history, host-document content, per-keystroke log, or app-usage log. The current implementation does not harvest arbitrary literal text or create user phrases automatically.
+These records can reveal personal words or preferences. They are sensitive even though they are not a chronological record of typing. Shared learning retains no sentence history, host-document content, per-keystroke log, or app-usage log. Separately opted-in app history can retain literal text and application identity as described below. Neither mode creates explicit user phrases automatically.
 
 Language, punctuation, automatic-confirmation and learning-consent settings are stored in the stable `com.caterm.si` UserDefaults domain. This domain is retained when the input-method bundle identifier changes to `com.caterm.inputmethod.si`, preserving existing choices without granting new learning consent. Learned preferences are stored at:
 
@@ -63,4 +63,25 @@ The stable learning filename above now holds schema version 2. Version 1 records
 
 The separate [personal phrase dictionary](USER_PHRASES.md) retains user-entered codes, output text, language, pin setting, and stable identifiers. It is available with learning off, stores up to 1,000 phrases without automatic expiry, and supports edit, individual deletion, clear, and explicit JSON import/export. Personal phrases are not duplicated into automatic learning records or used as preceding-word context. Clearing learning and clearing the dictionary are separate actions; exported files and external backups are outside either clear operation.
 
-There is currently no learning-data export/import, synchronization, per-app persistent profile, or full sentence-history model. Such additions must extend this document and provide corresponding retention and deletion controls.
+There is no learning/history export/import, synchronization, remote aggregation or automatic document harvesting. App history is a bounded record of observed input units, not a reliable transcript of sent messages, executed commands or final document text.
+
+
+## Independently opted-in app vocabulary and history
+
+Both options in **App Vocabulary and History** default to off. Enabling one does not enable the other or grant consent to uploading anything. Scope is the IMK client application's bundle identifier; browser sites share their browser's scope. SI does not query the document, clipboard, window title, URL or chat recipient, and requests no Accessibility/Input Monitoring permission or global event tap.
+
+App vocabulary retains the application identifier, normalized consumed spelling, output/language/mixed identity, bounded decaying strength, aggregate confirmation count, base score, lexical-unit evidence and last-use time. Unlike legacy shared learning, ordinary default Space acceptance counts as one use. Literal, personal/verbatim paths, history suggestions, delimiter commits and automatic confirmation are excluded. There are at most 5,000 entries across all apps, with 90-day inactivity expiry, the existing 14-day strength half-life and bounded ranking bonus. When app vocabulary is enabled, typing uses it instead of legacy shared frequency/previous-word learning. Disabling it restores the shared option without migrating or deleting old records.
+
+App history is a distinct consent allowing sensitive literal text retention. It keeps at most 1,000 deduplicated units across apps for 30 days without use. Each row retains exact source spelling and output (each at most 4,096 UTF-8 bytes), required language identities, application identifier, bounded aggregate use count and the most recent use time. It does not retain every occurrence or the order of keystrokes. Units are saved only when unmodified Return/keypad Enter is passed to the host; a Return consumed to commit composition does not save a unit. Shift/shortcut Return does not delimit a record. SI cannot confirm that a message was sent or a command executed.
+
+An unfinished draft exists only in its input controller, for at most five minutes without activity. Escape, committed-text editing/navigation, shortcuts/paste, IMK focus/commit callbacks, configuration/consent changes, secure input, automatic confirmation and paths containing personal/verbatim nodes discard it. Recording after such a boundary waits for the next unmodified host Return or new client. Printable events passed through to an application may be included; they are not read back from the application. Available selection offsets detect unexpected caret movement, but hosts with missing offsets/events or text transformations can make the observed unit differ from final text. History completions require a nonempty composition and explicit candidate acceptance, never read surrounding text, never train word/context preferences, and do not repeat the committed prefix.
+
+**Manage App Data…** supports search and application filtering, Forget, independent per-app vocabulary/history pause, and clearing either type for one app or all apps. Pause stops both recording and suggestions while preserving saved rows. The main section's **Clear All App Data…** removes both types, including unreadable archives, without deleting shared preferences or explicit phrases. Clearing invalidates unfinished drafts and pending candidates. Old queued writes cannot undo a newer clear. Disabled languages cannot be reintroduced by saved candidates. Settings preview offers app scopes and never records data.
+
+Data is stored separately from shared learning and explicit phrases:
+
+```text
+~/Library/Application Support/SI/Personalization/application-memory-v1.json
+```
+
+The version-1 JSON archive has a 64 MiB file limit, owner-only directory/file permissions, and atomic replacement. It is not encrypted by SI and may be accessible to other software under the same user, administrators or backups. The existing backup limitations apply to deletion. Startup and daily maintenance physically prune expired entries; expired rows are excluded from suggestions before cleanup. Oldest rows are evicted first, with deterministic identity tie-breaking. Saves are off the main actor, coalesced for 300 ms and flushed on normal termination. Forced termination can lose recent updates. Open/corruption failures pause both features until explicit clear; save/erase failures are shown in Settings. Per-app exclusion settings are stored in UserDefaults alongside the independent consent flags. No app-vocabulary/history data is supplied to Sparkle or any network service.

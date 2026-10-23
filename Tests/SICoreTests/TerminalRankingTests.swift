@@ -29,7 +29,7 @@ struct TerminalRankingTests {
         let candidates = decoder.candidates(for: "woshi")
         let result = try #require(candidates.first { $0.text == "我是" })
         let lexical = (log(1_000_000.0 * 100_000) - 44) / log(2.0)
-        let spelling = log2(4.0 / 7) + log2(8.0 / 15)
+        let spelling = log2(64.0 / 67) + log2(128.0 / 135)
         let expected = lexical - 1 + log2(1 - RankingCalibration.switchProbability) + spelling
         #expect(abs(result.rankingScore - expected) < 1e-10)
         #expect(candidates.count { $0.text == "我是" } == 1)

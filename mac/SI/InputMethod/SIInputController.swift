@@ -21,6 +21,17 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var candidateAnchor = CandidateAnchor()
     private var explicitlyNavigated = false
     private var automaticConfirmationTask: Task<Void, Never>?
+    private weak var memoryClient: (any IMKTextInput)?
+    private var applicationID: String?
+    private var historyDraft = InputHistoryDraft()
+    private var historyExpirationTask: Task<Void, Never>?
+    private var historyActivityRevision: UInt64 = 0
+    private var historyExpectedLocation: Int?
+    private var memoryGeneration: UInt64?
+    private var memoryLanguageGeneration: UInt64?
+    private var historyWasEnabled: Bool?
+    private var personalizationGeneration: UInt64?
+    private var sessionContextGeneration: UInt64 = 0
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
         panel.list.onSelect = { [weak self] id in
@@ -57,10 +68,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         candidatePanel.claimPresentation()
         let previousCandidates = session.candidates
         let previousRequest = session.pendingCandidateRequest?.id
-        configureSession()
+        configureSession(for: client)
+        checkHistoryPosition(in: client)
         if previousCandidates != session.candidates || previousRequest != session.pendingCandidateRequest?.id { update(client) }
 
         if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+            invalidateHistory()
             commitLiteral(to: client)
             return false
         }
@@ -78,51 +91,57 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
         switch event.keyCode {
         case 51: // Delete
-            guard !session.buffer.isEmpty else { session.breakContext(); return false }
+            guard !session.buffer.isEmpty else { invalidateHistory(); session.breakContext(); return false }
             session.deleteBackward()
             update(client)
             return true
         case 117: // Forward Delete
-            guard !session.buffer.isEmpty else { session.breakContext(); return false }
+            guard !session.buffer.isEmpty else { invalidateHistory(); session.breakContext(); return false }
             session.deleteForward()
             update(client)
             return true
         case 53: // Escape
+            invalidateHistory()
             guard !session.buffer.isEmpty else { session.breakContext(); return false }
             session.reset()
             update(client)
             return true
         case 36, 76: // Return / keypad Enter: preserve the original spelling.
-            guard !session.buffer.isEmpty else { session.breakContext(); return false }
+            guard !session.buffer.isEmpty else {
+                if event.modifierFlags.contains(.shift) { invalidateHistory() }
+                else { finishHistory() }
+                session.breakContext()
+                return false
+            }
             commitLiteral(to: client)
             return true
         case 49: // Space
-            guard !session.buffer.isEmpty else { return false }
+            guard !session.buffer.isEmpty else { appendHistoryPassthrough(" ", in: client); return false }
             resolveCandidates(to: client)
             let selected = currentCandidate
             let commit = session.commitResult(selected, reason: explicitlyNavigated ? .explicitSelection : .defaultAcceptance)
             let suffix = commit.remainingInput.isEmpty && selected?.appendsSpaceOnAcceptance != false ? " " : ""
             apply(commit, suffix: suffix, to: client)
-            PersonalizationSettings.shared.record(commit)
             return true
         case 123, 124: // Edit the marked composition without moving the host-document caret.
-            guard !session.buffer.isEmpty else { session.breakContext(); return false }
+            guard !session.buffer.isEmpty else { invalidateHistory(); session.breakContext(); return false }
             session.moveCursor(by: event.keyCode == 123 ? -1 : 1)
             update(client)
             return true
         case 115, 119: // Home / End
-            guard !session.buffer.isEmpty else { session.breakContext(); return false }
+            guard !session.buffer.isEmpty else { invalidateHistory(); session.breakContext(); return false }
             if event.keyCode == 115 { session.moveToStart() } else { session.moveToEnd() }
             update(client)
             return true
         case 125, 126, 116, 121: // Navigation outside composition belongs to the host.
+            invalidateHistory()
             session.breakContext()
             return false
         default:
             break
         }
 
-        guard let text = event.characters, !text.isEmpty else { return false }
+        guard let text = event.characters, !text.isEmpty else { invalidateHistory(); return false }
         if text.unicodeScalars.allSatisfy({ CharacterSet.letters.contains($0) && $0.isASCII })
             || (text == "'" && !session.buffer.isEmpty) {
             session.append(text)
@@ -143,6 +162,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             let commit = session.commitResult(candidate, reason: .passthrough)
             apply(commit, suffix: boundary.replacement ?? "", to: client)
             session.breakContext()
+            if boundary.replacement == nil { appendHistoryPassthrough(text, in: client) }
             return boundary.replacement != nil
         }
         if !session.buffer.isEmpty, boundary.continuesComposition {
@@ -151,25 +171,131 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return true
         }
         commitLiteral(to: client)
+        appendHistoryPassthrough(text, in: client)
         return false
     }
 
     private func commitCandidate(_ candidate: InputCandidate?, to client: any IMKTextInput) {
-        guard let candidate, session.candidates.contains(candidate) else { return }
-        let commit = session.commitResult(candidate, reason: .explicitSelection)
+        guard let candidate else { return }
+        // Mouse selection can arrive after consent, deletion or secure-input changes without a key event.
+        configureSession(for: client)
+        resolveCandidates(to: client)
+        guard let current = session.candidates.first(where: {
+            $0.id == candidate.id && $0.text.utf8.elementsEqual(candidate.text.utf8)
+                && ($0.historyInput ?? "").utf8.elementsEqual((candidate.historyInput ?? "").utf8)
+        }) else { update(client); return }
+        let commit = session.commitResult(current, reason: .explicitSelection)
         apply(commit, to: client)
-        PersonalizationSettings.shared.record(commit)
     }
 
-    private func configureSession() {
+    private func configureSession(for eventClient: (any IMKTextInput)? = nil) {
+        if let client = eventClient ?? client() { prepareApplicationMemory(for: client) }
+        let appSettings = ApplicationMemorySettings.shared
+        var memory = applicationID.map { appSettings.snapshot(for: $0) } ?? .empty
+        memory.historyPrefix = historyDraft
         session.configure(languages: LanguageSettings.shared.enabledLanguages,
-                          learning: PersonalizationSettings.shared.rankingProfile,
+                          learning: appSettings.vocabularyEnabled ? memory.learning : PersonalizationSettings.shared.rankingProfile,
                           dictionary: UserDictionarySettings.shared.dictionaryForInput,
-                          usesContext: PersonalizationSettings.shared.usesContext,
-                          contextGeneration: PersonalizationSettings.shared.contextGeneration,
+                          usesContext: !appSettings.vocabularyEnabled && PersonalizationSettings.shared.usesContext,
+                          contextGeneration: sessionContextGeneration,
                           automaticConfirmationEnabled: LanguageSettings.shared.automaticConfirmationEnabled
                             && !IsSecureEventInputEnabled(),
-                          configurationGeneration: LanguageSettings.shared.configurationGeneration)
+                          configurationGeneration: LanguageSettings.shared.configurationGeneration,
+                          applicationMemory: memory)
+    }
+
+    private func prepareApplicationMemory(for client: any IMKTextInput) {
+        let sameClient = memoryClient.map { ($0 as AnyObject) === (client as AnyObject) } ?? false
+        if !sameClient {
+            let identifier = client.bundleIdentifier()
+            memoryClient = client
+            applicationID = identifier.flatMap { $0.isEmpty ? nil : $0 }
+            resetHistory()
+            memoryGeneration = nil
+            sessionContextGeneration &+= 1
+        }
+        let settings = ApplicationMemorySettings.shared
+        let enabled = applicationID.map { settings.usesHistory(in: $0) } ?? false
+        let languageGeneration = LanguageSettings.shared.configurationGeneration
+        if let memoryGeneration,
+           memoryGeneration != settings.generation || historyWasEnabled != enabled || memoryLanguageGeneration != languageGeneration {
+            if !historyDraft.text.isEmpty || !session.buffer.isEmpty { invalidateHistory() }
+            else { resetHistory() }
+            sessionContextGeneration &+= 1
+        }
+        memoryGeneration = settings.generation
+        memoryLanguageGeneration = languageGeneration
+        historyWasEnabled = enabled
+        if personalizationGeneration != PersonalizationSettings.shared.contextGeneration {
+            personalizationGeneration = PersonalizationSettings.shared.contextGeneration
+            sessionContextGeneration &+= 1
+        }
+        historyDraft.expire()
+        if !enabled { invalidateHistory() }
+    }
+
+    private func invalidateHistory() {
+        historyExpirationTask?.cancel()
+        historyExpirationTask = nil
+        historyActivityRevision &+= 1
+        historyDraft.invalidate()
+        historyExpectedLocation = nil
+    }
+
+    private func resetHistory() {
+        invalidateHistory()
+        historyDraft = InputHistoryDraft()
+    }
+
+    private func scheduleHistoryExpiration() {
+        historyExpirationTask?.cancel()
+        guard !historyDraft.isInvalid, !historyDraft.text.isEmpty else { return }
+        historyActivityRevision &+= 1
+        let activity = historyActivityRevision
+        historyExpirationTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(InputHistoryDraft.lifetime)) } catch { return }
+            guard !Task.isCancelled, let self, self.historyActivityRevision == activity else { return }
+            self.invalidateHistory()
+            guard self.candidatePanel.ownsPresentation, let client = self.memoryClient, let current = self.client(),
+                  (client as AnyObject) === (current as AnyObject) else { return }
+            self.configureSession(for: client)
+            if !self.session.buffer.isEmpty { self.update(client) }
+        }
+    }
+
+    private func checkHistoryPosition(in client: any IMKTextInput) {
+        guard session.buffer.isEmpty, !historyDraft.text.isEmpty, let expected = historyExpectedLocation else { return }
+        let revision = presentationRevision
+        let range = client.selectedRange()
+        guard revision == presentationRevision else { invalidateHistory(); return }
+        if range.location != NSNotFound && (range.length != 0 || range.location != expected) { invalidateHistory() }
+    }
+
+    private func rememberHistoryPosition(in client: any IMKTextInput, adding count: Int = 0) {
+        guard !historyDraft.isInvalid, !historyDraft.text.isEmpty else { return }
+        let revision = presentationRevision
+        let range = client.selectedRange()
+        guard revision == presentationRevision else { invalidateHistory(); return }
+        historyExpectedLocation = range.location != NSNotFound && range.length == 0 && range.location <= Int.max - count
+            ? range.location + count : nil
+    }
+
+    private func appendHistoryPassthrough(_ text: String, in client: any IMKTextInput) {
+        guard let applicationID, ApplicationMemorySettings.shared.usesHistory(in: applicationID) else { return }
+        guard !text.unicodeScalars.contains(where: {
+            CharacterSet.controlCharacters.contains($0) || (0xF700...0xF8FF).contains($0.value)
+        }) else { invalidateHistory(); return }
+        historyDraft.append(input: text, text: text)
+        scheduleHistoryExpiration()
+        // The event is still passed through exactly once; verify its expected caret position next time.
+        rememberHistoryPosition(in: client, adding: text.utf16.count)
+    }
+
+    private func finishHistory() {
+        defer { resetHistory() }
+        guard let applicationID, ApplicationMemorySettings.shared.usesHistory(in: applicationID),
+              let entry = historyDraft.entry(applicationID: applicationID) else { return }
+        ApplicationMemorySettings.shared.recordHistory(entry)
     }
 
     private func receiveCandidates(_ result: CandidateResult) {
@@ -238,6 +364,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         nonisolated(unsafe) let mainClient = sender
         MainActor.assumeIsolated {
             guard let client = mainClient as? any IMKTextInput ?? client() else { return }
+            invalidateHistory()
             commitLiteral(to: client)
         }
     }
@@ -248,6 +375,9 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             presentationRevision &+= 1
             candidateAnchor.reset()
             markedTextState.reset()
+            memoryClient = nil
+            applicationID = nil
+            resetHistory()
             candidatePanel.claimPresentation()
         }
     }
@@ -355,7 +485,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private func commitLiteral(to client: any IMKTextInput) {
         defer { session.breakContext() }
         guard !session.buffer.isEmpty else { return }
-        insert(session.commit(), into: client)
+        apply(session.commitResult(reason: .literal), to: client)
     }
 
     @discardableResult
@@ -377,7 +507,20 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func apply(_ commit: InputCommit, suffix: String = "", to client: any IMKTextInput) {
-        guard insert(commit.text + suffix, into: client) else { return }
+        let app = applicationID
+        let generation = ApplicationMemorySettings.shared.generation
+        guard insert(commit.text + suffix, into: client) else { invalidateHistory(); return }
+        guard app == applicationID, generation == ApplicationMemorySettings.shared.generation else { invalidateHistory(); return }
+        if let app {
+            ApplicationMemorySettings.shared.recordVocabulary(commit, applicationID: app)
+            if ApplicationMemorySettings.shared.usesHistory(in: app) {
+                historyDraft.append(commit, suffix: suffix)
+                scheduleHistoryExpiration()
+                rememberHistoryPosition(in: client)
+            }
+        }
+        if !ApplicationMemorySettings.shared.vocabularyEnabled { PersonalizationSettings.shared.record(commit) }
+        configureSession(for: client)
         if !session.buffer.isEmpty { update(client) }
     }
 }

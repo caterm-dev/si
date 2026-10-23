@@ -12,7 +12,8 @@ public struct CandidateEngine: Sendable {
     public func candidates(for input: String, languages: Set<InputLanguage>,
                            learning: LearningProfile = LearningProfile(), dictionary: UserDictionary = UserDictionary(),
                            now: Date = .now, context: CandidateContext? = nil,
-                           includesConfirmationEvidence: Bool = false) -> [InputCandidate] {
+                           includesConfirmationEvidence: Bool = false,
+                           applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let generated: [InputCandidate]
         if let providers {
@@ -24,13 +25,19 @@ public struct CandidateEngine: Sendable {
                                                                learning: learning, now: now, context: context,
                                                                includesConfirmationEvidence: includesConfirmationEvidence)
         }
-        return merge(generated, input: input, languages: languages, learning: learning, now: now, context: context)
+        let identities = Set(generated.map(\.id))
+        let saved = applicationMemory.vocabularyCandidates(for: input, languages: languages, now: now)
+            .filter { !identities.contains($0.id) }
+        let merged = merge(generated + saved,
+                           input: input, languages: languages, learning: learning, now: now, context: context)
+        return attachHistory(applicationMemory.historyCandidates(for: input, languages: languages, now: now), to: merged)
     }
 
     /// Provisional hints share the normal lookup/lattice/merge, with smaller lexical budgets.
     /// Custom providers have no bounded-preview contract, so they run only in the final search.
     func previewCandidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile,
-                           dictionary: UserDictionary, now: Date, context: CandidateContext?) -> [InputCandidate] {
+                           dictionary: UserDictionary, now: Date, context: CandidateContext?,
+                           applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         guard providers == nil else { return [InputCandidate(text: input, language: nil, score: 0)] }
         var generated: [InputCandidate] = []
@@ -46,7 +53,22 @@ public struct CandidateEngine: Sendable {
         }
         generated += PinyinDecoder.standard.compositionCandidates(for: input, languages: languages,
             dictionary: dictionary, learning: learning, now: now, context: context, preview: true)
-        return merge(generated, input: input, languages: languages, learning: learning, now: now, context: context)
+        let identities = Set(generated.map(\.id))
+        let saved = applicationMemory.vocabularyCandidates(for: input, languages: languages, now: now)
+            .filter { !identities.contains($0.id) }
+        let merged = merge(generated + saved,
+                           input: input, languages: languages, learning: learning, now: now, context: context)
+        return attachHistory(applicationMemory.historyCandidates(for: input, languages: languages, now: now), to: merged)
+    }
+
+    private func attachHistory(_ history: [InputCandidate], to candidates: [InputCandidate]) -> [InputCandidate] {
+        guard !history.isEmpty else { return candidates }
+        // Keep the engine's first two whole choices, then expose explicitly confirmed history suggestions.
+        let whole = candidates.indices.filter { !candidates[$0].isLiteral && !candidates[$0].isPartial }
+        let insertion = whole.prefix(2).last.map { $0 + 1 } ?? 0
+        var result = candidates
+        result.insert(contentsOf: history, at: insertion)
+        return result
     }
 
     private func merge(_ generated: [InputCandidate], input: String, languages: Set<InputLanguage>,

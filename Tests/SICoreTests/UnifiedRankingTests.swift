@@ -77,13 +77,14 @@ struct UnifiedRankingTests {
         #expect(abs(exp2(-model.cost(token: bing, after: yi)) - (1 - switchProbability) * 10 / 78) < 1e-12)
     }
 
-    @Test func truncatedSpellingIsAFiniteNormalizedDistributionWithoutScoreTiers() {
+    @Test func truncatedSpellingNormalizesAndFavorsTheExactEndpoint() {
         for length in 1...64 {
             let mass = (1...length).reduce(0.0) { $0 + exp2(-WordPrefixChannel.cost(fullLength: length, typedLength: $1)) }
             #expect(abs(mass - 1) < 1e-12)
             for typed in 1..<length {
                 #expect(abs(WordPrefixChannel.cost(fullLength: length, typedLength: typed)
-                            - WordPrefixChannel.cost(fullLength: length, typedLength: typed + 1) - 1) < 1e-12)
+                            - WordPrefixChannel.cost(fullLength: length, typedLength: typed + 1)
+                            - (typed + 1 == length ? 5 : 1)) < 1e-12)
             }
         }
     }

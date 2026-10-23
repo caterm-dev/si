@@ -7,6 +7,6 @@ actor CandidatePreviewSearch {
 
     func generate(_ query: CandidatePreviewQuery) -> [InputCandidate] {
         engine.candidates(for: query.input, languages: query.languages,
-                          learning: query.learning, dictionary: query.dictionary)
+                          learning: query.learning, dictionary: query.dictionary, applicationMemory: query.applicationMemory)
     }
 }

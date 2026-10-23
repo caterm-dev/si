@@ -54,13 +54,17 @@ final class CandidateRowButton: NSButton {
         candidateLabel.stringValue = candidate.text
         // The strip uses small source symbols; the expanded list retains descriptive hints.
         var details: [String] = []
-        if candidate.isLiteral { details.append("As Typed") }
+        if candidate.isHistory { details.append("App History") }
+        else if candidate.isApplicationVocabulary { details.append("App Vocabulary") }
+        else if candidate.isLiteral { details.append("As Typed") }
         else if candidate.isUserPhrase { details.append("Personal") }
         else if candidate.hasLiteralSegments { details.append("Typed text") }
         detailLabel.stringValue = details.joined(separator: " · ")
         detailLabel.isHidden = details.isEmpty || compact
         let symbol: String?
-        if candidate.isPartial { symbol = "arrow.right" }
+        if candidate.isHistory { symbol = "clock.arrow.circlepath" }
+        else if candidate.isApplicationVocabulary { symbol = "app.badge" }
+        else if candidate.isPartial { symbol = "arrow.right" }
         else if candidate.isLiteral { symbol = "textformat" }
         else if candidate.isUserPhrase { symbol = "pin.fill" }
         else if candidate.hasLiteralSegments { symbol = "ellipsis" }
