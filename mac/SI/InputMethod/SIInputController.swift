@@ -148,6 +148,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return true
         }
         let punctuation = LanguageSettings.shared.punctuationBehavior
+        if session.buffer.isEmpty, !LanguageSettings.shared.enabledLanguages.isEmpty,
+           PunctuationCandidates.recognizes(text) {
+            session.append(text)
+            update(client)
+            return true
+        }
         if !session.buffer.isEmpty, CompositionBoundary.keepsInComposition(text: text, behavior: punctuation) {
             session.append(text)
             update(client)

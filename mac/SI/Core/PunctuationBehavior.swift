@@ -16,7 +16,7 @@ public enum PunctuationBehavior: String, CaseIterable, Identifiable, Sendable {
         case .smart:
             "Optional: common punctuation and Tab confirm a whole Chinese or mixed candidate. Chinese endings use Chinese punctuation. ASCII periods and non-confirming symbols stay editable in the composition. Unselected English completions and partial personal codes are not confirmed."
         case .asTyped:
-            "Keep punctuation and symbols in the editable composition without confirming a candidate. Continue typing domains, email addresses and code. Tab commits the original spelling and passes through."
+            "Keep punctuation and symbols editable without confirming a candidate. Common trailing punctuation offers English and Chinese alternatives for complete words, with the original spelling available. Continue typing domains, email addresses and code. Tab commits the original spelling and passes through."
         case .confirmCandidate:
             "Optional: common punctuation and Tab confirm a whole Chinese or mixed candidate and keep punctuation unchanged. ASCII periods and non-confirming symbols stay editable in the composition. English words and partial personal codes are not confirmed unless actively selected."
         }

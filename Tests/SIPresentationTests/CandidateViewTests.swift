@@ -322,6 +322,41 @@ struct CandidateViewTests {
         return try #require(bitmap.representation(using: .png, properties: [:]))
     }
 
+    @Test func punctuationLanguagesStayVisibleAndCommitOnlyTextInBothLayouts() throws {
+        for expanded in [false, true] {
+            var session = InputSession(engine: CandidateEngine(providers: []))
+            session.append(",")
+            var selection = CandidateSelection()
+            selection.setExpanded(expanded)
+            selection.update(session.candidates)
+            let view = CandidateListView()
+            view.render(selection)
+            view.frame = NSRect(origin: .zero, size: view.preferredSize)
+            view.layoutSubtreeIfNeeded()
+            #expect(view.rows.map { $0.detailLabel.stringValue } == ["E", "C", "C", "A"])
+            for row in view.rows {
+                #expect(!row.detailLabel.isHidden)
+                #expect(row.sourceIndicator.isHidden)
+                #expect(row.candidateLabel.frame.maxX < row.detailLabel.frame.minX)
+                #expect(row.detailLabel.frame.maxX <= row.bounds.maxX)
+                let badgeFont = try #require(row.detailLabel.font)
+                let candidateFont = try #require(row.candidateLabel.font)
+                #expect(badgeFont.pointSize < candidateFont.pointSize)
+                #expect(row.detailLabel.frame.width >= row.detailLabel.intrinsicContentSize.width)
+            }
+            #expect(view.rows[1].accessibilityLabel()?.contains("Chinese Punctuation") == true)
+            let selected = try #require(selection.candidate(number: 2))
+            #expect(session.commitResult(selected, reason: .explicitSelection).text == "，")
+            let light = try snapshot(view, appearance: .aqua)
+            let dark = try snapshot(view, appearance: .darkAqua)
+            if let path = ProcessInfo.processInfo.environment["SI_PUNCTUATION_SNAPSHOT_PATH"] {
+                let location = URL(filePath: path).appendingPathExtension(expanded ? "expanded" : "compact")
+                try light.write(to: location.appendingPathExtension("png"))
+                try dark.write(to: location.appendingPathExtension("dark.png"))
+            }
+        }
+    }
+
     @Test func languageDescriptionIsHiddenVisuallyButRetainedForAccessibility() throws {
         let mixed = InputCandidate(text: "你好 world", language: .english, score: 100, isMixed: true)
         let row = CandidateRowButton()

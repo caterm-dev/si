@@ -30,7 +30,7 @@ struct SettingsView: View {
                     Text("Typing")
                 } footer: {
                     Text("Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train app vocabulary. Return and shortcuts keep the remaining original spelling.")
-                    Text(settings.punctuationBehavior.explanation + " Punctuation outside composition passes through unchanged.")
+                    Text(settings.punctuationBehavior.explanation + " Common punctuation typed outside composition opens language-labeled candidates. Other symbols pass through unchanged.")
                 }
                 Section("Try the candidate engine") {
                     CandidatePreviewView(settings: settings, dictionary: dictionary,

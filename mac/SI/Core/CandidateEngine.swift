@@ -15,7 +15,7 @@ public struct CandidateEngine: Sendable {
                            includesConfirmationEvidence: Bool = false,
                            applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
-        let generated: [InputCandidate]
+        var generated: [InputCandidate]
         if let providers {
             generated = providers.filter { $0.requiredLanguages.isSubset(of: languages) }.flatMap { $0.candidates(for: input) }
                 + dictionary.candidates(for: input, languages: languages)
@@ -25,6 +25,8 @@ public struct CandidateEngine: Sendable {
                                                                learning: learning, now: now, context: context,
                                                                includesConfirmationEvidence: includesConfirmationEvidence)
         }
+        generated += punctuationCandidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
+                                            now: now, context: context, applicationMemory: applicationMemory, preview: false)
         let identities = Set(generated.map(\.id))
         let saved = applicationMemory.vocabularyCandidates(for: input, languages: languages, now: now)
             .filter { !identities.contains($0.id) }
@@ -39,7 +41,11 @@ public struct CandidateEngine: Sendable {
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
-        guard providers == nil else { return [InputCandidate(text: input, language: nil, score: 0)] }
+        guard providers == nil else {
+            return punctuationCandidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
+                                         now: now, context: context, applicationMemory: applicationMemory, preview: true)
+                + [InputCandidate(text: input, language: nil, score: 0)]
+        }
         var generated: [InputCandidate] = []
         if languages.contains(.english) {
             let key = input.lowercased()
@@ -53,12 +59,34 @@ public struct CandidateEngine: Sendable {
         }
         generated += PinyinDecoder.standard.compositionCandidates(for: input, languages: languages,
             dictionary: dictionary, learning: learning, now: now, context: context, preview: true)
+        generated += punctuationCandidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
+                                            now: now, context: context, applicationMemory: applicationMemory, preview: true)
         let identities = Set(generated.map(\.id))
         let saved = applicationMemory.vocabularyCandidates(for: input, languages: languages, now: now)
             .filter { !identities.contains($0.id) }
         let merged = merge(generated + saved,
                            input: input, languages: languages, learning: learning, now: now, context: context)
         return attachHistory(applicationMemory.historyCandidates(for: input, languages: languages, now: now), to: merged)
+    }
+
+    private func punctuationCandidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile,
+                                       dictionary: UserDictionary, now: Date, context: CandidateContext?,
+                                       applicationMemory: ApplicationMemorySnapshot, preview: Bool) -> [InputCandidate] {
+        guard let punctuation = PunctuationCandidates.split(input),
+              !PunctuationCandidates.hasRecognizedSuffix(punctuation.prefix) else { return [] }
+        let prefixes: [InputCandidate]
+        if punctuation.prefix.isEmpty {
+            prefixes = [InputCandidate(text: "", language: nil, score: 0)]
+        } else if preview {
+            prefixes = previewCandidates(for: punctuation.prefix, languages: languages, learning: learning,
+                                         dictionary: dictionary, now: now, context: context, applicationMemory: applicationMemory)
+        } else {
+            prefixes = candidates(for: punctuation.prefix, languages: languages, learning: learning, dictionary: dictionary,
+                                  now: now, context: context, applicationMemory: applicationMemory)
+        }
+        return PunctuationCandidates.candidates(symbol: punctuation.symbol, prefixes: prefixes, languages: languages) {
+            learning.rankingScore(for: $0, input: punctuation.prefix, now: now, context: context)
+        }
     }
 
     private func attachHistory(_ history: [InputCandidate], to candidates: [InputCandidate]) -> [InputCandidate] {
