@@ -30,7 +30,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var memoryGeneration: UInt64?
     private var memoryLanguageGeneration: UInt64?
     private var historyWasEnabled: Bool?
-    private var personalizationGeneration: UInt64?
     private var sessionContextGeneration: UInt64 = 0
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
@@ -194,9 +193,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         var memory = applicationID.map { appSettings.snapshot(for: $0) } ?? .empty
         memory.historyPrefix = historyDraft
         session.configure(languages: LanguageSettings.shared.enabledLanguages,
-                          learning: appSettings.vocabularyEnabled ? memory.learning : PersonalizationSettings.shared.rankingProfile,
+                          learning: memory.learning,
                           dictionary: UserDictionarySettings.shared.dictionaryForInput,
-                          usesContext: !appSettings.vocabularyEnabled && PersonalizationSettings.shared.usesContext,
                           contextGeneration: sessionContextGeneration,
                           automaticConfirmationEnabled: LanguageSettings.shared.automaticConfirmationEnabled
                             && !IsSecureEventInputEnabled(),
@@ -226,10 +224,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         memoryGeneration = settings.generation
         memoryLanguageGeneration = languageGeneration
         historyWasEnabled = enabled
-        if personalizationGeneration != PersonalizationSettings.shared.contextGeneration {
-            personalizationGeneration = PersonalizationSettings.shared.contextGeneration
-            sessionContextGeneration &+= 1
-        }
         historyDraft.expire()
         if !enabled { invalidateHistory() }
     }
@@ -519,7 +513,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                 rememberHistoryPosition(in: client)
             }
         }
-        if !ApplicationMemorySettings.shared.vocabularyEnabled { PersonalizationSettings.shared.record(commit) }
         configureSession(for: client)
         if !session.buffer.isEmpty { update(client) }
     }

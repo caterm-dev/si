@@ -34,12 +34,16 @@ final class ApplicationMemorySettings {
     private(set) var isLoading = true
     private(set) var isSaving = false
     private(set) var errorMessage: String?
+    private(set) var hasLegacyLearningData = false
+    private(set) var isRemovingLegacyData = false
+    private(set) var legacyRemovalError: String?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let store: ApplicationMemoryStore?
     @ObservationIgnored private let allowsRecording: @MainActor () -> Bool
     @ObservationIgnored private var snapshots: [String: ApplicationMemorySnapshot] = [:]
     @ObservationIgnored private var pendingWrite: Task<Void, Never>?
     @ObservationIgnored private var maintenance: Task<Void, Never>?
+    @ObservationIgnored private var legacyRemoval: Task<Void, Never>?
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private var loadSucceeded = false
@@ -58,7 +62,8 @@ final class ApplicationMemorySettings {
         vocabularyExclusions = Set(defaults.stringArray(forKey: Self.vocabularyExclusionsKey) ?? [])
         historyExclusions = Set(defaults.stringArray(forKey: Self.historyExclusionsKey) ?? [])
         self.store = isPreview ? nil : store ?? ApplicationMemoryStore(
-            url: URL.applicationSupportDirectory.appending(path: "SI/Personalization/application-memory-v1.json")
+            url: URL.applicationSupportDirectory.appending(path: "SI/Personalization/application-memory-v1.json"),
+            legacyLearningURL: URL.applicationSupportDirectory.appending(path: "SI/Personalization/preferences-v1.json")
         )
         if isPreview { isLoading = false; loadSucceeded = true }
     }
@@ -66,6 +71,7 @@ final class ApplicationMemorySettings {
     func start() async {
         guard !hasStarted, let store else { return }
         hasStarted = true
+        hasLegacyLearningData = await store.hasLegacyLearningData()
         do {
             memory = try await store.load()
             loadSucceeded = true
@@ -179,7 +185,25 @@ final class ApplicationMemorySettings {
         }
     }
 
+    func clearLegacyLearningData() {
+        guard hasLegacyLearningData, !isRemovingLegacyData, let store else { return }
+        isRemovingLegacyData = true
+        legacyRemovalError = nil
+        legacyRemoval = Task {
+            do {
+                try await store.eraseLegacyLearningData()
+                hasLegacyLearningData = false
+                defaults.removeObject(forKey: "personalization.enabled")
+                defaults.removeObject(forKey: "personalization.contextEnabled")
+            } catch {
+                legacyRemovalError = "Old shared learning data could not be deleted. Please retry."
+            }
+            isRemovingLegacyData = false
+        }
+    }
+
     func flush() async {
+        await legacyRemoval?.value
         await pendingWrite?.value
         guard loadSucceeded else { return }
         scheduleSave(immediate: true)

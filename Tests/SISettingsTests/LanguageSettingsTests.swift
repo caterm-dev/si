@@ -18,7 +18,8 @@ struct LanguageSettingsTests {
         #expect(settings.configurationGeneration == generation + 2)
         let restarted = LanguageSettings(defaults: defaults)
         #expect(restarted.automaticConfirmationEnabled)
-        #expect(!PersonalizationSettings(defaults: defaults, isPreview: true).isEnabled)
+        let appMemory = ApplicationMemorySettings(defaults: defaults, isPreview: true)
+        #expect(!appMemory.vocabularyEnabled && !appMemory.historyEnabled)
     }
 
     @Test func punctuationChoicePersistsIndependentlyOfEnabledLanguages() throws {

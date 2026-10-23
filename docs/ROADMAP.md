@@ -31,11 +31,10 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [x] Continuous English lexical segmentation with spaced word candidates, preserved casing, and final-word completion.
 - [x] Incomplete final mixed-word prediction and bounded preservation of unrecognized spans.
 - [ ] Broader unknown-word/language-boundary detection beyond bounded lexical heuristics.
-- [x] Opt-in local frequency/recency learning with pause, per-entry deletion, clear, expiry, and bounded persistence.
+- [x] Opt-in app-scoped frequency/recency learning with pause, per-entry deletion, clear, expiry, and bounded persistence.
 - [x] Independently opted-in app vocabulary and Return-delimited history completion, local bounded storage, per-app pause and scoped deletion.
 - [ ] Native app-vocabulary/history verification, including WeChat, editors, Terminal, focus changes, keyboard/mouse selection and accessibility.
 - [x] Existing single-language preferences influence internal tokens with bounded, length-weighted scoring and a separate base beam.
-- [x] Optional previous-word pair ranking across languages, with shared retention/deletion controls.
 - [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, with retained Chinese word-context tables.
 - [ ] Broader cross-language quality calibration against representative input.
 - [x] Language-specific word/syllable spelling channels and bounded full-spelling search protection.
@@ -65,8 +64,11 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] Generalize language preference storage and provider registration as languages are added.
 - [ ] Add providers based on demonstrated user needs and compatible licensed data.
 - [x] User phrase dictionary with explicit editing, import/export, and retention controls.
-- [x] Optional short-context adaptation with client-local state and tested timeout/reset boundaries.
 - [x] Personal phrase nodes inside longer compositions with fanout/output bounds and learning exclusion.
 - [ ] Native focus-boundary verification and internal pair/sentence context scoring.
 
 Remote inference and keystroke telemetry are not part of the current design. Any proposal that sends typed content off-device requires an explicit product and privacy discussion.
+
+## Retired options
+
+The separate global Personal learning and previous-word pair UI/storage feature was removed on October 23, 2026 in favor of app vocabulary and app history. Core frequency/context ranking primitives remain for reuse and fixtures; the app enables no shared-profile fallback or previous-word learning. Old shared files are left inactive until explicitly deleted through Settings.

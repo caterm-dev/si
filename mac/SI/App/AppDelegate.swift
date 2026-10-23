@@ -20,10 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.server = server
         updater.start()
         Task {
-            async let learning: Void = PersonalizationSettings.shared.start()
             async let phrases: Void = UserDictionarySettings.shared.start()
             async let appMemory: Void = ApplicationMemorySettings.shared.start()
-            _ = await (learning, phrases, appMemory)
+            _ = await (phrases, appMemory)
         }
         if ProcessInfo.processInfo.arguments.contains("--settings") {
             showSettings()
@@ -39,10 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {
-            async let learning: Void = PersonalizationSettings.shared.flush()
             async let phrases: Void = UserDictionarySettings.shared.flush()
             async let appMemory: Void = ApplicationMemorySettings.shared.flush()
-            _ = await (learning, phrases, appMemory)
+            _ = await (phrases, appMemory)
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

@@ -27,7 +27,7 @@ The current changes pass Debug/Release compilation and focused migration checks,
 
 # Daily-use input method implementation
 
-Objective: complete SI as a reliable macOS input method, including personal learning. A passing core suite alone does not establish completion.
+Objective: complete SI as a reliable macOS input method, including app vocabulary and history completion. A passing core suite alone does not establish completion.
 
 ## Constraints
 
@@ -49,7 +49,7 @@ Objective: complete SI as a reliable macOS input method, including personal lear
 | Useful original vocabularies | Documented original data, realistic held-out inputs, vocabulary coverage review | 979 Chinese alternatives and 638 English words; ten held-out synthetic sentences pass. Independent evaluation and broad coverage remain pending |
 | Composition punctuation | Configurable policy, English/code safeguards, no duplicate keys or delimiter learning | Core policy and persistence tested; native routing remains unverified |
 | Host event correctness | Focus/client isolation, shortcuts, punctuation, digits, marked-text ranges, stale callbacks, and native navigation checks | Pending |
-| User dictionary and short-context adaptation | Explicit phrase management, lattice nodes, persistence, session boundaries, deletion tests and UI | Implemented with codec/model/storage/lattice tests; native dialogs and focus behavior remain unverified |
+| User dictionary and app-scoped adaptation | Explicit phrase management, lattice nodes, app vocabulary/history, persistence, session boundaries, deletion and UI | Implemented; native dialogs, app history and focus behavior remain unverified; shared learning/previous-word UI retired |
 | Learned token ranking in longer compositions | Decaying preferences influence internal alternatives without bypassing consent, language, and privacy bounds | Implemented with base/personalized beams, shared cap, deletion/expiry/restart/secure-input tests; limited vocabulary-derived character-boundary context is implemented; broader sentence models remain pending |
 | Performance and robustness | Repeatable synthetic benchmarks, memory checks, corrupt-store recovery, and long-composition tests | Thirteen-scenario Release benchmark, output fingerprints, exhaustive small-search checks and CLI resources measured; guarded comparison/hashing improve long ASCII/CJK expansions, Unicode/emoji expansions and native/broader coverage remain pending |
 | Accessibility and host compatibility | TextEdit, browser, editor, Terminal, office apps, VoiceOver, dark mode, displays | Pending; requires real login-session checks |
@@ -60,7 +60,7 @@ Record completed commands and remaining checks as implementation progresses. Do 
 
 ## Current checkpoint
 
-See `docs/VERIFICATION.md` for the latest tests and builds. Personal phrases support add/edit/delete/pin, additive JSON import/export, private persistence, secure-event suppression, and intermediate lattice nodes. Optional previous-word learning has separate consent, shared retention/deletion controls, client-local timeout/reset logic, and legacy-store migration. Existing word preferences now influence internal lattice tokens with a shared 32-point cap, preserving a separate base beam and adding no retained fields or automatic token harvesting. Composition editing handles a whole-character caret with UTF-16 marked offsets, including joining scalar sequences. Prefix selection consumes exact source boundaries and retains an editable remainder. Configurable punctuation has conservative English/code safeguards and never trains learning.
+See `docs/VERIFICATION.md` for the latest tests and builds. Personal phrases support add/edit/delete/pin, additive JSON import/export, private persistence, secure-event suppression, and intermediate lattice nodes. App vocabulary and history have independent consent and app-scoped retention/deletion controls. The global Personal learning and previous-word options are retired; old shared records are inactive and can be explicitly deleted without migrating them into app scopes. Existing word preferences now influence internal lattice tokens with a shared 32-point cap, preserving a separate base beam and adding no retained fields or automatic token harvesting. Composition editing handles a whole-character caret with UTF-16 marked offsets, including joining scalar sequences. Prefix selection consumes exact source boundaries and retains an editable remainder. Configurable punctuation has conservative English/code safeguards and never trains learning.
 
 The latest synthetic Release benchmark includes 5,000 learned records and 1,000 personal phrases across thirteen cases. Guarded comparison/hashing reduced the long ASCII expansion case from 27.584 to 11.095 ms p95 while matching fingerprints across all twelve existing cases. The added Unicode/emoji case measures 30.727 ms p95 and remains an optimization priority. Peak CLI resident memory is 30.16 MiB and peak footprint 24.11 MiB for this larger workload. See `docs/VERIFICATION.md` for measured scope; native UI/host latency and memory remain unproven.
 

@@ -3,7 +3,6 @@ import SwiftUI
 @MainActor
 struct CandidatePreviewView: View {
     let settings: LanguageSettings
-    let personalization: PersonalizationSettings
     let dictionary: UserDictionarySettings
     var applicationMemory: ApplicationMemorySettings = .shared
     @State private var input = "shi"
@@ -63,7 +62,7 @@ struct CandidatePreviewView: View {
     private var currentQuery: CandidatePreviewQuery {
         let memory: ApplicationMemorySnapshot = applicationID.isEmpty ? .empty : applicationMemory.snapshot(for: applicationID)
         return CandidatePreviewQuery(input: input, languages: settings.enabledLanguages,
-                                     learning: applicationMemory.vocabularyEnabled ? memory.learning : personalization.rankingProfile,
+                                     learning: memory.learning,
                                      dictionary: dictionary.dictionaryForInput, applicationMemory: memory)
     }
 }

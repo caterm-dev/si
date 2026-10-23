@@ -13,9 +13,22 @@ public actor ApplicationMemoryStore {
 
     public static let maximumFileBytes = 64 * 1_024 * 1_024
     private let url: URL
+    private let legacyLearningURL: URL?
     private var lastRevision = -1
 
-    public init(url: URL) { self.url = url }
+    public init(url: URL, legacyLearningURL: URL? = nil) {
+        self.url = url
+        self.legacyLearningURL = legacyLearningURL
+    }
+
+    /// Detect/delete retired shared data without decoding or using its contents.
+    public func hasLegacyLearningData() -> Bool {
+        legacyLearningURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false
+    }
+
+    public func eraseLegacyLearningData() throws {
+        if let legacyLearningURL { try PrivateArchiveFile.erase(legacyLearningURL) }
+    }
 
     public func load(now: Date = .now) throws -> ApplicationMemory {
         guard let data = try PrivateArchiveFile.read(url, maximumBytes: Self.maximumFileBytes) else { return ApplicationMemory() }

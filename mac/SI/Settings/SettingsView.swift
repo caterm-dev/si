@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var settings: LanguageSettings
     var updater: AppUpdater
-    var personalization: PersonalizationSettings = .shared
     var dictionary: UserDictionarySettings = .shared
     var applicationMemory: ApplicationMemorySettings = .shared
 
@@ -30,15 +29,14 @@ struct SettingsView: View {
                 } header: {
                     Text("Typing")
                 } footer: {
-                    Text("Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train personal learning. Return and shortcuts keep the remaining original spelling.")
+                    Text("Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train app vocabulary. Return and shortcuts keep the remaining original spelling.")
                     Text(settings.punctuationBehavior.explanation + " Punctuation outside composition passes through unchanged.")
                 }
                 Section("Try the candidate engine") {
-                    CandidatePreviewView(settings: settings, personalization: personalization, dictionary: dictionary,
+                    CandidatePreviewView(settings: settings, dictionary: dictionary,
                                          applicationMemory: applicationMemory)
                 }
                 ApplicationMemorySection(settings: applicationMemory)
-                PersonalizationView(personalization: personalization)
                 UserDictionarySection(dictionary: dictionary)
                 UpdateSettingsSection(updater: updater)
                 Section("Development Preview") {
@@ -60,6 +58,6 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView(settings: LanguageSettings(defaults: UserDefaults(suiteName: "SI.Preview") ?? .standard), updater: AppUpdater(),
-                 personalization: PersonalizationSettings(isPreview: true), dictionary: UserDictionarySettings(isPreview: true),
+                 dictionary: UserDictionarySettings(isPreview: true),
                  applicationMemory: ApplicationMemorySettings(isPreview: true))
 }
