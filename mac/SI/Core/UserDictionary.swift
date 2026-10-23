@@ -111,14 +111,14 @@ public struct UserDictionary: Equatable, Sendable {
         guard !input.isEmpty else { return [] }
         let english = LearningProfile.normalizedInput(input, language: .english)
         let chinese = LearningProfile.normalizedInput(input, language: .simplifiedChinese)
-        let baseCost = log2(Double(max(1, phrases.count)))
         return phrases.values.compactMap { phrase in
             guard languages.contains(phrase.language) else { return nil }
             let code = phrase.language == .english ? english : chinese
             guard phrase.input.hasPrefix(code) else { return nil }
             let exact = phrase.input == code
-            let cost = baseCost + (exact && phrase.isPinned ? 0 : 1)
-                + (exact ? 0 : WordPrefixChannel.cost(fullLength: phrase.input.count, typedLength: code.count))
+            let cost = CandidateScoring.initialLanguageCost
+                + CandidateScoring.personalCost(codeLength: phrase.code.count,
+                                                typedLength: code.filter { $0 != "'" }.count, pinned: phrase.isPinned)
             return InputCandidate(text: phrase.text, language: phrase.language,
                                   score: Int(-cost), isUserPhrase: true, rankingScore: -cost, hasCompletion: !exact,
                                   isPreferred: exact && phrase.isPinned)

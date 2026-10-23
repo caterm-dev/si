@@ -10,14 +10,6 @@ struct ChineseDecoder: Sendable {
     private static let maximumWordSyllables = 7
     private static let finalPaths = 6
     private static let bitsPerNat = 1 / log(2.0)
-    /// For a fixed consumed syllable count, this is one insertion cost per token.
-    /// Characters and words share the same log-frequency coefficient.
-    private static let wordInsertionCost = 20.0
-    /// A small anti-fragmentation cost: a tenfold frequency advantage (ln(10)) beats it.
-    /// The former ln(1e6) cost erased even very large character-frequency advantages.
-    private static let characterInsertionCost = 2.0
-    /// MSIME's INSERTED_WEIGHT is an initial lexical prior, not an observed corpus count.
-    private static let personalInitialWeight: Int64 = 10_000
     private let lexicon: ChineseLexicon
 
     init(lexicon: ChineseLexicon) { self.lexicon = lexicon }
@@ -40,23 +32,12 @@ struct ChineseDecoder: Sendable {
         var words: [String] = []
         /// Keep natural-log arithmetic through search and trigram rescoring.
         /// Conversion to SI's bit-based preference units happens at ranking boundaries.
-        var score = 0.0
+        var score = -CandidateScoring.initialLanguageCost * log(2.0)
         var personal = false
         var tokenSum = 0.0
         var letters = 0
         var boundaries: [ConfirmationBoundary] = []
         var tokenBonus: Double { personal || letters == 0 ? 0 : min(32, tokenSum / Double(letters)) }
-    }
-
-    private struct Choice {
-        var candidate: InputCandidate
-        /// Exact lexical match, constructed sentence, then unfinished/abbreviated lookup.
-        var group: Int
-        var order: Int
-        var cut = 0
-        var lexicalScore: Double?
-        var isWholeLookup = false
-        var lookupOrder: Int?
     }
 
     func candidates(for source: String, dictionary: UserDictionary, learning: LearningProfile,
@@ -94,14 +75,8 @@ struct ChineseDecoder: Sendable {
             }
         }
         let alternativeRows = lexicon.exactAlternatives(cuts.dropFirst().map(\.syllables))
-        var alternativeOrder: [String: Int] = [:]
-        for (index, row) in alternativeRows.enumerated() {
-            let key = row.key + "\u{0}" + row.text
-            if alternativeOrder[key] == nil { alternativeOrder[key] = index }
-        }
-        var primaryLookupCount = 0
         let ranking = learning.ranking(for: source, now: now, context: context)
-        var choices: [Choice] = []
+        var choices: [InputCandidate] = []
         var prefixes: [InputCandidate] = []
         for (cutIndex, reading) in cuts.enumerated() {
             let cut = reading.syllables
@@ -109,63 +84,25 @@ struct ChineseDecoder: Sendable {
             let normalized = cut.map(ChineseSyllables.canonical)
             // Alternative cuts contribute full-key dictionary rows. Re-running sentence
             // search on each alternative would change MSIME's primary sentence objective.
-            var direct = cutIndex == 0 ? lexicon.matches(normalized, limit: preview ? 32 : nil)
+            let direct = cutIndex == 0 ? lexicon.matches(normalized, limit: preview ? 32 : nil)
                 : alternativeRows.filter { $0.reading == normalized }
+            var lexical = direct.map { (row: $0, typed: normalized) }
             if cutIndex == 0 {
-                var seenWords = Set(direct.map(\.text))
                 for split in ChineseLookupReadings.splitInitials(reading, input: input) {
-                    direct += lexicon.matches(split.syllables, limit: preview ? 32 : nil)
-                        .filter { seenWords.insert($0.text).inserted }
+                    lexical += lexicon.matches(split.syllables, limit: preview ? 32 : nil)
+                        .map { (row: $0, typed: split.syllables.map(ChineseSyllables.canonical)) }
                 }
-                primaryLookupCount = direct.count
+                lexical += lexicon.completions(normalized).map { (row: $0, typed: normalized) }
             }
-            let exactCount = direct.filter { $0.reading == normalized }.count
-            let directKeys = Set(direct.map { $0.key + "\u{0}" + $0.text })
-            var lexical = direct
-            // Longer completions remain available, but do not fill a page of exact homophones.
-            if cutIndex == 0, exactCount < 5 { lexical += lexicon.completions(normalized) }
-            var lexicalChoices: [(row: DictionaryLexeme, candidate: InputCandidate, exact: Bool, order: Int)] = []
-            for (index, row) in lexical.enumerated() {
-                let exact = row.reading == normalized
-                let completion = Self.completes(row.reading, typed: normalized)
-                let candidate = InputCandidate(text: row.text, language: .simplifiedChinese,
-                    score: Int(Self.wordScore(row.weight, syllables: row.reading.count)),
-                    rankingScore: Self.wordScore(row.weight, syllables: row.reading.count),
-                    hasCompletion: completion, lexicalTokenCount: exact || completion ? 1 : nil)
-                lexicalChoices.append((row, candidate, exact, index))
-            }
-            lexicalChoices.sort {
-                let a = log2(Double(max(1, $0.row.weight))) + (ranking.score($0.candidate) - $0.candidate.rankingScore)
-                let b = log2(Double(max(1, $1.row.weight))) + (ranking.score($1.candidate) - $1.candidate.rankingScore)
-                return a == b ? $0.order < $1.order : a > b
-            }
-            // Pin the strongest exact reading, then let completions compete by dictionary
-            // frequency for later seats. Whole sentences follow the leading exact run.
-            if !(normalized.count == 1 && normalized[0].count == 1),
-               let firstExact = lexicalChoices.firstIndex(where: { $0.exact }), firstExact > 0 {
-                lexicalChoices.insert(lexicalChoices.remove(at: firstExact), at: 0)
-            }
-            let leadingExact = lexicalChoices.prefix(while: { $0.exact }).count
-            for (index, value) in lexicalChoices.enumerated() {
-                let key = value.row.key + "\u{0}" + value.row.text
-                let lookupOrder = cutIndex == 0 ? value.order
-                    : primaryLookupCount + (alternativeOrder[key] ?? value.order)
-                choices.append(Choice(candidate: value.candidate, group: index < leadingExact ? 0 : 2,
-                    order: choices.count, cut: cutIndex, lexicalScore: log2(Double(max(1, value.row.weight))),
-                    isWholeLookup: directKeys.contains(key), lookupOrder: lookupOrder))
+            for (row, typed) in lexical {
+                let exact = row.reading == typed
+                let completion = Self.completes(row.reading, typed: typed)
+                let score = wordScore(row, typed: typed)
+                choices.append(InputCandidate(text: row.text, language: .simplifiedChinese,
+                    score: Int(score), rankingScore: score,
+                    hasCompletion: completion, lexicalTokenCount: exact || completion ? 1 : nil))
             }
             guard cutIndex == 0 else { continue }
-            if exactCount >= 5 {
-                for row in lexicon.completions(normalized) {
-                    let candidate = InputCandidate(text: row.text, language: .simplifiedChinese,
-                        score: Int(Self.wordScore(row.weight, syllables: row.reading.count)),
-                        rankingScore: Self.wordScore(row.weight, syllables: row.reading.count),
-                        hasCompletion: true, lexicalTokenCount: 1)
-                    choices.append(Choice(candidate: candidate, group: 3, order: choices.count, cut: cutIndex,
-                                          lexicalScore: log2(Double(max(1, row.weight)))))
-                }
-            }
-
             if includesPartials, cut.count > 1 {
                 var seenPrefixes = Set<[String]>()
                 for sentenceReading in sentenceReadings {
@@ -179,10 +116,11 @@ struct ChineseDecoder: Sendable {
                             guard seenPrefixes.insert(prefix.syllables).inserted else { continue }
                             for row in lexicon.matches(prefix.syllables, limit: preview ? 16 : nil) {
                                 let full = row.reading == prefix.syllables.map(ChineseSyllables.canonical)
+                                let score = wordScore(row, typed: prefix.syllables)
                                 prefixes.append(InputCandidate(text: row.text, language: .simplifiedChinese,
-                                    score: Int(Self.wordScore(row.weight, syllables: span.count)),
+                                    score: Int(score),
                                     consumedInputCount: input.rawBoundaries[offsets[end]],
-                                    rankingScore: Self.wordScore(row.weight, syllables: span.count),
+                                    rankingScore: score,
                                     hasCompletion: Self.completes(row.reading, typed: prefix.syllables),
                                     lexicalTokenCount: full ? 1 : nil))
                             }
@@ -205,22 +143,21 @@ struct ChineseDecoder: Sendable {
                         score: Int(score), isUserPhrase: path.personal, rankingScore: score,
                         tokenLearningBonus: path.tokenBonus, lexicalTokenCount: path.words.count,
                         confirmationBoundaries: path.personal ? [] : path.boundaries)
-                    choices.append(Choice(candidate: candidate, group: 1, order: choices.count, cut: cutIndex))
+                    choices.append(candidate)
                 }
             }
             if choices.count + prefixes.count < 8 {
                 for fallback in ChineseLookupReadings.sparseFallbacks(reading) {
                     let consumed = input.rawBoundaries[fallback.offsets.last!]
                     for row in lexicon.matches(fallback.syllables, limit: preview ? 32 : nil) {
-                        let score = Self.wordScore(row.weight, syllables: row.reading.count)
+                        let score = wordScore(row, typed: fallback.syllables)
                         let candidate = InputCandidate(text: row.text, language: .simplifiedChinese,
                             score: Int(score), consumedInputCount: consumed < source.count ? consumed : nil,
                             rankingScore: score, lexicalTokenCount: row.reading == fallback.syllables ? 1 : nil)
                         if candidate.isPartial {
                             if includesPartials { prefixes.append(candidate) }
                         } else {
-                            choices.append(Choice(candidate: candidate, group: 4, order: choices.count,
-                                                  lexicalScore: log2(Double(max(1, row.weight)))))
+                            choices.append(candidate)
                         }
                     }
                 }
@@ -239,7 +176,7 @@ struct ChineseDecoder: Sendable {
                     let score = path.score * Self.bitsPerNat
                     let candidate = InputCandidate(text: path.text, language: .simplifiedChinese,
                         score: Int(score), isUserPhrase: true, rankingScore: score, lexicalTokenCount: path.words.count)
-                    choices.append(Choice(candidate: candidate, group: 1, order: choices.count))
+                    choices.append(candidate)
                 }
             }
             if includesPartials, input.letters.count > 1 {
@@ -247,8 +184,8 @@ struct ChineseDecoder: Sendable {
                     let code = String(input.letters[..<end])
                     for phrase in dictionary.directPhrases(for: code) where phrase.language == .simplifiedChinese
                         && input.respects(phrase.boundaries, from: 0, to: end) {
-                        let score = Self.wordScore(Self.personalInitialWeight, syllables: max(1, phrase.boundaries.count + 1))
-                            + (phrase.isPinned ? 1 : 0)
+                        let score = -CandidateScoring.initialLanguageCost
+                            - CandidateScoring.personalCost(codeLength: code.count, typedLength: code.count, pinned: phrase.isPinned)
                         prefixes.append(InputCandidate(text: phrase.text, language: .simplifiedChinese,
                             score: Int(score), isUserPhrase: true, consumedInputCount: input.rawBoundaries[end],
                             rankingScore: score, lexicalTokenCount: 1))
@@ -257,68 +194,25 @@ struct ChineseDecoder: Sendable {
             }
         }
         for candidate in dictionary.candidates(for: source, languages: [.simplifiedChinese]).sorted(by: { $0.id < $1.id }) {
-            choices.append(Choice(candidate: candidate, group: candidate.isPreferred ? -1 : 0, order: choices.count))
+            choices.append(candidate)
         }
-        var best: [String: Choice] = [:]
-        for var choice in choices {
-            if let previous = best[choice.candidate.id] {
-                let better: Bool
-                if choice.candidate.isPreferred != previous.candidate.isPreferred {
-                    better = choice.candidate.isPreferred
-                } else {
-                    let current = ranking.score(choice.candidate), old = ranking.score(previous.candidate)
-                    better = current > old || (current == old && choice.candidate.isUserPhrase && !previous.candidate.isUserPhrase)
-                }
-                var retained = better ? choice.candidate : previous.candidate
-                retained.retainLexicalEvidence(from: better ? previous.candidate : choice.candidate)
-                choice.candidate = retained
-                choice.group = min(choice.group, previous.group)
-                choice.cut = min(choice.cut, previous.cut)
-                choice.order = min(choice.order, previous.order)
-                if let old = previous.lexicalScore {
-                    let current = choice.lexicalScore ?? -.infinity
-                    if old > current || (old == current && (previous.lookupOrder ?? previous.order) < (choice.lookupOrder ?? choice.order)) {
-                        choice.lexicalScore = old
-                        choice.lookupOrder = previous.lookupOrder
-                    }
-                }
-                choice.isWholeLookup = previous.isWholeLookup || choice.isWholeLookup
+        var best: [String: InputCandidate] = [:]
+        for var candidate in choices {
+            if let previous = best[candidate.id] {
+                let better = candidate.isPreferred != previous.isPreferred ? candidate.isPreferred
+                    : ranking.score(candidate) > ranking.score(previous)
+                        || (ranking.score(candidate) == ranking.score(previous) && candidate.isUserPhrase && !previous.isUserPhrase)
+                var retained = better ? candidate : previous
+                retained.retainLexicalEvidence(from: better ? previous : candidate)
+                candidate = retained
             }
-            best[choice.candidate.id] = choice
+            best[candidate.id] = candidate
         }
-        var sorted = best.values.sorted {
-            if $0.candidate.isPreferred != $1.candidate.isPreferred { return $0.candidate.isPreferred }
-            if ($0.cut == 0) != ($1.cut == 0) { return $0.cut == 0 }
-            if $0.group != $1.group { return $0.group < $1.group }
-            let left = ($0.lexicalScore ?? $0.candidate.rankingScore) + (ranking.score($0.candidate) - $0.candidate.rankingScore)
-            let right = ($1.lexicalScore ?? $1.candidate.rankingScore) + (ranking.score($1.candidate) - $1.candidate.rankingScore)
-            if left != right { return left > right }
-            if $0.order != $1.order { return $0.order < $1.order }
-            return $0.candidate.id < $1.candidate.id
+        let ordered = best.values.sorted {
+            if $0.isPreferred != $1.isPreferred { return $0.isPreferred }
+            let left = ranking.score($0), right = ranking.score($1)
+            return left == right ? $0.id < $1.id : left > right
         }
-        // Alternative full-key readings compete with the primary dictionary rows by
-        // frequency. A viable alternative outside the first six gets a second seat.
-        if sorted.contains(where: { $0.cut > 0 && $0.isWholeLookup }) {
-            let primaryFrequency = sorted.filter { $0.cut == 0 && $0.isWholeLookup }.compactMap(\.lexicalScore).max()
-            let alternative = sorted.filter { $0.cut > 0 && $0.isWholeLookup }.max {
-                ($0.lexicalScore ?? -.infinity) < ($1.lexicalScore ?? -.infinity)
-            }
-            var whole = sorted.filter(\.isWholeLookup).sorted {
-                let a = ($0.lexicalScore ?? 0) + (ranking.score($0.candidate) - $0.candidate.rankingScore)
-                let b = ($1.lexicalScore ?? 0) + (ranking.score($1.candidate) - $1.candidate.rankingScore)
-                return a == b ? ($0.lookupOrder ?? $0.order) < ($1.lookupOrder ?? $1.order) : a > b
-            }
-            if let alternative,
-               (alternative.lexicalScore ?? -.infinity) >= (primaryFrequency ?? -.infinity) - log2(100.0),
-               let index = whole.firstIndex(where: { $0.candidate.id == alternative.candidate.id }), index >= 6 {
-                whole.insert(whole.remove(at: index), at: 1)
-            }
-            sorted = whole + sorted.filter { !$0.isWholeLookup }
-            if let preferred = sorted.firstIndex(where: { $0.candidate.isPreferred }), preferred > 0 {
-                sorted.insert(sorted.remove(at: preferred), at: 0)
-            }
-        }
-        let ordered = sorted.map(\.candidate)
         guard includesPartials else { return ordered }
         var prefixBest: [String: (candidate: InputCandidate, score: Double)] = [:]
         for var candidate in prefixes {
@@ -393,7 +287,8 @@ struct ChineseDecoder: Sendable {
                     let spelling = input.rawText(from: offsets[start], to: offsets[end])
                     for row in rows {
                         graph[start].append(Edge(end: end, sourceStart: offsets[start], sourceEnd: offsets[end], text: row.text,
-                            score: Self.wordLogScore(row.weight, syllables: end - start), personal: false,
+                            score: -log(2.0) * (CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+                                + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: span)), personal: false,
                             tokenBonus: learning.tokenBonus(input: spelling, text: row.text, language: .simplifiedChinese, now: now),
                             letters: offsets[end] - offsets[start]))
                     }
@@ -401,8 +296,8 @@ struct ChineseDecoder: Sendable {
                     for phrase in dictionary.phrases(for: code) where phrase.language == .simplifiedChinese
                         && input.respects(phrase.boundaries, from: offsets[start], to: offsets[end]) {
                         graph[start].append(Edge(end: end, sourceStart: offsets[start], sourceEnd: offsets[end], text: phrase.text,
-                            score: Self.wordLogScore(Self.personalInitialWeight, syllables: end - start)
-                                + (phrase.isPinned ? log(2.0) : 0), personal: true,
+                            score: -log(2.0) * CandidateScoring.personalCost(codeLength: code.count, typedLength: code.count,
+                                                                          pinned: phrase.isPinned), personal: true,
                             tokenBonus: 0, letters: offsets[end] - offsets[start]))
                     }
                 }
@@ -459,7 +354,10 @@ struct ChineseDecoder: Sendable {
                     next.text += edge.text
                     next.words.append(edge.text)
                     next.score += edge.score
-                    next.score += bonuses[index]
+                    if !path.words.isEmpty {
+                        next.score -= CandidateScoring.languageCost(previous: 1, next: 1) * log(2.0)
+                    }
+                    next.score += edge.personal || path.personal ? 0 : bonuses[index]
                     next.personal = path.personal || edge.personal
                     next.tokenSum += edge.tokenBonus * Double(edge.letters)
                     next.letters += edge.letters
@@ -490,10 +388,8 @@ struct ChineseDecoder: Sendable {
         func finalized(_ paths: [Path], personalized: Bool) -> [Path] {
             var seen = Set<String>()
             var result = Array(paths.filter { (!personalOnly || $0.personal) && seen.insert($0.text).inserted }.prefix(Self.finalPaths))
-            // The upstream does not add a trigram term when only one sentence survived.
-            if result.count > 1 {
-                for index in result.indices { result[index].score = rescored(result[index]) }
-            }
+            // Context evidence must not depend on how many other paths survived the beam.
+            for index in result.indices { result[index].score = rescored(result[index]) }
             return result.sorted {
                 let a = personalized ? ranking.score(candidate($0)) : $0.score
                 let b = personalized ? ranking.score(candidate($1)) : $1.score
@@ -525,6 +421,7 @@ struct ChineseDecoder: Sendable {
     }
 
     private func rescored(_ path: Path) -> Double {
+        guard !path.personal else { return path.score }
         var bonus = 0.0
         for position in path.words.indices {
             let before = position >= 2 ? path.words[position - 2] : "\u{1}"
@@ -560,23 +457,13 @@ struct ChineseDecoder: Sendable {
         return candidates.filter { seen.insert($0.candidate.id).inserted }.prefix(2).map { $0.path }
     }
 
-    private static func wordScore(_ weight: Int64, syllables: Int) -> Double {
-        wordLogScore(weight, syllables: syllables) * bitsPerNat
-    }
-
-    /// Remove the Chinese-only lattice's fixed per-syllable offset before comparing
-    /// tokens across languages. Both dictionaries supply the same integer weight unit.
-    static func mixedWordCost(weight: Int64, isCharacter: Bool) -> Double {
-        (wordInsertionCost - log(Double(max(1, weight))) + (isCharacter ? characterInsertionCost : 0)) * bitsPerNat
-    }
-
-    private static func wordLogScore(_ weight: Int64, syllables: Int) -> Double {
-        let value = log(Double(max(1, weight)))
-        // Sum(log(weight) - insertionCost) plus the path's constant syllable offset.
-        // The former extra ln(1e6) character penalty rewarded low-frequency fragments
-        // whenever they absorbed an otherwise natural standalone character.
-        return value + wordInsertionCost * Double(max(0, syllables - 1))
-            - (syllables <= 1 ? characterInsertionCost : 0)
+    private func wordScore(_ row: DictionaryLexeme, typed: [String]) -> Double {
+        let cost = CandidateScoring.initialLanguageCost
+            + CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+            + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: typed)
+        let context = 2 * max(0, lexicon.bigram?.score(["\u{1}", row.text]) ?? 0)
+            + (lexicon.trigram?.score(["\u{1}", "\u{1}", row.text]) ?? 0)
+        return -cost + context * Self.bitsPerNat
     }
 
     private static func completes(_ reading: [String], typed: [String]) -> Bool {

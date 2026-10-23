@@ -34,12 +34,12 @@ struct ChineseMigrationTests {
         #expect(row?.text == "呢" && row?.weight == 7_763_286)
     }
 
-    @Test func exactNeLeadsWithEitherLanguageConfiguration() {
+    @Test func exactNeRemainsAvailableWhileEnglishCompletionsCompeteByScore() {
         let engine = CandidateEngine()
         for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             let values = engine.candidates(for: "ne", languages: languages)
-            #expect(values.first?.text == "呢")
-            #expect(values.first?.hasCompletion == false)
+            #expect(values.contains { $0.text == "呢" && !$0.hasCompletion })
+            if !languages.contains(.english) { #expect(values.first?.text == "呢") }
             #expect(values.last?.text == "ne" && values.last?.isLiteral == true)
             if languages.contains(.english) { #expect(values.contains { $0.text == "new" }) }
             #expect(values == engine.candidates(for: "ne", languages: languages))
@@ -60,14 +60,18 @@ struct ChineseMigrationTests {
         }
     }
 
-    @Test func exactWordProtectsItsSeatAgainstFrequentCompletion() {
+    @Test func aFrequentCompletionPaysForMissingSpellingInsteadOfUsingAReservedSeat() {
         let decoder = PinyinDecoder(entries: [
             PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好", upstreamWeight: 10),
             PinyinLexiconEntry(syllables: ["ni", "hao", "ma"], text: "你好吗", upstreamWeight: 1_000_000),
         ])
         let values = decoder.candidates(for: "nihao")
-        #expect(values.first?.text == "你好" && values.first?.hasCompletion == false)
-        #expect(values.contains { $0.text == "你好吗" && $0.hasCompletion })
+        #expect(values.first?.text == "你好吗" && values.first?.hasCompletion == true)
+        #expect(values.contains { $0.text == "你好" && !$0.hasCompletion })
+        if let full = values.first(where: { $0.text == "你好" }), let completion = values.first(where: { $0.text == "你好吗" }) {
+            let expectedDifference = log2(1_000_000.0 / 10) + log2(1.0 / 7)
+            #expect(abs(completion.rankingScore - full.rankingScore - expectedDifference) < 1e-12)
+        }
     }
 
     @Test func sentenceUsesNaturalLogEdgesAndRetainsExactWords() throws {
@@ -78,7 +82,9 @@ struct ChineseMigrationTests {
         let values = decoder.candidates(for: "woshi")
         let sentence = try #require(values.first)
         #expect(sentence.text == "我是" && sentence.lexicalTokenCount == 2)
-        #expect(abs(sentence.rankingScore - (log2(100_000_000_000.0) - 4 / log(2.0))) < 1e-12)
+        let expected = (log(100_000_000_000.0) - 44) / log(2.0) - 1
+            + log2(1 - RankingCalibration.switchProbability) + log2(4.0 / 7) + log2(8.0 / 15)
+        #expect(abs(sentence.rankingScore - expected) < 1e-12)
     }
 
     @Test func evidenceLeavesVisibleCandidatesAndScoresUnchanged() {
@@ -114,12 +120,19 @@ struct ChineseMigrationTests {
         // SI intentionally uses a smaller single-character insertion cost than upstream.
         // These are arithmetic fixtures, not desired-language-quality assertions. In particular
         // the first fixture records the unresolved discrepancy with the reported MSIME output.
-        let fixtures = [("julitebieyuan", "距离特别圆", 118.69906632548162),
-                        ("bangwozaixie", "帮我在写", 91.31678246909371),
-                        ("nihaopengyou", "你好朋友", 101.34944880941819),
-                        ("nengxiangbanfayouhuama", "能想办法优化吗", 162.56195220015462)]
-        for (input, text, score) in fixtures {
+        let fixtures: [(String, String, Double, [Int], Int)] = [
+            ("julitebieyuan", "距离特别圆", 118.69906632548162, [2, 2, 2, 3, 4], 2),
+            ("bangwozaixie", "帮我在写", 91.31678246909371, [4, 2, 3, 3], 2),
+            ("nihaopengyou", "你好朋友", 101.34944880941819, [2, 3, 4, 3], 2),
+            ("nengxiangbanfayouhuama", "能想办法优化吗", 162.56195220015462, [4, 5, 3, 2, 3, 3, 2], 4),
+        ]
+        for (input, text, legacyScore, syllableLengths, words) in fixtures {
             let candidate = try #require(PinyinDecoder.standard.candidates(for: input).first)
+            // Convert the independently calculated legacy oracle to the shared scale:
+            // remove its per-syllable offset, then include BOS, spelling and transitions.
+            let spelling = syllableLengths.reduce(0.0) { $0 + log2(1 - exp2(-Double($1 + 1))) + 1 }
+            let score = legacyScore - 20 * Double(syllableLengths.count) / log(2.0) - 1 - spelling
+                + Double(words - 1) * log2(1 - RankingCalibration.switchProbability)
             #expect(candidate.text == text)
             #expect(abs(candidate.rankingScore - score) < 1e-10)
         }

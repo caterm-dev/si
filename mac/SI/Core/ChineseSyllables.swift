@@ -71,7 +71,7 @@ enum ChineseSyllables {
     }
 
     /// Bounded complete segmentations, in longest-edge-first order. Sentence search
-    /// uses only minimum-length cuts so every path has the same syllable score offset.
+    /// uses only minimum-length cuts to bound ambiguity without rewarding extra syllables.
     static func alternatives(_ input: PinyinInput, limit: Int = 32, minimumOnly: Bool = false) -> [[String]] {
         let count = input.letters.count
         var edges = Array(repeating: [(end: Int, text: String)](), count: count + 1)

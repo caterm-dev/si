@@ -4,6 +4,26 @@ import SICore
 @testable import SIPresentation
 
 struct CandidateSelectionTests {
+    @Test func lingKeepsHigherScoringHomophonesAheadOfItsProtectedMixedAlternative() throws {
+        let values = CandidateEngine().candidates(for: "ling", languages: Set(InputLanguage.allCases))
+        var selection = CandidateSelection()
+        selection.update(values)
+        let zero = try #require(selection.candidates.firstIndex { $0.text == "零" })
+        let split = try #require(selection.candidates.firstIndex { $0.text == "里NG" && $0.isMixed })
+        #expect(zero < split)
+        #expect(selection.candidates.count <= 27)
+        #expect(selection.candidates.contains { $0.language == .english })
+        #expect(selection.candidates.contains { $0.isLiteral && $0.text == "ling" })
+        selection.setExpanded(true)
+        selection.move(by: zero)
+        let number = selection.selectedIndex % selection.visiblePageSize + 1
+        #expect(selection.candidate(number: number)?.text == "零")
+        var session = InputSession()
+        session.append("ling")
+        let result = session.commitResult(try #require(selection.selected), reason: .explicitSelection)
+        #expect(result.text == "零" && session.buffer.isEmpty)
+    }
+
     @Test func compactPagesExpandWithoutChangingTheChosenCandidateOrLosingResults() throws {
         var selection = CandidateSelection()
         let values = candidates(22)

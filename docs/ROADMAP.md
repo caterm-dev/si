@@ -34,7 +34,8 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [x] Opt-in local frequency/recency learning with pause, per-entry deletion, clear, expiry, and bounded persistence.
 - [x] Existing single-language preferences influence internal tokens with bounded, length-weighted scoring and a separate base beam.
 - [x] Optional previous-word pair ranking across languages, with shared retention/deletion controls.
-- [x] Unified local probability scoring, English corpus-frequency priors and limited Chinese character-boundary backoff.
+- [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, with retained Chinese word-context tables.
+- [ ] Broader cross-language quality calibration against representative input.
 - [x] Language-specific word/syllable spelling channels and bounded full-spelling search protection.
 - [ ] Broader sentence-level context scoring and representative independent input-quality evaluation.
 - [x] Composition-caret movement and whole-character forward/backward deletion with UTF-16 marked offsets.

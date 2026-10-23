@@ -13,7 +13,7 @@ struct DictionaryConsolidationTests {
             #expect(values.last?.text == input && values.last?.isLiteral == true)
         }
         let chinese = engine.candidates(for: "ne", languages: Set(InputLanguage.allCases))
-        #expect(chinese.first?.text == "呢" && chinese.first?.language == .simplifiedChinese)
+        #expect(chinese.contains { $0.text == "呢" && $0.language == .simplifiedChinese && !$0.hasCompletion })
         #expect(chinese.contains { $0.text == "new" && $0.language == .english })
         #expect(chinese.last?.text == "ne" && chinese.last?.isLiteral == true)
     }

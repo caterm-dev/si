@@ -32,14 +32,14 @@ enum EnglishLexicon {
             id = index + 1
             weight = row.weight
             probability = Double(max(1, row.weight)) / totalWeight
-            lexicalCost = -log2(0.5 * probability)
+            lexicalCost = CandidateScoring.wordCost(weight: row.weight)
             truncationOffset = WordPrefixChannel.cost(fullLength: length, typedLength: length)
             capitalizedText = word.prefix(1).uppercased() + word.dropFirst()
             uppercaseText = word.uppercased()
         }
 
         func cost(typedLength: Int) -> Double {
-            lexicalCost + channelCost(typedLength: typedLength)
+            CandidateScoring.initialLanguageCost + lexicalCost + channelCost(typedLength: typedLength)
         }
 
         func channelCost(typedLength: Int) -> Double { Double(length - typedLength) + truncationOffset }
@@ -146,7 +146,7 @@ enum EnglishLexicon {
         }
     }
 
-    private static let loaded: (entries: [Entry], unknownProbability: Double) = {
+    private static let loaded: (entries: [Entry], unknownProbability: Double, unknownCost: Double) = {
         let database = LexiconDatabase(url:
             DictionaryResources.url("si-english", extension: "sqlite", languageDirectory: "English"))
         let rows = database.allEntries()
@@ -157,16 +157,17 @@ enum EnglishLexicon {
             let key = row.text.lowercased()
             guard (1...64).contains(row.text.utf8.count),
                   row.text.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) }),
-                  row.reading == [key], row.weight >= 0, key > previous else { return ([], 1) }
+                  row.reading == [key], row.weight >= 0, key > previous else { return ([], 1, CandidateScoring.wordCost(weight: 1)) }
             previous = key
         }
         let unknown = Double(max(1, database.unknownWeight))
         let total = rows.reduce(unknown) { $0 + Double(max(1, $1.weight)) }
-        return (rows.enumerated().map { Entry($0.element, index: $0.offset, totalWeight: total) }, unknown / total)
+        return (rows.enumerated().map { Entry($0.element, index: $0.offset, totalWeight: total) }, unknown / total, CandidateScoring.wordCost(weight: max(1, database.unknownWeight)))
     }()
     static let entries = loaded.entries
     static let words = entries.map(\.text)
     static let unknownProbability = loaded.unknownProbability
+    static let unknownCost = loaded.unknownCost
     static let maximumLength = entries.map(\.length).max() ?? 0
     private static let trie = Trie(entries: entries)
 

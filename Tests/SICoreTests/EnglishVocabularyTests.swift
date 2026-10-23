@@ -7,14 +7,13 @@ struct EnglishVocabularyTests {
         DictionaryResources.url("si-english", extension: "sqlite", languageDirectory: "English"))
     private static let rows = database.allEntries()
     private static let words = rows.map(\.text)
-    private static let total = rows.reduce(Double(database.unknownWeight)) { $0 + Double(max(1, $1.weight)) }
     private static let weights = Dictionary(uniqueKeysWithValues: rows.map { ($0.text, Double(max(1, $0.weight))) })
 
     private func referenceScore(_ word: String, input: String) -> Double {
-        let probability = Self.weights[word]! / Self.total / 2
+        let lexicalScore = (log(Self.weights[word]!) - 20) / log(2.0) - 1
         let missing = word.utf8.count - input.lowercased().utf8.count
         let channel = exp2(-Double(missing + 1)) / (1 - exp2(-Double(word.utf8.count)))
-        return log2(probability * channel)
+        return lexicalScore + log2(channel)
     }
 
     @Test func technologySourcesProvideCanonicalExactWordsCompletionsAndMixedTokens() {

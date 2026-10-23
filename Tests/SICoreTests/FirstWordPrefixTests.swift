@@ -26,8 +26,8 @@ struct FirstWordPrefixTests {
 
     @Test func aHigherScoringComposedDerivationRetainsSingleWordEvidenceWithoutChangingItsScore() throws {
         let decoder = PinyinDecoder(entries: [
-            PinyinLexiconEntry(syllables: ["wo"], text: "我"),
-            PinyinLexiconEntry(syllables: ["shi"], text: "是"),
+            PinyinLexiconEntry(syllables: ["wo"], text: "我", upstreamWeight: 1_000_000),
+            PinyinLexiconEntry(syllables: ["shi"], text: "是", upstreamWeight: 100_000),
             PinyinLexiconEntry(syllables: ["wo", "shi"], text: "我是", score: 0),
             PinyinLexiconEntry(syllables: ["b"], text: "吧"),
         ])
@@ -35,7 +35,7 @@ struct FirstWordPrefixTests {
         let prefix = try #require(decoder.compositionCandidates(for: "woshib", languages: [.simplifiedChinese])
             .first { $0.text == "我是" && $0.consumedInputCount == 5 })
         #expect(whole.lexicalTokenCount == 1 && prefix.isLexicalPrefix)
-        #expect(prefix.rankingScore == whole.rankingScore)
+        #expect(abs(prefix.rankingScore - whole.rankingScore) < 1e-12)
         #expect(prefix.id == "prefix5:zh-Hans:我是")
     }
 }

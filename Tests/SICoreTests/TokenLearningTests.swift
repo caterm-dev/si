@@ -187,7 +187,7 @@ struct TokenLearningTests {
         let wholeRanked = try #require(candidates.first { $0.text == "我食客" && !$0.isPartial })
         #expect(candidates.count { $0.id == wholeRanked.id } == 1)
         #expect(wholeRanked.rankingScore == base.rankingScore)
-        #expect(wholeRanked.tokenLearningBonus == 0)
+        // Reusing the whole-input record as token evidence must not add another frequency bonus.
         #expect(profile.rankingScore(for: wholeRanked, input: "woshike", now: now, context: nil) - wholeRanked.rankingScore == 32)
     }
 

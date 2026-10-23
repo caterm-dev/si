@@ -22,15 +22,16 @@ struct TerminalRankingTests {
 
     @Test func terminalDeduplicationKeepsTheHigherScoringConstructedDerivation() throws {
         let decoder = PinyinDecoder(entries: [
-            PinyinLexiconEntry(syllables: ["wo"], text: "我"),
-            PinyinLexiconEntry(syllables: ["shi"], text: "是"),
+            PinyinLexiconEntry(syllables: ["wo"], text: "我", upstreamWeight: 1_000_000),
+            PinyinLexiconEntry(syllables: ["shi"], text: "是", upstreamWeight: 100_000),
             PinyinLexiconEntry(syllables: ["wo", "shi"], text: "我是", score: 0),
         ])
         let candidates = decoder.candidates(for: "woshi")
         let result = try #require(candidates.first { $0.text == "我是" })
-        let pFirst = 0.5 * 1024 / 2050 * 4 / 7
-        let pSecond = (1 - RankingCalibration.switchProbability) * (0.5 + 0.5 * 1024 / 2050) * 8 / 15
-        #expect(abs(result.rankingScore - log2(pFirst * pSecond)) < 1e-10)
+        let lexical = (log(1_000_000.0 * 100_000) - 44) / log(2.0)
+        let spelling = log2(4.0 / 7) + log2(8.0 / 15)
+        let expected = lexical - 1 + log2(1 - RankingCalibration.switchProbability) + spelling
+        #expect(abs(result.rankingScore - expected) < 1e-10)
         #expect(candidates.count { $0.text == "我是" } == 1)
     }
 
@@ -39,8 +40,8 @@ struct TerminalRankingTests {
             PinyinLexiconEntry(syllables: ["wo", "shi"], text: String(UnicodeScalar(0x5000 + $0)!), score: 0)
         }
         let decoder = PinyinDecoder(entries: direct + [
-            PinyinLexiconEntry(syllables: ["wo"], text: "我"),
-            PinyinLexiconEntry(syllables: ["shi"], text: "是"),
+            PinyinLexiconEntry(syllables: ["wo"], text: "我", upstreamWeight: 1_000_000),
+            PinyinLexiconEntry(syllables: ["shi"], text: "是", upstreamWeight: 100_000),
         ])
         let candidates = decoder.candidates(for: "woshi")
         #expect(candidates.first?.text == "我是")

@@ -1,5 +1,6 @@
 import Foundation
 
+/// Legacy probability-model fixtures; active decoder costs use CandidateScoring.
 /// Normalized bilingual word priors with Witten–Bell character-boundary context.
 /// Context evidence is adjacent character types in the existing Chinese vocabulary,
 /// never a fabricated sentence corpus. English falls back to measured unigram priors.

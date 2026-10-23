@@ -1,63 +1,54 @@
 # Candidate ranking
 
-The default Chinese decoder uses SI's native Swift MSIME adaptation. The former bilingual wordfreq/character-boundary objective no longer defines default Chinese ranking. English spellings and functionality are retained through a maintained SQLite dictionary with the same schema, immutable reader and weight unit as Chinese. Private personal phrases and aggregate preference records remain separate from public dictionary data.
+Chinese lookup, English lookup, Chinese sentences, English sentences and bilingual paths use the same `CandidateScoring` cost scale. Complete candidates compete by their effective score in `CandidateEngine`; no language category reserves a front position. The exact original input remains the final explicit candidate. These are comparable heuristic scores, not calibrated sentence probabilities or a production accuracy claim.
 
-## Shared dictionary weight unit
+## Shared dictionary weights and word costs
 
-`Data/DictionaryFormat.json` pins `si-relative-frequency-v1`: one point is one share of a fixed reference mass of 7,694,577,936, the initial Chinese text/reading weight sum. Chinese stored weights stay unchanged. Initial English probabilities, normalized over retained words and an unknown floor, were multiplied by that mass and rounded to integer weights. Snapshot provenance records the conversion and rounding. Both public overlays use these same units. Daily additions/deletions do not rescale stored weights. The shared schema stores `key`, `jp`, `value`, `weight` and versioned metadata; no English source-priority score or centibel encoding reaches the runtime.
+`Data/DictionaryFormat.json` pins `si-relative-frequency-v1`: one point is one share of a fixed reference mass of 7,694,577,936, the initial Chinese text/reading weight sum. Chinese stored weights stay unchanged. Initial English probabilities, normalized over retained words and an unknown floor, were multiplied by that mass and rounded to integer weights. Both public overlays use these units. Ordinary dictionary edits do not rescale stored weights, and this ranking change does not edit dictionary data.
 
-This aligns dictionary-relative priors, not underlying corpora or complete sentence-score calibration. English computes word probabilities from its integer weights plus the pinned unknown weight and retains its word-prefix/segmentation costs; small rounding differences from its previous centibel-derived probabilities are expected. Chinese keeps its insertion costs and word-context increments. CandidateEngine preserves the Chinese provider's internal order while explicitly placing exact English, complete Chinese/English sentences and mixed choices; it does not globally sort the decoders' full scores.
-
-## Bounded mixed lexical search
-
-With English and Chinese enabled, the shared lexical decoder builds Chinese word edges from complete Pinyin readings and English word/completion edges from the trie. Its continuation cost in bits is:
+Every lexical token uses the same cost in bits:
 
 ```text
 wordCost = (20 - ln(max(1, weight)) + (single Chinese character ? 2 : 0)) / ln(2)
+baseScore = -sum(wordCost + spellingCost + languageCost) + contextBonus
 ```
 
-This subtracts the Chinese-only lattice's fixed 20-nat offset per consumed syllable, allowing differing English and Chinese spans to compete without rewarding extra Chinese syllables. Both word types use the same relative weight points and insertion prior. English adds its finite word-prefix channel; a generated language-transition cost is applied separately. Positive Chinese bigram increments reduce continuation cost within Chinese runs, weighted by two; English/personal boundaries reset that context. Chinese-only decoding retains its existing score and trigram stage. Mixed search does not add a new corpus or claim calibrated probabilities.
+The 20-nat per-word insertion cost and two-nat Chinese-character cost are retained SI heuristics. The former Chinese score's `20 × syllableCount` offset is removed, so coverage by more Chinese syllables no longer inflates a score relative to English or mixed paths. The English lookup and lexical decoder use the shared word cost instead of a separate vocabulary-normalized scoring objective. The older `LexicalLanguageModel` remains for historical probability-contract tests and is not used for runtime candidate costs.
 
-The existing bounded base/personalized beams and consumed-spelling prefix selection remain, with no learned preference for a path containing personal/verbatim nodes. Mixed leaders never authorize automatic confirmation. Full Chinese readings keep their Chinese leader; exact English words and fully lexical English sentences are protected from accidental mixed completions. Otherwise a mixed whole path such as `woxiangyaodeploy` → `我想要deploy` can lead. Alternative language identities and exact original spelling remain available. Bounded search can omit desired paths; mixed initial-only Chinese edges and incomplete Chinese-tail prediction remain outside this integration.
+## Spelling and language transitions
 
-## Dictionary and sentence scores
+English uses the existing finite geometric `WordPrefixChannel`. Observing fewer letters adds one bit per missing letter, including when the word ends a mixed or English sentence. Chinese uses `PinyinSpellingChannel` independently for each syllable: a syllable of length `L` with `k` observed letters has cost `L - k + 1 + log2(1 - 2^(-(L+1)))`. Missing syllables use `k = 0`; initials observe only their typed letters. Canonical umlaut aliases share spelling costs, while source offsets still consume the exact original spelling. Fixed correction aliases retain their existing lookup scope; this does not add a general typo model.
 
-The [MSIME maintenance pipeline](CHINESE_VOCABULARY.md) preserves integer source weights and explicit readings in a generated SQLite dictionary. For a word of `n` syllables, the current base score in natural-log units is:
+The first token pays a one-bit language prior. Later tokens pay `-log2(1-p)` when staying in one language or `-log2(p)` when switching, using the existing synthetic `RankingCalibration.switchProbability`. A Chinese token has the same word/spelling cost alone or before an English word. An English token has the same cost in direct lookup, an English sentence and a bilingual sentence; only its preceding language transition differs.
 
-```text
-score = ln(max(1, weight)) + 20 × (n - 1) - (n == 1 ? 2 : 0)
-```
+For `ling`, the full reading `零` competes against `li` + `ng` → `里NG`. The latter pays two word costs and a language switch. It stays available but has no reserved fourth position. English completions such as `lingo` also compete by score; this policy does not guarantee five Chinese homophones in the compact strip.
 
-Characters and words use the same log-frequency coefficient. SI deliberately replaces upstream's single-character `ln(1,000,000)` deduction (about 13.82 nats) with a small two-nat insertion cost. A tenfold frequency advantage contributes `ln(10)` (about 2.30 nats), enough to overcome that extra cost when coverage and token count otherwise agree. The residual cost discourages excessive character splitting. Multiplying weights without changing the structural scale would not solve the imbalance.
+## Context, bounded search and personalization
 
-For a path consuming `N` syllables and `K` tokens, the length term sums to `20 × (N - K)`: at fixed coverage this is an ordinary per-token insertion prior, not an unlimited bonus for splitting into more fragments. The 20-nat insertion prior is retained after development comparisons; reducing it substantially regressed everyday sentences. Candidate weights, readings and context resources are unchanged. No word-specific exclusions or bonuses were added.
+The pinned Chinese word-bigram table contributes twice its positive increment during continuation search. Chinese word trigrams rescore terminal/prefix paths; the mixed decoder accumulates the same evidence within Chinese runs and uses it for presentation/terminal selection. English boundaries restart Chinese word context. A single surviving Chinese sentence receives the same trigram scoring as a sentence with competitors. Direct Chinese lexical choices include the corresponding beginning-of-sequence context. No English context corpus is invented and no surrounding host text is read.
 
-The zero floor is computational; stored weights retain their original values. Positive word-bigram increments contribute during continuation search with multiplier two. Up to six distinct terminal sentences survive before word-trigram rescoring; a sole surviving sentence does not receive that comparison increment. These remain heuristic model scores, not normalized sentence probabilities or estimates of linguistic correctness. Bounded search can discard a desired sentence.
+Chinese continuation arithmetic remains in natural-log units and converts to bits at preference/presentation boundaries. The 32-path Chinese base beam, bounded personalized lane, seven-syllable/32-row spans, terminal alternatives and lexical-prefix pools remain. English/mixed search retains its twelve-path state beams, separate base/personalized selections and bounded terminal/prefix pools. Search can still omit desired candidates. Mixed initial-only Chinese edges, broad language-boundary detection and incomplete Chinese-tail prediction remain limited.
 
-The lattice retains a 32-path base beam, a separately bounded personalized lane, at most seven syllables and 32 lexical rows per span. Direct lexical and personal matches remain independently available. Natural-log arithmetic continues through search and rescoring; presentation/preference boundaries convert into bits. Equal-score heap and terminal sorting follow the pinned upstream behavior. See [the source study](MSIME_ALGORITHM.md) for the upstream algorithm and resource revisions; the smaller character cost is an intentional SI divergence.
+Whole-input and eligible previous-word preferences participate before presentation limits. Token and whole-input frequency share a 32-point cap through their maximum; previous-word preferences add at most 12 points. Prefix preferences use only consumed source spelling. Paths containing personal or verbatim nodes never train learning/context, and sentences are never decomposed into automatically retained token records.
 
-## Presentation and personalization
+Explicit personal phrases use a shared 10,000-weight insertion prior and their code's spelling cost, with a one-bit pin adjustment. Direct phrase scores no longer depend on dictionary size. An exact pinned phrase remains an explicit override; an unpinned phrase is available but does not reserve the first position. The 12-node personal fanout, 4,096-byte constructed-output bound, consent, retention and deletion rules remain unchanged.
 
-Exact lexical placement, constructed sentences and incomplete/initial choices follow explicit candidate policy. The engine preserves Chinese provider order; sharing dictionary weight units does not make the decoders' full scoring objectives interchangeable. Language-aware identity and exact literal fallback remain intact. The input window shortlists at most 27 results; engine and preview retain full results.
+## Merge and presentation
 
-Whole-input and eligible previous-word preferences apply before presentation limits. Token and whole-input frequency share a 32-point cap through their maximum; previous-word preferences add at most 12 points. Prefix preferences use only consumed source spelling. Personal or verbatim paths never train learning/context, and no sentence is automatically split into retained token records. English preferences continue to rank matching English lexical entries.
+`CandidateEngine` keeps the strongest language/text/source-span derivation after preferences, preserving single-lexical-unit evidence. Whole candidates precede prefixes; prefixes retain consumed-span ordering. Within those partitions the effective score determines order, with exact pinned personal phrases as the explicit exception and canonical candidate identity as the deterministic tie-break. Identical text in different languages remains distinguishable. No provider leader is inserted ahead of higher-scoring candidates.
 
-Explicit personal nodes use the retained 10,000 insertion prior, with a one-bit preferred-phrase adjustment; these are user override priors, not corpus frequency. The 12-alternative personal-node fanout and 4,096-byte constructed-output bound remain. Retention, expiry, consent and deletion rules are unchanged.
+The input window still shortlists at most 27 results and preserves a complete candidate per matching language/mixed identity plus the exact literal. This protects availability in the shortlist, not a privileged front position. Sentence leaders can feature two whole choices followed by lexical first words and character prefixes. Engine and Settings preview retain full results. Provisional lookup budgets are smaller, but they use the same score and merge.
 
-Automatic confirmation retains its English/code lexical safeguard and existing opt-in rules. Manual selection and exact original-input commits remain available.
+Automatic confirmation keeps its opt-in boundaries and English/code safeguards. Mixed candidates supply no automatic-confirmation evidence. Native event routing, host compatibility and VoiceOver require separate manual verification.
 
-## Retained fixtures and validation
+## Validation
 
-`Data/Ranking/calibration.json` and the evaluation/holdout/phonetic JSON files contain authored synthetic examples, not imported vocabulary or personal history. `scripts/english_dictionary.py build` reproduces the maintained English database from its adopted weighted snapshot and SI overlay. `scripts/ranking.py` reproduces retained attribution and the synthetic transition constant; its wordfreq importer is used only by explicit English `snapshot` adoption. Wordfreq 3.1.1 supplies English frequency estimates under its retained CC-BY-SA-4.0 attribution; code notices and corpus credits remain in `Data/Ranking/wordfreq-3.1.1/` and bundled `RankingNotices.txt`. English vocabulary pins, licenses and selection remain documented in [English maintenance](ENGLISH_VOCABULARY.md). Historical mixed and former-model tests remain visible as unmet capability checks.
+`CandidateScoringTests` covers `ling` in provisional/full results, monotonic complete-candidate scores, cross-decoder word/context consistency, spelling costs, language filtering, deterministic identity, literal fallback and personal pins. `CandidateSelectionTests` checks that the shortlist keeps `零` ahead of `里NG`, retains all matching identities and can commit the selected character through expanded numbering. Existing mixed, English, learning, cancellation and source-boundary regressions remain active. See [the current verification record](VERIFICATION.md) for actual outcomes and existing failures.
 
 ```sh
-python3 scripts/msime_dictionary.py build --check
-python3 scripts/english_dictionary.py build --check
-./scripts/vocabulary.sh build --check
-python3 scripts/ranking.py --check
-python3 -m unittest discover -s Tests/VocabularyTests -v
 ./scripts/test.sh
+./scripts/test.sh --filter CandidateScoringTests
 ./scripts/build.sh
 ```
 
-Compilation and dictionary reproducibility do not establish Chinese quality or host compatibility. See [the current verification record](VERIFICATION.md) and [unfinished work](IMPLEMENTATION_PLAN.md).
+The retained dictionary-generation checks and provenance are documented in [Chinese maintenance](CHINESE_VOCABULARY.md) and [English maintenance](ENGLISH_VOCABULARY.md). Formula consistency does not establish that the imported corpora, heuristic costs or bounded search are linguistically optimal. Broader quality calibration remains open.

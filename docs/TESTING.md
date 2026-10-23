@@ -24,6 +24,12 @@ Chinese maintenance is consolidated to MSIME. English spellings and functionalit
 
 `ChineseSegmentationTests` covers `woxianganzhao` → `我想按照` in preview/final generation with Chinese-only and combined languages, including explicit/partial separators and inputs longer than four syllables. Injected lexicons check frequency competition across cuts, insertion-order independence, exact `ü/u:` prefix commits, deliberate learning and clear, unchanged visible results with confirmation evidence, disagreement vetoes and the deterministic 32-cut bound. On an intentionally installed build, repeat `woxianganzhao` and `wo'xiang'an'zhao` in TextEdit and a browser field, confirm with Space/number/mouse, then edit, cancel, use a shortcut and change focus. Check that choosing `我想` consumes exactly `woxiang` and leaves `anzhao` editable. These native checks remain separate from the core tests. The benchmark includes the reported ambiguous boundary and ten repeated `fangan` spans.
 
+## Shared candidate scoring
+
+`CandidateScoringTests` verifies score-ordered Chinese/English/mixed whole candidates, the reported `ling` → `零` versus `里NG` comparison in provisional/full results, the same lexical costs across decoders, spelling completion costs, language filtering, deterministic identities, literal fallback and pinned-personal overrides. `CandidateSelectionTests.lingKeepsHigherScoringHomophonesAheadOfItsProtectedMixedAlternative` verifies shortlist survival, expanded numbering and committing `零`. Run `./scripts/test.sh --filter CandidateScoringTests` for the focused core checks. The shared cost formula and remaining quality limits are in [candidate ranking](UNIFIED_RANKING.md).
+
+In two host apps, enter `ling`, expand the list and verify `零` appears before `里NG`, English choices and exact `ling` remain available, and Space/digits/mouse commit the selected text exactly once. Compare Chinese-only and bilingual settings, initial hints and final results, then check focus changes, Return, shortcuts and prefix remainders. Candidate placement follows scores: this does not promise five Chinese entries in the compact strip. Unpinned personal phrases remain available by score; exact pinned phrases retain their explicit override. No native host check has been performed for this formula change.
+
 ## Automated checks
 
 ```sh

@@ -106,7 +106,7 @@ struct ContextLearningTests {
         var phraseSession = InputSession()
         phraseSession.configure(languages: [.english], dictionary: dictionary, usesContext: true)
         phraseSession.append("sig")
-        let personalPhrase = try #require(phraseSession.candidates.first)
+        let personalPhrase = try #require(phraseSession.candidates.first { $0.isUserPhrase })
         _ = phraseSession.commitResult(personalPhrase, reason: .explicitSelection)
         phraseSession.append("fi")
         let next = try #require(phraseSession.candidates.first { $0.text == "file" })

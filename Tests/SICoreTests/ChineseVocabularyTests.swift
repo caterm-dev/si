@@ -19,7 +19,10 @@ struct ChineseVocabularyTests {
             let once = try #require(values.first { $0.text == "单次" })
             #expect(values.first?.text == "单词")
             #expect(abs(word.rankingScore - once.rankingScore - log2(225_415.0 / 25_195.0)) < 1e-12)
-            #expect(decoder.compositionCandidates(for: "xian", languages: [.simplifiedChinese], preview: preview).first?.text == "先")
+            let ambiguous = decoder.compositionCandidates(for: "xian", languages: [.simplifiedChinese], preview: preview)
+            // The two complete readings compete by frequency, spelling and character cost.
+            #expect(ambiguous.first?.text == "西安")
+            #expect(ambiguous.contains { $0.text == "先" })
             #expect(decoder.compositionCandidates(for: "xi'an", languages: [.simplifiedChinese], preview: preview).first?.text == "西安")
         }
         let now = Date(timeIntervalSince1970: 1_790_000_000)
@@ -103,7 +106,8 @@ struct ChineseVocabularyTests {
         ])
         let values = decoder.candidates(for: "guo")
         let country = try #require(values.first { $0.text == "国" })
-        #expect(abs(country.rankingScore - log2(0.5 * 3_063_867.0 / (3_063_867.0 + 7_307_184.0 + 2) * 8 / 15)) < 1e-12)
+        let expected = (log(3_063_867.0) - 22) / log(2.0) - 1 + log2(8.0 / 15)
+        #expect(abs(country.rankingScore - expected) < 1e-12)
         #expect(values.first?.text == "过")
         #expect(values.contains { $0.text == "果" && $0.rankingScore < country.rankingScore })
         let unweighted = PinyinDecoder(entries: [

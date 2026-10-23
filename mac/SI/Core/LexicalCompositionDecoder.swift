@@ -12,8 +12,6 @@ struct LexicalCompositionDecoder: Sendable {
         let text: String
         let languages: Int
         let cost: Double
-        let token: Int
-        var channelCost = 0.0
         var preferred = false
         var personal = false
         var verbatim = false
@@ -31,9 +29,10 @@ struct LexicalCompositionDecoder: Sendable {
         let languages: Int
         let lastLanguage: Int
         let segments: Int
-        let lastToken: Int
         let contextID: Int
         let lastChineseWord: String?
+        let previousChineseWord: String?
+        let trigramBonus: Double
         let preferred: Bool
         let personal: Bool
         let verbatim: Bool
@@ -48,7 +47,7 @@ struct LexicalCompositionDecoder: Sendable {
         var learningBonus: Double {
             personal || verbatim || splitsEnglishWord || consumedLetters == 0 ? 0 : min(32, learnedSum / Double(consumedLetters))
         }
-        var searchCost: Double { cost - learningBonus / LexicalLanguageModel.pointsPerBit }
+        var searchCost: Double { cost - learningBonus / CandidateScoring.pointsPerBit }
         var comparisonText: String { englishText ?? text }
     }
     // Shared immutable tails avoid copying an array on every lattice expansion. Capture is opt-in,
@@ -81,6 +80,8 @@ struct LexicalCompositionDecoder: Sendable {
         let englishWordEnd: Int
         let splitsEnglishWord: Bool
         let contextID: Int
+        let previousChineseWord: String?
+        let trigramBonus: Double
         let learningBonus: Double
 
         init(state: Int, path: Path, continuing: Bool = false) {
@@ -88,13 +89,17 @@ struct LexicalCompositionDecoder: Sendable {
             text = path.comparisonText
             supportsByteComparison = path.supportsByteComparison
             contextID = continuing ? path.contextID : 0
+            previousChineseWord = continuing ? path.previousChineseWord : nil
+            trigramBonus = continuing ? path.trigramBonus : 0
             learningBonus = continuing ? path.learningBonus : 0
             englishWordEnd = continuing ? path.englishWordEnd : 0
             splitsEnglishWord = continuing && path.splitsEnglishWord
         }
 
         static func == (left: Self, right: Self) -> Bool {
-            left.state == right.state && left.contextID == right.contextID && left.learningBonus == right.learningBonus
+            left.state == right.state && left.contextID == right.contextID && left.previousChineseWord == right.previousChineseWord
+                && left.trigramBonus == right.trigramBonus
+                && left.learningBonus == right.learningBonus
                 && left.englishWordEnd == right.englishWordEnd
                 && left.splitsEnglishWord == right.splitsEnglishWord && left.text == right.text
         }
@@ -102,6 +107,8 @@ struct LexicalCompositionDecoder: Sendable {
         func hash(into hasher: inout Hasher) {
             hasher.combine(state)
             hasher.combine(contextID)
+            hasher.combine(previousChineseWord)
+            hasher.combine(trigramBonus)
             hasher.combine(learningBonus)
             hasher.combine(englishWordEnd)
             hasher.combine(splitsEnglishWord)
@@ -117,7 +124,6 @@ struct LexicalCompositionDecoder: Sendable {
         let isPreferred: Bool
     }
     private let chineseLexicon: ChineseLexicon?
-    private let model = LexicalLanguageModel(entries: [])
     private static let beamWidth = 12
     private static let protectedFullSpellings = 2
 
@@ -162,7 +168,7 @@ struct LexicalCompositionDecoder: Sendable {
         var paths = Array(repeating: [Path](), count: count + 1)
         var prefixes = Array(repeating: [PresentationPath](), count: count + 1)
         var prefixRankings: [Int: LearningProfile.Ranking] = [:]
-        paths[0] = [Path(text: "", englishText: "", cost: 0, languages: 0, lastLanguage: 0, segments: 0, lastToken: 0, contextID: 0, lastChineseWord: nil,
+        paths[0] = [Path(text: "", englishText: "", cost: 0, languages: 0, lastLanguage: 0, segments: 0, contextID: 0, lastChineseWord: nil, previousChineseWord: nil, trigramBonus: 0,
                          preferred: false, personal: false, verbatim: false, abbreviated: false, completion: false, learnedSum: 0, consumedLetters: 0,
                          supportsByteComparison: true, englishWordEnd: 0, splitsEnglishWord: false)]
         for start in 0..<count where !paths[start].isEmpty {
@@ -173,8 +179,8 @@ struct LexicalCompositionDecoder: Sendable {
                 let ends = anchors.filter { $0 > start } + [count]
                 for end in ends {
                     options.append(Edge(end: end, text: reading.rawText(from: start, to: end), languages: 2,
-                                        cost: (chineseLexicon == nil ? model.costs[0] : -log2(EnglishLexicon.unknownProbability))
-                                            + Double(end - start) * log2(26), token: 0, verbatim: true))
+                                        cost: EnglishLexicon.unknownCost
+                                            + Double(end - start) * log2(26), verbatim: true))
                 }
             }
             for edge in options {
@@ -183,20 +189,18 @@ struct LexicalCompositionDecoder: Sendable {
                 let supportsBytes = edge.text.unicodeScalars.allSatisfy {
                     $0.isASCII || (0x3400...0x4dbf).contains($0.value) || (0x4e00...0x9fff).contains($0.value)
                 }
-                let contextID = chineseLexicon == nil ? model.contextIdentity(for: edge.token) : edge.contextID
+                let contextID = edge.contextID
                 for path in paths[start] {
                     guard path.text.utf8.count + edge.text.utf8.count <= Self.maximumOutputBytes else { continue }
-                    let increment: Double
-                    if let chineseLexicon {
-                        let languageCost = path.lastLanguage == 0 ? 1 : -log2(path.lastLanguage == edge.languages
-                            ? 1 - RankingCalibration.switchProbability : RankingCalibration.switchProbability)
-                        let contextBonus = edge.languages == 1 && !edge.personal && path.lastLanguage == 1 && !path.personal
-                            ? 2 * max(0, chineseLexicon.bigram?.score([path.lastChineseWord ?? "\u{1}", edge.text]) ?? 0) / log(2.0) : 0
-                        increment = edge.cost + languageCost - contextBonus
-                    } else {
-                        increment = edge.token == 0 ? edge.cost
-                            : edge.channelCost + model.cost(token: edge.token, after: path.lastToken)
-                    }
+                    let languageCost = CandidateScoring.languageCost(previous: path.lastLanguage, next: edge.languages)
+                    let previousWord = path.lastChineseWord ?? "\u{1}"
+                    let beforeWord = path.previousChineseWord ?? "\u{1}"
+                    let usesChineseContext = edge.languages == 1 && !edge.personal && !path.personal
+                    let contextBonus = usesChineseContext
+                        ? 2 * max(0, chineseLexicon?.bigram?.score([previousWord, edge.text]) ?? 0) / log(2.0) : 0
+                    let trigramBonus = usesChineseContext
+                        ? (chineseLexicon?.trigram?.score([beforeWord, previousWord, edge.text]) ?? 0) / log(2.0) : 0
+                    let increment = edge.cost + languageCost - contextBonus
                     let excludesLearning = path.personal || path.verbatim || edge.personal || edge.verbatim
                     let splitsEnglishWord = !excludesLearning && (path.splitsEnglishWord
                         || (path.lastLanguage == 2 && start < path.englishWordEnd)
@@ -212,8 +216,10 @@ struct LexicalCompositionDecoder: Sendable {
                     var next = Path(text: text, englishText: englishText, cost: path.cost + increment,
                                                languages: path.languages | edge.languages, lastLanguage: edge.languages,
                                                segments: path.segments + 1,
-                                               lastToken: edge.token, contextID: contextID,
-                                               lastChineseWord: edge.languages == 1 ? edge.text : nil, preferred: path.segments == 0 && edge.preferred, personal: path.personal || edge.personal,
+                                               contextID: contextID,
+                                               lastChineseWord: edge.languages == 1 ? edge.text : nil,
+                                               previousChineseWord: edge.languages == 1 ? path.lastChineseWord : nil,
+                                               trigramBonus: path.trigramBonus + trigramBonus, preferred: path.segments == 0 && edge.preferred, personal: path.personal || edge.personal,
                                                verbatim: path.verbatim || edge.verbatim, abbreviated: path.abbreviated || edge.abbreviated,
                                                completion: path.completion || edge.completion,
                                                learnedSum: path.learnedSum + edge.learningBonus * Double(edge.end - start),
@@ -261,8 +267,11 @@ struct LexicalCompositionDecoder: Sendable {
         var results = preview ? [] : dictionary.candidates(for: input, languages: languages)
         // Direct lexical matches/completions are not restricted by the constructed-path beam.
         for edge in outgoing[0] where edge.end == count && edge.languages == 1 {
-            results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: Int(-edge.cost * LexicalLanguageModel.pointsPerBit),
-                                          isUserPhrase: edge.personal, rankingScore: -edge.cost * LexicalLanguageModel.pointsPerBit, hasCompletion: edge.completion,
+            let context = edge.personal ? 0 : (2 * max(0, chineseLexicon?.bigram?.score(["\u{1}", edge.text]) ?? 0)
+                + (chineseLexicon?.trigram?.score(["\u{1}", "\u{1}", edge.text]) ?? 0)) / log(2.0)
+            let score = (-edge.cost - CandidateScoring.initialLanguageCost + context) * CandidateScoring.pointsPerBit
+            results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: Int(score),
+                                          isUserPhrase: edge.personal, rankingScore: score, hasCompletion: edge.completion,
                                           isPreferred: edge.preferred, lexicalTokenCount: edge.abbreviated ? nil : 1))
         }
         for path in paths[count] where eligible(path) {
@@ -307,7 +316,6 @@ struct LexicalCompositionDecoder: Sendable {
         let count = input.letters.count
         let chinese = languages.contains(.simplifiedChinese) ? chineseLexicon : nil
         let english = languages.contains(.english)
-        let personalBaseCost = log2(Double(max(1, dictionary.phraseCount)))
         let longest = max(english ? EnglishLexicon.maximumLength : 0, dictionary.maximumCodeLength)
         var result = Array(repeating: [Edge](), count: count)
         guard longest > 0 else { return result }
@@ -347,8 +355,9 @@ struct LexicalCompositionDecoder: Sendable {
                         for row in rows {
                             if wordIDs[row.text] == nil { wordIDs[row.text] = wordIDs.count + 2 }
                             result[start].append(Edge(end: syllable.end, text: row.text, languages: 1,
-                                cost: ChineseDecoder.mixedWordCost(weight: row.weight, isCharacter: row.reading.count == 1),
-                                token: 0, contextID: wordIDs[row.text]!))
+                                cost: CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+                                    + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: reading),
+                                contextID: wordIDs[row.text]!))
                         }
                         visit(syllable.end)
                         reading.removeLast()
@@ -361,20 +370,18 @@ struct LexicalCompositionDecoder: Sendable {
                 let code = String(input.letters[start..<end])
                 for phrase in dictionary.phrases(for: code) where languages.contains(phrase.language)
                     && input.respects(phrase.boundaries, from: start, to: end) {
-                    let cost = chinese == nil ? personalBaseCost + (phrase.isPinned ? 0 : 1)
-                        : ChineseDecoder.mixedWordCost(weight: 10_000, isCharacter: false) - (phrase.isPinned ? 1 : 0)
+                    let cost = CandidateScoring.personalCost(codeLength: code.count, typedLength: code.count, pinned: phrase.isPinned)
                     result[start].append(Edge(end: end, text: phrase.text, languages: phrase.language == .english ? 2 : 1,
-                                              cost: cost, token: 0, preferred: phrase.isPinned, personal: true))
+                                              cost: cost, preferred: phrase.isPinned, personal: true))
                 }
                 if end > start + 1 && input.separators.contains(end - 1) { englishNode = nil }
                 if let node = englishNode {
                     englishNode = EnglishLexicon.advance(node, byte: input.letters[end - 1].asciiValue!)
                     if let next = englishNode, let entry = EnglishLexicon.exactMatch(at: next) {
                         let style = EnglishLexicon.CaseStyle(input: String(input.originalLetters[start..<end]))
-                        let cost = chinese == nil ? entry.cost(typedLength: end - start)
-                            : ChineseDecoder.mixedWordCost(weight: entry.weight, isCharacter: false) + entry.channelCost(typedLength: end - start)
+                        let cost = entry.lexicalCost + entry.channelCost(typedLength: end - start)
                         result[start].append(Edge(end: end, text: entry.text(for: style), languages: 2, cost: cost,
-                                                  token: entry.id, channelCost: entry.channelCost(typedLength: end - start), contextID: 1))
+                                                  contextID: 1))
                     }
                 }
             }
@@ -382,10 +389,9 @@ struct LexicalCompositionDecoder: Sendable {
                 let style = EnglishLexicon.CaseStyle(input: String(input.originalLetters[start..<count]))
                 let matches = preview ? EnglishLexicon.previewCompletions(at: node) : Array(EnglishLexicon.completions(at: node))
                 for entry in matches {
-                    let cost = chinese == nil ? entry.cost(typedLength: count - start)
-                        : ChineseDecoder.mixedWordCost(weight: entry.weight, isCharacter: false) + entry.channelCost(typedLength: count - start)
+                    let cost = entry.lexicalCost + entry.channelCost(typedLength: count - start)
                     result[start].append(Edge(end: count, text: entry.text(for: style), languages: 2, cost: cost,
-                                              token: entry.id, channelCost: entry.channelCost(typedLength: count - start), completion: true, contextID: 1))
+                                              completion: true, contextID: 1))
                 }
             }
             if learning.hasTokenPreferences {
@@ -410,8 +416,8 @@ struct LexicalCompositionDecoder: Sendable {
                 var spans: [Int: Set<Int>] = [:]
                 result[start] = result[start].sorted {
                     // Prefer words that cover more spelling when reducing the provisional edge set.
-                    let a = ($0.cost - $0.learningBonus / LexicalLanguageModel.pointsPerBit) / Double($0.end - start)
-                    let b = ($1.cost - $1.learningBonus / LexicalLanguageModel.pointsPerBit) / Double($1.end - start)
+                    let a = ($0.cost - $0.learningBonus / CandidateScoring.pointsPerBit) / Double($0.end - start)
+                    let b = ($1.cost - $1.learningBonus / CandidateScoring.pointsPerBit) / Double($1.end - start)
                     if a != b { return a < b }
                     if $0.end != $1.end { return $0.end > $1.end }
                     return $0.text < $1.text
@@ -447,7 +453,7 @@ struct LexicalCompositionDecoder: Sendable {
 
     private func baseScore(_ path: Path, consumed: Int?) -> Double {
         // Prefix actions are ordered separately; their score uses only consumed spelling.
-        -(path.cost + LexicalLanguageModel.terminalCost) * LexicalLanguageModel.pointsPerBit
+        (-(path.cost + CandidateScoring.terminalCost) + (path.personal ? 0 : path.trigramBonus)) * CandidateScoring.pointsPerBit
     }
 
     private func prune(_ paths: [Path]) -> [Path] {
@@ -583,7 +589,9 @@ struct LexicalCompositionDecoder: Sendable {
             var group = groups[key, default: []]
             if group.count == limit, !precedes(path, group[group.count - 1].path) { continue }
             if let duplicate = group.firstIndex(where: {
-                $0.path.contextID == path.contextID && $0.path.englishWordEnd == path.englishWordEnd && $0.path.splitsEnglishWord == path.splitsEnglishWord
+                $0.path.contextID == path.contextID && $0.path.previousChineseWord == path.previousChineseWord
+                    && $0.path.trigramBonus == path.trigramBonus
+                    && $0.path.englishWordEnd == path.englishWordEnd && $0.path.splitsEnglishWord == path.splitsEnglishWord
                     && $0.path.abbreviated == path.abbreviated
                     && Self.textEquals($0.path, path)
             }) {
