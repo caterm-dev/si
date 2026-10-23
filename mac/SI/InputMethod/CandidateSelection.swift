@@ -12,7 +12,7 @@ struct CandidateSelection {
     static let pageSize = 9
     static let maximumCandidates = CandidateShortlist.maximumCandidates
     private(set) var isExpanded = false
-    var visiblePageSize: Int { isExpanded ? Self.pageSize : 5 }
+    var visiblePageSize: Int { isExpanded ? Self.pageSize : 6 }
     private(set) var candidates: [InputCandidate] = []
     private(set) var selectedIndex = 0
 
@@ -41,7 +41,7 @@ struct CandidateSelection {
     }
 
     mutating func update(_ candidates: [InputCandidate]) {
-        // Ranking belongs to the engine. Shortlisting never reorders retained choices.
+        // The shared shortlist applies sentence placement; all page/selection actions use it.
         self.candidates = CandidateShortlist.candidates(from: candidates)
         selectedIndex = 0
         if candidates.isEmpty { isExpanded = false }

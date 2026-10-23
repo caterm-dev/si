@@ -41,7 +41,8 @@ struct CandidateEngineTests {
             coverageCosts.append(result[index].remainingInputScore)
             scores.append(result[index].rankingScore)
         }
-        #expect(coverageCosts[0] == coverageCosts[1])
+        // A retained whole path projects its suffix by subtracting its consumed score.
+        #expect(abs(coverageCosts[0] - coverageCosts[1]) < 1e-12)
         #expect(coverageCosts[0] < 0)
         #expect(abs(scores[1] - scores[0] - log2(20_000.0)) < 1e-12)
     }

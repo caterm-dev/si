@@ -150,6 +150,7 @@ struct ChineseDecoder: Sendable {
                         score: Int(score), isUserPhrase: path.personal, rankingScore: score,
                         tokenLearningBonus: path.tokenBonus, lexicalTokenCount: path.words.count,
                         confirmationBoundaries: path.personal ? [] : path.boundaries)
+                        .withChineseSentenceOrigin()
                         .withWordContext(pathContext(path))
                         .withSourceTrace(path.sourceTrace)
                     choices.append(candidate)
@@ -421,10 +422,10 @@ struct ChineseDecoder: Sendable {
         let personalized = ranking.isActive
             ? finalized(personalColumns[count].finish(terminal: true), personalized: true) : base
         var seen = Set<String>()
-        // Evidence may inspect the retained alternatives, but must not change visible
-        // candidates or ranking. Reject boundaries disputed by a plausible hidden path.
+        // Return every bounded terminal alternative. Presentation places the leading
+        // readings together; evidence still rejects disputed confirmation boundaries.
         let competitors = personalized + base
-        return (Array(personalized.prefix(1)) + Array(base.prefix(1)))
+        return competitors
             .filter { seen.insert($0.text).inserted }
             .map { path in
                 guard evidence else { return path }

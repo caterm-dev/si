@@ -5,6 +5,43 @@ import SICore
 
 @MainActor
 struct CandidateViewTests {
+    @Test func reportedSentenceCanBePagedToClickedAndCommittedInBothLayouts() throws {
+        for preview in [false, true] {
+            for expanded in [false, true] {
+                var session = InputSession(candidateGeneration: .deferred)
+                session.configure(languages: Set(InputLanguage.allCases))
+                session.append("erbeizuoduo")
+                let request = try #require(session.pendingCandidateRequest)
+                let accepted = session.accept(preview ? request.generatePreview() : request.generate())
+                #expect(accepted)
+                var selection = CandidateSelection()
+                selection.update(session.candidates)
+                selection.setExpanded(expanded)
+                let index = try #require(selection.candidates.firstIndex { $0.text == "二倍做多" && !$0.isPartial })
+                while selection.page < index / selection.visiblePageSize { selection.movePage(by: 1) }
+                selection.move(by: index - selection.selectedIndex)
+                let number = index % selection.visiblePageSize + 1
+                let chosen = try #require(selection.candidate(number: number))
+                let view = CandidateListView()
+                var clicked: String?
+                view.onSelect = { clicked = $0 }
+                view.render(selection)
+                if !preview, let path = ProcessInfo.processInfo.environment["SI_SENTENCE_ALTERNATIVE_SNAPSHOT_PATH"] {
+                    let layout = expanded ? "expanded" : "compact"
+                    for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+                        let style = appearance == .aqua ? "light" : "dark"
+                        try snapshot(view, appearance: appearance).write(to: URL(filePath: "\(path).\(layout).\(style).png"))
+                    }
+                }
+                view.rows[number - 1].performClick(nil)
+                #expect(clicked == chosen.id && view.rows[number - 1].isCurrent)
+                #expect(view.rows[number - 1].numberLabel.stringValue == String(number))
+                let commit = session.commitResult(chosen, reason: .explicitSelection)
+                #expect(commit.text == "二倍做多" && commit.input == "erbeizuoduo" && session.buffer.isEmpty)
+            }
+        }
+    }
+
     @Test(arguments: [false, true])
     func unchangedPreviewAndFinalResultsKeepTheExistingRows(expanded: Bool) {
         var selection = CandidateSelection()
@@ -124,8 +161,8 @@ struct CandidateViewTests {
         view.render(selection)
         view.frame = NSRect(origin: .zero, size: view.preferredSize)
         view.layoutSubtreeIfNeeded()
-        #expect(view.rows.count == 5 && view.preferredSize.height < 40)
-        #expect(view.rows.map { $0.numberLabel.stringValue } == ["1", "2", "3", "4", "5"])
+        #expect(view.rows.count == 6 && view.preferredSize.height < 40)
+        #expect(view.rows.map { $0.numberLabel.stringValue } == ["1", "2", "3", "4", "5", "6"])
         #expect(Set(view.rows.map { $0.frame.minY }).count == 1)
         #expect(view.rows[0].frame.maxX <= view.rows[1].frame.minX)
         #expect(view.rows.last!.frame.maxX <= view.expandButton.frame.minX)
@@ -133,8 +170,8 @@ struct CandidateViewTests {
         #expect(view.expandButton.accessibilityLabel() == "Expand candidates")
         view.rows[2].performClick(nil)
         #expect(clicked == selection.candidate(number: 3)?.id)
-        view.rows[4].performClick(nil)
-        #expect(clicked == selection.candidate(number: 5)?.id)
+        view.rows[5].performClick(nil)
+        #expect(clicked == selection.candidate(number: 6)?.id)
         selection.move(by: 7)
         view.render(selection)
         let selected = selection.selected
@@ -145,9 +182,9 @@ struct CandidateViewTests {
         #expect(view.expandButton.accessibilityLabel() == "Collapse candidates")
         view.expandButton.performClick(nil)
         #expect(!view.isExpanded && selection.selected == selected)
-        #expect(view.rows[2].isCurrent)
-        view.rows[2].performClick(nil)
-        #expect(clicked == selection.candidate(number: 3)?.id)
+        #expect(view.rows[1].isCurrent)
+        view.rows[1].performClick(nil)
+        #expect(clicked == selection.candidate(number: 2)?.id)
         // Narrow host screens clip labels, without overlapping controls or changing commit identity.
         view.frame.size.width = 220
         view.layoutSubtreeIfNeeded()

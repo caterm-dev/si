@@ -1,6 +1,6 @@
 import AppKit
 import Testing
-import SICore
+@testable import SICore
 @testable import SIPresentation
 
 struct SequentialWordSelectionTests {
@@ -38,7 +38,7 @@ struct SequentialWordSelectionTests {
         }
     }
 
-    @Test func sentencePagesKeepEngineScoreOrderWithoutFeaturingWordsOrCharacters() throws {
+    @Test func sentencePagesKeepOrdinaryEngineOrderAndSentenceAlternatives() throws {
         for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             var session = InputSession(candidateGeneration: .deferred)
             session.configure(languages: languages)
@@ -54,10 +54,12 @@ struct SequentialWordSelectionTests {
                 #expect(selection.candidates.count <= CandidateSelection.maximumCandidates)
                 #expect(session.candidates == engineCandidates)
                 #expect(selection.candidates.last?.text == "biruzhege" && selection.candidates.last?.isLiteral == true)
-                let indices = try selection.candidates.map { candidate in
+                let indices = try selection.candidates.filter { !$0.isChineseSentence }.map { candidate in
                     try #require(engineCandidates.firstIndex { $0.id == candidate.id })
                 }
                 #expect(indices == indices.sorted())
+                let readings = engineCandidates.filter(\.isChineseSentence)
+                #expect(readings.allSatisfy { reading in selection.candidates.contains { $0.id == reading.id } })
                 for (left, right) in zip(engineCandidates.dropLast(), engineCandidates.dropLast().dropFirst()) {
                     #expect(left.inputScore >= right.inputScore)
                 }

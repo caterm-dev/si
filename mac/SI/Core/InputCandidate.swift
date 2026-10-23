@@ -11,6 +11,8 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public var inputScore: Double { rankingScore + remainingInputScore }
     var wordContext: CandidateWordContext?
     var sourceTrace: CandidateSourceTrace?
+    /// Runtime provenance for Chinese sentence placement; lexical matches keep their own positions.
+    private(set) var isChineseSentence = false
     /// Ephemeral length-weighted token preference; shares the frequency cap with whole-input learning.
     let tokenLearningBonus: Double
     public let isMixed: Bool
@@ -82,6 +84,14 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     /// A stronger composed derivation must not erase evidence that the same output is one lexical unit.
     mutating func retainLexicalEvidence(from other: InputCandidate) {
         if other.lexicalTokenCount == 1 { lexicalTokenCount = 1 }
+        isChineseSentence = isChineseSentence && other.isChineseSentence
+    }
+
+    func withChineseSentenceOrigin() -> Self {
+        var result = self
+        result.isChineseSentence = language == .simplifiedChinese && !isMixed && !isPartial
+            && !isUserPhrase && !hasLiteralSegments && !isHistory && punctuationLanguage == nil
+        return result
     }
 
     mutating func accountForRemainingInput(score: Double) {
@@ -110,6 +120,8 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         right.wordContext = nil
         left.sourceTrace = nil
         right.sourceTrace = nil
+        left.isChineseSentence = false
+        right.isChineseSentence = false
         return left == right
     }
 }
