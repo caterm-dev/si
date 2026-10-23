@@ -2,7 +2,15 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let text: String
     public let language: InputLanguage?
     public let score: Int
+    /// Base lexical score for the spelling this candidate actually consumes.
     public let rankingScore: Double
+    /// Request-local score for handling the exact unconsumed spelling after a prefix confirmation.
+    /// Kept separate from the word score so it cannot be persisted as a learned word frequency.
+    public private(set) var remainingInputScore = 0.0
+    /// Full-input comparison score before preferences; complete candidates keep their base score.
+    public var inputScore: Double { rankingScore + remainingInputScore }
+    var wordContext: CandidateWordContext?
+    var sourceTrace: CandidateSourceTrace?
     /// Ephemeral length-weighted token preference; shares the frequency cap with whole-input learning.
     let tokenLearningBonus: Double
     public let isMixed: Bool
@@ -74,5 +82,34 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     /// A stronger composed derivation must not erase evidence that the same output is one lexical unit.
     mutating func retainLexicalEvidence(from other: InputCandidate) {
         if other.lexicalTokenCount == 1 { lexicalTokenCount = 1 }
+    }
+
+    mutating func accountForRemainingInput(score: Double) {
+        remainingInputScore = isPartial && score.isFinite ? score : 0
+    }
+
+    func withWordContext(_ context: CandidateWordContext) -> Self {
+        var result = self
+        result.wordContext = context
+        return result
+    }
+
+    func withSourceTrace(_ trace: CandidateSourceTrace?) -> Self {
+        var result = self
+        result.sourceTrace = trace
+        return result
+    }
+
+    func hasSameCommitValue(as other: Self) -> Bool {
+        var left = self
+        var right = other
+        // Request-local lookahead must not invalidate an otherwise identical decoder candidate.
+        left.remainingInputScore = 0
+        right.remainingInputScore = 0
+        left.wordContext = nil
+        right.wordContext = nil
+        left.sourceTrace = nil
+        right.sourceTrace = nil
+        return left == right
     }
 }

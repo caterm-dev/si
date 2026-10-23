@@ -10,7 +10,7 @@ struct CandidateSelection {
     }
 
     static let pageSize = 9
-    static let maximumCandidates = 27
+    static let maximumCandidates = CandidateShortlist.maximumCandidates
     private(set) var isExpanded = false
     var visiblePageSize: Int { isExpanded ? Self.pageSize : 5 }
     private(set) var candidates: [InputCandidate] = []
@@ -42,40 +42,9 @@ struct CandidateSelection {
 
     mutating func update(_ candidates: [InputCandidate]) {
         // Ranking belongs to the engine. Shortlisting never reorders retained choices.
-        self.candidates = Self.shortlist(candidates)
+        self.candidates = CandidateShortlist.candidates(from: candidates)
         selectedIndex = 0
         if candidates.isEmpty { isExpanded = false }
-    }
-
-    private static func protectedIDs(_ engineCandidates: [InputCandidate]) -> Set<String> {
-        // Reserve a complete choice per language identity before considering prefix-only fallbacks.
-        var languages: Set<InputLanguage> = []
-        var includesMixed = false
-        var retainedIDs: Set<String> = []
-        if let history = engineCandidates.first(where: \.isHistory) { retainedIDs.insert(history.id) }
-        for partial in [false, true] {
-            for candidate in engineCandidates where candidate.isPartial == partial && !candidate.isHistory {
-                if candidate.isLiteral {
-                    retainedIDs.insert(candidate.id)
-                } else if candidate.isMixed {
-                    if !includesMixed { retainedIDs.insert(candidate.id) }
-                    includesMixed = true
-                } else if let language = candidate.language, languages.insert(language).inserted {
-                    retainedIDs.insert(candidate.id)
-                }
-            }
-        }
-        return retainedIDs
-    }
-
-    private static func shortlist(_ candidates: [InputCandidate]) -> [InputCandidate] {
-        guard candidates.count > maximumCandidates else { return candidates }
-        var retainedIDs = protectedIDs(candidates)
-        for candidate in candidates {
-            guard retainedIDs.count < maximumCandidates else { break }
-            retainedIDs.insert(candidate.id)
-        }
-        return candidates.filter { retainedIDs.contains($0.id) }
     }
 
     mutating func setExpanded(_ expanded: Bool) { isExpanded = expanded }

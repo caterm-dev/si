@@ -64,8 +64,8 @@ struct MixedWordBoundaryTests {
         ], now: now)
         let candidates = CandidateEngine().candidates(for: "nihaotitleshurufa", languages: languages, learning: profile, now: now)
         let prefix = try #require(candidates.first { $0.text == "你好tit了" && $0.consumedInputCount == 10 })
-        #expect(profile.rankingScore(for: prefix, input: "nihaotitle", now: now, context: nil) > prefix.rankingScore)
-        #expect(profile.rankingScore(for: prefix, input: "nihaotitleshurufa", now: now, context: nil) == prefix.rankingScore)
+        #expect(profile.rankingScore(for: prefix, input: "nihaotitle", now: now, context: nil) > prefix.inputScore)
+        #expect(profile.rankingScore(for: prefix, input: "nihaotitleshurufa", now: now, context: nil) == prefix.inputScore)
     }
 
     @Test(arguments: [("nihaotitlele", "你好title乐观"), ("nihaotit'le", "你好tit乐观")])

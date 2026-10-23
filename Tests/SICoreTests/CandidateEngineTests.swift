@@ -15,43 +15,44 @@ struct CandidateEngineTests {
                                                     dictionary: UserDictionary(), now: .now, context: nil)] {
                 let ranked = result.filter { !$0.isLiteral && !$0.isHistory }
                 for (left, right) in zip(ranked, ranked.dropFirst()) {
-                    #expect(left.rankingScore >= right.rankingScore)
-                    if left.rankingScore == right.rankingScore { #expect(left.id < right.id) }
+                    #expect(left.inputScore >= right.inputScore)
+                    if left.inputScore == right.inputScore { #expect(left.id < right.id) }
                 }
                 #expect(result.last?.isLiteral == true && result.last?.text == input)
             }
         }
     }
 
-    @Test func increasingDictionaryFrequencyRaisesAPrefixThroughTheSameWordScore() throws {
-        var positions: [Int] = []
+    @Test func increasingDictionaryFrequencyRaisesTheWordWithoutChangingItsCoverageCost() throws {
+        var coverageCosts: [Double] = []
         var scores: [Double] = []
         for weight: UInt64 in [100, 2_000_000] {
             let decoder = PinyinDecoder(entries: [
                 PinyinLexiconEntry(syllables: ["bi", "ru"], text: "比如", upstreamWeight: weight),
                 PinyinLexiconEntry(syllables: ["zhe", "ge"], text: "这个", upstreamWeight: 100),
-                PinyinLexiconEntry(syllables: ["bi", "ru", "zhe", "ge"], text: "比如这个", upstreamWeight: 1_000_000),
+                PinyinLexiconEntry(syllables: ["bi", "ru", "zhe", "ge"], text: "完整候选", upstreamWeight: 1_000_000),
             ])
             let engine = CandidateEngine(providers: [CompositionProvider(decoder: decoder)])
             let result = engine.candidates(for: "biruzhege", languages: [.simplifiedChinese])
             let index = try #require(result.firstIndex { $0.text == "比如" && $0.consumedInputCount == 4 })
-            let whole = try #require(result.firstIndex { $0.text == "比如这个" && !$0.isPartial })
+            #expect(result.contains { $0.text == "完整候选" && !$0.isPartial })
             let standalone = try #require(decoder.candidates(for: "biru").first { $0.text == "比如" })
             #expect(abs(result[index].rankingScore - standalone.rankingScore) < 1e-12)
-            positions.append(index - whole)
+            coverageCosts.append(result[index].remainingInputScore)
             scores.append(result[index].rankingScore)
         }
-        #expect(positions[0] > 0 && positions[1] < 0)
+        #expect(coverageCosts[0] == coverageCosts[1])
+        #expect(coverageCosts[0] < 0)
         #expect(abs(scores[1] - scores[0] - log2(20_000.0)) < 1e-12)
     }
 
     @Test func wholeAndPrefixCandidatesCompeteByFractionalScoreAcrossSourceSpans() {
         let values = [
             InputCandidate(text: "Whole", language: .english, score: 10, rankingScore: 10.25),
-            InputCandidate(text: "Short", language: .english, score: 10,
-                           consumedInputCount: 1, rankingScore: 10.75),
-            InputCandidate(text: "Long", language: .english, score: 10,
-                           consumedInputCount: 4, rankingScore: 10.5),
+            InputCandidate(text: "Short", language: .english, score: 12,
+                           consumedInputCount: 1, rankingScore: 12.75),
+            InputCandidate(text: "Long", language: .english, score: 12,
+                           consumedInputCount: 4, rankingScore: 12.5),
             InputCandidate(text: "Low", language: .english, score: 9, consumedInputCount: 2),
         ]
         for rows in [values, Array(values.reversed())] {
@@ -141,7 +142,9 @@ struct CandidateEngineTests {
 private struct RankedProvider: CandidateProvider {
     let language = InputLanguage.english
     let values: [InputCandidate]
-    func candidates(for input: String) -> [InputCandidate] { values }
+    func candidates(for input: String) -> [InputCandidate] {
+        input == "synthetic" ? values : [InputCandidate(text: "Residual", language: language, score: 0)]
+    }
 }
 
 private struct CompositionProvider: CandidateProvider {

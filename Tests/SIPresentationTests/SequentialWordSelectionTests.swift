@@ -59,7 +59,7 @@ struct SequentialWordSelectionTests {
                 }
                 #expect(indices == indices.sorted())
                 for (left, right) in zip(engineCandidates.dropLast(), engineCandidates.dropLast().dropFirst()) {
-                    #expect(left.rankingScore >= right.rankingScore)
+                    #expect(left.inputScore >= right.inputScore)
                 }
                 for expanded in [false, true] {
                     selection.setExpanded(expanded)

@@ -3,6 +3,34 @@ import SICore
 @testable import SIPresentation
 
 struct WholeWordCandidateTests {
+    @Test func continuousCompositionsLeadAndDefaultConfirmationCommitsTheWholeInput() throws {
+        for (input, expected) in [("iwanttobuild", "I want to build"), ("nihaopengyou", "你好朋友"),
+                                   ("biruzhege", "比如这个"), ("danci", "单词"),
+                                   ("zhegeshurufakeyishuruzhongwenheyingwen", "这个输入法可以输入中文和英文")] {
+            let single: Set<InputLanguage> = input == "iwanttobuild" ? [.english] : [.simplifiedChinese]
+            for languages in [single, Set(InputLanguage.allCases)] {
+                for preview in [true, false] {
+                    for expanded in [true, false] {
+                        var session = InputSession(candidateGeneration: .deferred)
+                        session.configure(languages: languages)
+                        for letter in input { session.append(String(letter)) }
+                        let request = try #require(session.pendingCandidateRequest)
+                        let accepted = session.accept(preview ? request.generatePreview() : request.generate())
+                        #expect(accepted)
+                        var selection = CandidateSelection()
+                        selection.update(session.candidates)
+                        selection.setExpanded(expanded)
+                        let chosen = try #require(selection.candidate(number: 1))
+                        #expect(chosen.text == expected && !chosen.isPartial)
+                        let commit = session.commitResult(chosen, reason: .defaultAcceptance)
+                        #expect(commit.text == expected && commit.input == input && commit.remainingInput.isEmpty)
+                        #expect(session.buffer.isEmpty)
+                    }
+                }
+            }
+        }
+    }
+
     @Test func fullSpellingWordSurvivesBothSearchStagesAndThePanelShortlist() throws {
         for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             for input in ["danci", "dan'ci"] {

@@ -36,6 +36,10 @@ enum SIBenchmark {
             return
         }
         let previewsOnly = CommandLine.arguments.dropFirst().contains("--previews")
+        // Small explicit runs are for smoke comparisons; the default measurement keeps 200 samples.
+        let requestedIterations = ProcessInfo.processInfo.environment["SI_BENCHMARK_ITERATIONS"].flatMap(Int.init)
+        let iterations = min(1_000, max(1, requestedIterations ?? 200))
+        let warmups = min(10, max(1, iterations / 10))
         let now = Date.now
         let profile = LearningProfile(entries: (0..<LearningProfile.maximumEntries).map {
             LearnedPreference(input: "shi", text: "synthetic\($0)", language: .english, strength: 1, lastUsed: now)
@@ -72,6 +76,10 @@ enum SIBenchmark {
             ("bounded ambiguous cuts", String(repeating: "fangan", count: 10)),
             ("mixed", "woaiSwiftshurufa"),
             ("mixed deployment", "woxiangyaodeploy"),
+            ("continuous English", "iwanttobuild"),
+            ("whole homophones", "xianshi"),
+            ("sentence word choice", "biruzhege"),
+            ("Chinese unknown ending", String(repeating: "a", count: 58) + "qwerty"),
             ("long ambiguous composition", String(repeating: "shi", count: 20)),
             ("literal fallback beyond decoder limit", String(repeating: "q", count: 128)),
             ("personal phrase prefix at full capacity", "b"),
@@ -85,7 +93,8 @@ enum SIBenchmark {
             ("English missing prefix", "zzzzzz"),
         ]
         for (name, input) in cases {
-            let languages: Set<InputLanguage> = name.hasPrefix("English ") ? [.english] : Set(InputLanguage.allCases)
+            let languages: Set<InputLanguage> = name.hasPrefix("English ") ? [.english]
+                : name.hasPrefix("Chinese ") ? [.simplifiedChinese] : Set(InputLanguage.allCases)
             let activeDictionary = name == "bounded long personal expansions" ? longDictionary
                 : name == "bounded Unicode personal expansions" ? unicodeDictionary : dictionary
             let activeProfile = name == "learned tokens in longer composition" ? tokenProfile : profile
@@ -102,13 +111,13 @@ enum SIBenchmark {
                                       dictionary: activeDictionary)
                 }
             }
-            for _ in 0..<10 {
+            for _ in 0..<warmups {
                 checksum += generate().count
             }
             var times: [Double] = []
             var candidateCount = 0
             var lastCandidates: [InputCandidate] = []
-            for _ in 0..<200 {
+            for _ in 0..<iterations {
                 let start = clock.now
                 let candidates = generate()
                 let duration = start.duration(to: clock.now).components
@@ -170,7 +179,7 @@ enum SIBenchmark {
     private static func fingerprint(_ candidates: [InputCandidate]) -> String {
         var value: UInt64 = 14_695_981_039_346_656_037
         for candidate in candidates {
-            let fields = [candidate.id, String(candidate.score), String(candidate.rankingScore.bitPattern),
+            let fields = [candidate.id, String(candidate.score), String(candidate.rankingScore.bitPattern), String(candidate.remainingInputScore.bitPattern),
                           String(candidate.isMixed), String(candidate.isUserPhrase), String(candidate.hasLiteralSegments),
                           String(candidate.hasCompletion), String(candidate.consumedInputCount ?? -1)]
             for field in fields {

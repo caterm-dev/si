@@ -6,6 +6,8 @@ enum CandidateScoring {
     static let pointsPerBit = 1.0
     static let terminalCost = 0.0
     static let initialLanguageCost = 1.0
+    /// Uniform binary prior for the additional confirm/continue decision, in bits.
+    static let partialConfirmationCost = 1.0
     static let personalWeight: Int64 = 10_000
     private static let wordInsertionCost = 20.0
     private static let characterInsertionCost = 2.0

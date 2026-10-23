@@ -200,6 +200,7 @@ struct AutomaticConfirmationTests {
             let traced = engine.candidates(for: input, languages: Set(InputLanguage.allCases), includesConfirmationEvidence: true)
             #expect(base.map(\.id) == traced.map(\.id))
             #expect(base.map(\.rankingScore) == traced.map(\.rankingScore))
+            #expect(base.map(\.inputScore) == traced.map(\.inputScore))
             #expect(base.map { Array($0.text.utf8) } == traced.map { Array($0.text.utf8) })
             #expect(traced.allSatisfy { $0.confirmationBoundaries.count <= 8 })
         }

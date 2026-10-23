@@ -88,7 +88,7 @@ struct CandidateSelectionTests {
         session.configure(languages: [.simplifiedChinese], learning: learning, now: now)
         session.append("nihaopengyou")
         let greeting = try #require(session.candidates.first { $0.text == "你好" && $0.isPartial })
-        #expect(session.presentationScore(for: greeting, now: now) > greeting.rankingScore)
+        #expect(session.presentationScore(for: greeting, now: now) > greeting.inputScore)
         let baseCandidates = session.candidates
         var selection = CandidateSelection()
         selection.update(session.candidates)

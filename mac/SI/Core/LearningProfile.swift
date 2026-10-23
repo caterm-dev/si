@@ -31,11 +31,11 @@ public struct LearningProfile: Sendable, Equatable {
         }
 
         func score(_ candidate: InputCandidate) -> Double {
-            guard isActive, candidate.canLearn, let language = candidate.language else { return candidate.rankingScore }
+            guard isActive, candidate.canLearn, let language = candidate.language else { return candidate.inputScore }
             let values = hasWholePreferences
                 ? profile.bonuses(for: candidate, normalizedInput: language == .english ? english : chinese,
                                   language: language, now: now, context: context) : (frequency: 0.0, contextual: 0.0)
-            return candidate.rankingScore + max(candidate.tokenLearningBonus, values.frequency) + values.contextual
+            return candidate.inputScore + max(candidate.tokenLearningBonus, values.frequency) + values.contextual
         }
     }
 
@@ -110,9 +110,9 @@ public struct LearningProfile: Sendable, Equatable {
     }
 
     func rankingScore(for candidate: InputCandidate, input: String, now: Date, context: CandidateContext?) -> Double {
-        guard !records.isEmpty, candidate.canLearn else { return candidate.rankingScore }
+        guard !records.isEmpty, candidate.canLearn else { return candidate.inputScore }
         let values = bonuses(for: candidate, input: input, now: now, context: context)
-        return candidate.rankingScore + max(candidate.tokenLearningBonus, values.frequency) + values.contextual
+        return candidate.inputScore + max(candidate.tokenLearningBonus, values.frequency) + values.contextual
     }
 
     /// One source spelling is shared by a group of full/prefix candidates; normalize it once.

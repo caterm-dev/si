@@ -12,8 +12,13 @@ enum RankingQuality {
         let example: ExampleRecord
         let rank: Int?
         let previewRank: Int?
+        let engineRank: Int?
+        let wholeRank: Int?
         let topFive: [String]
         let previewTopFive: [String]
+        let wholeTopFive: [String]
+        let bestWholeInputScore: Double?
+        let bestPrefixInputScore: Double?
         let characterErrors: Int
     }
     struct ExampleRecord: Encodable {
@@ -51,27 +56,34 @@ enum RankingQuality {
         let engine = CandidateEngine()
         var results: [Result] = []
         for example in examples {
-            let candidates = engine.candidates(for: example.input, languages: Set(InputLanguage.allCases))
-                .filter { !$0.isPartial && !$0.isLiteral }
+            let engineCandidates = engine.candidates(for: example.input, languages: Set(InputLanguage.allCases))
+            let candidates = CandidateShortlist.candidates(from: engineCandidates)
+            let whole = engineCandidates.filter { !$0.isPartial && !$0.isLiteral }
+            let matches: (InputCandidate) -> Bool = { $0.text == example.expected && !$0.isPartial && !$0.isLiteral }
             var session = InputSession(engine: engine, candidateGeneration: .deferred)
             session.configure(languages: Set(InputLanguage.allCases))
             session.append(example.input)
-            let preview = session.pendingCandidateRequest!.generatePreview().candidates.filter { !$0.isPartial && !$0.isLiteral }
+            let preview = CandidateShortlist.candidates(from: session.pendingCandidateRequest!.generatePreview().candidates)
             results.append(Result(example: ExampleRecord(input: example.input, expected: example.expected, category: example.category),
-                                  rank: candidates.firstIndex { $0.text == example.expected }.map { $0 + 1 },
-                                  previewRank: preview.firstIndex { $0.text == example.expected }.map { $0 + 1 },
+                                  rank: candidates.firstIndex(where: matches).map { $0 + 1 },
+                                  previewRank: preview.firstIndex(where: matches).map { $0 + 1 },
+                                  engineRank: engineCandidates.firstIndex(where: matches).map { $0 + 1 },
+                                  wholeRank: whole.firstIndex(where: matches).map { $0 + 1 },
                                   topFive: Array(candidates.prefix(5).map(\.text)),
                                   previewTopFive: Array(preview.prefix(5).map(\.text)),
+                                  wholeTopFive: Array(whole.prefix(5).map(\.text)),
+                                  bestWholeInputScore: whole.first?.inputScore,
+                                  bestPrefixInputScore: engineCandidates.filter(\.isPartial).map(\.inputScore).max(),
                                   characterErrors: distance(candidates.first?.text ?? "", example.expected)))
         }
         let partitions = Dictionary(grouping: results) { $0.example.category.hasPrefix("holdout-") ? "historical-holdout"
             : ($0.example.category == "phonetic-regression" ? "phonetic-regressions" : "regression-and-development") }
             .mapValues { rows in Metrics(examples: rows.count, topOne: rows.count { $0.rank == 1 },
-                                        topFive: rows.count { ($0.rank ?? .max) <= 5 }, recall: rows.count { $0.rank != nil },
+                                        topFive: rows.count { ($0.rank ?? .max) <= 5 }, recall: rows.count { $0.engineRank != nil },
                                         previewTopFive: rows.count { ($0.previewRank ?? .max) <= 5 }) }
-        let report = Report(model: "SI frequency-balanced Chinese MSIME lattice + independent English wordfreq 3.1.1", examples: results.count,
+        let report = Report(model: "SI shared-cost engine; actual ordered 27-choice window including prefixes", examples: results.count,
                             topOne: results.count { $0.rank == 1 }, topFive: results.count { ($0.rank ?? .max) <= 5 },
-                            engineRecall: results.count { $0.rank != nil },
+                            engineRecall: results.count { $0.engineRank != nil },
                             previewTopFive: results.count { ($0.previewRank ?? .max) <= 5 },
                             stageFirstChoiceAgreement: results.count { $0.topFive.first == $0.previewTopFive.first },
                             characterErrorRate: Double(results.reduce(0) { $0 + $1.characterErrors })

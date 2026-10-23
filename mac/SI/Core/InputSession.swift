@@ -158,15 +158,15 @@ public struct InputSession: Sendable {
     public mutating func commitResult(_ candidate: InputCandidate? = nil, reason: CommitReason, now: Date = .now) -> InputCommit {
         var requestedCandidate = candidate
         if hasCandidatePreview, let candidate {
-            if candidates.contains(candidate) {
+            if candidates.contains(where: { $0.hasSameCommitValue(as: candidate) }) {
                 resolveCandidates()
                 requestedCandidate = candidates.first { $0.id == candidate.id }
             } else { requestedCandidate = nil }
         }
         let validCandidate = requestedCandidate.flatMap { value -> InputCandidate? in
-            guard candidates.contains(value) else { return nil }
+            guard let current = candidates.first(where: { $0.hasSameCommitValue(as: value) }) else { return nil }
             if let count = value.consumedInputCount, count <= 0 || count >= buffer.count { return nil }
-            return value
+            return current
         }
         return commitValidated(validCandidate, reason: validCandidate == nil ? .literal : reason, now: now)
     }

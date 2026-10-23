@@ -29,6 +29,27 @@ public struct PinyinDecoder: Sendable {
                               includesPartials: false, allowsVerbatim: false).filter(\.isMixed)
     }
 
+    /// Supplemental lookahead for boundaries absent from the retained full paths.
+    /// It shares the decoders and dictionary but has a smaller spelling/search budget.
+    func continuationCandidates(for input: String, languages: Set<InputLanguage>,
+                                dictionary: UserDictionary, now: Date) -> [InputCandidate] {
+        var result: [InputCandidate] = []
+        if languages.contains(.simplifiedChinese) {
+            result += (chinese ?? .standard).candidates(for: input, dictionary: dictionary,
+                learning: LearningProfile(), now: now, context: nil, includesPartials: false,
+                includesConfirmationEvidence: false, preview: true, lookahead: true)
+        }
+        if languages.contains(.english) {
+            result += LexicalCompositionDecoder.standard.compositionCandidates(for: input, languages: [.english],
+                dictionary: dictionary, now: now, includesPartials: false, preview: true, lookahead: true)
+        }
+        if languages.contains(.english) && languages.contains(.simplifiedChinese) {
+            result += (mixed ?? .mixed).compositionCandidates(for: input, languages: languages,
+                dictionary: dictionary, now: now, includesPartials: false, preview: true, lookahead: true).filter(\.isMixed)
+        }
+        return result
+    }
+
     public func compositionCandidates(for input: String, languages: Set<InputLanguage>,
                                       dictionary: UserDictionary = UserDictionary(),
                                       learning: LearningProfile = LearningProfile(), now: Date = .now,

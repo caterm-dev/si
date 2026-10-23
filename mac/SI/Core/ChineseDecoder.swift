@@ -23,15 +23,18 @@ struct ChineseDecoder: Sendable {
         let personal: Bool
         let tokenBonus: Double
         let letters: Int
+        var interiorBoundaries: [ConfirmationBoundary] = []
     }
 
     private struct Path {
+        var sourceTrace: CandidateSourceTrace?
         var arrival = 0
         var sourceEnd = 0
         var text = ""
         var words: [String] = []
         /// Keep natural-log arithmetic through search and trigram rescoring.
         /// Conversion to SI's bit-based preference units happens at ranking boundaries.
+        var contextScore = 0.0
         var score = -CandidateScoring.initialLanguageCost * log(2.0)
         var personal = false
         var tokenSum = 0.0
@@ -42,7 +45,7 @@ struct ChineseDecoder: Sendable {
 
     func candidates(for source: String, dictionary: UserDictionary, learning: LearningProfile,
                     now: Date, context: CandidateContext?, includesPartials: Bool,
-                    includesConfirmationEvidence: Bool, preview: Bool) -> [InputCandidate] {
+                    includesConfirmationEvidence: Bool, preview: Bool, lookahead: Bool = false) -> [InputCandidate] {
         guard let input = PinyinInput(source) else { return [] }
         // Saved codes augment the Chinese lattice; they must not change or erase the
         // standard dictionary reading (for example a saved nihao code versus ni'hao).
@@ -53,7 +56,7 @@ struct ChineseDecoder: Sendable {
         // Ambiguous consonant boundaries must compete in sentence search too:
         // wo/xian/gan/zhao and wo/xiang/an/zhao have equal spelling evidence.
         var sentenceReadings = cuts
-        if let primary, !primary.isCorrected,
+        if !lookahead, let primary, !primary.isCorrected,
            primary.syllables.allSatisfy(ChineseSyllables.complete.contains) {
             var seen: Set<[String]> = [primary.syllables.map(ChineseSyllables.canonical)]
             for cut in ChineseSyllables.alternatives(input, minimumOnly: true)
@@ -100,7 +103,9 @@ struct ChineseDecoder: Sendable {
                 let score = wordScore(row, typed: typed)
                 choices.append(InputCandidate(text: row.text, language: .simplifiedChinese,
                     score: Int(score), rankingScore: score,
-                    hasCompletion: completion, lexicalTokenCount: exact || completion ? 1 : nil))
+                    hasCompletion: completion, lexicalTokenCount: exact || completion ? 1 : nil)
+                    .withWordContext(wordContext(row, typed: typed, score: score))
+                    .withSourceTrace(wordTrace(row, typed: typed, input: input)))
             }
             guard cutIndex == 0 else { continue }
             if includesPartials, cut.count > 1 {
@@ -122,7 +127,9 @@ struct ChineseDecoder: Sendable {
                                     consumedInputCount: input.rawBoundaries[offsets[end]],
                                     rankingScore: score,
                                     hasCompletion: Self.completes(row.reading, typed: prefix.syllables),
-                                    lexicalTokenCount: full ? 1 : nil))
+                                    lexicalTokenCount: full ? 1 : nil)
+                                    .withWordContext(wordContext(row, typed: prefix.syllables, score: score))
+                                    .withSourceTrace(wordTrace(row, typed: prefix.syllables, input: input)))
                             }
                         }
                     }
@@ -143,6 +150,8 @@ struct ChineseDecoder: Sendable {
                         score: Int(score), isUserPhrase: path.personal, rankingScore: score,
                         tokenLearningBonus: path.tokenBonus, lexicalTokenCount: path.words.count,
                         confirmationBoundaries: path.personal ? [] : path.boundaries)
+                        .withWordContext(pathContext(path))
+                        .withSourceTrace(path.sourceTrace)
                     choices.append(candidate)
                 }
             }
@@ -154,6 +163,8 @@ struct ChineseDecoder: Sendable {
                         let candidate = InputCandidate(text: row.text, language: .simplifiedChinese,
                             score: Int(score), consumedInputCount: consumed < source.count ? consumed : nil,
                             rankingScore: score, lexicalTokenCount: row.reading == fallback.syllables ? 1 : nil)
+                            .withWordContext(wordContext(row, typed: fallback.syllables, score: score))
+                            .withSourceTrace(wordTrace(row, typed: fallback.syllables, input: input))
                         if candidate.isPartial {
                             if includesPartials { prefixes.append(candidate) }
                         } else {
@@ -176,6 +187,8 @@ struct ChineseDecoder: Sendable {
                     let score = path.score * Self.bitsPerNat
                     let candidate = InputCandidate(text: path.text, language: .simplifiedChinese,
                         score: Int(score), isUserPhrase: true, rankingScore: score, lexicalTokenCount: path.words.count)
+                        .withWordContext(pathContext(path))
+                        .withSourceTrace(path.sourceTrace)
                     choices.append(candidate)
                 }
             }
@@ -290,7 +303,9 @@ struct ChineseDecoder: Sendable {
                             score: -log(2.0) * (CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
                                 + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: span)), personal: false,
                             tokenBonus: learning.tokenBonus(input: spelling, text: row.text, language: .simplifiedChinese, now: now),
-                            letters: offsets[end] - offsets[start]))
+                            letters: offsets[end] - offsets[start],
+                            interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text,
+                                sourceCounts: offsets[(start + 1)..<end].map { input.rawBoundaries[$0] })))
                     }
                     let code = String(input.letters[offsets[start]..<offsets[end]])
                     for phrase in dictionary.phrases(for: code) where phrase.language == .simplifiedChinese
@@ -353,11 +368,17 @@ struct ChineseDecoder: Sendable {
                     next.sourceEnd = edge.sourceEnd
                     next.text += edge.text
                     next.words.append(edge.text)
+                    next.sourceTrace = CandidateSourceTrace(sourceCount: input.rawBoundaries[edge.sourceEnd],
+                        outputByteCount: next.text.utf8.count, languages: 1, previous: path.sourceTrace,
+                        word: edge.text, wordLanguage: 1, lexicalCost: -edge.score * Self.bitsPerNat,
+                        personal: edge.personal, interiorBoundaries: edge.interiorBoundaries)
                     next.score += edge.score
                     if !path.words.isEmpty {
                         next.score -= CandidateScoring.languageCost(previous: 1, next: 1) * log(2.0)
                     }
-                    next.score += edge.personal || path.personal ? 0 : bonuses[index]
+                    let contextIncrement = edge.personal || path.personal ? 0 : bonuses[index]
+                    next.score += contextIncrement
+                    next.contextScore += contextIncrement
                     next.personal = path.personal || edge.personal
                     next.tokenSum += edge.tokenBonus * Double(edge.letters)
                     next.letters += edge.letters
@@ -438,6 +459,8 @@ struct ChineseDecoder: Sendable {
             return InputCandidate(text: path.text, language: .simplifiedChinese, score: Int(score),
                 isUserPhrase: path.personal, consumedInputCount: consumed, rankingScore: score,
                 tokenLearningBonus: path.tokenBonus, lexicalTokenCount: path.words.count)
+                .withWordContext(pathContext(path))
+                .withSourceTrace(path.sourceTrace)
         }
     }
 
@@ -455,6 +478,36 @@ struct ChineseDecoder: Sendable {
         }
         var seen = Set<String>()
         return candidates.filter { seen.insert($0.candidate.id).inserted }.prefix(2).map { $0.path }
+    }
+
+    private func wordTrace(_ row: DictionaryLexeme, typed: [String], input: PinyinInput) -> CandidateSourceTrace? {
+        let typed = typed.map(ChineseSyllables.canonical)
+        let letters = Array(typed.joined())
+        guard row.reading == typed, !letters.isEmpty, letters.count <= input.letters.count,
+              letters == Array(input.letters.prefix(letters.count)) else { return nil }
+        var end = 0
+        let sources = typed.dropLast().map { syllable in
+            end += syllable.utf8.count
+            return input.rawBoundaries[end]
+        }
+        return CandidateSourceTrace(sourceCount: input.rawBoundaries[letters.count], outputByteCount: row.text.utf8.count,
+            languages: 1, previous: nil, word: row.text, wordLanguage: 1,
+            lexicalCost: CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+                + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: typed),
+            interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text, sourceCounts: sources))
+    }
+
+    private func wordContext(_ row: DictionaryLexeme, typed: [String], score: Double) -> CandidateWordContext {
+        let cost = CandidateScoring.initialLanguageCost
+            + CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+            + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: typed)
+        return .chinese([row.text], corpusScore: score + cost,
+                        usesContext: lexicon.bigram != nil || lexicon.trigram != nil)
+    }
+
+    private func pathContext(_ path: Path) -> CandidateWordContext {
+        .chinese(path.words, corpusScore: (path.contextScore + rescored(path) - path.score) * Self.bitsPerNat,
+                 usesContext: lexicon.bigram != nil || lexicon.trigram != nil)
     }
 
     private func wordScore(_ row: DictionaryLexeme, typed: [String]) -> Double {

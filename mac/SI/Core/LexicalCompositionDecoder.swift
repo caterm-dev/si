@@ -19,9 +19,12 @@ struct LexicalCompositionDecoder: Sendable {
         var completion = false
         var learningBonus = 0.0
         var contextID = 0
+        var interiorBoundaries: [ConfirmationBoundary] = []
     }
     private struct Path {
         var confirmationTrace: ConfirmationTrace?
+        var wordContext = CandidateWordContext()
+        var sourceTrace: CandidateSourceTrace?
         let text: String
         // Only all-lexical English paths carry word spacing. Mixed/personal output keeps its exact bytes.
         let englishText: String?
@@ -145,12 +148,13 @@ struct LexicalCompositionDecoder: Sendable {
                                       learning: LearningProfile = LearningProfile(), now: Date = .now,
                                       context: CandidateContext? = nil,
                                       includesPartials: Bool = true, allowsVerbatim: Bool = true,
-                                      preview: Bool = false, includesConfirmationEvidence: Bool = false) -> [InputCandidate] {
+                                      preview: Bool = false, includesConfirmationEvidence: Bool = false,
+                                      lookahead: Bool = false) -> [InputCandidate] {
         guard let reading = PinyinInput(input), !languages.isEmpty else { return [] }
         let count = reading.letters.count
         let terminalRanking = learning.ranking(for: input, now: now, context: context)
         let outgoing = edges(for: reading, languages: languages, dictionary: dictionary, learning: learning, now: now,
-                             preview: preview)
+                             preview: preview, lookahead: lookahead)
         // Only exact lexical English spans protect a boundary; completions and personal/raw nodes do not.
         let hasTokenBonuses = outgoing.contains { $0.contains { $0.learningBonus > 0 } }
         let englishEnds = hasTokenBonuses ? outgoing.map { edges in
@@ -226,6 +230,13 @@ struct LexicalCompositionDecoder: Sendable {
                                                consumedLetters: edge.end,
                                                supportsByteComparison: path.supportsByteComparison && supportsBytes,
                                                englishWordEnd: englishWordEnd, splitsEnglishWord: splitsEnglishWord)
+                    next.sourceTrace = CandidateSourceTrace(sourceCount: reading.rawBoundaries[edge.end],
+                        outputByteCount: next.comparisonText.utf8.count, languages: next.languages, previous: path.sourceTrace,
+                        word: edge.text, wordLanguage: edge.languages, lexicalCost: edge.cost,
+                        personal: edge.personal, verbatim: edge.verbatim, rawOutputByteCount: next.text.utf8.count,
+                        interiorBoundaries: edge.interiorBoundaries)
+                    next.wordContext = path.wordContext.appending(word: edge.text, language: edge.languages,
+                        corpusScore: contextBonus + trigramBonus, usesContext: chineseLexicon != nil)
                     if includesConfirmationEvidence && !preview && chineseLexicon == nil {
                         next.confirmationTrace = path.confirmationTrace
                         if path.segments < 8, (path.segments == 0 || path.confirmationTrace?.count == path.segments),
@@ -272,7 +283,8 @@ struct LexicalCompositionDecoder: Sendable {
             let score = (-edge.cost - CandidateScoring.initialLanguageCost + context) * CandidateScoring.pointsPerBit
             results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: Int(score),
                                           isUserPhrase: edge.personal, rankingScore: score, hasCompletion: edge.completion,
-                                          isPreferred: edge.preferred, lexicalTokenCount: edge.abbreviated ? nil : 1))
+                                          isPreferred: edge.preferred, lexicalTokenCount: edge.abbreviated ? nil : 1)
+                .withWordContext(.chinese([edge.text], corpusScore: context, usesContext: chineseLexicon != nil)))
         }
         for path in paths[count] where eligible(path) {
             results.append(candidate(path))
@@ -312,7 +324,7 @@ struct LexicalCompositionDecoder: Sendable {
     }
 
     private func edges(for input: PinyinInput, languages: Set<InputLanguage>, dictionary: UserDictionary,
-                       learning: LearningProfile, now: Date, preview: Bool) -> [[Edge]] {
+                       learning: LearningProfile, now: Date, preview: Bool, lookahead: Bool) -> [[Edge]] {
         let count = input.letters.count
         let chinese = languages.contains(.simplifiedChinese) ? chineseLexicon : nil
         let english = languages.contains(.english)
@@ -338,18 +350,22 @@ struct LexicalCompositionDecoder: Sendable {
                 var readingsPerEnd: [Int: Int] = [:]
                 var visited = 0
                 var reading: [String] = []
+                var sourceEnds: [Int] = []
+                let readingBudget = lookahead ? 64 : 256
+                let endBudget = lookahead ? 8 : 32
                 func visit(_ position: Int) {
-                    guard position < count, reading.count < 7, visited < 256 else { return }
+                    guard position < count, reading.count < 7, visited < readingBudget else { return }
                     for syllable in syllables[position] {
-                        guard visited < 256, readingsPerEnd[syllable.end, default: 0] < 32 else { continue }
+                        guard visited < readingBudget, readingsPerEnd[syllable.end, default: 0] < endBudget else { continue }
                         reading.append(syllable.text)
+                        sourceEnds.append(syllable.end)
                         visited += 1
                         readingsPerEnd[syllable.end, default: 0] += 1
                         let key = reading.joined(separator: "'")
                         let rows: [DictionaryLexeme]
                         if let cached = lookup[key] { rows = cached }
                         else {
-                            rows = chinese.exactMatches(reading, limit: 32)
+                            rows = chinese.exactMatches(reading, limit: lookahead ? 16 : 32)
                             lookup[key] = rows
                         }
                         for row in rows {
@@ -357,10 +373,13 @@ struct LexicalCompositionDecoder: Sendable {
                             result[start].append(Edge(end: syllable.end, text: row.text, languages: 1,
                                 cost: CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
                                     + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: reading),
-                                contextID: wordIDs[row.text]!))
+                                contextID: wordIDs[row.text]!,
+                                interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text,
+                                    sourceCounts: sourceEnds.dropLast().map { input.rawBoundaries[$0] })))
                         }
                         visit(syllable.end)
                         reading.removeLast()
+                        sourceEnds.removeLast()
                     }
                 }
                 visit(start)
@@ -449,6 +468,8 @@ struct LexicalCompositionDecoder: Sendable {
                               isPreferred: consumed == nil && path.segments == 1 && path.preferred,
                               lexicalTokenCount: path.segments == 1 && path.abbreviated ? nil : path.segments,
                               confirmationBoundaries: consumed == nil ? path.confirmationTrace?.boundaries ?? [] : [])
+            .withWordContext(path.wordContext)
+            .withSourceTrace(path.sourceTrace)
     }
 
     private func baseScore(_ path: Path, consumed: Int?) -> Double {

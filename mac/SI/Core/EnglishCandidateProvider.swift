@@ -15,6 +15,7 @@ public struct EnglishCandidateProvider: CandidateProvider {
                            score: Int(-entry.cost(typedLength: length) * CandidateScoring.pointsPerBit),
                            rankingScore: -entry.cost(typedLength: length) * CandidateScoring.pointsPerBit,
                            hasCompletion: entry.length != length, lexicalTokenCount: 1)
+                .withWordContext(.english)
         }
     }
 }

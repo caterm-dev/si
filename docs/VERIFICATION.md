@@ -2,6 +2,32 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Complete-input continuation comparison — 2026-10-23
+
+This supersedes the raw whole/prefix comparison below. Prefix lexical scores remain unchanged, but their comparison now accounts for the rest of the current input. Exact source/UTF-8 alignments project compatible full hypotheses onto prefix actions; other prefixes use retained suffix paths and bounded short bridges with corrected word/language context. An additional confirmation has an explicit one-bit binary action prior. Long unsupported gaps pay an unknown-span cost. The window keeps engine order without prefix promotion or whole-choice quotas, and frequency resources are unchanged.
+
+- `iwanttobuild` now leads with `I want to build`: its unchanged base/comparison score is -19.350492; the strongest prefix comparison score is -20.350492. `nihaopengyou`, `biruzhege`, `danci` and `zhegeshurufakeyishuruzhongwenheyingwen` retain their complete default choices through single-language/bilingual, provisional/full and compact/expanded cases. `显示` and `现实` remain on the first `xianshi` page. Explicit prefix confirmation still consumes the exact source span and leaves its remainder editable.
+- The corrected quality tool uses the same ordered `CandidateShortlist` as the window and includes prefixes. On 86 fixed known fixtures, actual first-choice hits improve from 3 to 64 and actual top-five coverage from 32 to 83; provisional top-five coverage also improves from 32 to 83. Engine recall stays 83/86 and provisional/full first-choice agreement stays 86/86. Character error rate changes from 0.761221 to 0.070018 on this set. The old whole-only metric hid the short-prefix regression. These inspected development/historical fixtures are not an independent accuracy estimate.
+- Whole-only first-choice hits remain 65/86. The remaining prefix/whole discrepancy is `srf`: `虽然` precedes the complete `输入法` abbreviation. Positive action-cost sensitivity at 0.5, 1 and 2 bits gives 64 actual first choices; 4 bits gives 65. The uniform one-bit prior is retained rather than tuning a larger penalty to that known abbreviation. Initial ambiguity, missing candidates and other documented decoder limitations remain.
+- `./scripts/test.sh` runs 340 tests: Settings (3), Storage (12) and Presentation (66) pass; Core (259) reports the same 51 issues, failing test names and per-test issue counts as the pre-regression core baseline. No new full-suite failure is observed. The committed raw-score regression had 141 core issues. Nine new core tests cover full-input comparison, exact byte/source alignment, Han/umlaut separators, bridge grouping, unknown tails, own-frequency preservation and prefix-only learning. The added presentation test types continuous input character by character and confirms the complete default exactly once. Existing automatic-confirmation checks now also verify unchanged full-input scores.
+- `./scripts/build.sh` passes for the Debug app, signing disabled, on both application architectures. The Release benchmark compiles the same core. Compiler checks required normal Xcode/SwiftPM cache access outside the restricted sandbox. Whitespace and local documentation file-link checks pass.
+
+The final synthetic Release benchmark runs twenty-five scenarios with 10 warmups and 200 samples each, plus the existing twenty-sample edit comparisons, on arm64/macOS 27.0.1 (26A434). Median/p95 milliseconds include:
+
+| Scenario | Median | p95 |
+| --- | ---: | ---: |
+| Continuous `iwanttobuild` | 2.546 | 2.642 |
+| `xianshi` homophones | 5.938 | 6.066 |
+| `biruzhege` | 8.691 | 8.896 |
+| Constructed Chinese phrase | 19.269 | 19.929 |
+| Sixty-letter ambiguous cuts | 156.678 | 160.301 |
+| Chinese-only unknown ending | 61.164 | 61.665 |
+| Deferred edit burst | 0.012 | 0.015 |
+
+The maximum among the measured search scenarios is 161.897 ms. These are in-process synthetic measurements, not native-host latency guarantees. Scoring costs more CPU than the raw-score baseline: its reference medians were 8.634 ms for the constructed phrase, 106.974 ms for ambiguous cuts and 26.688 ms for synchronous edits, versus 19.269, 156.678 and 51.760 ms now. Deferred edits remain separate from background generation. No general speedup is claimed. Reusing source traces and cached short bridges avoids the second-scale long-input amplification observed in the discarded per-suffix full-decode prototype.
+
+No input-method app was installed or launched. Enabled input sources, existing input-method processes and private archives were unchanged. Native host typing, focus/shortcut routing, VoiceOver and positioning remain unverified. Manual steps are in [testing](TESTING.md#full-input-prefix-scoring). Evidence: `/tmp/si-completion-quality-before.json`, `/tmp/si-completion-quality-final.json`, `/tmp/si-completion-timing-before.json`, `/tmp/si-completion-timing-final.json`, `/tmp/si-completion-final-all-tests.log` and `/tmp/si-completion-final-build.log`.
+
 ## Score-only whole/prefix ordering — 2026-10-23
 
 This supersedes the single-word first-page policy below. The user rejected both forced prefix promotion and a five-whole-choice fallback. `CandidateEngine` now orders ordinary whole and prefix candidates together by effective score, removing whole-first and longest-consumed-span precedence. `CandidateSelection` only retains a bounded ordered subsequence and pages it; lexical-unit count, word/character type and sentence status no longer move or hide results. Explicit personal pins, separate history placement, exact literals and language-aware shortlist retention preserve their existing contracts. Dictionary frequencies and scoring formulas are unchanged.

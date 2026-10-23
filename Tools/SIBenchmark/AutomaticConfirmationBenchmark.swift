@@ -81,7 +81,8 @@ enum AutomaticConfirmationBenchmark {
                     offTime = measure { baseline = offRequest.generate() }
                 }
                 unchanged = unchanged && zip(baseline.candidates, result.candidates).allSatisfy {
-                    $0.id == $1.id && $0.rankingScore == $1.rankingScore && $0.text.utf8.elementsEqual($1.text.utf8)
+                    $0.id == $1.id && $0.rankingScore == $1.rankingScore && $0.inputScore == $1.inputScore
+                        && $0.text.utf8.elementsEqual($1.text.utf8)
                 } && baseline.candidates.count == result.candidates.count
                 var session = InputSession(engine: engine, candidateGeneration: .deferred)
                 session.configure(languages: languages, automaticConfirmationEnabled: true)

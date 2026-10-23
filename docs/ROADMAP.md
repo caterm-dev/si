@@ -36,6 +36,7 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] Native app-vocabulary/history verification, including WeChat, editors, Terminal, focus changes, keyboard/mouse selection and accessibility.
 - [x] Existing single-language preferences influence internal tokens with bounded, length-weighted scoring and a separate base beam.
 - [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, with retained Chinese word-context tables.
+- [x] Full-input prefix comparison with bounded continuation projection, exact source/output alignment, explicit confirmation cost and actual-shortlist quality reporting.
 - [ ] Broader cross-language quality calibration against representative input.
 - [x] Language-specific word/syllable spelling channels and bounded full-spelling search protection.
 - [ ] Broader sentence-level context scoring and representative independent input-quality evaluation.

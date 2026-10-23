@@ -1,6 +1,6 @@
 # Candidate ranking
 
-Chinese lookup, English lookup, Chinese sentences, English sentences and bilingual paths use the same `CandidateScoring` cost scale. Complete candidates compete by their effective score in `CandidateEngine`; no language category reserves a front position. The exact original input remains the final explicit candidate. These are comparable heuristic scores, not calibrated sentence probabilities or a production accuracy claim.
+Chinese lookup, English lookup, Chinese sentences, English sentences and bilingual paths use the same `CandidateScoring` cost scale. Complete candidates and prefixes compete by their full-input effective score in `CandidateEngine`; no language category reserves a front position. The exact original input remains the final explicit candidate. These are comparable heuristic scores, not calibrated sentence probabilities or a production accuracy claim.
 
 ## Shared dictionary weights and word costs
 
@@ -37,9 +37,23 @@ Whole-input and eligible previous-word preferences participate before presentati
 
 Explicit personal phrases use a shared 10,000-weight insertion prior and their code's spelling cost, with a one-bit pin adjustment. Direct phrase scores no longer depend on dictionary size. An exact pinned phrase remains an explicit override; an unpinned phrase is available but does not reserve the first position. The 12-node personal fanout, 4,096-byte constructed-output bound, consent, retention and deletion rules remain unchanged.
 
+## Accounting for the whole composition
+
+`InputCandidate.rankingScore` retains the lexical score for the spelling actually consumed. `remainingInputScore` is transient request-local evidence, and `inputScore = rankingScore + remainingInputScore` is the comparison score before preferences. Complete choices keep their base score. Prefix word frequencies, committed text, language identity and exact consumed spelling remain unchanged; storage continues to retain the base score rather than the suffix projection.
+
+A compatible complete hypothesis supplies a prefix's continuation score when both the exact source boundary and output UTF-8 bytes agree. The resulting prefix action scores one bit below that complete hypothesis before consumed-spelling preferences. Shared immutable traces record actual word boundaries. Exact full-reading Han rows with one character per syllable additionally supply validated interior alignments; initials, corrected/unmatched spelling and non-Han outputs do not receive guessed character boundaries. English spacing and mixed raw output retain separate byte offsets. This projection does not create automatic-confirmation evidence or force a display position.
+
+Other prefixes reuse suffix paths from the same bounded search. Chinese BOS bigram/trigram increments are replaced with the actual prefix/suffix word context, and language transitions replace a second synthetic BOS prior. Missing boundaries can bridge to up to three retained suffix positions within twelve source characters, preserving two tail alternatives per bridge. Equal bridge spellings share a request-local query cache. Two sixteen-state lanes preserve contextual and context-free leading-word alternatives. Supplemental decoder queries use the existing engines with smaller budgets: the Chinese primary sentence cut, cached English completions and mixed lookup limited to 64 reading visits, eight readings per end and sixteen rows per reading. Full candidate generation retains its normal budgets and every enabled lane.
+
+A long unsupported tail without a nearby retained path uses an explicit unknown-span cost instead of triggering another whole-input search for every prefix. Unknown spelling costs the existing weight-one word prior plus eight bits per unconverted UTF-8 byte. Literal fallback itself always preserves exact input and remains explicitly selectable; it is never used as a zero-cost explanation for ignored input.
+
+The additional prefix confirmation costs one bit (`-log2(1/2)`), an explicit uniform binary action prior. It is a heuristic, not a measured user probability. Positive-cost sensitivity checks and fixed synthetic quality results are recorded in [verification](VERIFICATION.md); no phrase-specific multiplier or dictionary reweighting was introduced. Strong consumed-word preferences and genuinely better alternate paths can still make a prefix lead. The window has no two/five-whole quota or prefix insertion rule.
+
+Lookahead never adds a preference for the uncommitted suffix or saves its words. Personal/verbatim paths keep their exclusions; context-free lookahead alternatives remain available. Source/word traces are private in-memory request data. Current-candidate validation ignores only this new projection metadata while retaining the prior identity, score, span and public-value checks. Revision/client checks and commit validation remain in place.
+
 ## Merge and presentation
 
-`CandidateEngine` keeps the strongest language/text/source-span derivation after preferences, preserving single-lexical-unit evidence. Whole candidates and prefixes compete together by effective score, without whole/prefix, consumed-span or lexical-type precedence, with exact pinned personal phrases as the explicit exception and canonical candidate identity as the deterministic tie-break. Identical text in different languages remains distinguishable. No provider leader is inserted ahead of higher-scoring candidates.
+`CandidateEngine` keeps the strongest language/text/source-span derivation after preferences, preserving single-lexical-unit evidence. Whole candidates and prefixes compete together by full-input effective score, without whole/prefix, consumed-span or lexical-type precedence, with exact pinned personal phrases as the explicit exception and canonical candidate identity as the deterministic tie-break. Identical text in different languages remains distinguishable. No provider leader is inserted ahead of higher-scoring candidates.
 
 The input window still shortlists at most 27 results and preserves a complete candidate per matching language/mixed identity plus the exact literal. This protects availability in the shortlist, not a privileged front position. The window preserves engine order; it has no first-word/character promotion, two/five-whole quota, or sentence-specific filtering. History suggestions retain their separate placement after the first two whole choices. Engine and Settings preview retain full results. Provisional lookup budgets are smaller, but they use the same score and merge.
 
@@ -47,7 +61,7 @@ Automatic confirmation keeps its opt-in boundaries and English/code safeguards. 
 
 ## Validation
 
-`CandidateScoringTests` covers `ling` in provisional/full results, monotonic complete-candidate scores, cross-decoder word/context consistency, spelling costs, language filtering, deterministic identity, literal fallback and personal pins. `CandidateSelectionTests` checks that the shortlist keeps `零` ahead of `里NG`, retains all matching identities and can commit the selected character through expanded numbering. Existing mixed, English, learning, cancellation and source-boundary regressions remain active. See [the current verification record](VERIFICATION.md) for actual outcomes and existing failures.
+`CandidateScoringTests` covers `ling` in provisional/full results, monotonic complete-candidate scores, cross-decoder word/context consistency, spelling costs, language filtering, deterministic identity, literal fallback and personal pins. `CompositionCoverageTests` checks compatible-path projection, exact byte/source alignment, Han/umlaut separators, associative bridge scoring, explicit unknown tails, unchanged word frequencies and prefix-only learning. `CandidateSelectionTests` checks that the shortlist keeps `零` ahead of `里NG`, retains all matching identities and can commit the selected character through expanded numbering. Existing mixed, English, learning, cancellation and source-boundary regressions remain active. See [the current verification record](VERIFICATION.md) for actual outcomes and existing failures.
 
 ```sh
 ./scripts/test.sh
