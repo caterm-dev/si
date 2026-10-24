@@ -2,6 +2,16 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Requested removal of failing tests — 2026-10-24
+
+At the user's request, ten failing test functions were deleted from eight core test files. The baseline ran 352 Swift tests; ten core tests produced 23 issues. Removed checks covered abbreviation/full-spelling retention, personalized search and terminal compaction, mixed token learning, trailing spelling separators, normalized aliases, prefix ranking and standard-vocabulary automatic confirmation. Product implementation is unchanged, so passing the reduced suite does not establish that these behaviors were fixed.
+
+- `./scripts/test.sh` passes all 342 remaining tests: 258 core, 67 presentation, 14 settings and 3 storage.
+- `./scripts/build.sh` passes for the Debug app with signing disabled. No Release build or native-host verification was performed for this deletion.
+- No input method was installed or launched, and no input sources or private archives were changed.
+
+Evidence: `/tmp/si-test-20261024.log` (baseline), `/tmp/si-tests-after-removal-20261024.log` and `/tmp/si-build-after-test-removal-20261024.log`.
+
 ## Default-off punctuation candidate setting — 2026-10-24
 
 Settings → Typing now includes Show punctuation candidates, off by default and persisted independently of languages and the composition punctuation policy. With it off, punctuation outside composition passes through and neither engine generation stage nor Settings preview creates punctuation variants. Enabled punctuation retains E/C/A badges and acceptance without an extra space. Explicit candidate metadata controls this presentation and acceptance behavior; ordinary literal handling remains available when the option is off.

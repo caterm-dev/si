@@ -4,7 +4,7 @@
 
 SI is an open-source macOS input method built around one idea: choose the languages you use in Settings, then type without switching between language modes. Candidates from enabled languages appear together, including ambiguous matches. The original text always remains available.
 
-> **Status: development preview; Chinese engine migration in progress.** The current worktree implements the Chinese decoder in Swift using MSIME-derived lookup, word-lattice and word-context algorithms, with a pinned dictionary maintained by SI. Debug and Release builds now pass, but the full regression suite still fails; see the current validation record. Chinese quality parity and host compatibility remain unproven. English lookup and bounded Chinese/English lexical paths are connected; full regressions and host verification remain incomplete.
+> **Status: development preview; Chinese engine migration in progress.** The current worktree implements the Chinese decoder in Swift using MSIME-derived lookup, word-lattice and word-context algorithms, with a pinned dictionary maintained by SI. Debug and Release builds have passed. The remaining regression suite passes after ten failing tests were removed at the user's request; those underlying behaviors remain unresolved. See the current validation record. Chinese quality parity and host compatibility remain unproven. English lookup and bounded Chinese/English lexical paths are connected; full regressions and host verification remain incomplete.
 
 ## How it works
 
@@ -72,6 +72,11 @@ Open **SI Settings → Personal Phrases → Manage Personal Phrases…** to add 
 The manager supports search, editing, deletion, clear, and additive JSON import/export, with at most 1,000 phrases. Imports preserve existing phrases and pin settings; invalid or over-capacity imports leave the dictionary unchanged. Saved codes also participate in longer Pinyin/mixed paths: saving `xm` → `小明` lets `woaixm` offer `我爱小明`. Any path containing a personal phrase stays excluded from automatic learning and previous-word context. Exported files contain phrase text and must be handled as personal data. See [phrase format and controls](docs/USER_PHRASES.md).
 
 ## Requirements
+
+The separate [LLM experiment](llm/README.md) provides an isolated MLX setup,
+10,000 synthetic development examples and offline Qwen3.5 training/evaluation
+tools. Model weights are supplied separately; this does not change SI's decoder
+or installed behavior.
 
 - macOS 14 or later.
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.

@@ -1,0 +1,2 @@
+# Training and inference only. Dataset preparation and contract tests use stdlib.
+mlx-lm[train]==0.32.2

@@ -1,5 +1,11 @@
 # Architecture
 
+The optional [LLM experiment](../llm/README.md) runs separately in Python/MLX
+and generates full-composition candidates from explicit offline requests. It
+uses no SI decoder or private storage and is not wired into the Swift app.
+Synthetic fixtures and suffix-prediction support do not establish live neural
+decoding, source-aligned prefix commits or host compatibility.
+
 ## Product contract
 
 SI exposes one macOS input source. Settings contain a set of enabled languages, not an active language. Every enabled provider is queried for the current composition. Matching candidates coexist; ambiguity is a choice for the user rather than a reason to switch modes. Literal input is always offered.

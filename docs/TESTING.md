@@ -1,5 +1,22 @@
 # Testing SI
 
+## Offline LLM experiment
+
+The separate [LLM setup](../llm/README.md) has standard-library checks:
+`python3 -m unittest discover -s llm/tests -v` and
+`python3 llm/prepare.py --check` (run `python3 llm/prepare.py` first).
+`python3 llm/generate_data.py --check` verifies the 10,000-record synthetic
+snapshot and provenance report. Dataset tests also check split/target isolation,
+single-edit mistakes, partial/initial spellings, exact mixed/identifier bytes
+and prediction suffixes. The fixed split is 8,000/1,000/1,000; held-out templates
+remain synthetic development evidence rather than independent quality results.
+`llm/.venv/bin/python llm/experiment.py doctor` checks MLX/Metal;
+`llm/.venv/bin/python llm/tests/smoke_mlx.py` checks conversion, one QLoRA update,
+adapter reload and bounded generation using temporary tiny random weights.
+These checks download no model. Full-size Qwen3.5-0.8B training, memory, quality,
+latency and SI integration need separate verification. Synthetic fixture scores
+are not a general quality benchmark or host-app latency measurement.
+
 ## Mixed English lookup
 
 Run `./scripts/test.sh --filter 'MixedLexicalIntegrationTests|MixedInputTests|MixedWordBoundaryTests|EnglishSentenceTests|EnglishVocabularyTests|ChineseSegmentationTests|ChineseMigrationTests|SequentialWordSelectionTests'` and `./scripts/benchmark.sh`. The new synthetic regressions cover `woxiangyaodeploy` and `wo'xiang'yao'deploy` → `我想要deploy` as the preview/full leader, disabled languages, exact English words, preserved English case, interleaving, final English completion, literal commits, normalized umlaut prefix consumption, stale delivery, personal/verbatim learning exclusion and absence of mixed automatic-confirmation evidence. Existing suites continue to expose unimplemented initial/fuzzy/Chinese-tail and migration quality cases.
@@ -12,7 +29,7 @@ Run `python3 scripts/msime_dictionary.py build --check`, `python3 scripts/englis
 
 Run `./scripts/test.sh` and `./scripts/build.sh`. On an intentionally installed build, check English-only and combined-language `he`, `shi`, `abilit`, `Gmail`, `GMAIL`, `iwanttobuild` and an unknown synthetic identifier in TextEdit and a browser field. Exercise selection, exact literal Return, cancellation, shortcuts and focus changes; compare initial hints with full candidates and verify capitalization. No installation is required for ordinary code validation. Database parity and core tests do not establish host compatibility, cross-language sentence-score calibration or restoration of mixed lexical paths.
 
-The user lifted the code-only restriction on October 22, 2026. Debug/Release builds and the new migration-focused checks pass; the complete suite still fails. Some existing fixtures assume the former scoring and mixed decoder, while presentation, learning and automatic-confirmation failures also need resolution. Preserve those failures until reviewed against the product contract; see [the current evidence](VERIFICATION.md).
+On October 24, 2026, ten failing core test functions were removed at the user's request. The remaining 342 Swift tests pass (258 core, 67 presentation, 14 settings and 3 storage), and the Debug app builds. Removed coverage includes abbreviation/full-spelling retention, personalized search and terminal compaction, mixed token learning, trailing spelling separators, normalized aliases, prefix ranking and standard-vocabulary automatic confirmation. These deletions do not resolve the underlying behaviors. Earlier failing-suite results remain historical evidence; see [the current evidence](VERIFICATION.md).
 
 For candidate refresh changes, run `./scripts/test.sh --filter 'MarkedTextStateTests|unchangedPreviewAndFinalResultsKeepTheExistingRows|CandidatePipelineTests|CandidatePlacementTests'`. The marked-text fixture exercises append → provisional → final delivery, caret movement, cancellation, exact Unicode bytes and reset; the view fixture checks row retention and interaction in both layouts. On an intentionally installed build, type synthetic `jintjiushi` rapidly and slowly, then edit, page, cancel and change focus. Watch for transient windows at the display corner and host/preedit or candidate-panel flicker. Repeat in a browser and TextEdit; automated geometry and view checks do not identify the owner of a transient native window.
 
@@ -246,6 +263,6 @@ For the independent static landing page, use the build, browser, localization, a
 
 ## Language-specific spelling and bounded search
 
-Run `./scripts/test.sh --filter 'UnifiedRankingTests|SpellingEvidenceTests|UnifiedRankingPresentationTests'` and `./scripts/benchmark.sh --quality`. Fixed regressions cover normalized probabilities, character relabeling invariance, segmentation-independent Chinese spelling costs, preservation of full-spelling paths against high-frequency abbreviations, associative large-batch compaction, English completion and exact literal/commit preservation. The 21 phonetic fixtures report unresolved ordinal/date ambiguities as well as initial and mixed spellings; their expected outputs do not authorize phrase-specific score rules. The historical holdout has been inspected during development and is no longer an independent estimate.
+Run `./scripts/test.sh --filter 'UnifiedRankingTests|SpellingEvidenceTests|UnifiedRankingPresentationTests'` and `./scripts/benchmark.sh --quality`. Fixed regressions cover normalized probabilities, character relabeling invariance, segmentation-independent Chinese spelling costs, English completion and exact literal/commit preservation. The 21 phonetic fixtures report unresolved ordinal/date ambiguities as well as initial and mixed spellings; their expected outputs do not authorize phrase-specific score rules. The historical holdout has been inspected during development and is no longer an independent estimate.
 
 On an intentionally installed build, type synthetic `danci`, `dan'ci`, `dierye`, `nhao` and `abilit` in TextEdit and a browser field. Check actual candidate ranking, select visible alternatives from compact/expanded panels with Space and a number, then exercise Escape, focus changes and a shortcut. Check that learned overrides remain deliberate, paused/secure input disables them, and no previously pending candidate returns after cancellation. A core test/build does not establish these native host checks.
