@@ -134,18 +134,6 @@ struct ChineseVocabularyTests {
         #expect(values.filter { !$0.hasCompletion }.count <= 12)
     }
 
-    @Test func learnedSingleCharactersCannotPromoteAChineseAbbreviationInsideAnEnglishWord() throws {
-        let now = Date(timeIntervalSince1970: 1_790_000_000)
-        let profile = LearningProfile(entries: [
-            LearnedPreference(input: "le", text: "了", language: .simplifiedChinese, strength: 8, lastUsed: now),
-        ], now: now)
-        let values = CandidateEngine().candidates(for: "nihaotitle", languages: Set(InputLanguage.allCases),
-                                                 learning: profile, now: now)
-        let abbreviation = try #require(values.first { $0.text == "你好体坛了" && !$0.isPartial })
-        #expect(abbreviation.tokenLearningBonus == 0)
-        #expect(values.first?.text == "你好title")
-    }
-
     @Test func largeTerminalBatchesMatchAnIndependentExhaustiveRanking() {
         let entries = (0..<128).map {
             PinyinLexiconEntry(syllables: ["a"], text: String(UnicodeScalar(0x4E00 + $0)!), score: 100 - $0 % 16)

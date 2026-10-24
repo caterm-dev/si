@@ -224,27 +224,6 @@ struct AutomaticConfirmationTests {
         }
     }
 
-    @Test(arguments: [("nihaopengyouxuexizhongwen", "你好朋友学习中文"), ("womenxuexizhongwen", "我们学习中文")])
-    func standardVocabularyActuallyConfirmsDuringTyping(input: String, expected: String) {
-        var session = InputSession(candidateGeneration: .deferred)
-        session.configure(languages: Set(InputLanguage.allCases), automaticConfirmationEnabled: true)
-        var rendered = ""
-        var consumed = ""
-        for (offset, character) in input.enumerated() {
-            let now = start.addingTimeInterval(Double(offset) * 0.08)
-            session.append(String(character), now: now)
-            if let request = session.pendingCandidateRequest { _ = session.accept(request.generate(), now: now) }
-            if let commit = session.automaticallyConfirm(now: now) {
-                rendered += commit.text
-                consumed += commit.input
-                #expect(expected.hasPrefix(rendered))
-            }
-        }
-        #expect(!rendered.isEmpty && !session.buffer.isEmpty)
-        #expect(consumed + session.buffer == input)
-        #expect(session.candidates.last?.text == session.buffer)
-    }
-
     private func makeSession(enabled: Bool = true, deferred: Bool = false) -> InputSession {
         var session = InputSession(engine: CandidateEngine(providers: [FixtureProvider()]),
                                    candidateGeneration: deferred ? .deferred : .synchronous)

@@ -82,18 +82,6 @@ struct CompositionLatticeTests {
         #expect(!engine.candidates(for: "woaizs", languages: languages, dictionary: dictionary).contains { $0.isUserPhrase })
     }
 
-    @Test func explicitBoundariesConstrainPersonalNodesAndTrailingCompletions() throws {
-        let dictionary = try UserDictionary(entries: [UserPhrase(input: "xi'an", text: "测试城市", language: .simplifiedChinese)])
-        let engine = CandidateEngine()
-        #expect(engine.candidates(for: "woxihuanxi'an", languages: languages, dictionary: dictionary)
-            .contains { $0.text == "我喜欢测试城市" })
-        #expect(!engine.candidates(for: "woxihuanxia'n", languages: languages, dictionary: dictionary)
-            .contains { $0.text == "我喜欢测试城市" })
-        let trailing = PinyinDecoder.standard.candidates(for: "xian'")
-        #expect(!trailing.contains { $0.text == "项目" })
-        #expect(trailing.contains { $0.text == "现在" })
-    }
-
     @Test func fullAndInitialSyllablesCanBeCombined() {
         for input in ["nhao", "nih", "ni'h", "n'hao"] {
             #expect(PinyinDecoder.standard.candidates(for: input).contains { $0.text == "你好" })

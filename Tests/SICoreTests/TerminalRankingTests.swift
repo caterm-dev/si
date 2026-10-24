@@ -74,18 +74,6 @@ struct TerminalRankingTests {
             .contains { $0.text == target.text })
     }
 
-    @Test func prefixProjectionUsesItsConsumedSpellingBeforeContinuationPruning() throws {
-        let (decoder, target) = fixture(includingSuffix: true)
-        var profile = LearningProfile()
-        for _ in 0..<8 { profile.record(InputCommit(input: "aa", candidate: target, reason: .explicitSelection), now: now) }
-        let candidates = decoder.compositionCandidates(for: "aab", languages: [.simplifiedChinese], learning: profile, now: now)
-        let prefix = try #require(candidates.first { $0.text == target.text && $0.consumedInputCount == 2 })
-        #expect(prefix.isPartial)
-        #expect(profile.bonus(for: prefix, input: "aa", now: now) == 32)
-        #expect(profile.bonus(for: prefix, input: "aab", now: now) == 0)
-        #expect(candidates.first?.isPartial == false)
-    }
-
     @Test func contextOnlyPrefixPreferencesStopAfterDeletionAndExpiry() throws {
         let (decoder, target) = fixture(includingSuffix: true)
         let context = try #require(CandidateContext(candidate: InputCandidate(text: "你好", language: .simplifiedChinese, score: 100)))

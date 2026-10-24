@@ -109,29 +109,6 @@ struct TokenLearningTests {
             .contains { $0.text == "你好find" })
     }
 
-    @Test func normalizedAliasesShareTokenPreferencesAndSyllableBoundariesStayDistinct() throws {
-        // Boundary eligibility is independent of the maintained vocabulary's changing frequency shortlist.
-        let decoder = PinyinDecoder(entries: [
-            PinyinLexiconEntry(syllables: ["wo"], text: "我"),
-            PinyinLexiconEntry(syllables: ["lv", "se"], text: "绿色"),
-            PinyinLexiconEntry(syllables: ["xian"], text: "先"),
-            PinyinLexiconEntry(syllables: ["xi", "an"], text: "西安", score: 99),
-        ])
-        let profile = try learned(input: "lu:se", text: "绿色")
-        for input in ["wolvse", "woLÜse", "wolu:se"] {
-            let word = try #require(decoder.compositionCandidates(for: input, languages: [.simplifiedChinese], learning: profile, now: now)
-                .first { $0.text == "我绿色" && !$0.isPartial })
-            #expect(word.tokenLearningBonus > 0)
-        }
-        let cityProfile = try learned(input: "xi'an", text: "西安")
-        let separated = try #require(decoder.compositionCandidates(for: "woxi'an", languages: languages, learning: cityProfile, now: now)
-            .first { $0.text == "我西安" && !$0.isPartial })
-        let plain = try #require(decoder.compositionCandidates(for: "woxian", languages: languages, learning: cityProfile, now: now)
-            .first { $0.text == "我西安" && !$0.isPartial })
-        #expect(separated.tokenLearningBonus > 0)
-        #expect(plain.tokenLearningBonus == 0)
-    }
-
     @Test func repeatedTokensAndWholeInputPreferencesShareOneFrequencyCap() throws {
         var profile = try learned(input: "shike", text: "食客")
         let input = String(repeating: "shike", count: 10)

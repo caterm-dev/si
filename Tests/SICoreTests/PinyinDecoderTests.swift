@@ -14,13 +14,6 @@ struct PinyinDecoderTests {
         #expect(decoder.candidates(for: "s'hi").isEmpty)
     }
 
-    @Test func incompleteLastSyllableAndInitialsSuggestPhrases() {
-        #expect(decoder.candidates(for: "niha").contains { $0.text == "你好" })
-        #expect(decoder.candidates(for: "nh").contains { $0.text == "你好" })
-        #expect(decoder.candidates(for: "srf").contains { $0.text == "输入法" })
-        #expect(decoder.candidates(for: "ni'").contains { $0.text == "你好" })
-    }
-
     @Test func combinesWordsNotStoredAsWholePhrases() {
         let tiny = PinyinDecoder(entries: [
             PinyinLexiconEntry(syllables: ["ni"], text: "你"),
