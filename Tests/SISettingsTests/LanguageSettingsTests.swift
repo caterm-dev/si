@@ -5,6 +5,29 @@ import SICore
 
 @MainActor
 struct LanguageSettingsTests {
+    @Test func punctuationCandidatesDefaultOffAndPersistIndependently() throws {
+        let name = "SI.PunctuationCandidateSettingsTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = LanguageSettings(defaults: defaults)
+        #expect(!settings.punctuationCandidatesEnabled)
+        settings.punctuationBehavior = .smart
+        settings.englishEnabled = false
+        #expect(!settings.punctuationCandidatesEnabled)
+        settings.punctuationCandidatesEnabled = true
+        let generation = settings.configurationGeneration
+        let restarted = LanguageSettings(defaults: defaults)
+        #expect(restarted.punctuationCandidatesEnabled)
+        #expect(restarted.punctuationBehavior == .smart && !restarted.englishEnabled)
+        settings.punctuationCandidatesEnabled = false
+        settings.punctuationCandidatesEnabled = true
+        #expect(settings.configurationGeneration == generation + 2)
+        settings.punctuationCandidatesEnabled = false
+        #expect(!LanguageSettings(defaults: defaults).punctuationCandidatesEnabled)
+        let appMemory = ApplicationMemorySettings(defaults: defaults, isPreview: true)
+        #expect(!appMemory.vocabularyEnabled && !appMemory.historyEnabled)
+    }
+
     @Test func automaticConfirmationIsOptInAndPersistsWithoutEnablingLearning() throws {
         let name = "SI.AutomaticConfirmationTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))

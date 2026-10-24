@@ -10,6 +10,26 @@ struct CandidatePreviewModelTests {
         var isCurrent = true
     }
 
+    @Test func punctuationSettingRefreshesPreviewAndReplacesPendingResults() async throws {
+        let model = CandidatePreviewModel()
+        let enabled = query(",", punctuationCandidatesEnabled: true)
+        let disabled = query(",")
+        #expect(enabled != disabled)
+        model.submit(enabled, isCurrent: { true })
+        await Task.yield()
+        model.submit(disabled, isCurrent: { true })
+        try await settle(model)
+        #expect(model.candidates.count == 1 && model.candidates.first?.text == ",")
+        #expect(model.candidates.first?.isPunctuation == false)
+        model.submit(enabled, isCurrent: { true })
+        try await settle(model)
+        #expect(model.candidates.contains { $0.text == "，" && $0.punctuationLanguage == .simplifiedChinese })
+        #expect(model.candidates.last?.isPunctuation == true)
+        model.submit(disabled, isCurrent: { true })
+        try await settle(model)
+        #expect(model.candidates.count == 1 && model.candidates.first?.isPunctuation == false)
+    }
+
     @Test func latestInputAndLanguageConfigurationReplacePendingResults() async throws {
         let model = CandidatePreviewModel()
         model.submit(query("ne"), isCurrent: { true })
@@ -42,8 +62,10 @@ struct CandidatePreviewModelTests {
         #expect(model.candidates.last?.text == "ne" && model.candidates.last?.isLiteral == true)
     }
 
-    private func query(_ input: String, languages: Set<InputLanguage> = [.simplifiedChinese]) -> CandidatePreviewQuery {
-        CandidatePreviewQuery(input: input, languages: languages, learning: LearningProfile(), dictionary: UserDictionary())
+    private func query(_ input: String, languages: Set<InputLanguage> = [.simplifiedChinese],
+                       punctuationCandidatesEnabled: Bool = false) -> CandidatePreviewQuery {
+        CandidatePreviewQuery(input: input, languages: languages, learning: LearningProfile(), dictionary: UserDictionary(),
+                              punctuationCandidatesEnabled: punctuationCandidatesEnabled)
     }
 
     private func settle(_ model: CandidatePreviewModel) async throws {

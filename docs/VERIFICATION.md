@@ -2,6 +2,16 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Default-off punctuation candidate setting — 2026-10-24
+
+Settings → Typing now includes Show punctuation candidates, off by default and persisted independently of languages and the composition punctuation policy. With it off, punctuation outside composition passes through and neither engine generation stage nor Settings preview creates punctuation variants. Enabled punctuation retains E/C/A badges and acceptance without an extra space. Explicit candidate metadata controls this presentation and acceptance behavior; ordinary literal handling remains available when the option is off.
+
+- All four new regressions pass: default-off full/provisional generation, persistence and configuration revision changes, stale session results/selections across a toggle, and Settings preview replacement. The focused selection passes 45 tests. Existing AppKit coverage now explicitly enables the feature and verifies disabling it removes the badge presentation in both layouts.
+- `./scripts/test.sh` runs 352 tests versus the isolated unmodified baseline's 348. Settings/storage and all 67 presentation tests pass; Core reports the same 23 issues. Recorded failing test names, source locations and occurrence counts exactly match the baseline; the existing decoding/search/automatic-confirmation failures remain unresolved.
+- `./scripts/build.sh` succeeds for the Debug app with signing disabled. The existing AppIntents metadata warning remains. Builds/tests required normal compiler/cache access outside the restricted nested sandbox. Whitespace and local documentation-link checks pass.
+
+No app was installed or launched, and actual user preferences, enabled input sources and private archives were not changed. Native Settings keyboard/VoiceOver interaction and host key routing remain unverified; manual switch/preview/persistence steps are in [testing](TESTING.md#language-labeled-punctuation-candidates). Local evidence: `/tmp/si-punctuation-setting-focused.log`, `/tmp/si-punctuation-setting-tests.log`, `/tmp/si-punctuation-setting-build.log`, `/tmp/si-punctuation-setting-baseline-tests.log` and `/tmp/si-punctuation-setting-comparison.json`.
+
 ## Chinese sentence alternatives and six-choice compact pages — 2026-10-24
 
 The MSIME source review previously confused low-level lattice defaults with the host's actual options. The retained host enables `sentence_alternatives` unconditionally; its runner-up ordering keeps three same-length generated readings for outputs of at least three characters, one for two-character outputs, and moves other readings back rather than deleting them. `MSIME_ALGORITHM.md` now links both implementations and corrects the earlier product claim.

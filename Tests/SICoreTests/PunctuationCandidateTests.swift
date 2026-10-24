@@ -4,8 +4,44 @@ import Testing
 struct PunctuationCandidateTests {
     private let languages = Set(InputLanguage.allCases)
 
+    @Test func punctuationCandidatesAreDisabledByDefaultInFullAndPreviewSearches() {
+        let engine = CandidateEngine(providers: [PunctuationWordFixture()])
+        #expect(!engine.punctuationCandidatesEnabled)
+        for input in [",", ".", "/", ";", "'", "nihao,"] {
+            let full = engine.candidates(for: input, languages: languages)
+            let preview = engine.previewCandidates(for: input, languages: languages, learning: LearningProfile(),
+                                                   dictionary: UserDictionary(), now: .now, context: nil)
+            #expect(full.count == 1 && full.first?.text == input && full.first?.isLiteral == true)
+            #expect(full.allSatisfy { !$0.isPunctuation && $0.punctuationLanguage == nil })
+            #expect(preview == full)
+            #expect(full.first?.appendsSpaceOnAcceptance == true)
+        }
+    }
+
+    @Test func togglingPunctuationRejectsPendingResultsAndSelectionsWithoutLosingSpelling() throws {
+        var session = InputSession(engine: CandidateEngine(providers: []), candidateGeneration: .deferred)
+        session.append(",")
+        let disabled = try #require(session.pendingCandidateRequest)
+        session.configure(languages: languages, punctuationCandidatesEnabled: true)
+        let enabled = try #require(session.pendingCandidateRequest)
+        let acceptedDisabled = session.accept(disabled.generate())
+        #expect(!acceptedDisabled && session.buffer == ",")
+        let acceptedEnabled = session.accept(enabled.generatePreview())
+        #expect(acceptedEnabled && session.candidates.contains { $0.text == "，" })
+        let oldChoice = try #require(session.candidates.first { $0.text == "，" })
+        session.configure(languages: languages, punctuationCandidatesEnabled: false)
+        #expect(session.buffer == "," && session.cursorUTF16Offset == 1)
+        #expect(session.candidates.count == 1 && session.candidates.first?.isPunctuation == false)
+        let acceptedOldPreview = session.accept(enabled.generatePreview())
+        let acceptedOldFull = session.accept(enabled.generate())
+        #expect(!acceptedOldPreview && !acceptedOldFull)
+        session.resolveCandidates()
+        #expect(session.candidates.count == 1 && session.candidates.first?.isLiteral == true)
+        #expect(session.commit(oldChoice) == ",")
+    }
+
     @Test func standalonePunctuationKeepsLanguagesAndExactOriginal() throws {
-        let engine = CandidateEngine(providers: [])
+        let engine = CandidateEngine(providers: [], punctuationCandidatesEnabled: true)
         for (input, chinese) in [(",", ["，", "、"]), (".", ["。", "…"]), ("/", ["、"]),
                                  (";", ["；"]), ("'", ["‘", "’"]), ("\"", ["“", "”"])] {
             let result = engine.candidates(for: input, languages: languages)
@@ -26,7 +62,7 @@ struct PunctuationCandidateTests {
     }
 
     @Test func disabledLanguagesNeverSupplyPunctuation() {
-        let engine = CandidateEngine(providers: [])
+        let engine = CandidateEngine(providers: [], punctuationCandidatesEnabled: true)
         for enabled: Set<InputLanguage> in [[], [.english], [.simplifiedChinese], languages] {
             let result = engine.candidates(for: ",", languages: enabled)
             #expect(result.filter { !$0.isLiteral }.allSatisfy {
@@ -38,7 +74,7 @@ struct PunctuationCandidateTests {
     }
 
     @Test func completeWordsGainPunctuationWithoutConfirmingIncompleteOrPrefixChoices() {
-        let engine = CandidateEngine(providers: [PunctuationWordFixture()])
+        let engine = CandidateEngine(providers: [PunctuationWordFixture()], punctuationCandidatesEnabled: true)
         let result = engine.candidates(for: "nihao,", languages: languages)
         #expect(result.map(\.text) == ["你好,", "你好，", "你好、", "nihao,"])
         #expect(result.dropLast().allSatisfy { !$0.isPartial && !$0.canLearn && !$0.appendsSpaceOnAcceptance })
@@ -48,7 +84,7 @@ struct PunctuationCandidateTests {
     }
 
     @Test func apostrophesInsidePinyinStaySeparators() {
-        let engine = CandidateEngine(providers: [PunctuationWordFixture()])
+        let engine = CandidateEngine(providers: [PunctuationWordFixture()], punctuationCandidatesEnabled: true)
         for input in ["ni'", "ni'hao", "ni'hao'"] {
             let result = engine.candidates(for: input, languages: languages)
             #expect(result.allSatisfy { $0.punctuationLanguage == nil })
@@ -58,7 +94,7 @@ struct PunctuationCandidateTests {
     }
 
     @Test func domainsCodeAndRepeatedSymbolsKeepOriginalWithoutRecursiveExpansion() {
-        let engine = CandidateEngine(providers: [PunctuationWordFixture()])
+        let engine = CandidateEngine(providers: [PunctuationWordFixture()], punctuationCandidatesEnabled: true)
         for input in ["example.com", "user@example.com", "foo/bar", "MyTool/", "nihao,world", String(repeating: ".", count: 5_000)] {
             let result = engine.candidates(for: input, languages: languages)
             #expect(result.count == 1 && result.first?.isLiteral == true && result.first?.text == input)
@@ -88,7 +124,7 @@ struct PunctuationCandidateTests {
     }
 
     @Test func sessionSelectionEditingAndStaleDeliveryPreservePunctuation() throws {
-        var session = InputSession(engine: CandidateEngine(providers: []), candidateGeneration: .deferred)
+        var session = InputSession(engine: CandidateEngine(providers: [], punctuationCandidatesEnabled: true), candidateGeneration: .deferred)
         session.append(",")
         let stale = try #require(session.pendingCandidateRequest)
         session.deleteBackward()
@@ -116,7 +152,7 @@ struct PunctuationCandidateTests {
     }
 
     @Test func productionPreviewAndFullSearchExposeBothPunctuationLanguages() throws {
-        let engine = CandidateEngine()
+        let engine = CandidateEngine(punctuationCandidatesEnabled: true)
         let full = engine.candidates(for: "nihao.", languages: languages)
         #expect(full.contains { $0.text == "你好." && $0.punctuationLanguage == .english })
         #expect(full.contains { $0.text == "你好。" && $0.punctuationLanguage == .simplifiedChinese })

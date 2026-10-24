@@ -63,7 +63,7 @@ public struct InputSession: Sendable {
     public static let automaticConfirmationPause = AutomaticConfirmation.pauseDelay
     public private(set) var automaticConfirmationRevision: UInt64 = 0
     private var languages: Set<InputLanguage> = Set(InputLanguage.allCases)
-    private let engine: CandidateEngine
+    private var engine: CandidateEngine
     private let candidateGeneration: CandidateGeneration
     private var learning = LearningProfile()
     private var dictionary = UserDictionary()
@@ -84,7 +84,8 @@ public struct InputSession: Sendable {
                                    dictionary: UserDictionary = UserDictionary(), usesContext: Bool = false,
                                    contextGeneration: UInt64 = 0, automaticConfirmationEnabled: Bool = false,
                                    configurationGeneration: UInt64 = 0, now: Date = .now,
-                                   applicationMemory: ApplicationMemorySnapshot = .empty) {
+                                   applicationMemory: ApplicationMemorySnapshot = .empty,
+                                   punctuationCandidatesEnabled: Bool = false) {
         let languagesChanged = self.languages != languages
         let contextChanged = self.contextGeneration != contextGeneration
         let expired = recentContext.map { now.timeIntervalSince($0.committedAt) >= Self.contextLifetime || now < $0.committedAt } ?? false
@@ -93,6 +94,7 @@ public struct InputSession: Sendable {
                 || self.usesContext != usesContext || contextChanged || expired
                 || self.automaticConfirmationEnabled != automaticConfirmationEnabled
                 || self.configurationGeneration != configurationGeneration
+                || engine.punctuationCandidatesEnabled != punctuationCandidatesEnabled
                 || self.applicationMemory != applicationMemory else { return }
         self.languages = languages
         self.learning = learning
@@ -102,6 +104,7 @@ public struct InputSession: Sendable {
         self.contextGeneration = contextGeneration
         self.automaticConfirmationEnabled = automaticConfirmationEnabled
         self.configurationGeneration = configurationGeneration
+        engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
         automaticConfirmation = AutomaticConfirmation()
         if !usesContext || languagesChanged || contextChanged { recentContext = nil }
         refresh(now: now)
@@ -255,7 +258,7 @@ public struct InputSession: Sendable {
             _ = accept(request.generate(), now: now)
         } else {
             // Old candidates must not be selected while new work is pending. Exact text remains available.
-            candidates = [InputCandidate(text: buffer, language: nil, score: 0)]
+            candidates = [engine.literalCandidate(for: buffer)]
         }
     }
 

@@ -3,10 +3,9 @@ import SICore
 #endif
 
 actor CandidatePreviewSearch {
-    private let engine = CandidateEngine()
-
     func generate(_ query: CandidatePreviewQuery) -> [InputCandidate] {
-        engine.candidates(for: query.input, languages: query.languages,
-                          learning: query.learning, dictionary: query.dictionary, applicationMemory: query.applicationMemory)
+        let engine = CandidateEngine(punctuationCandidatesEnabled: query.punctuationCandidatesEnabled)
+        return engine.candidates(for: query.input, languages: query.languages,
+                                 learning: query.learning, dictionary: query.dictionary, applicationMemory: query.applicationMemory)
     }
 }

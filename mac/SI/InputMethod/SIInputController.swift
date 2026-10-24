@@ -148,7 +148,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return true
         }
         let punctuation = LanguageSettings.shared.punctuationBehavior
-        if session.buffer.isEmpty, !LanguageSettings.shared.enabledLanguages.isEmpty,
+        if session.buffer.isEmpty, LanguageSettings.shared.punctuationCandidatesEnabled,
+           !LanguageSettings.shared.enabledLanguages.isEmpty,
            PunctuationCandidates.recognizes(text) {
             session.append(text)
             update(client)
@@ -205,7 +206,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           automaticConfirmationEnabled: LanguageSettings.shared.automaticConfirmationEnabled
                             && !IsSecureEventInputEnabled(),
                           configurationGeneration: LanguageSettings.shared.configurationGeneration,
-                          applicationMemory: memory)
+                          applicationMemory: memory,
+                          punctuationCandidatesEnabled: LanguageSettings.shared.punctuationCandidatesEnabled)
     }
 
     private func prepareApplicationMemory(for client: any IMKTextInput) {

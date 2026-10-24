@@ -2,6 +2,7 @@ import Foundation
 
 public struct CandidateEngine: Sendable {
     private let providers: [any CandidateProvider]?
+    public var punctuationCandidatesEnabled: Bool
     private struct PrefixBoundary: Hashable {
         let sourceCount: Int
         let languages: Int
@@ -20,8 +21,9 @@ public struct CandidateEngine: Sendable {
         }
     }
 
-    public init(providers: [any CandidateProvider]? = nil) {
+    public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false) {
         self.providers = providers
+        self.punctuationCandidatesEnabled = punctuationCandidatesEnabled
         // Creating a deferred client session must not load dictionaries on the main actor.
         // The shared immutable resources initialize when its worker first generates candidates.
     }
@@ -62,7 +64,7 @@ public struct CandidateEngine: Sendable {
         guard providers == nil else {
             return punctuationCandidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                          now: now, context: context, applicationMemory: applicationMemory, preview: true)
-                + [InputCandidate(text: input, language: nil, score: 0)]
+                + [literalCandidate(for: input)]
         }
         var generated: [InputCandidate] = []
         if languages.contains(.english) {
@@ -92,7 +94,7 @@ public struct CandidateEngine: Sendable {
     private func punctuationCandidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                                        dictionary: UserDictionary, now: Date, context: CandidateContext?,
                                        applicationMemory: ApplicationMemorySnapshot, preview: Bool) -> [InputCandidate] {
-        guard let punctuation = PunctuationCandidates.split(input),
+        guard punctuationCandidatesEnabled, let punctuation = PunctuationCandidates.split(input),
               !PunctuationCandidates.hasRecognizedSuffix(punctuation.prefix) else { return [] }
         let prefixes: [InputCandidate]
         if punctuation.prefix.isEmpty {
@@ -170,7 +172,12 @@ public struct CandidateEngine: Sendable {
             .map(\.candidate)
         // Never drop an enabled language's candidates because another language matches.
         // Literal input stays available even with all language providers disabled.
-        return merged + [InputCandidate(text: input, language: nil, score: 0)]
+        return merged + [literalCandidate(for: input)]
+    }
+
+    func literalCandidate(for input: String) -> InputCandidate {
+        InputCandidate(text: input, language: nil, score: 0,
+                       isPunctuation: punctuationCandidatesEnabled && PunctuationCandidates.split(input) != nil)
     }
 
     /// A known complete path is the strongest evidence for a prefix's compatible continuation.

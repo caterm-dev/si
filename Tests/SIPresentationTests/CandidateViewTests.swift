@@ -361,7 +361,7 @@ struct CandidateViewTests {
 
     @Test func punctuationLanguagesStayVisibleAndCommitOnlyTextInBothLayouts() throws {
         for expanded in [false, true] {
-            var session = InputSession(engine: CandidateEngine(providers: []))
+            var session = InputSession(engine: CandidateEngine(providers: [], punctuationCandidatesEnabled: true))
             session.append(",")
             var selection = CandidateSelection()
             selection.setExpanded(expanded)
@@ -391,6 +391,14 @@ struct CandidateViewTests {
                 try light.write(to: location.appendingPathExtension("png"))
                 try dark.write(to: location.appendingPathExtension("dark.png"))
             }
+            session.configure(languages: Set(InputLanguage.allCases), punctuationCandidatesEnabled: false)
+            session.append(",")
+            selection.update(session.candidates)
+            view.render(selection)
+            #expect(view.rows.count == 1 && view.rows[0].candidateLabel.stringValue == ",")
+            #expect(view.rows[0].detailLabel.stringValue == "As Typed")
+            #expect(!view.rows[0].detailLabel.centersBadgeGlyph)
+            #expect(view.rows[0].detailLabel.isHidden == !expanded)
         }
     }
 

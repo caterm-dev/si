@@ -23,6 +23,8 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let historyInput: String?
     /// Language of an explicitly selectable punctuation variant, independent of its word prefix.
     public let punctuationLanguage: InputLanguage?
+    /// Explicit punctuation presentation/acceptance metadata, including its exact literal fallback.
+    public let isPunctuation: Bool
     /// Explicit preferred-full-code policy, separate from statistical score units.
     public let isPreferred: Bool
     public let hasLiteralSegments: Bool
@@ -46,7 +48,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         return consumedInputCount.map { "First \($0) characters · \(source)" } ?? source
     }
     public var appendsSpaceOnAcceptance: Bool {
-        !isHistory && punctuationLanguage == nil && PunctuationCandidates.split(text) == nil
+        !isHistory && !isPunctuation
             && (isLiteral || language == .english || (isMixed && text.last?.isASCII == true))
     }
 
@@ -55,7 +57,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
                 hasCompletion: Bool = false, tokenLearningBonus: Double = 0, isPreferred: Bool = false,
                 lexicalTokenCount: Int? = nil, confirmationBoundaries: [ConfirmationBoundary] = [],
                 isApplicationVocabulary: Bool = false, isHistory: Bool = false, historyInput: String? = nil,
-                punctuationLanguage: InputLanguage? = nil) {
+                punctuationLanguage: InputLanguage? = nil, isPunctuation: Bool = false) {
         self.text = text
         self.language = language
         self.score = score
@@ -68,6 +70,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         self.isHistory = isHistory
         self.historyInput = isHistory ? historyInput : nil
         self.punctuationLanguage = language == nil ? nil : punctuationLanguage
+        self.isPunctuation = self.punctuationLanguage != nil || (language == nil && !isHistory && isPunctuation)
         self.isPreferred = isPreferred && self.isUserPhrase && consumedInputCount == nil && !hasCompletion
         self.hasLiteralSegments = hasLiteralSegments
         self.hasCompletion = hasCompletion

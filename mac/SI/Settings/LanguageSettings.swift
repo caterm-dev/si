@@ -11,8 +11,16 @@ final class LanguageSettings {
     static let englishKey = "languages.english"
     static let chineseKey = "languages.simplifiedChinese"
     static let punctuationKey = "typing.punctuationBehavior"
+    static let punctuationCandidatesKey = "typing.punctuationCandidates"
     static let automaticConfirmationKey = "typing.automaticConfirmation"
     private(set) var configurationGeneration: UInt64 = 0
+
+    var punctuationCandidatesEnabled: Bool {
+        didSet {
+            defaults.set(punctuationCandidatesEnabled, forKey: Self.punctuationCandidatesKey)
+            if oldValue != punctuationCandidatesEnabled { configurationGeneration &+= 1 }
+        }
+    }
 
     var automaticConfirmationEnabled: Bool {
         didSet {
@@ -56,6 +64,7 @@ final class LanguageSettings {
         englishEnabled = defaults.bool(forKey: Self.englishKey)
         chineseEnabled = defaults.bool(forKey: Self.chineseKey)
         automaticConfirmationEnabled = defaults.bool(forKey: Self.automaticConfirmationKey)
+        punctuationCandidatesEnabled = defaults.bool(forKey: Self.punctuationCandidatesKey)
         if let saved = defaults.string(forKey: Self.punctuationKey) {
             punctuationBehavior = PunctuationBehavior(rawValue: saved) ?? .asTyped
         } else {

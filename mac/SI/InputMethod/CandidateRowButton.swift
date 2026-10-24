@@ -54,8 +54,7 @@ final class CandidateRowButton: NSButton {
         numberLabel.stringValue = String(number)
         candidateLabel.stringValue = candidate.text
         // Punctuation needs a visible language hint even in the compact strip.
-        let showsPunctuation = candidate.punctuationLanguage != nil
-            || (candidate.isLiteral && PunctuationCandidates.hasRecognizedSuffix(candidate.text))
+        let showsPunctuation = candidate.isPunctuation
         usesBadge = showsPunctuation
         var details: [String] = []
         if let language = candidate.punctuationLanguage { details.append(language == .english ? "E" : "C") }

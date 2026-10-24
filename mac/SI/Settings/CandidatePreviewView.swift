@@ -63,6 +63,7 @@ struct CandidatePreviewView: View {
         let memory: ApplicationMemorySnapshot = applicationID.isEmpty ? .empty : applicationMemory.snapshot(for: applicationID)
         return CandidatePreviewQuery(input: input, languages: settings.enabledLanguages,
                                      learning: memory.learning,
-                                     dictionary: dictionary.dictionaryForInput, applicationMemory: memory)
+                                     dictionary: dictionary.dictionaryForInput, applicationMemory: memory,
+                                     punctuationCandidatesEnabled: settings.punctuationCandidatesEnabled)
     }
 }
