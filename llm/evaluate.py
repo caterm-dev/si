@@ -7,9 +7,9 @@ from pathlib import Path
 
 import torch
 
-from .common import file_hash, fingerprint, load_config, write_json
+from .common import file_hash, fingerprint, load_config, normalized, write_json
+from .csv_data.prepare import read_collection
 from .metrics import cases, summarize
-from .prepare import clean_rows, normalized
 from .runtime import candidates, load_bundle, load_checkpoint, select_device
 
 
@@ -40,7 +40,8 @@ def evaluate(data, split, output, checkpoint_path=None, config_path=None, baseli
     evaluation_id = manifest["dataset_id"]
     benchmark_sources = None
     if benchmark_path:
-        benchmark_rows, _, benchmark_sources = clean_rows(benchmark_path)
+        benchmark_splits, benchmark_sources, _, _, _ = read_collection(benchmark_path, (split,))
+        benchmark_rows = benchmark_splits[split]
         # Freeze an external benchmark before corpus iteration, without sharing its
         # tokenizer or labels with training. Reject exact normalized train/dev overlap.
         used_inputs = {normalized(row["input"]) for records in rows.values() for row in records}
@@ -93,9 +94,9 @@ def main(test_only=False):
     predictor = parser.add_mutually_exclusive_group(required=True)
     predictor.add_argument("--checkpoint", type=Path)
     predictor.add_argument("--baseline", choices=("literal",))
-    parser.add_argument("--config", type=Path, default=Path("llm/configs/0.4b.json"), help="Baseline config; model config is embedded in checkpoint")
+    parser.add_argument("--config", type=Path, default=Path("llm/configs/0.4b-static-csv.json"), help="Baseline config; model config is embedded in checkpoint")
     parser.add_argument("--data", type=Path, required=True)
-    parser.add_argument("--benchmark", type=Path, help="Optional frozen external source manifest; audited against --data train/validation")
+    parser.add_argument("--benchmark", type=Path, help="Optional external CSV root with provenance.json and the selected split directory; checked against --data train/validation")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--device", choices=("auto", "cpu", "mps", "cuda"), default="auto")
     parser.add_argument("--beam-size", type=int)

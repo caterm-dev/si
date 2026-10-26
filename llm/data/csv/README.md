@@ -5,6 +5,7 @@ This is the current editable source of training data. Maintain CSV rows directly
 ```text
 train/city.csv          Training examples about cities
 train/company.csv       Training examples about companies/work
+train/words.csv         General Chinese vocabulary (merged categories)
 train/chat_daily.csv    Short daily chat phrases
 train/typos.csv         Explicit Chinese typo → correct text pairs
 train/english.csv       English identity/correction examples
@@ -24,9 +25,11 @@ The optional `language` column accepts `zh`, `en` or `mixed`; omitted means Chin
 
 Add a new `.csv` file and it will be included the next time you prepare a dataset. Save as UTF-8 (BOM accepted). Standard CSV quoting handles commas and quotes. Blank values, control characters, malformed headers/row widths, unsupported languages and oversized examples are rejected. Output spelling/casing is preserved exactly. Exact duplicate pairs inside one split are deduplicated, retaining all source group names.
 
+Training vocabulary is maintained in one `train/words.csv`: its 1,350 pairs consolidate the previous twelve `words_*.csv` files without changing samples. City/company/chat/error sources retain their own files. Validation/test source organization remains independent. Existing prepared snapshots are immutable; prepare a new version to use changed source grouping.
+
 Do not put the same correct text or normalized-identical input in different splits, including its typo variants. Put related template/paraphrase variants into the same split manually; the importer cannot detect semantic similarity. It reports conflicting file/line locations instead of moving your rows. All three directories need nonempty data. No test data is used for tokenizer fitting, training or checkpoint selection.
 
-The initial static collection was materialized once from the previous SI-authored Chinese starter and original fixtures, preserving their existing split assignments and all spelling-error examples. Clean city/company rows are in their named files; previously generated errors are now actual static rows in `typos.csv`, `english_typos.csv` or `mixed_typos.csv`. Files are not regenerated from the old seed. Import yields **16,312 training**, **1,361 validation** and **1,300 test** unique pairs (18,973 total); one exact duplicate in the old 18,974-row collection is deduplicated. These are synthetic starter examples, not real conversations, a frequency-ranked vocabulary or an independent quality benchmark.
+The initial static collection was materialized once from the previous SI-authored Chinese starter and original fixtures, preserving their existing split assignments and all spelling-error examples. Clean city/company rows are in their named files; previously generated errors are now actual static rows in `typos.csv`, `english_typos.csv` or `mixed_typos.csv`. There is no seed or sentence-generation script in the current project. Import yields **16,312 training**, **1,361 validation** and **1,300 test** unique pairs (18,973 total); one exact duplicate in the old 18,974-row collection is deduplicated. These are synthetic starter examples, not real conversations, a frequency-ranked vocabulary or an independent quality benchmark.
 
 `provenance.json` declares GPLv3 and SI authorship for this collection. Its default applies to new SI-authored files, with optional per-file declarations under `files` for other reviewed sources. It is a rights/provenance record, not automatic licensing of any material copied into the folder. Keep third-party origin, exact revision and required attribution with each imported source; never add private input history or personal phrases.
 
@@ -36,4 +39,4 @@ Prepare a new immutable version with:
 ./llm/scripts/prepare.sh --csv-root llm/data/csv --output llm/data/prepared/static-csv-v2
 ```
 
-The importer freezes exact CSV bytes, hashes and declarations alongside model-ready JSONL/tokenizer files. Editing a CSV later does not change that snapshot. Choose a new prepared directory and new run after editing data; do not replace a stopped run's dataset and try to resume it. Existing old checkpoints/prepared datasets are preserved. See [the complete training guide](../../README.md).
+The importer freezes exact CSV bytes, hashes and declarations alongside model-ready JSONL/tokenizer files. Editing a CSV later does not change that snapshot. Choose a new prepared directory and new run after editing data; do not replace a stopped run's dataset and try to resume it. Current CSV prepared snapshots are preserved. Previously trained weights remain available for inference; their removed old datasets/configuration are not available for resume. See [the complete training guide](../../README.md).

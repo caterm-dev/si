@@ -2,5 +2,3 @@
 torch==2.6.0
 # PyTorch's NumPy interoperability should also work in a clean environment.
 numpy==2.2.6
-# Optional for text-only Chinese corpora; explicit pairs do not require it.
-pypinyin==0.55.0

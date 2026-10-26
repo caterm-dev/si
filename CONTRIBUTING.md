@@ -16,7 +16,7 @@ For dictionary changes, follow the [Chinese maintenance workflow](docs/CHINESE_V
 ## Pull requests
 
 - Describe the user-visible problem, resulting behavior, and validation performed.
-- Keep changes focused and use English for code identifiers, comments, documentation, UI text, issues, and pull requests. Language examples and lexicons may use their native scripts.
+- Keep changes focused and use English for code identifiers, comments, documentation, source localization keys, issues, and pull requests. Keep app translations in the matching `Localizable.strings` resources with identical keys and format arguments. Translations, language examples and lexicons use their native scripts.
 - Do not introduce a current-language mode, a language toggle shortcut, or a ranking rule that silently hides other enabled languages.
 - Keep the original input available, including unknown words and identifiers.
 - Do not log typed content or send it to external services.

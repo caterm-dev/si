@@ -3,6 +3,7 @@ import Observation
 import Carbon
 #if SWIFT_PACKAGE
 import SICore
+import SILocalization
 import SIStorage
 #endif
 
@@ -76,7 +77,7 @@ final class ApplicationMemorySettings {
             memory = try await store.load()
             loadSucceeded = true
         } catch {
-            errorMessage = "App vocabulary and history could not be opened. Recording and suggestions are paused. Clear all app data to start again."
+            errorMessage = L10n.text("App vocabulary and history could not be opened. Recording and suggestions are paused. Clear all app data to start again.")
         }
         isLoading = false
         invalidateConsent()
@@ -179,7 +180,7 @@ final class ApplicationMemorySettings {
                 isSaving = false
             } catch {
                 guard revision == currentRevision else { return }
-                errorMessage = "App data could not be cleared. Recording and suggestions remain paused; retry clearing."
+                errorMessage = L10n.text("App data could not be cleared. Recording and suggestions remain paused; retry clearing.")
                 isSaving = false
             }
         }
@@ -196,7 +197,7 @@ final class ApplicationMemorySettings {
                 defaults.removeObject(forKey: "personalization.enabled")
                 defaults.removeObject(forKey: "personalization.contextEnabled")
             } catch {
-                legacyRemovalError = "Old shared learning data could not be deleted. Please retry."
+                legacyRemovalError = L10n.text("Old shared learning data could not be deleted. Please retry.")
             }
             isRemovingLegacyData = false
         }
@@ -243,7 +244,7 @@ final class ApplicationMemorySettings {
                 isSaving = false
             } catch {
                 guard revision == currentRevision else { return }
-                errorMessage = "App vocabulary or history changes could not be saved. They remain in memory; retry saving before quitting."
+                errorMessage = L10n.text("App vocabulary or history changes could not be saved. They remain in memory; retry saving before quitting.")
                 isSaving = false
             }
         }

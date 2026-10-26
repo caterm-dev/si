@@ -54,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered, defer: false
             )
-            window.title = "SI Settings"
+            window.title = L10n.text("SI Settings")
             window.contentViewController = NSHostingController(rootView: SettingsView(settings: .shared, updater: updater))
             window.isReleasedWhenClosed = false
             window.center()

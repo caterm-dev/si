@@ -20,7 +20,7 @@ class ModelTests(unittest.TestCase):
         self.tokenizer = Tokenizer.fit([{"input": "nihao", "target": "你好"}], 512)
 
     def test_production_model_really_has_point_four_billion_parameters(self):
-        report = parameter_report(load_config(ROOT / "configs/0.4b.json")["model"])
+        report = parameter_report(load_config(ROOT / "configs/0.4b-static-csv.json")["model"])
         self.assertEqual(report["parameters"], 403069952)
         self.assertTrue(.38 < report["billions"] < .42)
 

@@ -5,7 +5,13 @@ import json
 import math
 import os
 import tempfile
+import unicodedata
 from pathlib import Path
+
+
+def normalized(text):
+    """Normalize only for overlap checks; preserve model input/output bytes."""
+    return unicodedata.normalize("NFKC", text).casefold().strip()
 
 
 def read_json(path):
@@ -73,14 +79,10 @@ def load_config(path):
         raise ValueError("Need >=260 tokens, even width and width divisible by attention heads")
     if not 0 <= model["dropout"] < 1 or min(model["max_source_tokens"], model["max_target_tokens"]) < 3:
         raise ValueError("Invalid dropout or sequence limits")
-    ratios = data["split_ratios"]
-    if len(ratios) != 3 or any(r <= 0 for r in ratios) or not math.isclose(sum(ratios), 1):
-        raise ValueError("Three positive train/validation/test ratios must sum to one")
+    if data != {"format": "static-csv"}:
+        raise ValueError("data must declare only format=static-csv; CSV directories choose the splits")
     if type(config["seed"]) is not int:
         raise ValueError("seed must be an integer")
-    for key in ("noise_variants", "max_edits"):
-        if type(data[key]) is not int or data[key] < 0:
-            raise ValueError(f"data.{key} must be a nonnegative integer")
     for key in ("batch_size", "gradient_accumulation", "max_steps", "schedule_steps", "warmup_steps",
                 "validate_every", "save_every"):
         if type(training[key]) is not int or training[key] <= 0:

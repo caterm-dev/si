@@ -1,6 +1,7 @@
 import AppKit
 #if SWIFT_PACKAGE
 import SICore
+import SILocalization
 #endif
 
 @MainActor
@@ -58,11 +59,11 @@ final class CandidateRowButton: NSButton {
         usesBadge = showsPunctuation
         var details: [String] = []
         if let language = candidate.punctuationLanguage { details.append(language == .english ? "E" : "C") }
-        else if candidate.isHistory { details.append("App History") }
-        else if candidate.isApplicationVocabulary { details.append("App Vocabulary") }
-        else if candidate.isLiteral { details.append(usesBadge ? "A" : "As Typed") }
-        else if candidate.isUserPhrase { details.append("Personal") }
-        else if candidate.hasLiteralSegments { details.append("Typed text") }
+        else if candidate.isHistory { details.append(L10n.text("App History")) }
+        else if candidate.isApplicationVocabulary { details.append(L10n.text("App Vocabulary")) }
+        else if candidate.isLiteral { details.append(usesBadge ? "A" : L10n.text("As Typed")) }
+        else if candidate.isUserPhrase { details.append(L10n.text("Personal")) }
+        else if candidate.hasLiteralSegments { details.append(L10n.text("Typed text")) }
         detailLabel.stringValue = details.joined(separator: " · ")
         detailLabel.isHidden = details.isEmpty || (compact && !showsPunctuation)
         detailLabel.centersBadgeGlyph = usesBadge
@@ -79,9 +80,10 @@ final class CandidateRowButton: NSButton {
         else { symbol = nil }
         sourceIndicator.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
         sourceIndicator.isHidden = !compact || symbol == nil || !detailLabel.isHidden
-        toolTip = "\(candidate.text) — \(candidate.label)"
-        setAccessibilityLabel("\(number), \(candidate.text), \(candidate.label)")
-        setAccessibilityValue(selected ? "Selected" : "")
+        let description = CandidateDescription.label(for: candidate)
+        toolTip = "\(candidate.text) — \(description)"
+        setAccessibilityLabel("\(number), \(candidate.text), \(description)")
+        setAccessibilityValue(selected ? L10n.text("Selected") : "")
         candidateLabel.textColor = .labelColor
         numberLabel.textColor = selected ? CandidateStyle.accent : .secondaryLabelColor
         detailLabel.textColor = .secondaryLabelColor

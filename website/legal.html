@@ -24,7 +24,7 @@
     </header>
     <main id="main" class="legal-main wrap">
         <a class="text-link legal-back" href="{{home}}">← {{backHome}}</a>
-        <div class="legal-heading"><p class="eyebrow">{{legalLabel}}</p><h1>{{policyTitle}}</h1><p class="legal-intro">{{policyIntro}}</p><p class="legal-updated">{{updatedLabel}} <time datetime="2026-10-26">{{policyUpdated}}</time></p></div>
+        <div class="legal-heading"><p class="eyebrow">{{legalLabel}}</p><h1>{{policyTitle}}</h1><p class="legal-intro">{{policyIntro}}</p><p class="legal-updated">{{updatedLabel}} <time datetime="{{policyUpdatedISO}}">{{policyUpdated}}</time></p></div>
         <div class="legal-layout"><nav class="legal-toc" aria-label="{{contentsLabel}}"><p class="eyebrow">{{contentsLabel}}</p>{{policyToc}}</nav><article class="legal-content" aria-label="{{policyTitle}}">{{policySections}}</article></div>
     </main>
     <footer class="site-footer wrap"><a class="wordmark" href="{{home}}" aria-label="SI"><span class="logo">SI</span></a><p>{{footerLine}}</p><div><a href="{{privacyUrl}}" {{privacyCurrent}}>{{privacy}}</a><a href="{{termsUrl}}" {{termsCurrent}}>{{terms}}</a><a href="https://github.com/caterm-dev/si/blob/main/LICENSE">{{license}}</a><a href="https://github.com/caterm-dev/si/issues">{{feedback}}</a></div></footer>

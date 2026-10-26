@@ -1,6 +1,7 @@
 import AppKit
 import Testing
 import SICore
+import SILocalization
 @testable import SIPresentation
 
 @MainActor
@@ -167,7 +168,7 @@ struct CandidateViewTests {
         #expect(view.rows[0].frame.maxX <= view.rows[1].frame.minX)
         #expect(view.rows.last!.frame.maxX <= view.expandButton.frame.minX)
         #expect(view.pageLabel.isHidden && view.previousButton.isHidden && view.nextButton.isHidden)
-        #expect(view.expandButton.accessibilityLabel() == "Expand candidates")
+        #expect(view.expandButton.accessibilityLabel() == L10n.text("Expand candidates"))
         view.rows[2].performClick(nil)
         #expect(clicked == selection.candidate(number: 3)?.id)
         view.rows[5].performClick(nil)
@@ -179,7 +180,7 @@ struct CandidateViewTests {
         #expect(selection.isExpanded && view.isExpanded && view.rows.count == 9)
         #expect(selection.selected == selected)
         #expect(view.rows[7].isCurrent)
-        #expect(view.expandButton.accessibilityLabel() == "Collapse candidates")
+        #expect(view.expandButton.accessibilityLabel() == L10n.text("Collapse candidates"))
         view.expandButton.performClick(nil)
         #expect(!view.isExpanded && selection.selected == selected)
         #expect(view.rows[1].isCurrent)
@@ -381,7 +382,7 @@ struct CandidateViewTests {
                 #expect(badgeFont.pointSize < candidateFont.pointSize)
                 #expect(row.detailLabel.frame.width >= row.detailLabel.intrinsicContentSize.width)
             }
-            #expect(view.rows[1].accessibilityLabel()?.contains("Chinese Punctuation") == true)
+            #expect(view.rows[1].accessibilityLabel()?.contains(L10n.text("Chinese Punctuation")) == true)
             let selected = try #require(selection.candidate(number: 2))
             #expect(session.commitResult(selected, reason: .explicitSelection).text == "，")
             let light = try snapshot(view, appearance: .aqua)
@@ -396,7 +397,7 @@ struct CandidateViewTests {
             selection.update(session.candidates)
             view.render(selection)
             #expect(view.rows.count == 1 && view.rows[0].candidateLabel.stringValue == ",")
-            #expect(view.rows[0].detailLabel.stringValue == "As Typed")
+            #expect(view.rows[0].detailLabel.stringValue == L10n.text("As Typed"))
             #expect(!view.rows[0].detailLabel.centersBadgeGlyph)
             #expect(view.rows[0].detailLabel.isHidden == !expanded)
         }
@@ -409,22 +410,22 @@ struct CandidateViewTests {
         #expect(row.detailLabel.isHidden)
         #expect(row.detailLabel.stringValue.isEmpty)
         #expect(row.candidateLabel.stringValue == mixed.text)
-        #expect(row.accessibilityLabel()?.contains("Chinese + English") == true)
-        #expect(row.toolTip?.contains("Chinese + English") == true)
+        #expect(row.accessibilityLabel()?.contains(L10n.text("Chinese + English")) == true)
+        #expect(row.toolTip?.contains(L10n.text("Chinese + English")) == true)
         #expect(row.candidateID == mixed.id)
         let prefix = InputCandidate(text: "你好", language: .simplifiedChinese, score: 100, consumedInputCount: 5)
         row.configure(candidate: prefix, number: 2, selected: false)
         #expect(row.detailLabel.isHidden && row.detailLabel.stringValue.isEmpty)
-        #expect(row.accessibilityLabel()?.contains("First 5 characters") == true)
-        #expect(row.toolTip?.contains("First 5 characters") == true)
+        #expect(row.accessibilityLabel()?.contains(CandidateDescription.label(for: prefix)) == true)
+        #expect(row.toolTip?.contains(CandidateDescription.label(for: prefix)) == true)
         row.configure(candidate: prefix, number: 2, selected: false, compact: true)
         #expect(row.detailLabel.isHidden && !row.sourceIndicator.isHidden)
-        #expect(row.accessibilityLabel()?.contains("First 5 characters") == true)
-        #expect(row.toolTip?.contains("First 5 characters") == true)
+        #expect(row.accessibilityLabel()?.contains(CandidateDescription.label(for: prefix)) == true)
+        #expect(row.toolTip?.contains(CandidateDescription.label(for: prefix)) == true)
         #expect(row.candidateLabel.stringValue == prefix.text && row.candidateID == prefix.id)
         let literal = InputCandidate(text: "NiHao", language: nil, score: 0)
         row.configure(candidate: literal, number: 3, selected: false)
-        #expect(row.detailLabel.stringValue == "As Typed")
+        #expect(row.detailLabel.stringValue == L10n.text("As Typed"))
     }
 
     @Test func compactSinglePageHidesFooterAndPageButtonsStillNavigate() {
@@ -446,7 +447,7 @@ struct CandidateViewTests {
         view.onMovePage = { pageOffset = $0 }
         view.nextButton.performClick(nil)
         #expect(pageOffset == 1)
-        #expect(view.nextButton.accessibilityLabel() == "Next page")
+        #expect(view.nextButton.accessibilityLabel() == L10n.text("Next page"))
     }
 
     @Test func renderedNumbersHighlightAndKeyboardChoiceStayInSync() throws {
@@ -466,7 +467,7 @@ struct CandidateViewTests {
         view.render(selection)
         #expect(view.rows[0].candidateID == selection.candidate(number: 1)?.id)
         #expect(view.rows[1].isCurrent)
-        #expect(view.rows[1].accessibilityValue() as? String == "Selected")
+        #expect(view.rows[1].accessibilityValue() as? String == L10n.text("Selected"))
         selection.movePage(by: 1)
         view.render(selection)
         #expect(view.rows.count == 4)

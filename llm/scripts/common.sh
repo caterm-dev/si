@@ -9,6 +9,7 @@ case "$si_llm_venv" in
     /*) ;;
     *) si_llm_venv="$si_llm_repo/$si_llm_venv" ;;
 esac
+source "$si_llm_root/scripts/defaults.sh"
 
 si_llm_python() {
     local interpreter="${SI_LLM_PYTHON:-$si_llm_venv/bin/python}"

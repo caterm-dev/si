@@ -20,6 +20,6 @@ struct UpdateSettingsSection: View {
 
     private var version: String {
         let info = Bundle.main.infoDictionary
-        return "\(info?["CFBundleShortVersionString"] as? String ?? "Unknown") (\(info?["CFBundleVersion"] as? String ?? "Unknown"))"
+        return "\(info?["CFBundleShortVersionString"] as? String ?? L10n.text("Unknown")) (\(info?["CFBundleVersion"] as? String ?? L10n.text("Unknown")))"
     }
 }

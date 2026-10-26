@@ -10,15 +10,14 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 
-from ..common import file_hash, fingerprint, load_config, read_json, write_json, write_jsonl
-from ..prepare import normalized
+from ..common import file_hash, fingerprint, load_config, normalized, read_json, write_json, write_jsonl
 from ..tokenizer import Tokenizer
 
 ROOT = Path(__file__).resolve().parents[1]
 SPLITS = ("train", "validation", "test")
 
 
-def source_files(root):
+def source_files(root, splits=SPLITS):
     """Discover every category without requiring one manifest entry per file."""
     root = Path(root)
     for child in root.iterdir():
@@ -29,7 +28,7 @@ def source_files(root):
         if child.is_file() and child.suffix.lower() == ".csv":
             raise ValueError("Put CSV files inside train/, validation/ or test/")
     paths = []
-    for split in SPLITS:
+    for split in splits:
         folder = root / split
         if not folder.is_dir():
             raise ValueError(f"Missing {split}/ directory in CSV source root")
@@ -82,16 +81,18 @@ def csv_records(data, relative):
         raise ValueError(f"{relative}: invalid UTF-8 CSV") from error
 
 
-def read_collection(root):
+def read_collection(root, splits=SPLITS):
     root = Path(root)
+    if not splits or any(split not in SPLITS for split in splits):
+        raise ValueError("Select train, validation or test CSV directories")
     declarations = read_json(root / "provenance.json")
     if declarations.get("schema_version") != 1:
         raise ValueError("Unsupported CSV provenance schema")
-    paths = source_files(root)
+    paths = source_files(root, splits)
     relatives = {p.relative_to(root).as_posix() for p in paths}
-    if set(declarations.get("files", {})) - relatives:
+    if {name for name in declarations.get("files", {}) if Path(name).parts[0] in splits} - relatives:
         raise ValueError("provenance.json contains file overrides for missing CSVs")
-    rows = {split: {} for split in SPLITS}
+    rows = {split: {} for split in splits}
     owners = {"input": {}, "target": {}}
     sources, snapshots, counts = [], {}, {}
     for path in paths:

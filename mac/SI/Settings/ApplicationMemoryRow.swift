@@ -15,7 +15,7 @@ struct ApplicationMemoryRow: View {
                 Text(input).foregroundStyle(.secondary).textSelection(.enabled)
                 Text(applicationID).font(.caption).foregroundStyle(.secondary)
                 HStack {
-                    Text("Used \(count) times")
+                    Text(L10n.format("Times used: %ld", count))
                     Text(lastUsed, format: .dateTime.year().month().day())
                 }
                 .font(.caption).foregroundStyle(.secondary)
@@ -23,7 +23,7 @@ struct ApplicationMemoryRow: View {
             .accessibilityElement(children: .combine)
             Spacer()
             Button("Forget", role: .destructive, action: forget)
-                .accessibilityLabel("Forget \(text) in \(applicationID)")
+                .accessibilityLabel(L10n.format("Forget %@ in %@", text, applicationID))
         }
         .padding(.vertical, 4)
     }

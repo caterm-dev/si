@@ -13,13 +13,7 @@
     "max_target_tokens": 128
   },
   "data": {
-    "split_ratios": [
-      0.9,
-      0.05,
-      0.05
-    ],
-    "noise_variants": 0,
-    "max_edits": 0
+    "format": "static-csv"
   },
   "training": {
     "batch_size": 2,

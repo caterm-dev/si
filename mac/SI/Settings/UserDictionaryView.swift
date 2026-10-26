@@ -41,16 +41,16 @@ struct UserDictionaryView: View {
                 HStack {
                     VStack(alignment: .leading) {
                         Text(phrase.text).font(.headline).lineLimit(3)
-                        Text("\(phrase.input) · \(phrase.language.displayName)\(phrase.isPinned ? " · Preferred" : "")")
+                        Text(verbatim: "\(phrase.input) · \(L10n.text(phrase.language.displayName))\(phrase.isPinned ? " · " + L10n.text("Preferred") : "")")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .combine)
                     Spacer()
                     Button("Edit") { editor = PhraseEditorRequest(phrase: phrase) }
-                        .accessibilityLabel("Edit phrase \(phrase.text), code \(phrase.input)")
+                        .accessibilityLabel(L10n.format("Edit phrase %@, code %@", phrase.text, phrase.input))
                         .disabled(!dictionary.canEdit)
                     Button("Delete", role: .destructive) { dictionary.remove(id: phrase.id) }
-                        .accessibilityLabel("Delete phrase \(phrase.text), code \(phrase.input)")
+                        .accessibilityLabel(L10n.format("Delete phrase %@, code %@", phrase.text, phrase.input))
                         .disabled(!dictionary.canEdit)
                 }
             }
@@ -70,7 +70,7 @@ struct UserDictionaryView: View {
                 }
             }
             HStack {
-                Text("\(dictionary.entries.count) of \(UserDictionary.maximumEntries) phrases · No automatic expiry")
+                Text(L10n.format("Personal phrases: %ld of %ld · No automatic expiry", dictionary.entries.count, UserDictionary.maximumEntries))
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)

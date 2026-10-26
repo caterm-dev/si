@@ -1,6 +1,5 @@
 .venv/
 .cache/
-data/raw/
 data/prepared/
 runs/
 reports/

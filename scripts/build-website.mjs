@@ -50,6 +50,7 @@ const requireText = value => {
 };
 for (const [index, policy] of policies.entries()) {
     requireText(policy.updated);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(policy.updatedISO) || policy.updatedISO !== policies[0].updatedISO) throw new Error('Invalid or mismatched policy date');
     for (const kind of ['privacy', 'terms']) {
         const page = policy[kind];
         for (const field of ['title', 'description', 'intro']) requireText(page?.[field]);
@@ -108,7 +109,7 @@ for (const [index, locale] of locales.entries()) {
             const policy = policies[index][kind];
             Object.assign(pageValues, {
                 title: `${policy.title} — SI`, description: policy.description,
-                policyTitle: policy.title, policyIntro: policy.intro, policyUpdated: policies[index].updated,
+                policyTitle: policy.title, policyIntro: policy.intro, policyUpdated: policies[index].updated, policyUpdatedISO: policies[index].updatedISO,
             });
             raw.policyToc = policy.sections.map(section => `<a href="#${section.id}">${escapeHTML(section.title)}</a>`).join('');
             raw.policySections = policy.sections.map(section => `<section id="${section.id}"><h2>${escapeHTML(section.title)}</h2>${section.paragraphs.map(paragraph => `<p>${escapeHTML(paragraph)}</p>`).join('')}${section.links.map(link => `<a class="legal-reference" href="${escapeHTML(link.href)}">${escapeHTML(link.label)} ↗</a>`).join('')}</section>`).join('\n');

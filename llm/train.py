@@ -184,7 +184,7 @@ def train(config_path, data_path, run_path, device_name="auto", resume=False, ma
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=Path("llm/configs/0.4b.json"))
+    parser.add_argument("--config", type=Path, default=Path("llm/configs/0.4b-static-csv.json"))
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--device", choices=("auto", "cpu", "mps", "cuda"), default="auto")

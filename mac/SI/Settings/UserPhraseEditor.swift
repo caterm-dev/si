@@ -23,20 +23,24 @@ struct UserPhraseEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(isNew ? "Add Personal Phrase" : "Edit Personal Phrase").font(.title2.bold())
+            Text(L10n.text(isNew ? "Add Personal Phrase" : "Edit Personal Phrase")).font(.title2.bold())
             Form {
                 TextField("Input code", text: $input)
                 TextField("Phrase", text: $text)
                 Picker("Candidate language", selection: $language) {
                     ForEach(InputLanguage.allCases) { language in
-                        Text(language.displayName).tag(language)
+                        Text(L10n.text(language.displayName)).tag(language)
                     }
                 }
                 Toggle("Prefer this phrase for its full code", isOn: $isPinned)
             }
             Text("Use letters and apostrophes for the code, such as xm or xiang'mu. Use v for ü. The phrase is inserted exactly as saved, and its language must be enabled in Settings.")
                 .font(.callout).foregroundStyle(.secondary)
-            if let errorMessage { Text(errorMessage).foregroundStyle(.red) }
+                .fixedSize(horizontal: false, vertical: true)
+            if let errorMessage {
+                Text(errorMessage).foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
@@ -54,15 +58,15 @@ struct UserPhraseEditor: View {
             try dictionary.save(phrase)
             dismiss()
         } catch UserPhrase.ValidationError.invalidInput {
-            errorMessage = "Use 1–64 letters, with apostrophes only between letters."
+            errorMessage = L10n.text("Use 1–64 letters, with apostrophes only between letters.")
         } catch UserPhrase.ValidationError.invalidText {
-            errorMessage = "Enter a nonempty phrase on one line, without control characters. Shorten it if it is too long."
+            errorMessage = L10n.text("Enter a nonempty phrase on one line, without control characters. Shorten it if it is too long.")
         } catch UserDictionary.DictionaryError.duplicatePhrase {
-            errorMessage = "This code, language, and phrase are already saved. Edit the existing entry instead."
+            errorMessage = L10n.text("This code, language, and phrase are already saved. Edit the existing entry instead.")
         } catch UserDictionary.DictionaryError.capacityExceeded {
-            errorMessage = "The dictionary is full. Remove an entry before adding another phrase."
+            errorMessage = L10n.text("The dictionary is full. Remove an entry before adding another phrase.")
         } catch {
-            errorMessage = "This phrase could not be saved. Close the editor and check the dictionary status."
+            errorMessage = L10n.text("This phrase could not be saved. Close the editor and check the dictionary status.")
         }
     }
 }

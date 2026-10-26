@@ -24,7 +24,7 @@ struct SettingsView: View {
                     Toggle("Show punctuation candidates", isOn: $settings.punctuationCandidatesEnabled)
                     Picker("Punctuation during composition", selection: $settings.punctuationBehavior) {
                         ForEach(PunctuationBehavior.allCases) { behavior in
-                            Text(behavior.displayName).tag(behavior)
+                            Text(L10n.text(behavior.displayName)).tag(behavior)
                         }
                     }
                 } header: {
@@ -32,7 +32,7 @@ struct SettingsView: View {
                 } footer: {
                     Text("Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train app vocabulary. Return and shortcuts keep the remaining original spelling.")
                     Text("Punctuation candidates are off by default. Enable them to choose English or Chinese symbols with language badges. When off, punctuation outside composition passes through unchanged.")
-                    Text(settings.punctuationBehavior.explanation)
+                    Text(L10n.text(settings.punctuationBehavior.explanation))
                 }
                 ApplicationPassthroughSection(settings: settings)
                 ApplicationMemorySection(settings: applicationMemory)

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import SICore
 import SIStorage
+import SILocalization
 @testable import SISettings
 
 @MainActor
@@ -58,7 +59,7 @@ struct UserDictionarySettingsTests {
         await settings.flush()
         #expect(settings.entries.count == 2)
         #expect(settings.entries.contains { $0.id == local.id })
-        #expect(settings.notice == "Imported 1 phrases; skipped 1 existing phrases.")
+        #expect(settings.notice == L10n.format("Imported: %ld; already saved: %ld.", 1, 1))
         let data = try #require(await settings.exportData())
         #expect(try UserDictionaryArchive.decode(data).entries == settings.entries)
         let beforeInvalidImport = settings.entries

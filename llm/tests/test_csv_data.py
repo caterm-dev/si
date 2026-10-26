@@ -1,5 +1,4 @@
 import contextlib
-import csv
 import io
 import tempfile
 import unittest
@@ -9,38 +8,18 @@ from llm.common import file_hash, read_json, read_jsonl, write_json
 from llm.csv_data.prepare import csv_records, prepare, read_collection
 from llm.evaluate import evaluate
 from llm.runtime import load_bundle
-from llm.tests.helpers import tiny_config
+from llm.tests.helpers import collection, tiny_config, write_csv
 from llm.train import train
-
-
-def collection(directory):
-    root = Path(directory) / "csv"
-    for split in ("train", "validation", "test"):
-        (root / split).mkdir(parents=True)
-    write_json(root / "provenance.json", {"schema_version": 1, "default": {
-        "license": "GPL-3.0-only", "origin": "SI-authored synthetic CSV regression", "revision": "1"}, "files": {}})
-    write_csv(root / "train/city.csv", [("beijing", "北京"), ("shanghai", "上海")])
-    write_csv(root / "validation/city.csv", [("hangzhou", "杭州")])
-    write_csv(root / "test/city.csv", [("chengdu", "成都")])
-    return root
-
-
-def write_csv(path, rows, language=False):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as stream:
-        writer = csv.writer(stream, lineterminator="\n")
-        writer.writerow(["input", "target", "language"] if language else ["input", "target"])
-        writer.writerows(rows)
 
 
 class CSVDataTests(unittest.TestCase):
     def test_directories_choose_split_without_generation_and_names_choose_groups(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = collection(temporary)
-            config = tiny_config(temporary)  # Legacy noise=2 settings must not generate CSV rows.
+            config = tiny_config(temporary)
             output = Path(temporary) / "prepared"
             manifest = prepare(config, root, output)
-            self.assertEqual(manifest["counts"], {"train": {"zh": 2}, "validation": {"zh": 1}, "test": {"zh": 1}})
+            self.assertEqual(manifest["counts"], {"train": {"zh": 2}, "validation": {"zh": 1}, "test": {"zh": 3}})
             self.assertEqual(manifest["data_config"]["augmentation"], "none")
             rows = list(read_jsonl(output / "train.jsonl"))
             self.assertEqual({r["input"] for r in rows}, {"beijing", "shanghai"})

@@ -6,7 +6,7 @@ struct ApplicationPassthroughSection: View {
 
     var body: some View {
         Section {
-            Text("\(settings.passthroughApplications.count) applications use direct input")
+            Text(L10n.format("Applications using direct input: %ld", settings.passthroughApplications.count))
                 .foregroundStyle(.secondary)
             Button("Manage Direct Input…") { showsApplications = true }
         } header: {

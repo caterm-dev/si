@@ -10,9 +10,9 @@ from llm.common import read_json, read_jsonl, write_json
 from llm.compare import compare
 from llm.evaluate import evaluate
 from llm.export import export
-from llm.prepare import prepare
+from llm.csv_data.prepare import prepare
 from llm.runtime import load_checkpoint
-from llm.tests.helpers import ROOT, manifest_for, tiny_config
+from llm.tests.helpers import collection, tiny_config, write_csv
 from llm.train import train
 
 
@@ -26,7 +26,7 @@ class WorkflowTests(unittest.TestCase):
         config["model"]["dropout"] = .2
         write_json(cls.config, config)
         cls.data = cls.path / "data"
-        prepare(cls.config, ROOT / "configs/sources.json", cls.data)
+        prepare(cls.config, collection(cls.path), cls.data)
         with contextlib.redirect_stdout(io.StringIO()):
             train(cls.config, cls.data, cls.path / "full", "cpu", max_steps=4, threads=2)
             train(cls.config, cls.data, cls.path / "resumed", "cpu", max_steps=2, threads=2)
@@ -103,8 +103,8 @@ class WorkflowTests(unittest.TestCase):
 
     def test_external_frozen_benchmarks_and_leakage_detection(self):
         with tempfile.TemporaryDirectory() as directory:
-            benchmark = manifest_for(directory, [{"input": "neverSeenBenchmark42", "target": "neverSeenBenchmark42",
-                                                   "language": "en", "noise": "clean"}])
+            benchmark = collection(Path(directory) / "benchmark")
+            write_csv(benchmark / "test/city.csv", [("neverSeenBenchmark42", "neverSeenBenchmark42", "en")], language=True)
             a, b = Path(directory) / "a.json", Path(directory) / "b.json"
             evaluate(self.data, "test", a, self.path / "full/best.pt", device_name="cpu", threads=2, benchmark_path=benchmark)
             evaluate(self.data, "test", b, config_path=self.config, baseline="literal", device_name="cpu", threads=2, benchmark_path=benchmark)
@@ -112,9 +112,8 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(read_json(b)["metrics"]["overall"]["top1_accuracy"], 1)
             alternate = Path(directory) / "alternate"
             alternate.mkdir()
-            records = list(read_jsonl(ROOT / "data/fixtures/pairs.jsonl"))
-            records.append({"input": "additionalTrainingPair", "target": "additionalTrainingPair", "language": "en"})
-            sources = manifest_for(alternate, records)
+            sources = collection(alternate)
+            write_csv(sources / "train/english.csv", [("additionalTrainingPair", "additionalTrainingPair", "en")], language=True)
             prepare(self.config, sources, alternate / "data")
             c = Path(directory) / "c.json"
             evaluate(alternate / "data", "test", c, config_path=self.config, baseline="literal", device_name="cpu",
@@ -122,7 +121,16 @@ class WorkflowTests(unittest.TestCase):
             self.assertNotEqual(read_json(b)["training_dataset_id"], read_json(c)["training_dataset_id"])
             self.assertEqual(len(compare([b, c])), 2)
             used = next(read_jsonl(self.data / "train.jsonl"))
-            benchmark = manifest_for(directory, [{"input": used["input"], "target": used["target"], "language": used["language"]}])
+            write_csv(benchmark / "test/city.csv", [(used["input"], used["target"], used["language"])], language=True)
             with self.assertRaisesRegex(ValueError, "overlaps"):
                 evaluate(self.data, "test", Path(directory) / "leaked.json", config_path=self.config,
                          baseline="literal", device_name="cpu", threads=2, benchmark_path=benchmark)
+
+    def test_older_model_config_remains_loadable_for_inference_without_sources(self):
+        payload = dict(self.full)
+        payload["config"] = {**payload["config"], "data": {"split_ratios": [.9, .05, .05], "noise_variants": 2, "max_edits": 1}}
+        path = self.path / "previous-format.pt"
+        torch.save(payload, path)
+        checkpoint, model, tokenizer = load_checkpoint(path, torch.device("cpu"))
+        self.assertEqual(model.config["vocab_size"], 512)
+        self.assertEqual(tokenizer.digest, checkpoint["tokenizer_digest"])

@@ -1,4 +1,7 @@
 import AppKit
+#if SWIFT_PACKAGE
+import SILocalization
+#endif
 
 @MainActor
 final class CandidatePanel: NSPanel {
@@ -31,7 +34,7 @@ final class CandidatePanel: NSPanel {
         backgroundColor = .clear
         hasShadow = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        setAccessibilityLabel("SI candidates")
+        setAccessibilityLabel(L10n.text("SI candidates"))
     }
 
     func show(selection: CandidateSelection, caret: NSRect, clientLevel: Int, screens: [CandidatePlacement.Screen],

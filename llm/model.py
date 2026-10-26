@@ -109,7 +109,7 @@ def parameter_report(config):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", default="llm/configs/0.4b.json")
+    parser.add_argument("--config", default="llm/configs/0.4b-static-csv.json")
     args = parser.parse_args()
     print(parameter_report(load_config(args.config)["model"]))
 

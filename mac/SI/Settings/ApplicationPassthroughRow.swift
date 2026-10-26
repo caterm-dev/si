@@ -33,7 +33,7 @@ struct ApplicationPassthroughRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .toggleStyle(.switch)
-        .accessibilityLabel("Direct input for \(application.name), \(application.id)")
+        .accessibilityLabel(L10n.format("Direct input for %@, %@", application.name, application.id))
         .padding(.vertical, 4)
         .task(id: application.bundleURL) { loadIcon() }
     }

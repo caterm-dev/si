@@ -1,4 +1,7 @@
 import AppKit
+#if SWIFT_PACKAGE
+import SILocalization
+#endif
 
 @MainActor
 final class CandidateListView: NSView {
@@ -21,15 +24,15 @@ final class CandidateListView: NSView {
         wantsLayer = true
         layer?.cornerRadius = 12
         layer?.masksToBounds = true
-        setAccessibilityLabel("SI candidates")
+        setAccessibilityLabel(L10n.text("SI candidates"))
         pageLabel.font = .systemFont(ofSize: 11)
         pageLabel.textColor = .secondaryLabelColor
-        previousButton.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Previous page")
-        nextButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: "Next page")
-        previousButton.setAccessibilityLabel("Previous page")
-        nextButton.setAccessibilityLabel("Next page")
-        previousButton.toolTip = "Previous page"
-        nextButton.toolTip = "Next page"
+        previousButton.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: L10n.text("Previous page"))
+        nextButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: L10n.text("Next page"))
+        previousButton.setAccessibilityLabel(L10n.text("Previous page"))
+        nextButton.setAccessibilityLabel(L10n.text("Next page"))
+        previousButton.toolTip = L10n.text("Previous page")
+        nextButton.toolTip = L10n.text("Next page")
         for button in [previousButton, nextButton, expandButton] {
             button.isBordered = false
             button.imagePosition = .imageOnly
@@ -63,11 +66,11 @@ final class CandidateListView: NSView {
         }
         isExpanded = selection.isExpanded
         layer?.cornerRadius = isExpanded ? 12 : CandidateStyle.stripHeight / 2
-        let expansionLabel = isExpanded ? "Collapse candidates" : "Expand candidates"
+        let expansionLabel = L10n.text(isExpanded ? "Collapse candidates" : "Expand candidates")
         expandButton.image = NSImage(systemSymbolName: isExpanded ? "chevron.up" : "chevron.down",
                                      accessibilityDescription: expansionLabel)
         expandButton.setAccessibilityLabel(expansionLabel)
-        expandButton.setAccessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+        expandButton.setAccessibilityValue(L10n.text(isExpanded ? "Expanded" : "Collapsed"))
         expandButton.toolTip = expansionLabel
         let visible = Array(selection.visibleRange)
         let canReuse = rows.count == visible.count && zip(rows, visible).allSatisfy {
@@ -90,7 +93,7 @@ final class CandidateListView: NSView {
         }
         showsPagination = selection.pageCount > 1
         pageLabel.stringValue = "\(selection.page + 1) / \(max(1, selection.pageCount))"
-        pageLabel.setAccessibilityLabel("Page \(selection.page + 1) of \(max(1, selection.pageCount))")
+        pageLabel.setAccessibilityLabel(L10n.format("Page %ld of %ld", selection.page + 1, max(1, selection.pageCount)))
         for control in [pageLabel, previousButton, nextButton] { control.isHidden = !isExpanded || !showsPagination }
         expandButton.isHidden = rows.isEmpty
         updateInteraction(selection)
@@ -103,7 +106,7 @@ final class CandidateListView: NSView {
         previousButton.isEnabled = !isUpdating && selection.page > 0
         nextButton.isEnabled = !isUpdating && selection.page + 1 < selection.pageCount
         expandButton.isEnabled = !isUpdating
-        setAccessibilityHelp(isUpdating ? "Updating candidates" : nil)
+        setAccessibilityHelp(isUpdating ? L10n.text("Updating candidates") : nil)
     }
 
     var preferredSize: NSSize {

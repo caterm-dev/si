@@ -89,15 +89,14 @@ fi
 import importlib.metadata
 import sys
 import torch
-import pypinyin
 import numpy
 
-for package, expected in (("torch", "2.6.0"), ("pypinyin", "0.55.0"), ("numpy", "2.2.6")):
+for package, expected in (("torch", "2.6.0"), ("numpy", "2.2.6")):
     actual = importlib.metadata.version(package)
     if actual.split("+")[0] != expected:
         raise SystemExit(f"Expected {package} {expected}, got {actual}")
 print(f"Environment ready: {sys.executable}")
-print(f"PyTorch {torch.__version__}; pypinyin {pypinyin.__version__}")
+print(f"PyTorch {torch.__version__}")
 print(f"NumPy {numpy.__version__}; tensor conversion: {torch.from_numpy(numpy.zeros(1)).tolist()}")
 print(f"CUDA available: {torch.cuda.is_available()}; MPS available: {torch.backends.mps.is_available()}")
 PY

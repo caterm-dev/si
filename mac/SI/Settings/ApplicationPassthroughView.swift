@@ -67,7 +67,7 @@ struct ApplicationPassthroughView: View {
 
     private func addApplication() {
         let panel = NSOpenPanel()
-        panel.title = "Add Application"
+        panel.title = L10n.text("Add Application")
         panel.allowedContentTypes = [.applicationBundle]
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
@@ -75,7 +75,7 @@ struct ApplicationPassthroughView: View {
             guard response == .OK, let url = panel.url else { return }
             Task { @MainActor in
                 guard let application = await ApplicationDiscovery.shared.application(at: url) else {
-                    errorMessage = "This application does not provide a bundle identifier."
+                    errorMessage = L10n.text("This application does not provide a bundle identifier.")
                     return
                 }
                 applications.removeAll { $0.id == application.id }

@@ -19,7 +19,7 @@ struct ApplicationMemorySection: View {
             if settings.isLoading {
                 ProgressView("Opening app vocabulary and history…")
             } else {
-                Text("\(settings.memory.vocabulary.count) vocabulary entries · \(settings.memory.history.count) history entries")
+                Text(L10n.format("Vocabulary entries: %ld · History entries: %ld", settings.memory.vocabulary.count, settings.memory.history.count))
                     .foregroundStyle(.secondary)
                 HStack {
                     Button("Manage App Data…") { showsManager = true }

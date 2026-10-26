@@ -9,7 +9,7 @@ struct UserDictionarySection: View {
             if dictionary.isLoading {
                 ProgressView("Opening personal phrases…")
             } else {
-                Text("\(dictionary.entries.count) personal phrases").foregroundStyle(.secondary)
+                Text(L10n.format("Personal phrases: %ld", dictionary.entries.count)).foregroundStyle(.secondary)
                 Button("Manage Personal Phrases…") { showsDictionary = true }
             }
             if let error = dictionary.errorMessage {

@@ -12,6 +12,7 @@ llm/data/csv/
   train/
     city.csv
     company.csv
+    words.csv
     chat_daily.csv
     typos.csv
     english.csv
@@ -44,6 +45,27 @@ See [the source data guide](data/csv/README.md) for the full contract and curren
 
 ## Setup and quick checks
 
+Each entry point performs one task. Parameters are preset; run the commands separately when you need that stage:
+
+| Command | Only task |
+| --- | --- |
+| `./llm/scripts/setup.sh` | Install/check the Python environment |
+| `./llm/scripts/data.sh` | Prepare the current CSV data (`prepare.sh` is the same entry point) |
+| `./llm/scripts/run.sh` | Start fresh 0.4B training (`train.sh` is the same entry point) |
+| `./llm/scripts/resume.sh` | Resume the existing training run |
+| `./llm/scripts/validation.sh` | Evaluate the complete validation split |
+| `./llm/scripts/test.sh` | Evaluate the complete test split |
+| `./llm/scripts/infer.sh --input womenzaijia` | Inspect candidates for one input (default input: `nihao`) |
+| `./llm/scripts/export.sh` | Export inference weights |
+
+No entry point automatically launches the next stage or setup. Training retains its periodic validation-loss calculation and checkpoint saving; separate candidate evaluation requires an explicit validation/test command.
+
+[Shared presets](scripts/defaults.sh) select the 0.403B configuration, MPS, four CPU threads, the current CSV root, `llm/data/prepared/static-csv-v2/`, `llm/runs/0.4b-static-csv-v2/` and `llm/reports/0.4b-static-csv-v2/{validation,test}.json`. Training uses 2,000 steps from the model config. Evaluation/inference/export read the run's `best.pt`; export writes `inference.pt` beside it.
+
+Edit the presets once to use different paths, or override individual command arguments as shown below. Optional environment overrides are `SI_LLM_EXPERIMENT`, `SI_LLM_CONFIG`, `SI_LLM_CSV_ROOT`, `SI_LLM_DATA`, `SI_LLM_RUN`, `SI_LLM_REPORT_ROOT`, `SI_LLM_CHECKPOINT`, `SI_LLM_DEVICE` and `SI_LLM_THREADS`. Changing `SI_LLM_EXPERIMENT` selects matching default data/run/report paths. Explicit command arguments take precedence over presets. Relative paths resolve from the repository root.
+
+Preparation and fresh training reject existing output directories. To train edited CSVs, choose a new experiment name in the presets (for example, `static-csv-v3`), then run data preparation and training separately. To continue an unchanged run, use `resume.sh`. Evaluation also rejects existing report paths; use `--output NEW_PATH` to retain earlier reports. Control+C stops the foreground task and does not start another stage.
+
 Run from the repository root:
 
 ```sh
@@ -52,7 +74,7 @@ Run from the repository root:
 ./llm/scripts/smoke.sh
 ```
 
-Setup creates/reuses isolated `llm/.venv` with Python 3.12 and pinned PyTorch/NumPy/pypinyin. Scripts use it without activation and resolve relative arguments from the repository root, even when launched from another directory. `--help` is available on each entry point. Setup options include `--python`, `--venv`, `--offline`, `--find-links` and `--torch-index-url`; `SI_LLM_VENV` selects the environment for later scripts, while `SI_LLM_PYTHON` overrides an already managed runtime interpreter. CUDA wheel-index installation is not hardware-verified.
+Setup creates/reuses isolated `llm/.venv` with Python 3.12 and pinned PyTorch/NumPy. Scripts use it without activation and resolve relative arguments from the repository root, even when launched from another directory. `--help` is available on each entry point. Setup options include `--python`, `--venv`, `--offline`, `--find-links` and `--torch-index-url`; `SI_LLM_VENV` selects the environment for later scripts, while `SI_LLM_PYTHON` overrides an already managed runtime interpreter. CUDA wheel-index installation is not hardware-verified.
 
 Smoke imports the static CSV collection, trains/resumes the small CPU model for four total steps and performs partial validation/test plus literal fallback checks. It does not run the 0.4B model or generate corpus content. With no arguments it uses a fresh timestamped output directory; use `--output NEW_DIRECTORY` for an explicit location. The small check is not a conversion-quality benchmark.
 
@@ -64,7 +86,7 @@ Smoke imports the static CSV collection, trains/resumes the small CPU model for 
 
 The default source is `llm/data/csv/`; override it with `--csv-root PATH`. The default model configuration is `llm/configs/0.4b-static-csv.json`; use `--config PATH` for a different tokenizer/sequence-size setup. Existing output directories are never replaced.
 
-The result contains `train.jsonl`, `validation.jsonl`, `test.jsonl`, a train-only tokenizer, a manifest and exact CSV snapshots under `source_csv/`. JSONL is an internal training format; maintain the source CSVs. The manifest records source-file hashes, counts, groups, licenses and the dataset identity. Preparation performs no augmentation, regardless of legacy noise/split-ratio fields in a shared config. The tokenizer uses Unicode character tokens with lossless UTF-8 byte fallback and never silently truncates labels.
+The result contains `train.jsonl`, `validation.jsonl`, `test.jsonl`, a train-only tokenizer, a manifest and exact CSV snapshots under `source_csv/`. JSONL is an internal training format; maintain the source CSVs. The manifest records source-file hashes, counts, groups, licenses and the dataset identity. The config declares `data.format` as `static-csv`; automatic split/noise options are not supported. The tokenizer uses Unicode character tokens with lossless UTF-8 byte fallback and never silently truncates labels.
 
 Editing a source CSV does not change an existing prepared snapshot. Prepare a new version before training on edits. Do not edit the compiled files or tokenizer in a prepared directory.
 
@@ -105,6 +127,8 @@ Use validation while developing and test after choosing an experiment. Choose ne
 
 Reports include top-1, top-k recall, code-point character error rate and exact-copy error rate, with literal fallback reported separately. Imported CSV rows are labeled `provided` internally because a two-column source does not declare an error type; exact identity pairs are recognized as clean-copy fixtures. The collection does not invent clean spellings/error categories for arbitrary pairs. `--limit N` marks evaluation partial. Offline p50/p95 timing is not a host-app latency claim.
 
+For an independent frozen benchmark, create a CSV root with `provenance.json` and `test/*.csv` (or `validation/*.csv` for validation), then pass `--benchmark PATH` alongside the model's matching `--data` bundle. Only the selected benchmark split is read. Its normalized input/target overlap with that run's train/validation is rejected. Models trained on different CSV versions can be compared against the same frozen benchmark identity.
+
 Additional entry points:
 
 | Script | Purpose |
@@ -112,24 +136,24 @@ Additional entry points:
 | `size.sh` | Count parameters on the meta device without full allocation |
 | `export.sh` | Strip optimizer/RNG state for inference export |
 | `compare.sh` | Compare reports with matching dataset/split/cases/k |
-| `sources.sh` | Historical public JSONL source registration |
 
-`make -C llm` targets use the same scripts: `setup`, `check`, `smoke`, `size`, `prepare`, `train`, `resume`, `validation`/`evaluate`, `test`, `infer`/`predict` and `export`. Override `CSV_ROOT`, `CONFIG`, `DATA`, `RUN`, `REPORT`, `DEVICE` or `SMOKE_OUTPUT`. Optional `PYTHON` sets the runtime interpreter. Aggregate logs do not include sample text or generated predictions; `infer.sh` prints the requested result locally.
+`make -C llm` targets use the same scripts: `setup`, `check`, `smoke`, `size`, `data`/`prepare`, `run`/`train`, `resume`, `validation`/`evaluate`, `test`, `infer`/`predict` and `export`. Targets accept `CSV_ROOT`, `CONFIG`, `DATA`, `RUN`, `REPORT`, `DEVICE` or `SMOKE_OUTPUT`. Make variable overrides apply to that invocation; use the same values for related stages. Optional `PYTHON` sets the runtime interpreter. Aggregate logs do not include sample text or generated predictions; `infer.sh` prints the requested result locally.
 
-## Existing checkpoints and historical data
+## Preserved trained weights
 
-The previous `chinese-starter-v1` prepared directory and optimizer checkpoints remain available. The new CSV importer lives in a separate package and leaves the existing training-runtime identity unchanged. To continue an old run, explicitly supply its original configuration and prepared directory; the new CSV dataset cannot be substituted into that run.
+Old source data, generators, JSONL-source manifests, obsolete configs and their smoke artifacts have been deleted. Maintained CSVs and current prepared CSV versions are the data workflow.
+
+The previously trained weights and run records remain under `llm/runs/chinese-starter-v1/`. They can still be loaded for inference/export without the removed data:
 
 ```sh
-./llm/scripts/resume.sh --config llm/configs/0.4b-chinese-starter-v1.json \
-  --data llm/data/prepared/chinese-starter-v1 --run llm/runs/chinese-starter-v1 \
-  --device mps --threads 4
+./llm/scripts/infer.sh --checkpoint llm/runs/chinese-starter-v1/best.pt \
+  --input womenzaijia --device mps
 ```
 
-Old `seed.json`/template generation, automatic JSONL splitting and keyboard-noise augmentation are retained only for historical reproduction and regression coverage. They are not called by the current CSV preparation/smoke scripts. `generate_data.sh` now explains this change and exits; an explicit `prepare.sh --sources LEGACY_MANIFEST` still routes to the legacy importer. Direct `python -m llm.prepare` / `llm.smoke` are historical entry points. The archived [Chinese starter documentation](data/chinese-starter/README.md) records the initial dataset and MPS repair.
+Those old experiments can no longer be resumed: their source/prepared data and compatible training setup were removed. Start a new run from the current CSV snapshot for further training. Checkpoint identity checks remain strict; the cleanup does not relabel old weights as having trained on the new dataset.
 
 ## Scope and dependency rights
 
-SI code/data retain GPLv3. Training tools are separately installed, not linked into the macOS input method: [PyTorch 2.6.0](https://github.com/pytorch/pytorch/tree/v2.6.0) uses [BSD-style terms](https://github.com/pytorch/pytorch/blob/v2.6.0/LICENSE), [NumPy 2.2.6](https://pypi.org/project/numpy/2.2.6/) uses BSD terms, and [pypinyin 0.55.0](https://github.com/mozillazg/python-pinyin/tree/v0.55.0) uses [MIT terms](https://github.com/mozillazg/python-pinyin/blob/v0.55.0/LICENSE.txt). pypinyin is retained for historical reproduction; static CSV import does not call it. Preserve dependency/bundled-binary notices on redistribution. These pins are not a cross-platform transitive lockfile.
+SI code/data retain GPLv3. Training tools are separately installed, not linked into the macOS input method: [PyTorch 2.6.0](https://github.com/pytorch/pytorch/tree/v2.6.0) uses [BSD-style terms](https://github.com/pytorch/pytorch/blob/v2.6.0/LICENSE), [NumPy 2.2.6](https://pypi.org/project/numpy/2.2.6/) uses BSD terms. The retired pronunciation-generation dependency is no longer installed or required. Preserve dependency/bundled-binary notices on redistribution. These pins are not a cross-platform transitive lockfile.
 
 The model is experimental. Broad vocabulary coverage, representative real-typo evaluation, strict spelling-constrained generation and native deployment remain separate work. Language-aware candidate identity, enabled-language coexistence, source/output alignment, prefix commits and cancellation remain SI's core/controller contracts. No trained model is integrated into the input method.

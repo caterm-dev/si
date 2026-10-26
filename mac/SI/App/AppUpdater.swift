@@ -14,12 +14,12 @@ final class AppUpdater {
     func start() {
         guard controller == nil else { return }
         #if DEBUG
-        availabilityMessage = "Updates are available in the installed Release app."
+        availabilityMessage = L10n.text("Updates are available in the installed Release app.")
         #else
         let installedURL = FileManager.default.homeDirectoryForCurrentUser
             .appending(path: "Library/Input Methods/SI.app", directoryHint: .isDirectory)
         guard Bundle.main.bundleURL.standardizedFileURL == installedURL.standardizedFileURL else {
-            availabilityMessage = "Open the installed SI app to check for updates."
+            availabilityMessage = L10n.text("Open the installed SI app to check for updates.")
             return
         }
         let controller = SPUStandardUpdaterController(
@@ -38,7 +38,7 @@ final class AppUpdater {
             availability?.cancel()
             self.controller = nil
             canCheckForUpdates = false
-            availabilityMessage = "The updater could not start. Reinstall SI from the official download."
+            availabilityMessage = L10n.text("The updater could not start. Reinstall SI from the official download.")
         }
         #endif
     }

@@ -38,10 +38,10 @@ struct ApplicationMemoryView: View {
             }
             if !applicationID.isEmpty {
                 HStack {
-                    Button(settings.vocabularyExclusions.contains(applicationID) ? "Resume App Vocabulary" : "Pause App Vocabulary") {
+                    Button(L10n.text(settings.vocabularyExclusions.contains(applicationID) ? "Resume App Vocabulary" : "Pause App Vocabulary")) {
                         settings.setVocabularyAllowed(settings.vocabularyExclusions.contains(applicationID), applicationID: applicationID)
                     }
-                    Button(settings.historyExclusions.contains(applicationID) ? "Resume App History" : "Pause App History") {
+                    Button(L10n.text(settings.historyExclusions.contains(applicationID) ? "Resume App History" : "Pause App History")) {
                         settings.setHistoryAllowed(settings.historyExclusions.contains(applicationID), applicationID: applicationID)
                     }
                 }
@@ -79,7 +79,7 @@ struct ApplicationMemoryView: View {
             }
             if let error = settings.errorMessage { Text(error).foregroundStyle(.red) }
             HStack {
-                Button(showsHistory ? "Clear History…" : "Clear Vocabulary…", role: .destructive) { showsClearConfirmation = true }
+                Button(L10n.text(showsHistory ? "Clear History…" : "Clear Vocabulary…"), role: .destructive) { showsClearConfirmation = true }
                     .disabled(showsHistory ? history.isEmpty : vocabulary.isEmpty)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
@@ -87,12 +87,12 @@ struct ApplicationMemoryView: View {
         }
         .padding()
         .frame(minWidth: 660, minHeight: 480)
-        .confirmationDialog(showsHistory ? "Clear saved history?" : "Clear saved vocabulary?", isPresented: $showsClearConfirmation) {
+        .confirmationDialog(L10n.text(showsHistory ? "Clear saved history?" : "Clear saved vocabulary?"), isPresented: $showsClearConfirmation) {
             Button("Clear", role: .destructive, action: clearSelectedData)
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(applicationID.isEmpty ? "Deletes this data for every application, including entries hidden by the search."
-                 : "Deletes this data for \(applicationID), including entries hidden by the search.")
+            Text(applicationID.isEmpty ? L10n.text("Deletes this data for every application, including entries hidden by the search.")
+                 : L10n.format("Deletes this data for %@, including entries hidden by the search.", applicationID))
         }
     }
 

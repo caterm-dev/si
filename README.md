@@ -26,6 +26,12 @@ Whole candidates and prefixes compete by the same effective score; neither recei
 
 All input processing is local. SI has no analytics, keystroke logging, or cloud dependency for typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. App vocabulary and app history are off by default. Independent opt-ins allow local aggregate preferences or app-scoped history completion; nothing is uploaded. See [personalization and privacy](docs/PRIVACY.md) for retained fields, expiry, pause, deletion, and storage limitations.
 
+## Interface language
+
+The app supports English and Simplified Chinese. Settings, input-menu actions, candidate descriptions and accessibility labels follow the macOS preferred app language, with English as the fallback. Set a preferred language for SI in **System Settings → General → Language & Region → Applications**, where available, then restart SI normally for the change to take effect. Do not launch a second copy of the input method.
+
+Interface language is independent of the English/Chinese input-language switches. Changing it does not change candidates, committed text, personal phrases, learning consent or saved data. The compact E/C/A punctuation badges retain their existing identifiers; their full descriptions are localized.
+
 ## Vocabulary maintenance
 
 Chinese data is now maintained under [Data/Chinese/MSIME](Data/Chinese/MSIME/README.md): pinned MSIME source snapshots, provenance, reading corrections and an SI-owned additions/exclusions overlay generate one read-only SQLite dictionary used by both the package and app. Word-context tables are pinned separately. All resource downloads are explicit maintainer actions; typing never downloads data. The algorithm is Swift, with no Rust dependency.
@@ -214,9 +220,9 @@ The Swift package and Xcode app compile the same core source files. There is no 
 
 ## Model training experiments
 
-[The independent `llm/` framework](llm/README.md) supports training a randomly initialized 0.403B encoder–decoder for Pinyin conversion, English preservation/correction and explicit mixed pairs. Its current editable sources are [static CSV files](llm/data/csv/README.md): `train/`, `validation/` and `test/` directories choose the split, and filenames such as `city.csv` and `company.csv` choose source groups. Preparation freezes the maintained rows and source hashes; it does not generate sentences, Pinyin, typos or random splits. Training/resume, evaluation, comparison and inference export use the resulting versioned bundle. The earlier template-generated Chinese starter and MPS checkpoints remain historical artifacts. Representative quality and native deployment remain unverified; no trained model is integrated into SI. App vocabulary, history and personal phrases are not training sources.
+[The independent `llm/` framework](llm/README.md) supports training a randomly initialized 0.403B encoder–decoder for Pinyin conversion, English preservation/correction and explicit mixed pairs. Its editable sources are [static CSV files](llm/data/csv/README.md): `train/`, `validation/` and `test/` directories choose the split, and filenames such as `city.csv` and `company.csv` choose source groups. Preparation freezes maintained rows and source hashes without generating sentences, Pinyin, typos or random splits. The obsolete generated datasets, seed/generator and importer files have been removed. Existing trained weights are retained for inference; new training uses versioned CSV bundles. Representative quality and native deployment remain unverified; no trained model is integrated into SI. App vocabulary, history and personal phrases are not training sources.
 
-Start with `./llm/scripts/setup.sh`, then `./llm/scripts/check.sh` and `./llm/scripts/smoke.sh`. The scripts use `llm/.venv` without activation; separate `train.sh`, `validation.sh`, `test.sh` and `infer.sh` entry points accept the documented model/data arguments. See the framework README for the complete script list and environment options.
+Each preset script performs one task: run `./llm/scripts/setup.sh` for the environment, `./llm/scripts/data.sh` for CSV preparation, `./llm/scripts/run.sh` for 0.4B training on MPS, then separately run `validation.sh`, `test.sh`, `infer.sh` or `export.sh` as needed. Shared paths and parameters are in `llm/scripts/defaults.sh`; no stage launches the next one. The scripts use `llm/.venv` without activation and accept explicit argument overrides. Use `check.sh` and the small CPU `smoke.sh` for framework checks. See [the framework guide](llm/README.md) for preset locations and new-run/resume instructions.
 
 ## Website
 
@@ -224,7 +230,7 @@ The static website supports English and Simplified Chinese, with dedicated Priva
 
 ## Contributing
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture](docs/ARCHITECTURE.md). Keep code, UI copy, documentation, issue reports, and pull requests in English. Language data and user input naturally retain their original scripts.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture](docs/ARCHITECTURE.md). Keep code, source localization keys, documentation, issue reports, and pull requests in English. App translations, language data and user input retain their original scripts.
 
 See the [roadmap](docs/ROADMAP.md) for planned work and [manual verification](docs/TESTING.md) for host-app checks. GitHub Actions builds the macOS app and runs core tests on pushes and pull requests.
 

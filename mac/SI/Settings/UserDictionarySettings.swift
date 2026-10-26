@@ -3,6 +3,7 @@ import Observation
 import Carbon
 #if SWIFT_PACKAGE
 import SICore
+import SILocalization
 import SIStorage
 #endif
 
@@ -50,7 +51,7 @@ final class UserDictionarySettings {
             dictionary = try await store.load()
             loadSucceeded = true
         } catch {
-            storageError = "Saved phrases could not be opened. They have been left untouched. Clear the dictionary to start again."
+            storageError = L10n.text("Saved phrases could not be opened. They have been left untouched. Clear the dictionary to start again.")
         }
         isLoading = false
     }
@@ -90,7 +91,7 @@ final class UserDictionarySettings {
             } catch {
                 guard current == revision else { return }
                 loadSucceeded = false
-                storageError = "Saved phrases could not be cleared. Please retry."
+                storageError = L10n.text("Saved phrases could not be cleared. Please retry.")
                 isSaving = false
             }
         }
@@ -106,14 +107,14 @@ final class UserDictionarySettings {
         do {
             let imported = try await store.readImport(at: url)
             guard current == revision else {
-                operationError = "Phrases changed while the file was being read. Import again to merge with the latest dictionary."
+                operationError = L10n.text("Phrases changed while the file was being read. Import again to merge with the latest dictionary.")
                 return
             }
             let count = try dictionary.merge(imported)
-            notice = "Imported \(count) phrases; skipped \(imported.entries.count - count) existing phrases."
+            notice = L10n.format("Imported: %ld; already saved: %ld.", count, imported.entries.count - count)
             scheduleSave()
         } catch {
-            operationError = "Import failed. Choose a valid SI dictionary JSON file with at most 1,000 phrases. Existing phrases have been kept."
+            operationError = L10n.text("Import failed. Choose a valid SI dictionary JSON file with at most 1,000 phrases. Existing phrases have been kept.")
         }
     }
 
@@ -121,11 +122,11 @@ final class UserDictionarySettings {
         guard canEdit, let store else { return nil }
         operationError = nil
         do { return try await store.export(dictionary) }
-        catch { operationError = "Phrases could not be prepared for export. Please retry."; return nil }
+        catch { operationError = L10n.text("Phrases could not be prepared for export. Please retry."); return nil }
     }
 
     func reportFileActionFailure() {
-        operationError = "The file operation could not be completed. Your saved phrases have been kept."
+        operationError = L10n.text("The file operation could not be completed. Your saved phrases have been kept.")
     }
 
     func flush() async {
@@ -149,7 +150,7 @@ final class UserDictionarySettings {
                 isSaving = false
             } catch {
                 guard current == revision else { return }
-                storageError = "Phrase changes could not be saved. They remain in memory; retry saving before quitting."
+                storageError = L10n.text("Phrase changes could not be saved. They remain in memory; retry saving before quitting.")
                 isSaving = false
             }
         }
