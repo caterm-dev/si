@@ -46,6 +46,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         panel.list.onToggleExpansion = { [weak self] in
             guard let self, self.candidatePanel.ownsPresentation,
                   self.session.pendingCandidateRequest == nil, let client = self.client() else { return }
+            guard self.configureSession(for: client) else { return }
             self.session.suspendAutomaticConfirmation()
             self.automaticConfirmationTask?.cancel()
             self.selection.setExpanded(!self.selection.isExpanded)
@@ -67,7 +68,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         candidatePanel.claimPresentation()
         let previousCandidates = session.candidates
         let previousRequest = session.pendingCandidateRequest?.id
-        configureSession(for: client)
+        guard configureSession(for: client) else { return false }
         checkHistoryPosition(in: client)
         if previousCandidates != session.candidates || previousRequest != session.pendingCandidateRequest?.id { update(client) }
 
@@ -184,7 +185,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private func commitCandidate(_ candidate: InputCandidate?, to client: any IMKTextInput) {
         guard let candidate else { return }
         // Mouse selection can arrive after consent, deletion or secure-input changes without a key event.
-        configureSession(for: client)
+        guard configureSession(for: client) else { return }
         resolveCandidates(to: client)
         guard let current = session.candidates.first(where: {
             $0.id == candidate.id && $0.text.utf8.elementsEqual(candidate.text.utf8)
@@ -194,8 +195,16 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         apply(commit, to: client)
     }
 
-    private func configureSession(for eventClient: (any IMKTextInput)? = nil) {
-        if let client = eventClient ?? client() { prepareApplicationMemory(for: client) }
+    /// False means this client uses direct input. Check at every delayed commit boundary too.
+    @discardableResult
+    private func configureSession(for eventClient: (any IMKTextInput)? = nil) -> Bool {
+        if let client = eventClient ?? client() {
+            prepareApplicationMemory(for: client)
+            if LanguageSettings.shared.usesPassthrough(in: applicationID) {
+                stopConversionForDirectInput(in: client)
+                return false
+            }
+        }
         let appSettings = ApplicationMemorySettings.shared
         var memory = applicationID.map { appSettings.snapshot(for: $0) } ?? .empty
         memory.historyPrefix = historyDraft
@@ -208,6 +217,24 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           configurationGeneration: LanguageSettings.shared.configurationGeneration,
                           applicationMemory: memory,
                           punctuationCandidatesEnabled: LanguageSettings.shared.punctuationCandidatesEnabled)
+        return true
+    }
+
+    private func stopConversionForDirectInput(in client: any IMKTextInput) {
+        let spelling = session.buffer
+        session.reset()
+        invalidateHistory()
+        automaticConfirmationTask?.cancel()
+        candidatePipeline.invalidate()
+        candidatePreviewPipeline.invalidate()
+        candidateClient = nil
+        selection.update([])
+        explicitlyNavigated = false
+        candidateAnchor.reset()
+        markedTextState.reset()
+        // Preserve only the pending spelling, once, without learning, history, or a space.
+        if !spelling.isEmpty { insert(spelling, into: client) }
+        else { candidatePanel.orderOut(nil) }
     }
 
     private func prepareApplicationMemory(for client: any IMKTextInput) {
@@ -221,7 +248,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             sessionContextGeneration &+= 1
         }
         let settings = ApplicationMemorySettings.shared
-        let enabled = applicationID.map { settings.usesHistory(in: $0) } ?? false
+        let enabled = !LanguageSettings.shared.usesPassthrough(in: applicationID)
+            && (applicationID.map { settings.usesHistory(in: $0) } ?? false)
         let languageGeneration = LanguageSettings.shared.configurationGeneration
         if let memoryGeneration,
            memoryGeneration != settings.generation || historyWasEnabled != enabled || memoryLanguageGeneration != languageGeneration {
@@ -305,7 +333,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
               (client as AnyObject) === (activeClient as AnyObject) else { return }
         let previousRequest = session.pendingCandidateRequest?.id
         // Consent, secure input, language, dictionary, and context may change while work is running.
-        configureSession()
+        guard configureSession() else { return }
         if session.accept(result) {
             if let commit = session.automaticallyConfirm() {
                 apply(commit, to: client)
@@ -329,6 +357,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func moveCandidateSelection(by distance: Int, to eventClient: (any IMKTextInput)? = nil) {
         guard !session.buffer.isEmpty, let client = eventClient ?? client() else { return }
+        guard configureSession(for: client) else { return }
         session.suspendAutomaticConfirmation()
         automaticConfirmationTask?.cancel()
         selection.move(by: distance)
@@ -366,6 +395,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         nonisolated(unsafe) let mainClient = sender
         MainActor.assumeIsolated {
             guard let client = mainClient as? any IMKTextInput ?? client() else { return }
+            guard configureSession(for: client) else { return }
             invalidateHistory()
             commitLiteral(to: client)
         }
@@ -476,7 +506,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                   let client = self.candidateClient, let currentClient = self.client(),
                   (client as AnyObject) === (currentClient as AnyObject) else { return }
             // A timer is another commit boundary: recheck settings, secure input and request revision.
-            self.configureSession()
+            guard self.configureSession() else { return }
             guard self.session.automaticConfirmationRevision == revision else { self.update(client); return }
             guard let commit = self.session.automaticallyConfirm(afterPause: true) else { return }
             self.apply(commit, to: client)
@@ -512,6 +542,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let generation = ApplicationMemorySettings.shared.generation
         guard insert(commit.text + suffix, into: client) else { invalidateHistory(); return }
         guard app == applicationID, generation == ApplicationMemorySettings.shared.generation else { invalidateHistory(); return }
+        guard !LanguageSettings.shared.usesPassthrough(in: app) else {
+            configureSession(for: client)
+            return
+        }
         if let app {
             ApplicationMemorySettings.shared.recordVocabulary(commit, applicationID: app)
             if ApplicationMemorySettings.shared.usesHistory(in: app) {

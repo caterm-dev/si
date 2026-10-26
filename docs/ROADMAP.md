@@ -45,6 +45,8 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] Native automatic-confirmation timer/focus verification and broader independent false-confirmation evaluation.
 - [x] Editable punctuation/symbols by default, opt-in, default-off language-labeled common punctuation candidates, optional punctuation confirmation, and no-learning delimiter commits.
 - [ ] Real-host verification of punctuation, numbers, URLs, identifiers, and code entry.
+- [x] Opt-in direct key passthrough by client application, with searchable application discovery and persistent app rules.
+- [ ] Native direct-input switching, pending-composition, shortcut and app-memory verification.
 - [ ] Preserve exact literal text with a clear, discoverable selection path.
 
 ## Reliability and distribution

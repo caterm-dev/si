@@ -1,8 +1,0 @@
-.venv/
-.cache/
-data/prepared/
-data/private/
-models/*
-!models/README.md
-runs/*
-!runs/README.md

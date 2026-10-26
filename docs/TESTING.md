@@ -1,21 +1,18 @@
 # Testing SI
 
-## Offline LLM experiment
+## Direct input by application
 
-The separate [LLM setup](../llm/README.md) has standard-library checks:
-`python3 -m unittest discover -s llm/tests -v` and
-`python3 llm/prepare.py --check` (run `python3 llm/prepare.py` first).
-`python3 llm/generate_data.py --check` verifies the 10,000-record synthetic
-snapshot and provenance report. Dataset tests also check split/target isolation,
-single-edit mistakes, partial/initial spellings, exact mixed/identifier bytes
-and prediction suffixes. The fixed split is 8,000/1,000/1,000; held-out templates
-remain synthetic development evidence rather than independent quality results.
-`llm/.venv/bin/python llm/experiment.py doctor` checks MLX/Metal;
-`llm/.venv/bin/python llm/tests/smoke_mlx.py` checks conversion, one QLoRA update,
-adapter reload and bounded generation using temporary tiny random weights.
-These checks download no model. Full-size Qwen3.5-0.8B training, memory, quality,
-latency and SI integration need separate verification. Synthetic fixture scores
-are not a general quality benchmark or host-app latency measurement.
+Run `./scripts/test.sh` and `./scripts/build.sh`. `LanguageSettingsTests` checks initially disabled app rules, application scoping, restart persistence, unchanged language/consent settings and configuration invalidation. `ApplicationDiscoveryTests` uses temporary synthetic bundles to check grouped applications, duplicate identifiers, exclusion of nested helpers, explicitly selected apps outside the search roots, display names and rejection of missing identifiers. These automated checks do not exercise InputMethodKit event delivery.
+
+On October 26, 2026, all 346 Swift tests passed (258 core, 67 presentation, 18 settings, 3 storage) and the Debug app built successfully, including after adding application icons. A standalone discovery probe using the production scanner found 124 apps in the local standard Applications folders, including system Terminal, with no duplicate identifiers. No app list or input content was saved by the probe. An offscreen row render was visually inspected for Terminal's system icon and the generic icon for a missing app. This does not verify the live Settings interface or host input behavior.
+
+Check that discovered and manually added apps show their system icons, missing apps show a generic icon, and icons stay aligned with names and switches while filtering and scrolling. Icons are decorative: VoiceOver should read the app switch's label once without a separate image announcement.
+
+On an intentionally installed build, open **Direct Input by Application → Manage Direct Input…**. Search for Terminal by name and bundle identifier, enable its switch, close/reopen Settings and restart SI normally to check persistence. Confirm standard-folder and running apps appear, Refresh picks up changes, Add Application accepts an app elsewhere, and an enabled missing app remains removable by its identifier. Check the search, switches, file picker and Done button using the keyboard and VoiceOver, in light/dark appearance and Increased Contrast.
+
+In a selected Terminal app, type synthetic `echo SI_TEST_42`, use Space, digits, Tab completion, Return, arrows, Home/End, Delete, Escape and Control shortcuts. Every key must reach the host once, without candidates, automatic spacing or an extra Return to finish composition. Repeat with punctuation candidates and automatic confirmation enabled. Switch to TextEdit and verify ordinary Chinese/English candidates, selection and literal Return still work. A browser rule must apply to both its address bar and page inputs; an editor rule must apply to both editor and embedded terminal. No system input-source selection or Accessibility/Input Monitoring prompt should occur.
+
+Toggle direct input across a pending composition/search or pause timer, then return to the host, use candidate mouse/page/expansion controls if still visible and change focus rapidly. Only the exact pending source spelling may be inserted, once, with no extra space; obsolete candidates/timers must not convert or restore it. Turn direct input off and verify fresh conversion, without stale selection or history. With vocabulary/history independently opted in, confirm direct input adds no app records or incomplete history suffix, including after Return; existing records must remain deletable. Inspect data only with synthetic input. Native host, reentry, VoiceOver and appearance checks remain unverified until performed in a login session.
 
 ## Mixed English lookup
 

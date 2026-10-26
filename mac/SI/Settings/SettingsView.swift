@@ -34,6 +34,7 @@ struct SettingsView: View {
                     Text("Punctuation candidates are off by default. Enable them to choose English or Chinese symbols with language badges. When off, punctuation outside composition passes through unchanged.")
                     Text(settings.punctuationBehavior.explanation)
                 }
+                ApplicationPassthroughSection(settings: settings)
                 Section("Try the candidate engine") {
                     CandidatePreviewView(settings: settings, dictionary: dictionary,
                                          applicationMemory: applicationMemory)

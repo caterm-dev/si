@@ -48,6 +48,14 @@ Automatic confirmation requires matching source/output boundaries across nearby 
 
 Editing, moving the caret, navigating/expanding candidates, or crossing a host boundary cancels automatic confirmation; fresh typing at the composition end starts new evidence. Settings changes, secure input, cancellation and stale asynchronous results cannot authorize a pending confirmation. Each pause can confirm at most once until more input arrives. Automatic confirmation does not train app vocabulary and saves no typing history. Return and shortcuts preserve only the remaining spelling once a prefix has been committed; editing already committed text uses the host application's normal editing tools. Native timer/focus behavior still requires the checks in [testing](docs/TESTING.md#automatic-prefix-confirmation).
 
+## Direct input by application
+
+Open **SI Settings → Direct Input by Application → Manage Direct Input…** and turn on direct input for apps such as Terminal. Every app uses normal SI conversion by default. The searchable list discovers apps in the standard system, local and user Applications folders, plus running apps, and displays each app's system icon beside its name. **Add Application…** lets you select an `.app` stored elsewhere; **Refresh** rescans the list. Rules are saved locally by bundle identifier, and enabled rules remain listed with a generic application icon when an app is no longer installed.
+
+In a selected app, SI passes key events to the host without composition, candidates, punctuation conversion or automatic spacing. Space, Tab, Return, navigation and shortcuts belong to the host. If the rule takes effect during composition, SI inserts only the exact pending spelling once and rejects old candidate results and automatic-confirmation tasks. SI does not learn vocabulary or record history while direct input is enabled; existing saved data remains until deleted. Turning direct input off restores ordinary conversion and the app's independently configured learning/history consent.
+
+Rules use the InputMethodKit client's application identity, not the foreground process. A browser rule applies to every tab and input field; an editor rule includes its embedded terminal. It cannot distinguish an address from a search in a combined address bar. No Accessibility or Input Monitoring permission is requested, and SI remains the selected system input source. Native host behavior still requires the [direct-input manual checks](docs/TESTING.md#direct-input-by-application).
+
 ## App vocabulary and history
 
 Open **SI Settings → App Vocabulary and History**. Two independent options are off by default:
@@ -72,11 +80,6 @@ Open **SI Settings → Personal Phrases → Manage Personal Phrases…** to add 
 The manager supports search, editing, deletion, clear, and additive JSON import/export, with at most 1,000 phrases. Imports preserve existing phrases and pin settings; invalid or over-capacity imports leave the dictionary unchanged. Saved codes also participate in longer Pinyin/mixed paths: saving `xm` → `小明` lets `woaixm` offer `我爱小明`. Any path containing a personal phrase stays excluded from automatic learning and previous-word context. Exported files contain phrase text and must be handled as personal data. See [phrase format and controls](docs/USER_PHRASES.md).
 
 ## Requirements
-
-The separate [LLM experiment](llm/README.md) provides an isolated MLX setup,
-10,000 synthetic development examples and offline Qwen3.5 training/evaluation
-tools. Model weights are supplied separately; this does not change SI's decoder
-or installed behavior.
 
 - macOS 14 or later.
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.

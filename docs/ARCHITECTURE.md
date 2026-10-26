@@ -1,11 +1,5 @@
 # Architecture
 
-The optional [LLM experiment](../llm/README.md) runs separately in Python/MLX
-and generates full-composition candidates from explicit offline requests. It
-uses no SI decoder or private storage and is not wired into the Swift app.
-Synthetic fixtures and suffix-prediction support do not establish live neural
-decoding, source-aligned prefix commits or host compatibility.
-
 ## Product contract
 
 SI exposes one macOS input source. Settings contain a set of enabled languages, not an active language. Every enabled provider is queried for the current composition. Matching candidates coexist; ambiguity is a choice for the user rather than a reason to switch modes. Literal input is always offered.
@@ -101,6 +95,10 @@ History entries retain exact spelling/output, required language identities, app 
 The package compiles the same storage actor and observable settings models as the app under separate test targets. Conditional imports bridge package modules without duplicating implementations. SwiftUI views remain in the app target.
 
 ## macOS integration
+
+`LanguageSettings` persists an initially empty set of direct-input application bundle identifiers and advances its existing configuration generation when a rule changes. `ApplicationDiscovery` scans standard Applications folders and explicit/running app URLs on an actor only while the Settings manager loads or refreshes. It reads bundle metadata, skips nested app helpers, and deduplicates by identifier. Discovered bundle URLs stay in memory for row-local `NSWorkspace` icon loading when a row appears; paths and icons are not persisted. Missing apps use a generic application icon. The manager retains missing enabled identifiers for removal and supports manually selecting apps elsewhere. Discovery and icon loading never run in key handling or read input/document text.
+
+`SIInputController.configureSession` checks the actual IMK client's identifier before configuring conversion and returns false for direct input. Key handlers then return false before interpreting letters, candidate numbers, punctuation, Return or navigation. Mouse selection, page/expansion actions, candidate delivery, composition callbacks and automatic-confirmation timers recheck the same boundary. Entering direct input resets the session, invalidates both pipelines and pending history, clears selection/presentation, and inserts any exact pending spelling once through the existing insertion path without learning/history or a suffix. An already-running search cannot restore the reset session. Rules do not change enabled languages or the registered input source. They cover an entire app rather than particular browser tabs, DOM fields or editor panes. They suppress new vocabulary/history recording and use, without deleting existing data or modifying consent.
 
 `SIApplication` starts an AppKit application. `AppDelegate` retains one `IMKServer` for the process lifetime. `mac/Support/Info.plist` names the connection and the stable Objective-C controller class `SIInputController`; it declares a background input method with one input source and no mode dictionary. The bundle and source identifier is `com.caterm.inputmethod.si`, including the `.inputmethod.` segment used for InputMethodKit discovery. `TISIntendedLanguage` is `en` so SI is discovered under English; its character repertoire still includes Latin and Simplified Chinese scripts. This system classification does not choose an active language inside SI. Showing Settings changes the process activation policy to accessory so the background declaration does not prevent displaying the settings window.
 

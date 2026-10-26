@@ -13,7 +13,21 @@ final class LanguageSettings {
     static let punctuationKey = "typing.punctuationBehavior"
     static let punctuationCandidatesKey = "typing.punctuationCandidates"
     static let automaticConfirmationKey = "typing.automaticConfirmation"
+    static let passthroughApplicationsKey = "typing.passthroughApplications"
     private(set) var configurationGeneration: UInt64 = 0
+    private(set) var passthroughApplications: Set<String>
+
+    func usesPassthrough(in applicationID: String?) -> Bool {
+        applicationID.map { passthroughApplications.contains($0) } ?? false
+    }
+
+    func setPassthrough(_ enabled: Bool, for applicationID: String) {
+        guard !applicationID.isEmpty, usesPassthrough(in: applicationID) != enabled else { return }
+        if enabled { passthroughApplications.insert(applicationID) }
+        else { passthroughApplications.remove(applicationID) }
+        defaults.set(passthroughApplications.sorted(), forKey: Self.passthroughApplicationsKey)
+        configurationGeneration &+= 1
+    }
 
     var punctuationCandidatesEnabled: Bool {
         didSet {
@@ -60,6 +74,8 @@ final class LanguageSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        passthroughApplications = Set((defaults.stringArray(forKey: Self.passthroughApplicationsKey) ?? [])
+            .filter { !$0.isEmpty })
         defaults.register(defaults: [Self.englishKey: true, Self.chineseKey: true])
         englishEnabled = defaults.bool(forKey: Self.englishKey)
         chineseEnabled = defaults.bool(forKey: Self.chineseKey)
