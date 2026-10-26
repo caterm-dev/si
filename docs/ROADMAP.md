@@ -18,7 +18,7 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [x] Multi-source English import provenance, pinned imports, source tracing and scheduled upstream audits.
 - [x] Selected annotated Rime Ice Chinese character/base vocabulary, preserved SI entries, explicit weighting, local overrides and shared upstream audits.
 - [x] Native marked text, candidate presentation, and commit/cancel integration.
-- [x] English settings UI with a live candidate preview.
+- [x] English settings UI for language and typing preferences.
 - [x] Shared-core tests, build scripts, installation instructions, and CI configuration.
 
 ## Useful everyday input
@@ -71,6 +71,18 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] Native focus-boundary verification and internal pair/sentence context scoring.
 
 Remote inference and keystroke telemetry are not part of the current design. Any proposal that sends typed content off-device requires an explicit product and privacy discussion.
+
+## Offline model experiments
+
+- [x] Independent from-scratch spelling-to-text training framework with a 0.403B encoder–decoder configuration, explicit source provenance, grouped train/validation/test splitting, deterministic keyboard-noise augmentation, train-only tokenizer, training/resume, candidate evaluation/comparison and inference export.
+- [x] Synthetic CPU workflow and regression coverage, including a small learned conversion and exact resume checks.
+- [x] Historical SI-authored Chinese starter with 1,544 vocabulary entries, 4,697 short chat/template outputs and a first local 0.4B MPS optimizer checkpoint.
+- [x] Maintained static CSV source groups under explicit train/validation/test directories, source snapshots/checksums, duplicate/leakage validation and no dynamic text/noise generation in the current workflow.
+- [ ] Representative licensed training corpus and independent real-error evaluation.
+- [ ] Full 0.4B training, accelerator validation and measured conversion/latency/memory quality.
+- [ ] Native deployment with language-aware candidates, exact input alignment, existing prefix/commit rules and host verification.
+
+See [the experiment framework](../llm/README.md). The framework and tiny smoke model do not establish a trained production model or neural behavior in the input method.
 
 ## Retired options
 

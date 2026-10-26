@@ -1,0 +1,183 @@
+{
+  "updated": "October 26, 2026",
+  "privacy": {
+    "title": "Privacy policy",
+    "description": "How SI processes input locally, handles optional saved data, and connects only for user-initiated app updates.",
+    "intro": "Your words belong on your Mac. This policy explains the local input method, the data you can choose to keep, and the separate network requests involved in this website and software updates.",
+    "sections": [
+      {
+        "id": "local-input",
+        "title": "1. Input stays on your Mac",
+        "paragraphs": [
+          "SI processes composition and generates candidates locally using resources on your Mac. Typing requires no internet connection or account. SI does not send keystrokes, composition text, committed text, personal phrases, or app vocabulary/history to a server. It has no analytics, cloud inference, or keystroke logger.",
+          "SI does not read documents or clipboard text, request Accessibility or Input Monitoring permissions, or use a global event tap. The host application still receives text you commit and handles it under its own privacy practices."
+        ],
+        "links": []
+      },
+      {
+        "id": "optional-memory",
+        "title": "2. You choose what SI remembers",
+        "paragraphs": [
+          "Language and feature preferences are saved locally in macOS UserDefaults. App vocabulary and app history are independent opt-ins, both off by default; enabling a language does not enable either feature. Records are scoped to the client application’s bundle identifier. Browser tabs and sites share their browser app’s scope.",
+          "If enabled, app vocabulary keeps consumed spelling, candidate text and language identity, app identifier, aggregate confirmation counts, ranking evidence, and last-use time. It retains up to 5,000 entries across apps, expiring after 90 days without use.",
+          "If separately enabled, app history can retain sensitive literal text. It saves deduplicated Return-delimited input units with source spelling, output, app and language identities, use counts, and last-use time. It retains up to 1,000 entries across apps, expiring after 30 days without use. It is not a log of every keystroke or a reliable transcript of sent messages or final documents. Unfinished drafts stay in the client session and expire after five minutes without activity or are discarded at editing, focus, consent, and other safety boundaries."
+        ],
+        "links": []
+      },
+      {
+        "id": "personal-phrases",
+        "title": "3. Personal phrases are separate",
+        "paragraphs": [
+          "Phrases you explicitly add keep your input code, output, language, pin setting, and identifier locally until you delete them, with a 1,000-phrase limit. They are separate from automatic learning. Import and export are explicit actions; you choose the export destination. Exported files contain personal data and remain under your control."
+        ],
+        "links": []
+      },
+      {
+        "id": "controls",
+        "title": "4. Inspect, pause, and delete",
+        "paragraphs": [
+          "Settings → App Vocabulary and History → Manage App Data lets you inspect entries, pause vocabulary/history separately for an app, forget individual entries, or clear either type for one app or all apps. Clear All App Data removes both app archives. Turning a feature off or pausing it preserves existing records; use deletion controls to erase them. Personal phrases have their own edit/delete/clear controls.",
+          "Older shared learning data is inactive and is not automatically loaded, migrated, or deleted. Use Delete Old Shared Learning Data in Settings to remove it. SI’s controls do not erase exported files or external backups. Secure event input suppresses app recording and suggestions; it is not a detector for every sensitive field."
+        ],
+        "links": [
+          {
+            "label": "Data retention and deletion details",
+            "href": "https://github.com/caterm-dev/si/blob/main/docs/PRIVACY.md"
+          }
+        ]
+      },
+      {
+        "id": "storage",
+        "title": "5. Local storage and its limits",
+        "paragraphs": [
+          "App vocabulary/history and personal phrases are stored in SI’s Application Support directory. Private archives use owner-only file permissions and atomic replacement, but SI does not encrypt them. Other software running as your user, administrators, or backups may be able to access them. Expiry cleanup runs at startup and during daily maintenance. Storage failures are shown in Settings."
+        ],
+        "links": []
+      },
+      {
+        "id": "updates",
+        "title": "6. Optional software updates",
+        "paragraphs": [
+          "The app’s only network feature is a user-initiated Check for Updates action using Sparkle. It requests the public HTTPS appcast from downloads.caterm.com; an update archive is requested if you choose to download/install. Automatic checks, automatic installation, and system-profile submission are disabled. No vocabulary download is needed while typing.",
+          "These requests expose ordinary connection metadata, including IP address and HTTP user agent, to the download service. They do not include input text, personal phrases, learned preferences, or history. Sparkle may retain updater preferences, last-check information, and cached downloads locally. Visiting the website or downloading installers also involves ordinary web requests; those are separate from local typing."
+        ],
+        "links": []
+      },
+      {
+        "id": "website",
+        "title": "7. This website and external services",
+        "paragraphs": [
+          "This static website includes no analytics, advertising trackers, cookies, browser storage, remote fonts, or input-upload forms. Its animation uses fixed synthetic examples and does not capture what you type. The website host and download service receive ordinary connection metadata, such as IP address and request information, when serving pages or files; this policy does not promise that those services keep no access logs.",
+          "Links to GitHub, including public feedback, are subject to GitHub’s privacy practices. Share only non-sensitive synthetic examples when reporting an issue."
+        ],
+        "links": [
+          {
+            "label": "GitHub’s privacy statement",
+            "href": "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"
+          }
+        ]
+      },
+      {
+        "id": "contact",
+        "title": "8. Questions and changes",
+        "paragraphs": [
+          "For privacy questions or corrections, contact the project maintainers through the repository. GitHub issues are public: do not include private input, phrase exports, or personal archives. Changes to this policy will appear here with an updated date. The implementation and its documented limits remain available in the source."
+        ],
+        "links": [
+          {
+            "label": "Contact the maintainers on GitHub",
+            "href": "https://github.com/caterm-dev/si/issues"
+          }
+        ]
+      }
+    ]
+  },
+  "terms": {
+    "title": "Terms of use",
+    "description": "SI development-preview terms, GPLv3 software rights, installation responsibilities, and links to the full license.",
+    "intro": "SI is free, open-source software in development preview. These terms explain the website and preview; the software license governs your rights to use, modify, and redistribute SI.",
+    "sections": [
+      {
+        "id": "scope",
+        "title": "1. Scope",
+        "paragraphs": [
+          "These terms describe the SI website and the development-preview software distributed by this project. They do not add restrictions to, replace, or take away rights granted by the GNU General Public License version 3 (GPLv3). Where a software-license question arises, the applicable license text controls."
+        ],
+        "links": []
+      },
+      {
+        "id": "license",
+        "title": "2. Open-source license",
+        "paragraphs": [
+          "SI is distributed under GPLv3. You may run, study, modify, and redistribute it under that license’s conditions. If you redistribute the software, follow the applicable source-code, notice, and licensing requirements in the full license. Included third-party components and dictionary data retain their documented licenses and attribution requirements."
+        ],
+        "links": [
+          {
+            "label": "Read the complete GPLv3 license",
+            "href": "https://github.com/caterm-dev/si/blob/main/LICENSE"
+          },
+          {
+            "label": "Dictionary and data provenance",
+            "href": "https://github.com/caterm-dev/si/blob/main/docs/DICTIONARIES.md"
+          }
+        ]
+      },
+      {
+        "id": "preview",
+        "title": "3. Development-preview status",
+        "paragraphs": [
+          "SI currently supports English and Simplified Chinese with bounded decoding. Vocabulary coverage, candidate quality, ranking, and host-app compatibility remain under development. Website demonstrations are scripted illustrations, not promises of particular candidate ordering, accuracy, latency, or compatibility. Planned features may change and are not a commitment to delivery."
+        ],
+        "links": []
+      },
+      {
+        "id": "installation",
+        "title": "4. Installation and use",
+        "paragraphs": [
+          "Choose the installer for your Mac’s architecture and follow the installation guide. Save your work before the installer’s final Log Out step. Review committed text before relying on it, and keep appropriate backups. You control your enabled languages, personal phrases, and optional app vocabulary/history. Review the Privacy policy for retained data and deletion controls.",
+          "The input method works offline after installation. Downloads, manual update checks, and external project links require a connection and may have their own service terms. No account is required for local typing. Automatic software update checks and installation are disabled."
+        ],
+        "links": []
+      },
+      {
+        "id": "warranty",
+        "title": "5. Warranty and liability",
+        "paragraphs": [
+          "SI is supplied without warranty to the extent permitted by applicable law, as described in GPLv3 sections 15 and 16. Those sections govern the software’s warranty disclaimer and limitation of liability. Nothing on this page excludes rights or liabilities that applicable law does not allow to be excluded."
+        ],
+        "links": [
+          {
+            "label": "GPLv3 warranty and liability provisions",
+            "href": "https://github.com/caterm-dev/si/blob/main/LICENSE"
+          }
+        ]
+      },
+      {
+        "id": "external",
+        "title": "6. External services and feedback",
+        "paragraphs": [
+          "The website links to hosting, download, and repository services. Their own terms and privacy policies apply to those services. Public issue reports should contain only non-sensitive examples. Contributions are handled under the repository’s contribution guidance and existing licenses."
+        ],
+        "links": [
+          {
+            "label": "Contributing to SI",
+            "href": "https://github.com/caterm-dev/si/blob/main/CONTRIBUTING.md"
+          }
+        ]
+      },
+      {
+        "id": "changes",
+        "title": "7. Changes and contact",
+        "paragraphs": [
+          "The website and preview may change as development continues. Updates to these terms will be dated on this page and do not revoke software rights already granted under GPLv3. For questions, contact the project maintainers through the repository. Do not put private text or local data archives in public issues."
+        ],
+        "links": [
+          {
+            "label": "Contact the maintainers on GitHub",
+            "href": "https://github.com/caterm-dev/si/issues"
+          }
+        ]
+      }
+    ]
+  }
+}

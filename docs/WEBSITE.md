@@ -1,6 +1,6 @@
 # SI website
 
-The landing page introduces SI and links directly to its published R2 installer image, checksum, corresponding source, and installation instructions. It is a static site with no third-party runtime dependencies, remote fonts, analytics, API calls, or form submissions. The input animation uses fixed synthetic examples; it does not run or duplicate the input engine.
+The website introduces offline, on-device typing and links directly to its published R2 installer image, checksum, corresponding source, and installation instructions. It is a static site with no third-party runtime dependencies, remote fonts, analytics, API calls, or form submissions. The input animation uses fixed synthetic examples; it does not run or duplicate the input engine.
 
 ## Build and preview
 
@@ -8,22 +8,25 @@ Node.js 24+ and Python 3 are sufficient; no package installation is needed.
 
 ```sh
 node scripts/build-website.mjs
+python3 scripts/check-website.py
+node scripts/check-website-animation.mjs
 python3 -m http.server 4173 --bind 127.0.0.1 --directory .build/website
 ```
 
-Open <http://127.0.0.1:4173/> for English or <http://127.0.0.1:4173/zh/> for Simplified Chinese. Stop the server with Control-C. Output is confined to `.build/website/` and is ignored by Git.
+Open <http://127.0.0.1:4173/> for English or <http://127.0.0.1:4173/zh/> for Simplified Chinese. Each locale also has `privacy/` and `terms/` routes. The checker validates every local link, anchor, runtime asset, and alternate-language URL at both root and `/si/` hosting paths. The animation harness executes the actual script with synthetic DOM/timing fixtures to check complete manual scenes, exact commits, pause/replay, reduced-motion startup/changes, and hidden/offscreen suspension. Stop the server with Control-C. Output is confined to `.build/website/` and is ignored by Git.
 
 ## Content and localization
 
-- `website/template.html` provides the shared accessible page structure.
+- `website/template.html` provides the landing-page structure; `website/legal.html` provides the shared policy layout with a section index, date, and contextual language navigation.
 - `website/release.json` pins the public version, architecture, and asset metadata separately under `arm64` and `x86_64`, from each successfully published R2 channel. The build validates it and renders identical download URLs in both locales without browser-side fetching.
 - `website/locales/en.json` and `website/locales/zh-CN.json` contain the translated copy and metadata. Both must contain the same nonempty string keys; the build fails on missing translations or template keys.
+- `website/locales/legal.en.json` and `website/locales/legal.zh-CN.json` contain structured Privacy and Terms copy. The build validates nonempty fields, matching section IDs, and HTTPS reference links, and escapes all content before rendering. Privacy follows [PRIVACY.md](PRIVACY.md), including optional app data, retention/deletion, unencrypted local storage, inactive legacy data, and manual Sparkle requests. Terms preserve GPLv3 rights and preview limitations; do not introduce additional software-license restrictions. Review both policies and their displayed date when these facts change.
 - `website/assets/style.css` contains responsive styles and reduced-motion rules.
-- `website/assets/demo.js` illustrates `shi` candidates, then separate commits for `nihao` and `world`. It has pause, resume, replay, and manual step controls. It starts paused for reduced-motion preferences and suspends animation while the document or demo is not visible.
+- `website/assets/demo.js` illustrates ambiguous `shi` candidates, the bounded mixed candidate `woxiangyaodeploy` → `我想要deploy`, and exact `SI_build42` preservation with Return. Each is a separate composition. Candidate lists are selected illustrations, not engine results or promises of ordering. It has pause, resume, replay, and manual step controls. It starts paused for reduced-motion preferences and suspends animation while the document or demo is not visible.
 
-English lives at `/` and Simplified Chinese at `/zh/`, relative to the hosting base path. Both pages are fully rendered at build time, include language metadata and alternate-language links, and remain readable without JavaScript. Language selection uses ordinary links and stays on the chosen URL. It does not modify SI's enabled input languages or store a browser preference. To add a locale, add its dictionary, route in `scripts/build-website.mjs`, and language navigation/alternate links in the template.
+English lives at `/` and Simplified Chinese at `/zh/`, relative to the hosting base path. All six pages are fully rendered at build time, include language metadata and alternate-language links, and remain readable without JavaScript. Language selection uses ordinary links and preserves the current page type, including Privacy and Terms. It does not modify SI's enabled input languages or store a browser preference. To add a locale, add its dictionary, route in `scripts/build-website.mjs`, and language navigation/alternate links in the template.
 
-Use relative paths for local assets and language routes so the site works at the GitHub project path `/si/`, on a custom domain, or in a local preview. The SI favicon is an original text-only SVG; the decorative letterforms and window illustration use system fonts and CSS.
+Use relative paths for local assets and language routes so the site works at the GitHub project path `/si/`, on a custom domain, or in a local preview. The SI favicon is an original text-only SVG; decorative letterforms, the illustrated input window, and the local-processing diagram use system fonts and CSS. Finite entrance/scroll transitions and demo motion respect reduced-motion preferences. Content stays visible if JavaScript is unavailable; playback controls are enabled only after initialization.
 
 ## Downloads
 
@@ -39,7 +42,7 @@ The bilingual installation summary tells visitors to open the DMG, run `Install 
 4. Keep the two explicit platform choices, architecture-specific accessible resource labels, and development-preview qualification in **both** locale dictionaries. The build requires valid metadata for both architectures; never substitute one platform’s asset or source archive for the other.
 5. Run `node scripts/build-website.mjs`, inspect both locales and narrow screens, and commit/deploy the website changes through the existing Pages workflow. The build checks version/architecture, HTTPS asset URLs matching the release's version/architecture/filenames, positive byte sizes, and SHA-256 metadata before producing pages.
 
-The website build uses checked-in metadata and performs no network requests. Downloads work through ordinary HTML links, including with JavaScript disabled, so browser CORS configuration is not needed. Generated Pages output contains the two HTML files and presentation assets; release manifests, app source, and installer binaries are not copied into the Pages artifact. Source and checksum downloads are served directly from R2 alongside the DMG. The app's separate Sparkle update feed is managed by the [release tooling](RELEASING.md#in-app-updates), independently of the website snapshot.
+The website build uses checked-in metadata and performs no network requests. Downloads work through ordinary HTML links, including with JavaScript disabled, so browser CORS configuration is not needed. Generated Pages output contains six localized HTML files and presentation assets; release manifests, app source, and installer binaries are not copied into the Pages artifact. Source and checksum downloads are served directly from R2 alongside the DMG. The app's separate Sparkle update feed is managed by the [release tooling](RELEASING.md#in-app-updates), independently of the website snapshot.
 
 ## GitHub Pages
 
@@ -53,7 +56,7 @@ References: [Pages workflows](https://docs.github.com/en/pages/getting-started-w
 
 ## Verification
 
-After building, check both routes at desktop and narrow mobile widths, including the `/si/` project-path deployment shape. Confirm that the language links, page anchors, GitHub links, download status, and layout work. Test pause/resume, replay, all three manual steps, keyboard access, reduced motion, and the no-JavaScript fallback. Check that animation shows the exact literal candidate, keeps both language labels visible, and depicts separate commits. Verify that scrolling away or changing tabs suspends the animation.
+After building, check both routes at desktop and narrow mobile widths, including the `/si/` project-path deployment shape. Confirm that the language links, page anchors, GitHub links, download status, and layout work. Test pause/resume, replay, all three manual steps, keyboard access, reduced motion, and the no-JavaScript fallback. Check that animation shows the exact literal candidate, shows language identities for multilingual choices, and depicts independent compositions. Check the mixed spelling fits before its candidate appears, and the identifier scene shows Return rather than Space. Check Privacy/Terms links from both footers, policy section anchors, contextual language links, and the policy-to-home download links. Verify that scrolling away or changing tabs suspends the animation.
 
 The website does not change input-method behavior or establish host-app compatibility. See [TESTING.md](TESTING.md) for the input method's separate verification requirements.
 
@@ -78,3 +81,10 @@ The website does not change input-method behavior or establish host-app compatib
 - Generated both locales and checked their architecture-specific download/resource URLs, local links, anchors, version/size text and absence of a Universal option. Isolated build checks rejected missing Intel metadata, mismatched architecture identity/path, missing source, insecure URLs, invalid sizes and malformed hashes.
 - Inspected both desktop download sections and both locales in 320px sandboxed iframes with scripts disabled. Resource links have architecture-specific accessible names. A manual VoiceOver review and completed browser download remain unverified; file transfers were checked separately over HTTP.
 - `./scripts/test.sh` passed 258 tests in 36 suites and `./scripts/build.sh` completed the Debug app build. Both ran outside the restricted sandbox for Swift/Xcode caches and compiler processes. No commit, deployment or installation was performed.
+
+### Website refresh verification — October 26, 2026
+
+- Added localized Privacy and Terms routes and refreshed the landing page around on-device, offline typing. Privacy copy distinguishes typing from manual updates and ordinary website/download connection metadata; it documents separately opted-in app memory and its limits. GPLv3 remains the software license.
+- Built all six pages, checked JavaScript syntax, and ran `scripts/check-website.py` and `scripts/check-website-animation.mjs`. Link/anchor/alternate checks passed for root and `/si/` hosting paths; animation fixtures passed all three manual scenes, mixed/literal commits, pause/replay, reduced motion, and visibility suspension.
+- Browser checks and their remaining limits are recorded after visual verification below.
+- `./scripts/test.sh` passed 258 tests in 36 suites; `./scripts/build.sh` completed the Debug build. Both required execution outside the restricted sandbox for compiler processes/caches. These are shared-worktree checks and do not establish host-app compatibility. No input method was installed, and no commit or deployment was performed.

@@ -1,0 +1,37 @@
+input,target,language
+ExampleTool,ExampleTool,en
+I like reading,I like reading,en
+SI_TEST_42,SI_TEST_42,en
+Swift,Swift,en
+build a small tool,build a small tool,en
+character,character,en
+computer,computer,en
+correct,correct,en
+evaluate,evaluate,en
+example,example,en
+good morning,good morning,en
+hello,hello,en
+helloWorld,helloWorld,en
+home,home,en
+input,input,en
+keep the original,keep the original,en
+keyboard,keyboard,en
+language,language,en
+letter,letter,en
+method,method,en
+open the window,open the window,en
+please try again,please try again,en
+spelling,spelling,en
+start from scratch,start from scratch,en
+test_value42,test_value42,en
+testing,testing,en
+thank you,thank you,en
+this is a test,this is a test,en
+training,training,en
+user@example.invalid,user@example.invalid,en
+version2,version2,en
+we are at home,we are at home,en
+welcome,welcome,en
+window,window,en
+women,women,en
+world,world,en

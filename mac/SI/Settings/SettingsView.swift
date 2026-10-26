@@ -35,10 +35,6 @@ struct SettingsView: View {
                     Text(settings.punctuationBehavior.explanation)
                 }
                 ApplicationPassthroughSection(settings: settings)
-                Section("Try the candidate engine") {
-                    CandidatePreviewView(settings: settings, dictionary: dictionary,
-                                         applicationMemory: applicationMemory)
-                }
                 ApplicationMemorySection(settings: applicationMemory)
                 UserDictionarySection(dictionary: dictionary)
                 UpdateSettingsSection(updater: updater)

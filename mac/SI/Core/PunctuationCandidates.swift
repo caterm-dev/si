@@ -1,4 +1,4 @@
-/// Local punctuation alternatives shared by the input method and Settings preview.
+/// Local punctuation alternatives used by the shared candidate engine.
 public enum PunctuationCandidates {
     private static let chinese: [String: [String]] = [
         ",": ["，", "、"], ".": ["。", "…"], "/": ["、"], ";": ["；"],

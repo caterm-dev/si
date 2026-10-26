@@ -1,6 +1,6 @@
 import Foundation
 
-/// Shared facade used by the input method, Settings preview and package callers.
+/// Shared facade used by the input method and package callers.
 /// Chinese sentences retain their Swift MSIME lane; bounded lexical search also joins enabled languages.
 public struct PinyinDecoder: Sendable {
     public static let standard = PinyinDecoder()

@@ -6,11 +6,15 @@ on:
     paths:
       - website/**
       - scripts/build-website.mjs
+      - scripts/check-website.py
+      - scripts/check-website-animation.mjs
       - .github/workflows/pages.yml
   pull_request:
     paths:
       - website/**
       - scripts/build-website.mjs
+      - scripts/check-website.py
+      - scripts/check-website-animation.mjs
       - .github/workflows/pages.yml
   workflow_dispatch:
 
@@ -34,6 +38,10 @@ jobs:
         run: node --check website/assets/demo.js
       - name: Generate static pages and validate translations
         run: node scripts/build-website.mjs
+      - name: Check page links and animation behavior
+        run: |
+          python3 scripts/check-website.py
+          node scripts/check-website-animation.mjs
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4

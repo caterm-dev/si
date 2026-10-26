@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f8f7f2">
+    <meta name="description" content="{{description}}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{title}}">
+    <meta property="og:description" content="{{description}}">
+    <title>{{title}}</title>
+    <link rel="icon" href="{{base}}assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="{{base}}assets/style.css">
+    <link rel="alternate" hreflang="en" href="{{enUrl}}">
+    <link rel="alternate" hreflang="zh-CN" href="{{zhUrl}}">
+    <link rel="alternate" hreflang="x-default" href="{{enUrl}}">
+</head>
+<body class="legal-page">
+    <a class="skip-link" href="#main">{{skip}}</a>
+    <header class="site-header wrap">
+        <a class="wordmark" href="{{home}}" aria-label="SI"><span class="logo">SI</span><span>SI<span class="wordmark-dot">.</span></span></a>
+        <nav class="main-nav" aria-label="{{navigationLabel}}"><a href="{{home}}#idea">{{navAbout}}</a><a href="{{home}}#download">{{navDownload}}</a><a class="source-link" href="https://github.com/caterm-dev/si">{{navSource}}</a></nav>
+        <nav class="languages" aria-label="{{languageLabel}}"><a href="{{enUrl}}" lang="en" hreflang="en" {{enCurrent}}>EN</a><span aria-hidden="true">/</span><a href="{{zhUrl}}" lang="zh-CN" hreflang="zh-CN" {{zhCurrent}}>中文</a></nav>
+    </header>
+    <main id="main" class="legal-main wrap">
+        <a class="text-link legal-back" href="{{home}}">← {{backHome}}</a>
+        <div class="legal-heading"><p class="eyebrow">{{legalLabel}}</p><h1>{{policyTitle}}</h1><p class="legal-intro">{{policyIntro}}</p><p class="legal-updated">{{updatedLabel}} <time datetime="2026-10-26">{{policyUpdated}}</time></p></div>
+        <div class="legal-layout"><nav class="legal-toc" aria-label="{{contentsLabel}}"><p class="eyebrow">{{contentsLabel}}</p>{{policyToc}}</nav><article class="legal-content" aria-label="{{policyTitle}}">{{policySections}}</article></div>
+    </main>
+    <footer class="site-footer wrap"><a class="wordmark" href="{{home}}" aria-label="SI"><span class="logo">SI</span></a><p>{{footerLine}}</p><div><a href="{{privacyUrl}}" {{privacyCurrent}}>{{privacy}}</a><a href="{{termsUrl}}" {{termsCurrent}}>{{terms}}</a><a href="https://github.com/caterm-dev/si/blob/main/LICENSE">{{license}}</a><a href="https://github.com/caterm-dev/si/issues">{{feedback}}</a></div></footer>
+</body>
+</html>

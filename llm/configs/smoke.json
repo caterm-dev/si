@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "model": {
+    "vocab_size": 512,
+    "d_model": 32,
+    "nhead": 4,
+    "encoder_layers": 1,
+    "decoder_layers": 1,
+    "dim_feedforward": 64,
+    "dropout": 0.0,
+    "max_source_tokens": 128,
+    "max_target_tokens": 96
+  },
+  "data": {
+    "split_ratios": [0.7, 0.15, 0.15],
+    "noise_variants": 2,
+    "max_edits": 1
+  },
+  "training": {
+    "batch_size": 4,
+    "gradient_accumulation": 2,
+    "max_steps": 4,
+    "schedule_steps": 8,
+    "warmup_steps": 1,
+    "learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "gradient_clip": 1.0,
+    "validate_every": 2,
+    "save_every": 2,
+    "precision": "fp32",
+    "activation_checkpointing": false
+  },
+  "decoding": {
+    "beam_size": 2,
+    "length_penalty": 0.6
+  }
+}

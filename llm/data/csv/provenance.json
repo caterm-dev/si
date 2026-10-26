@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "default": {
+    "license": "GPL-3.0-only",
+    "origin": "SI-authored static vocabulary, short phrases and explicit typo pairs; materialized from the initial Chinese starter and 92 original fixtures",
+    "revision": "static-csv-v1"
+  },
+  "files": {}
+}

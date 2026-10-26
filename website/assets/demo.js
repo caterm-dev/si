@@ -1,5 +1,16 @@
 // Scripted illustrations only: this is not a second implementation of SI's engine.
 (() => {
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if ('IntersectionObserver' in window && !motionPreference.matches) {
+        const reveals = new IntersectionObserver(entries => {
+            for (const entry of entries) {
+                if (!entry.isIntersecting) continue;
+                entry.target.classList.add('is-revealed');
+                reveals.unobserve(entry.target);
+            }
+        }, { threshold: 0.15 });
+        document.querySelectorAll('.offline-top, .privacy-points, .idea-heading').forEach(element => reveals.observe(element));
+    }
     const demo = document.querySelector('[data-demo]');
     if (!demo) return;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -13,9 +24,9 @@
     const keyHint = demo.querySelector('[data-key-hint]');
     const space = demo.querySelector('[data-space-key]');
     const scenes = [
-        { input: 'shi', prefix: '', result: null, duration: 5100 },
-        { input: 'nihao', prefix: '', result: '你好', duration: 5700 },
-        { input: 'world', prefix: '你好', result: '你好world ', duration: 6300 },
+        { input: 'shi', result: null, duration: 5200, key: 'space' },
+        { input: 'woxiangyaodeploy', result: '我想要deploy', duration: 6800, key: 'space' },
+        { input: 'SI_build42', result: 'SI_build42', duration: 5800, key: 'return' },
     ];
     let scene = 0;
     let elapsed = 0;
@@ -35,20 +46,23 @@
     function render() {
         const current = scenes[scene];
         const typedAt = 400;
-        const commitAt = 3500;
+        const commitAt = Math.max(3400, typedAt + current.input.length * 130 + 1200);
         const isCommitted = current.result !== null && elapsed >= commitAt;
-        const length = Math.max(0, Math.min(current.input.length, Math.floor((elapsed - typedAt) / 170) + 1));
+        const length = Math.max(0, Math.min(current.input.length, Math.floor((elapsed - typedAt) / 130) + 1));
         composition.textContent = isCommitted ? '' : current.input.slice(0, length);
-        committed.textContent = isCommitted ? current.result : current.prefix;
+        committed.textContent = isCommitted ? current.result : '';
         candidates.hidden = length < current.input.length || isCommitted;
         space.classList.toggle('is-pressed', isCommitted && elapsed < commitAt + 350);
         space.hidden = isCommitted && elapsed >= commitAt + 350;
-        keyHint.textContent = isCommitted ? demo.dataset.resultHint : demo.dataset.keyHint;
+        space.textContent = current.key;
+        keyHint.textContent = isCommitted ? demo.dataset.resultHint : current.key === 'return' ? demo.dataset.literalHint : demo.dataset.keyHint;
+        demo.dataset.committed = String(isCommitted);
         buttons[scene].style.setProperty('--progress', String(Math.min(1, elapsed / current.duration)));
     }
 
     function selectScene(index, announce = false) {
         scene = index;
+        demo.dataset.scene = String(index);
         candidates.replaceChildren(templates[index].content.cloneNode(true));
         buttons.forEach((button, i) => {
             button.setAttribute('aria-pressed', String(i === index));
@@ -81,7 +95,7 @@
             selectScene((scene + 1) % scenes.length);
         }
         render();
-        frame = requestAnimationFrame(tick);
+        if (playing && onScreen && !document.hidden) frame = requestAnimationFrame(tick);
     }
 
     toggle.addEventListener('click', () => {
@@ -99,7 +113,7 @@
         button.addEventListener('click', () => {
             // Manual steps stay still so visitors can read at their own pace.
             playing = false;
-            elapsed = 2200;
+            elapsed = Math.max(2200, 400 + scenes[index].input.length * 130);
             selectScene(index, true);
             schedule();
         });

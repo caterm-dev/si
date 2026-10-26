@@ -15,7 +15,7 @@ let package = Package(
         .target(name: "SIPresentation", dependencies: ["SICore"], path: "mac/SI/InputMethod",
                 exclude: ["SIInputController.swift"]),
         .target(name: "SISettings", dependencies: ["SICore", "SIStorage"], path: "mac/SI/Settings",
-                exclude: ["SettingsView.swift", "CandidatePreviewView.swift", "UserDictionarySection.swift", "UserDictionaryView.swift",
+                exclude: ["SettingsView.swift", "UserDictionarySection.swift", "UserDictionaryView.swift",
                           "UserPhraseEditor.swift", "UserDictionaryDocument.swift", "PhraseEditorRequest.swift",
                           "UpdateSettingsSection.swift", "ApplicationMemorySection.swift", "ApplicationMemoryView.swift",
                           "ApplicationMemoryRow.swift", "ApplicationPassthroughSection.swift",
