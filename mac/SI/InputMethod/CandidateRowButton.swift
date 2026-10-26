@@ -13,7 +13,7 @@ final class CandidateRowButton: NSButton {
     private(set) var candidateID = ""
     private(set) var isCurrent = false
     private(set) var isCompact = false
-    private(set) var isKeyboardPage = true
+    private(set) var isKeyboardRow = true
     private var configuredCandidate: InputCandidate?
     private var usesBadge = false
     private var hasSourceIndicator = false
@@ -47,16 +47,16 @@ final class CandidateRowButton: NSButton {
     }
 
     func configure(candidate: InputCandidate, number: Int, selected: Bool, compact: Bool = false,
-                   keyboardPage: Bool = true) {
+                   keyboardRow: Bool = true) {
         if let previous = configuredCandidate, previous == candidate,
            previous.text.utf8.elementsEqual(candidate.text.utf8),
            numberLabel.stringValue == String(number), isCurrent == selected, isCompact == compact,
-           isKeyboardPage == keyboardPage { return }
+           isKeyboardRow == keyboardRow { return }
         configuredCandidate = candidate
         candidateID = candidate.id
         isCurrent = selected
         isCompact = compact
-        isKeyboardPage = keyboardPage
+        isKeyboardRow = keyboardRow
         numberLabel.stringValue = String(number)
         candidateLabel.stringValue = candidate.text
         // Punctuation needs a visible language hint even in the compact strip.
@@ -92,7 +92,7 @@ final class CandidateRowButton: NSButton {
         setAccessibilityValue(selected ? L10n.text("Selected") : "")
         candidateLabel.textColor = .labelColor
         numberLabel.textColor = selected ? CandidateStyle.accent : .secondaryLabelColor
-        numberLabel.alphaValue = keyboardPage || CandidateStyle.usesHighContrast ? 1 : 0.6
+        numberLabel.alphaValue = keyboardRow || CandidateStyle.usesHighContrast ? 1 : 0.6
         detailLabel.textColor = .secondaryLabelColor
         needsLayout = true
         needsDisplay = true

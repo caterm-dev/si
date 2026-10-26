@@ -13,17 +13,17 @@ llm/data/csv/
     city.csv
     company.csv
     words.csv
-    chat_daily.csv
+    chat.csv
     typos.csv
     english.csv
     ...
   validation/
     city.csv
-    chat_daily.csv
+    chat.csv
     ...
   test/
     city.csv
-    chat_daily.csv
+    chat.csv
     ...
 ```
 
@@ -42,6 +42,8 @@ An optional third column `language` supports `zh`, `en` and `mixed`; the default
 Add as many CSVs as needed, including nested paths such as `train/business/company.csv`. Files are discovered automatically; no Python or per-file registration changes are required. `city.csv` may exist in every split: it labels the domain, not a leakage-prevention hash. Put related spellings/sentence variants into the same split yourself. Normalized-identical input or target text across splits is rejected with both source locations; preparation does not silently move rows. Identical pairs within one split are deduplicated while retaining their source memberships.
 
 See [the source data guide](data/csv/README.md) for the full contract and current counts. `provenance.json` declares the license/public origin/revision for SI-authored data and optional per-file overrides. Its default declaration applies to new files; it does not grant rights to unrelated third-party data. Review and declare any imported source before adding it. Private input, personal phrases and app history are not training sources.
+
+The current source contains 50,000 unique samples (47,339 train, 1,361 validation, 1,300 test). The [expansion record](data/csv/EXPANSION_50K.md) documents 31,027 new synthetic training pairs, provenance and checks. All original samples and validation/test files are preserved. The expanded immutable bundle is `llm/data/prepared/static-csv-50k-v1`; select it explicitly with a fresh run rather than resuming an older dataset. Shared presets still point to the existing `static-csv-v2` experiment.
 
 ## Setup and quick checks
 

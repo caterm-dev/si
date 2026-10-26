@@ -27,7 +27,7 @@ struct XianshiRankingTests {
                         #expect(selection.candidates.prefix(5).map(\.id) == engineCandidates.prefix(5).map(\.id))
                         #expect(selection.candidates.contains { $0.isLiteral && $0.text == input })
                         #expect(selection.candidates.contains { $0.isLexicalPrefix && $0.text == "先" })
-                        #expect(selection.candidates.count <= CandidateSelection.maximumCandidates)
+                        #expect(selection.candidates.count <= engineCandidates.count)
                         #expect(session.candidates == engineCandidates)
                         let number = try #require(firstPage.firstIndex { $0.id == display.id }) + 1
                         let chosen = try #require(selection.candidate(number: number))
@@ -66,6 +66,6 @@ struct XianshiRankingTests {
         #expect(selection.candidate(number: 4)?.id == history.id)
         #expect(selection.candidates.contains { $0.id == prefix.id })
         #expect(selection.candidates.contains { $0.id == literal.id })
-        #expect(selection.candidates.count == CandidateSelection.maximumCandidates)
+        #expect(selection.candidates.count == CandidateShortlist.ordinaryCandidateLimit)
     }
 }

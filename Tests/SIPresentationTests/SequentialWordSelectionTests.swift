@@ -99,7 +99,7 @@ struct SequentialWordSelectionTests {
         var clicked: String?
         view.onSelect = { clicked = $0 }
         for page in 0...1 {
-            if page > 0 { selection.movePage(by: 1) }
+            if page > 0 { selection.navigate(.row(1)) }
             for appearance in [NSAppearance.Name.aqua, .darkAqua] {
                 view.appearance = try #require(NSAppearance(named: appearance))
                 view.render(selection)
@@ -136,7 +136,7 @@ struct SequentialWordSelectionTests {
                 selection.update(engineCandidates)
                 let firstWord = try #require(selection.candidates.first { $0.text == "比如" && $0.isLexicalPrefix })
                 #expect(firstWord.consumedInputCount == 4)
-                #expect(selection.candidates.count <= CandidateSelection.maximumCandidates)
+                #expect(selection.candidates.count <= engineCandidates.count)
                 #expect(session.candidates == engineCandidates)
                 #expect(selection.candidates.last?.text == "biruzhege" && selection.candidates.last?.isLiteral == true)
                 let indices = try selection.candidates.filter { $0.lexicalTokenCount == 1 }.map { candidate in
@@ -221,7 +221,7 @@ struct SequentialWordSelectionTests {
         selection.update(values)
         #expect(Array(selection.candidates.prefix(4)) == Array(characters.prefix(4)))
         #expect(selection.candidates.contains(english) && selection.candidates.contains(mixed))
-        #expect(selection.candidates.last == literal && selection.candidates.count == 27)
+        #expect(selection.candidates.last == literal && characters.allSatisfy(selection.candidates.contains))
         let expected = selection.candidates
         selection.update(values)
         #expect(selection.candidates == expected)

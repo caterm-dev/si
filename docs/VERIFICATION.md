@@ -2,6 +2,14 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Spatial navigation, whole-grid pages and character recall — 2026-10-26
+
+Collapsed Left/Right now selects candidates and Down expands without advancing. Expanded Left/Right moves columns and Up/Down moves rows within the grid. The whole four-by-six grid is one page; Page Up/Down and footer controls move 24 choices (six when collapsed), preserving the cell position where available. Digits 1–6 still address the active row. Home/End retains composition-caret editing; navigation outside composition passes to the host. Localized accessibility help identifies the whole page, row and column.
+
+The ordinary shortlist retains its 27-slot budget and four-hypothesis policy, but additionally keeps every generated single-character Chinese lexical choice. Complete-syllable lookup supplements preview/full direct and first-syllable prefix matches with all exact dictionary characters. Exact character prefixes bypass the 24-word pool; multi-character words, initial/completion lookup and sentence beams retain their search bounds. Existing scores, language identities, literal fallback, learning exclusions and exact prefix consumption remain intact. This supersedes the earlier total-27 and row-as-page behavior recorded below.
+
+All 356 Swift tests passed (261 core, 75 presentation, 14 settings, 3 storage and 3 localization), and Debug build passed. Both localization tables passed `plutil -lint`. An 80-character fixture traverses more than three expanded pages and commits a character beyond the old cap by its row/column, digit and mouse identity, preserving exact continuous/apostrophe-separated remainders. Bundled `she` dictionary character recall is checked in both search stages and longer compositions. Light/dark regular/narrow first pages and distant final-page selected-cell renders were inspected. No input method was installed; native host routing/VoiceOver remain unverified. Evidence: `/tmp/si-spatial-tests.log`, `/tmp/si-spatial-build.log`, `/tmp/si-spatial-paging.log`, `/tmp/si-spatial.*.png` and `/tmp/si-spatial-paging.*.png`.
+
 ## First-row column alignment — 2026-10-26
 
 Expanded candidate rows now reuse the first row's six column origins and widths. Numbers and text align vertically in both appearances and at narrow widths; short candidate content/source icons and selection backgrounds still fit their text within the shared column. Numbered selection, mouse identities, page state and candidate generation are unchanged.

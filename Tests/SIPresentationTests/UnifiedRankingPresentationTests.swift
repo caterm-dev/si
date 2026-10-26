@@ -85,7 +85,7 @@ struct UnifiedRankingPresentationTests {
         let literal = InputCandidate(text: "abilit", language: nil, score: 0)
         var selection = CandidateSelection()
         selection.update([prefix] + chinese + [english, literal])
-        #expect(selection.candidates.count == CandidateSelection.maximumCandidates)
+        #expect(selection.candidates.count == CandidateShortlist.ordinaryCandidateLimit)
         #expect(selection.candidates.contains { $0.id == english.id })
         #expect(selection.candidates.contains { $0.id == literal.id })
         #expect(selection.candidates.contains { $0.id == chinese[0].id })

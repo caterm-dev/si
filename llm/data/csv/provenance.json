@@ -5,5 +5,26 @@
     "origin": "SI-authored static vocabulary, short phrases and explicit typo pairs; materialized from the initial Chinese starter and 92 original fixtures",
     "revision": "static-csv-v1"
   },
-  "files": {}
+  "files": {
+    "train/chat.csv": {
+      "license": "GPL-3.0-only",
+      "origin": "SI-authored synthetic chat: original static collection plus 22,000 locally composed examples across 25 semantic families; see EXPANSION_50K.md",
+      "revision": "static-csv-50k-2026-10-26"
+    },
+    "train/english.csv": {
+      "license": "GPL-3.0-only",
+      "origin": "SI-authored synthetic English: original static collection plus 2,500 authored sentences with identity and space-removed input variants; see EXPANSION_50K.md",
+      "revision": "static-csv-50k-2026-10-26"
+    },
+    "train/mixed.csv": {
+      "license": "GPL-3.0-only",
+      "origin": "SI-authored synthetic mixed-language text: original static collection plus 3,000 examples preserving literal technical names and filenames; see EXPANSION_50K.md",
+      "revision": "static-csv-50k-2026-10-26"
+    },
+    "train/typos.csv": {
+      "license": "GPL-3.0-only",
+      "origin": "SI-authored synthetic spelling errors: original static collection plus 1,027 interior adjacent-transposition examples derived only from new training chat targets; see EXPANSION_50K.md",
+      "revision": "static-csv-50k-2026-10-26"
+    }
+  }
 }

@@ -99,6 +99,7 @@
 "Optional: common punctuation and Tab confirm a whole Chinese or mixed candidate and keep punctuation unchanged. ASCII periods and non-confirming symbols stay editable in the composition. English words and partial personal codes are not confirmed unless actively selected." = "可选：常用标点和 Tab 键会确认完整的中文或混合候选，并保留标点原样。英文句点和不触发确认的符号仍可编辑。英文词语和未输完的个人输入码只有在主动选择后才会被确认。";
 "Optional: common punctuation and Tab confirm a whole Chinese or mixed candidate. Chinese endings use Chinese punctuation. ASCII periods and non-confirming symbols stay editable in the composition. Unselected English completions and partial personal codes are not confirmed." = "可选：常用标点和 Tab 键会确认完整的中文或混合候选。中文结尾使用中文标点。英文句点和不触发确认的符号仍可编辑。未主动选择的英文补全和未输完的个人输入码不会被确认。";
 "Page %ld of %ld" = "第 %ld 页，共 %ld 页";
+"Row %ld, column %ld" = "第 %ld 行，第 %ld 列";
 "Pass keys directly to selected apps, such as Terminal, without candidates or automatic conversion. All apps use normal SI input by default. Direct input also stops SI vocabulary learning and history recording for that app; saved data is kept." = "将按键直接传递给所选应用（例如终端），不显示候选或自动转换。所有应用默认使用正常 SI 输入。直接输入也会停止该应用的词汇学习和历史记录；已保存的数据会保留。";
 "Pause App History" = "暂停应用历史记录";
 "Pause App Vocabulary" = "暂停应用词汇学习";

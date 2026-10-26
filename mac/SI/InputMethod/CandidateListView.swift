@@ -66,7 +66,7 @@ final class CandidateListView: NSView {
             return
         }
         isExpanded = selection.isExpanded
-        keyboardLine = selection.page % CandidateSelection.expandedRowCount
+        keyboardLine = selection.row
         layer?.cornerRadius = isExpanded ? 12 : CandidateStyle.stripHeight / 2
         let expansionLabel = L10n.text(isExpanded ? "Collapse candidates" : "Expand candidates")
         expandButton.image = NSImage(systemSymbolName: isExpanded ? "chevron.up" : "chevron.down",
@@ -92,8 +92,11 @@ final class CandidateListView: NSView {
             let row = rows[number]
             row.configure(candidate: selection.candidates[index], number: index % selection.visiblePageSize + 1,
                           selected: index == selection.selectedIndex, compact: true,
-                          keyboardPage: selection.visibleRange.contains(index))
-            row.setAccessibilityHelp(L10n.format("Page %ld of %ld", index / selection.visiblePageSize + 1, selection.pageCount))
+                          keyboardRow: selection.visibleRange.contains(index))
+            let page = L10n.format("Page %ld of %ld", selection.page + 1, selection.pageCount)
+            let cell = L10n.format("Row %ld, column %ld", (index - selection.displayedRange.lowerBound) / selection.visiblePageSize + 1,
+                                   index % selection.visiblePageSize + 1)
+            row.setAccessibilityHelp("\(page) · \(cell)")
         }
         showsPagination = selection.pageCount > 1
         pageLabel.stringValue = "\(selection.page + 1) / \(max(1, selection.pageCount))"

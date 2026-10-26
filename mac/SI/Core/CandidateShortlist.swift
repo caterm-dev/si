@@ -1,6 +1,6 @@
 /// The input window and offline quality evaluation share this exact ordered shortlist.
 public enum CandidateShortlist {
-    public static let maximumCandidates = 27
+    public static let ordinaryCandidateLimit = 27
     private static let leadingChoices = 4
 
     private static func isWord(_ candidate: InputCandidate) -> Bool {
@@ -45,7 +45,14 @@ public enum CandidateShortlist {
         var retained = protected.union(leadingIDs).union(literal.map(\.id))
         if let first = history.first { retained.insert(first.id) }
         for candidate in candidates where isWord(candidate) || candidate.isHistory {
-            guard retained.count < maximumCandidates else { break }
+            guard retained.count < ordinaryCandidateLimit else { break }
+            retained.insert(candidate.id)
+        }
+        // Pagination exposes every generated dictionary character, independently
+        // of the ordinary word budget. Search and sentence beams stay bounded.
+        for candidate in ordinary where candidate.language == .simplifiedChinese
+            && !candidate.isMixed && !candidate.isUserPhrase && !candidate.isPunctuation
+            && candidate.lexicalTokenCount == 1 && candidate.text.count == 1 {
             retained.insert(candidate.id)
         }
         // A word-led query (for example ling or xianshi) keeps score order.

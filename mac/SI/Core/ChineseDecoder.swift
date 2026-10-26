@@ -87,8 +87,11 @@ struct ChineseDecoder: Sendable {
             let normalized = cut.map(ChineseSyllables.canonical)
             // Alternative cuts contribute full-key dictionary rows. Re-running sentence
             // search on each alternative would change MSIME's primary sentence objective.
-            let direct = cutIndex == 0 ? lexicon.matches(normalized, limit: preview ? 32 : nil)
+            var direct = cutIndex == 0 ? lexicon.matches(normalized, limit: preview ? 32 : nil)
                 : alternativeRows.filter { $0.reading == normalized }
+            if cutIndex == 0, normalized.count == 1, normalized.allSatisfy(ChineseSyllables.complete.contains) {
+                direct += lexicon.exactMatches(normalized).filter { $0.text.count == 1 }
+            }
             var lexical = direct.map { (row: $0, typed: normalized) }
             if cutIndex == 0 {
                 for split in ChineseLookupReadings.splitInitials(reading, input: input) {
@@ -119,7 +122,11 @@ struct ChineseDecoder: Sendable {
                         let prefixReadings = [prefixReading] + ChineseLookupReadings.splitInitials(prefixReading, input: input)
                         for prefix in prefixReadings {
                             guard seenPrefixes.insert(prefix.syllables).inserted else { continue }
-                            for row in lexicon.matches(prefix.syllables, limit: preview ? 16 : nil) {
+                            var rows = lexicon.matches(prefix.syllables, limit: preview ? 16 : nil)
+                            if prefix.syllables.count == 1, prefix.syllables.allSatisfy(ChineseSyllables.complete.contains) {
+                                rows += lexicon.exactMatches(prefix.syllables).filter { $0.text.count == 1 }
+                            }
+                            for row in rows {
                                 let full = row.reading == prefix.syllables.map(ChineseSyllables.canonical)
                                 let score = wordScore(row, typed: prefix.syllables)
                                 prefixes.append(InputCandidate(text: row.text, language: .simplifiedChinese,
@@ -253,6 +260,7 @@ struct ChineseDecoder: Sendable {
             guard let consumed = candidate.consumedInputCount else { return false }
             if candidate.isUserPhrase { return true }
             if candidate.lexicalTokenCount == 1 {
+                if candidate.text.count == 1, !candidate.hasCompletion { return true }
                 guard lexicalCounts[consumed, default: 0] < 24 else { return false }
                 lexicalCounts[consumed, default: 0] += 1
             } else {

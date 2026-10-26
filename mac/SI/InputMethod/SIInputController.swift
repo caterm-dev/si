@@ -41,7 +41,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         panel.list.onMovePage = { [weak self] offset in
             guard let self, self.candidatePanel.ownsPresentation else { return }
-            self.moveCandidateSelection(by: offset * self.selection.visiblePageSize)
+            self.moveCandidateSelection(.page(offset))
         }
         panel.list.onToggleExpansion = { [weak self] in
             guard let self, self.candidatePanel.ownsPresentation,
@@ -81,7 +81,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             resolveCandidates(to: client)
             switch action {
             case .expand: setCandidateListExpanded(true, to: client)
-            case .move(let distance): moveCandidateSelection(by: distance, to: client)
+            case .navigate(let navigation): moveCandidateSelection(navigation, to: client)
             case .choose(let number): commitCandidate(selection.candidate(number: number), to: client)
             }
             return true
@@ -121,17 +121,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             let suffix = commit.remainingInput.isEmpty && selected?.appendsSpaceOnAcceptance != false ? " " : ""
             apply(commit, suffix: suffix, to: client)
             return true
-        case 123, 124: // Edit the marked composition without moving the host-document caret.
-            guard !session.buffer.isEmpty else { invalidateHistory(); session.breakContext(); return false }
-            session.moveCursor(by: event.keyCode == 123 ? -1 : 1)
-            update(client)
-            return true
         case 115, 119: // Home / End
             guard !session.buffer.isEmpty else { invalidateHistory(); session.breakContext(); return false }
             if event.keyCode == 115 { session.moveToStart() } else { session.moveToEnd() }
             update(client)
             return true
-        case 125, 126, 116, 121: // Navigation outside composition belongs to the host.
+        case 123, 124, 125, 126, 116, 121: // Navigation outside composition belongs to the host.
             invalidateHistory()
             session.breakContext()
             return false
@@ -361,12 +356,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         presentCandidates(to: client)
     }
 
-    private func moveCandidateSelection(by distance: Int, to eventClient: (any IMKTextInput)? = nil) {
+    private func moveCandidateSelection(_ navigation: CandidateSelection.Navigation, to eventClient: (any IMKTextInput)? = nil) {
         guard !session.buffer.isEmpty, let client = eventClient ?? client() else { return }
         guard configureSession(for: client) else { return }
         session.suspendAutomaticConfirmation()
         automaticConfirmationTask?.cancel()
-        selection.move(by: distance)
+        selection.navigate(navigation)
         explicitlyNavigated = true
         presentCandidates(to: client)
     }

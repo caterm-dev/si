@@ -3,6 +3,36 @@ import Testing
 @testable import SICore
 
 struct FirstWordPrefixTests {
+    @Test func packagedCharacterHomophonesSurviveBothSearchStagesAndPresentation() {
+        let expected = Set(ChineseLexicon.standard.exactMatches(["she"]).filter { $0.text.count == 1 }.map(\.text))
+        #expect(expected.count > 24)
+        for input in ["she", "sheguofennudehai", "she'guo'fen'nu'de'hai"] {
+            for preview in [false, true] {
+                let generated = PinyinDecoder.standard.compositionCandidates(for: input, languages: [.simplifiedChinese], preview: preview)
+                let visible = CandidateShortlist.candidates(from: generated)
+                #expect(expected.isSubset(of: Set(visible.filter { $0.lexicalTokenCount == 1 }.map(\.text))))
+            }
+        }
+    }
+
+    @Test func completeSyllableKeepsEveryCharacterInPreviewFullAndTheWindow() {
+        let characters = (0..<80).map { String(UnicodeScalar(0x4E00 + $0)!) }
+        let decoder = PinyinDecoder(entries: characters.map { PinyinLexiconEntry(syllables: ["bi"], text: $0) }
+            + [PinyinLexiconEntry(syllables: ["ge"], text: "个")])
+        for input in ["bi", "bige", "bi'ge"] {
+            for preview in [false, true] {
+                let generated = decoder.compositionCandidates(for: input, languages: [.simplifiedChinese], preview: preview)
+                let visible = CandidateShortlist.candidates(from: generated)
+                let selected = visible.filter { characters.contains($0.text) }
+                #expect(Set(selected.map(\.text)) == Set(characters))
+                #expect(selected.count == characters.count)
+                #expect(selected.allSatisfy { $0.lexicalTokenCount == 1 && !$0.hasCompletion })
+                if input != "bi" { #expect(selected.allSatisfy { $0.consumedInputCount == (input == "bige" ? 2 : 3) }) }
+                #expect(visible == CandidateShortlist.candidates(from: generated))
+            }
+        }
+    }
+
     @Test func fourConstructedChoicesLeaveTheRemainingSlotsForRankedWords() {
         let sentence = InputCandidate(text: "完整句子", language: .simplifiedChinese, score: 100)
         let fragments = (0..<40).map {
@@ -18,7 +48,7 @@ struct FirstWordPrefixTests {
         let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
         let engine = [sentence] + fragments + words + [english, mixed, literal]
         let shortlist = CandidateShortlist.candidates(from: engine)
-        #expect(shortlist.count == words.count + 6 && shortlist.count <= CandidateShortlist.maximumCandidates)
+        #expect(shortlist.count == words.count + 6 && shortlist.count <= CandidateShortlist.ordinaryCandidateLimit)
         #expect(shortlist.first == sentence && shortlist.last == literal)
         #expect(words.prefix(12).allSatisfy(shortlist.contains))
         #expect(shortlist.contains(english) && shortlist.contains(mixed))
@@ -35,14 +65,14 @@ struct FirstWordPrefixTests {
         let history = InputCandidate(text: "历史", language: .simplifiedChinese, score: 1,
                                      isHistory: true, historyInput: "synthetic")
         let crowded = CandidateShortlist.candidates(from: readings + fragments + words + [english, mixed, history, literal])
-        #expect(crowded.count == CandidateShortlist.maximumCandidates && crowded.last == literal)
+        #expect(crowded.count == CandidateShortlist.ordinaryCandidateLimit && crowded.last == literal)
         #expect(crowded.filter { $0.isChineseSentence || $0.isMixed }.count == 4)
         #expect(crowded.contains(english) && crowded.contains(mixed) && crowded.contains(history))
         #expect(words.allSatisfy(crowded.contains))
     }
 
     @Test func lexicalHomophonesHaveTheirOwnBoundedPoolAndHonorConsumedSpellingLearning() throws {
-        let characters = (0..<30).map { String(UnicodeScalar(0x4E00 + $0)!) }
+        let characters = (0..<30).map { String(UnicodeScalar(0x4E00 + $0)!) + "词" }
         let decoder = PinyinDecoder(entries: characters.map { PinyinLexiconEntry(syllables: ["bi"], text: $0) }
             + [PinyinLexiconEntry(syllables: ["ge"], text: "个")])
         let now = Date(timeIntervalSince1970: 1_790_000_000)

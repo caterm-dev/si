@@ -36,7 +36,7 @@ struct CandidateViewTests {
             row.performClick(nil)
             #expect(clicked == selection.candidates[index].id)
             #expect(row.numberLabel.stringValue == String(index % 6 + 1))
-            #expect(row.isKeyboardPage == (index < 6))
+            #expect(row.isKeyboardRow == (index < 6))
         }
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             let regular = try snapshot(view, appearance: appearance)
@@ -358,10 +358,10 @@ struct CandidateViewTests {
         #expect(selection.selected == previous)
         let action = CandidateSelection.action(keyCode: down.keyCode, characters: down.characters,
                                                pageSize: selection.visiblePageSize, isExpanded: selection.isExpanded)
-        #expect(action == .move(1))
-        if case .move(let offset) = action { selection.move(by: offset) }
+        #expect(action == .navigate(.row(1)))
+        if case .navigate(let navigation) = action { selection.navigate(navigation) }
         view.render(selection)
-        #expect(view.rows[1].isCurrent)
+        #expect(view.rows[6].isCurrent)
         let digit = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
                                                 windowNumber: 0, context: nil, characters: "2",
                                                 charactersIgnoringModifiers: "2", isARepeat: false, keyCode: 19))
@@ -369,16 +369,16 @@ struct CandidateViewTests {
         #expect(digitAction == .choose(2))
         guard case .choose(let number) = digitAction else { return }
         let candidate = try #require(selection.candidate(number: number))
-        #expect(candidate.id == view.rows[1].candidateID)
+        #expect(candidate.id == view.rows[7].candidateID)
         let commit = session.commitResult(candidate, reason: .explicitSelection)
-        #expect(commit.text == view.rows[1].candidateLabel.stringValue)
+        #expect(commit.text == view.rows[7].candidateLabel.stringValue)
         #expect(session.buffer.isEmpty)
         #expect(CandidateSelection.action(keyCode: 18, characters: "!") == nil)
         #expect(CandidateSelection.action(keyCode: 29, characters: "0") == nil)
-        #expect(CandidateSelection.action(keyCode: 123, characters: "\u{F702}") == nil)
-        #expect(CandidateSelection.action(keyCode: 126, characters: "\u{F700}") == .move(-1))
-        #expect(CandidateSelection.action(keyCode: 121, characters: "\u{F72D}") == .move(6))
-        #expect(CandidateSelection.action(keyCode: 116, characters: "\u{F72C}") == .move(-6))
+        #expect(CandidateSelection.action(keyCode: 123, characters: "\u{F702}") == .navigate(.column(-1)))
+        #expect(CandidateSelection.action(keyCode: 126, characters: "\u{F700}") == .navigate(.column(-1)))
+        #expect(CandidateSelection.action(keyCode: 121, characters: "\u{F72D}") == .navigate(.page(1)))
+        #expect(CandidateSelection.action(keyCode: 116, characters: "\u{F72C}") == .navigate(.page(-1)))
     }
 
     @Test func syntheticCandidateViewCanRenderForVisualInspection() throws {
@@ -497,7 +497,7 @@ struct CandidateViewTests {
     }
 
     @Test func compactSinglePageHidesFooterAndPageButtonsStillNavigate() {
-        let candidates = (0..<11).map { InputCandidate(text: "词\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) }
+        let candidates = (0..<30).map { InputCandidate(text: "词\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) }
         var selection = CandidateSelection()
         selection.setExpanded(true)
         selection.update(Array(candidates.prefix(3)))
@@ -526,28 +526,28 @@ struct CandidateViewTests {
         view.render(selection)
         #expect(view.rows.map { $0.numberLabel.stringValue } == (0..<22).map { String($0 % 6 + 1) })
         for page in 0..<4 {
-            if page > 0 { selection.movePage(by: 1) }
+            if page > 0 { selection.navigate(.row(1)) }
             view.render(selection)
-            #expect(view.rows.filter(\.isKeyboardPage).map(\.candidateID)
+            #expect(view.rows.filter(\.isKeyboardRow).map(\.candidateID)
                 == selection.visibleRange.map { selection.candidates[$0].id })
             #expect(view.rows.filter(\.isCurrent).map(\.candidateID) == [selection.selected?.id])
-            let active = view.rows.filter(\.isKeyboardPage)
+            let active = view.rows.filter(\.isKeyboardRow)
             for (index, row) in active.enumerated() {
                 #expect(row.candidateID == selection.candidate(number: index + 1)?.id)
                 #expect(row.numberLabel.alphaValue == 1)
             }
-            #expect(view.rows.filter { !$0.isKeyboardPage }.allSatisfy {
+            #expect(view.rows.filter { !$0.isKeyboardRow }.allSatisfy {
                 $0.numberLabel.alphaValue < 1 || CandidateStyle.usesHighContrast
             })
         }
-        #expect(view.rows.count == 22 && view.rows.filter(\.isKeyboardPage).count == 4)
+        #expect(view.rows.count == 22 && view.rows.filter(\.isKeyboardRow).count == 4)
     }
 
     @Test func mouseActionUsesTheSameCandidateIdentityAsItsNumber() throws {
         var selection = CandidateSelection()
         selection.setExpanded(true)
         selection.update((0..<20).map { InputCandidate(text: "word\($0)", language: .english, score: 100, lexicalTokenCount: 1) })
-        selection.movePage(by: 1)
+        selection.navigate(.row(1))
         let view = CandidateListView()
         var clicked: String?
         view.onSelect = { clicked = $0 }
@@ -557,7 +557,7 @@ struct CandidateViewTests {
         #expect(view.rows[7].accessibilityLabel()?.contains("word7") == true)
         // Other displayed pages remain directly clickable, without changing the keyboard page.
         view.rows[13].performClick(nil)
-        #expect(clicked == selection.candidates[13].id && selection.page == 1)
+        #expect(clicked == selection.candidates[13].id && selection.row == 1)
     }
 
     @Test func clearingTheViewRemovesStaleRowsAndFocusStaysWithHost() {
