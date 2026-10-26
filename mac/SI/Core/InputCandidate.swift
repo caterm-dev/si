@@ -11,7 +11,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public var inputScore: Double { rankingScore + remainingInputScore }
     var wordContext: CandidateWordContext?
     var sourceTrace: CandidateSourceTrace?
-    /// Runtime provenance for Chinese sentence placement; lexical matches keep their own positions.
+    /// Runtime provenance for generated Chinese sentence alternatives.
     private(set) var isChineseSentence = false
     /// Ephemeral length-weighted token preference; shares the frequency cap with whole-input learning.
     let tokenLearningBonus: Double

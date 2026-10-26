@@ -79,9 +79,9 @@ struct UnifiedRankingPresentationTests {
     }
 
     @Test func shortEnglishPrefixCannotTakeTheCompleteEnglishReservation() {
-        let prefix = InputCandidate(text: "a", language: .english, score: 100, consumedInputCount: 1)
-        let chinese = (0..<40).map { InputCandidate(text: "测试\($0)", language: .simplifiedChinese, score: 99 - $0) }
-        let english = InputCandidate(text: "ability", language: .english, score: -10, hasCompletion: true)
+        let prefix = InputCandidate(text: "a", language: .english, score: 100, consumedInputCount: 1, lexicalTokenCount: 1)
+        let chinese = (0..<40).map { InputCandidate(text: "测试\($0)", language: .simplifiedChinese, score: 99 - $0, lexicalTokenCount: 1) }
+        let english = InputCandidate(text: "ability", language: .english, score: -10, hasCompletion: true, lexicalTokenCount: 1)
         let literal = InputCandidate(text: "abilit", language: nil, score: 0)
         var selection = CandidateSelection()
         selection.update([prefix] + chinese + [english, literal])

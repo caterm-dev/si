@@ -3,7 +3,7 @@ import Testing
 @testable import SICore
 
 struct ChineseSentenceAlternativesTests {
-    @Test func reportedSentenceRemainsReachableInBothSearchStagesAndLanguageSets() throws {
+    @Test func reportedSentenceRemainsInEngineWhileWindowLimitsConstructedChoices() throws {
         for input in ["erbeizuoduo", "er'bei'zuo'duo"] {
             for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
                 var session = InputSession(candidateGeneration: .deferred)
@@ -14,7 +14,8 @@ struct ChineseSentenceAlternativesTests {
                     let sentence = try #require(result.candidates.first { $0.text == "二倍做多" && !$0.isPartial })
                     #expect(sentence.isChineseSentence)
                     let visible = CandidateShortlist.candidates(from: result.candidates)
-                    #expect(visible.contains { $0.id == sentence.id })
+                    #expect(visible.filter { $0.lexicalTokenCount != 1 && !$0.isLiteral && !$0.isHistory }.count <= 4)
+                    #expect(visible.first?.id == result.candidates.first?.id)
                     #expect(visible.last?.isLiteral == true && visible.last?.text == input)
                     let accepted = session.accept(result)
                     #expect(accepted)
@@ -77,41 +78,41 @@ struct ChineseSentenceAlternativesTests {
         #expect(personalized.count <= 12 && Set(personalized.map(\.id)).count == personalized.count)
     }
 
-    @Test func longReadingsGroupThreeAndMoveOtherReadingsBehindOrdinaryChoices() {
-        let english = InputCandidate(text: "English", language: .english, score: 100)
-        let prefix = InputCandidate(text: "甲", language: .simplifiedChinese, score: 95, consumedInputCount: 1)
-        let mixed = InputCandidate(text: "甲word", language: .simplifiedChinese, score: 85, isMixed: true)
-        let short = sentence("甲乙", score: 70)
-        let readings = ["甲乙丙", "甲乙丁", "甲乙戊", "甲乙己", "甲乙庚", "甲乙辛"].enumerated()
-            .map { sentence($0.element, score: 99 - $0.offset * 10) }
+    @Test func sentenceLedListsKeepFourHypothesesThenWordsInEngineOrder() {
+        let readings = ["甲乙丙", "甲乙丁", "甲乙戊", "甲乙己", "甲乙庚", "甲乙辛"]
+            .enumerated().map { sentence($0.element, score: 99 - $0.offset * 10) }
+        let word = InputCandidate(text: "甲", language: .simplifiedChinese, score: 95,
+                                  consumedInputCount: 1, lexicalTokenCount: 1)
+        let english = InputCandidate(text: "word", language: .english, score: 1, lexicalTokenCount: 1)
         let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
-        let input = [english, readings[0], prefix, readings[1], mixed, readings[2], short] + Array(readings.dropFirst(3)) + [literal]
+        let input = [readings[0], word] + Array(readings.dropFirst()) + [english, literal]
         let result = CandidateShortlist.candidates(from: input)
-        #expect(result == [english] + Array(readings.prefix(3)) + [prefix, mixed, short] + Array(readings.dropFirst(3)) + [literal])
-        #expect(Set(result.map(\.id)) == Set(input.map(\.id)))
+        #expect(result == Array(readings.prefix(4)) + [word, english, literal])
+        #expect(result.map(\.rankingScore) == (Array(readings.prefix(4)) + [word, english, literal]).map(\.rankingScore))
     }
 
-    @Test func twoCharacterReadingsKeepOneBeforeWordsAndRetainTheRestAtTheEnd() {
+    @Test func fewerThanFourReadingsDoNotDuplicateOrBackfillTheLeadingGroup() {
         let readings = ["甲乙", "甲丙", "甲丁"].map { sentence($0, score: 10) }
         let word = InputCandidate(text: "词语", language: .simplifiedChinese, score: 9, lexicalTokenCount: 1)
         let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
-        #expect(CandidateShortlist.candidates(from: readings + [word, literal]) == [readings[0], word] + Array(readings.dropFirst()) + [literal])
+        #expect(CandidateShortlist.candidates(from: readings + [word, literal]) == readings + [word, literal])
     }
 
-    @Test func tailReadingsSurviveShortlistingAlongsidePinsHistoryLanguagesAndLiteral() throws {
+    @Test func fourHypothesesKeepPinsHistoryLanguagesAndLiteralWithinTheLimit() {
         let pin = InputCandidate(text: "固定", language: .simplifiedChinese, score: 100, isUserPhrase: true, isPreferred: true)
         let readings = ["甲乙丙", "甲乙丁", "甲乙戊", "甲乙己", "甲乙庚", "甲乙辛"].map { sentence($0, score: 90) }
-        let words = (0..<50).map { InputCandidate(text: "词\($0)", language: .simplifiedChinese, score: 80) }
-        let english = InputCandidate(text: "word", language: .english, score: 1)
+        let words = (0..<50).map { InputCandidate(text: "词\($0)", language: .simplifiedChinese, score: 80, lexicalTokenCount: 1) }
+        let english = InputCandidate(text: "word", language: .english, score: 1, lexicalTokenCount: 1)
         let mixed = InputCandidate(text: "甲word", language: .simplifiedChinese, score: 1, isMixed: true)
         let history = InputCandidate(text: "历史", language: .simplifiedChinese, score: 1, isHistory: true, historyInput: "synthetic")
         let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
         let result = CandidateShortlist.candidates(from: [pin, readings[0], history] + words + Array(readings.dropFirst()) + [english, mixed, literal])
         #expect(result.count == 27 && result.first == pin && result.last == literal)
         #expect(result[2] == history)
-        #expect(readings.allSatisfy(result.contains))
+        #expect(readings.prefix(3).allSatisfy(result.contains))
+        #expect(!readings.dropFirst(3).contains(where: result.contains))
         #expect(result.contains(english) && result.contains(mixed))
-        #expect(Array(result.suffix(4)) == Array(readings.suffix(3)) + [literal])
+        #expect(result.filter { $0.isChineseSentence || $0.isMixed }.count == 4)
     }
 
     private func sentence(_ text: String, score: Int) -> InputCandidate {

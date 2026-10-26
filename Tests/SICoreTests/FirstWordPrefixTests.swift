@@ -3,6 +3,44 @@ import Testing
 @testable import SICore
 
 struct FirstWordPrefixTests {
+    @Test func fourConstructedChoicesLeaveTheRemainingSlotsForRankedWords() {
+        let sentence = InputCandidate(text: "完整句子", language: .simplifiedChinese, score: 100)
+        let fragments = (0..<40).map {
+            InputCandidate(text: "长片段\($0)", language: .simplifiedChinese,
+                           score: 90 - $0, consumedInputCount: 9, lexicalTokenCount: 3)
+        }
+        let words = (0..<20).map {
+            InputCandidate(text: "词\($0)", language: .simplifiedChinese,
+                           score: -$0, consumedInputCount: 3, lexicalTokenCount: 1)
+        }
+        let english = InputCandidate(text: "word", language: .english, score: -100, lexicalTokenCount: 1)
+        let mixed = InputCandidate(text: "中word", language: .simplifiedChinese, score: -101, isMixed: true)
+        let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
+        let engine = [sentence] + fragments + words + [english, mixed, literal]
+        let shortlist = CandidateShortlist.candidates(from: engine)
+        #expect(shortlist.count == words.count + 6 && shortlist.count <= CandidateShortlist.maximumCandidates)
+        #expect(shortlist.first == sentence && shortlist.last == literal)
+        #expect(words.prefix(12).allSatisfy(shortlist.contains))
+        #expect(shortlist.contains(english) && shortlist.contains(mixed))
+        #expect(shortlist.prefix(4).allSatisfy { $0.lexicalTokenCount != 1 })
+        #expect(shortlist.dropFirst(4).dropLast().allSatisfy { $0.lexicalTokenCount == 1 })
+        #expect(shortlist.filter(\.isLexicalPrefix) == Array(words.prefix(20)))
+        #expect(shortlist == CandidateShortlist.candidates(from: engine))
+
+        // Sentence alternatives share the four-choice cap with mixed fragments.
+        let readings = (0..<12).map {
+            InputCandidate(text: "完整句\($0)", language: .simplifiedChinese, score: 100 - $0)
+                .withChineseSentenceOrigin()
+        }
+        let history = InputCandidate(text: "历史", language: .simplifiedChinese, score: 1,
+                                     isHistory: true, historyInput: "synthetic")
+        let crowded = CandidateShortlist.candidates(from: readings + fragments + words + [english, mixed, history, literal])
+        #expect(crowded.count == CandidateShortlist.maximumCandidates && crowded.last == literal)
+        #expect(crowded.filter { $0.isChineseSentence || $0.isMixed }.count == 4)
+        #expect(crowded.contains(english) && crowded.contains(mixed) && crowded.contains(history))
+        #expect(words.allSatisfy(crowded.contains))
+    }
+
     @Test func lexicalHomophonesHaveTheirOwnBoundedPoolAndHonorConsumedSpellingLearning() throws {
         let characters = (0..<30).map { String(UnicodeScalar(0x4E00 + $0)!) }
         let decoder = PinyinDecoder(entries: characters.map { PinyinLexiconEntry(syllables: ["bi"], text: $0) }

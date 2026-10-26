@@ -44,7 +44,9 @@ final class CandidatePanel: NSPanel {
         // A hidden panel belongs to a finished composition; never retain its old rows.
         if !isVisible && isPending { list.render(selection) }
         list.render(selection, isPending: isPending, refreshPendingRows: refreshPendingRows)
-        guard let frame = CandidatePlacement.frame(preferredSize: list.preferredSize, anchor: caret, screens: screens) else {
+        let width = CandidatePlacement.screen(for: caret, screens: screens)?.visibleFrame.width ?? list.preferredSize.width
+        let size = list.preferredSize(constrainedTo: max(1, width - 8))
+        guard let frame = CandidatePlacement.frame(preferredSize: size, anchor: caret, screens: screens) else {
             orderOut(nil)
             return
         }

@@ -4,6 +4,45 @@ import SICore
 @testable import SIPresentation
 
 struct CandidateSelectionTests {
+    @Test func expandedGridDisplaysFourPagesAndKeepsDigitsOnTheActivePage() {
+        var selection = CandidateSelection()
+        selection.update(candidates(27))
+        selection.setExpanded(true)
+        for page in 0..<4 {
+            if page > 0 { selection.movePage(by: 1) }
+            #expect(selection.page == page && selection.pageCount == 5)
+            #expect(selection.displayedRange == 0..<24)
+            #expect(selection.candidate(number: 1) == selection.candidates[page * 6])
+            #expect(selection.candidate(number: 6) == selection.candidates[page * 6 + 5])
+        }
+        selection.movePage(by: 1)
+        #expect(selection.displayedRange == 24..<27 && selection.visibleRange == 24..<27)
+        #expect(selection.candidate(number: 3) == selection.candidates.last)
+        #expect(selection.candidate(number: 4) == nil)
+        for digit in ["7", "8", "9"] {
+            #expect(CandidateSelection.action(keyCode: 0, characters: digit) == nil)
+        }
+        selection.setExpanded(false)
+        #expect(selection.displayedRange == selection.visibleRange)
+    }
+
+    @Test func downArrowExpandsWithoutAdvancingTheSelectedCandidate() {
+        var selection = CandidateSelection()
+        selection.update(candidates(22))
+        selection.move(by: 7)
+        let chosen = selection.selected
+        let action = CandidateSelection.action(keyCode: 125, characters: "\u{F701}",
+                                               pageSize: selection.visiblePageSize, isExpanded: selection.isExpanded)
+        #expect(action == .expand)
+        if action == .expand { selection.setExpanded(true) }
+        #expect(selection.isExpanded && selection.selected == chosen)
+        #expect(selection.candidate(number: 2) == chosen)
+        #expect(CandidateSelection.action(keyCode: 125, characters: "\u{F701}",
+                                         pageSize: selection.visiblePageSize, isExpanded: true) == .move(1))
+        selection.update([])
+        #expect(!selection.isExpanded)
+    }
+
     @Test func lingKeepsHigherScoringHomophonesAheadOfItsProtectedMixedAlternative() throws {
         let values = CandidateEngine().candidates(for: "ling", languages: Set(InputLanguage.allCases))
         var selection = CandidateSelection()
@@ -39,8 +78,8 @@ struct CandidateSelectionTests {
         let chosen = try #require(selection.selected)
         #expect(chosen == values[8])
         selection.setExpanded(true)
-        #expect(selection.visibleRange == 0..<9 && selection.selected == chosen)
-        #expect(selection.candidate(number: 9) == chosen)
+        #expect(selection.visibleRange == 6..<12 && selection.displayedRange == 0..<22 && selection.selected == chosen)
+        #expect(selection.candidate(number: 3) == chosen)
         selection.setExpanded(false)
         #expect(selection.visibleRange == 6..<12 && selection.selected == chosen)
         #expect(selection.candidate(number: 3) == chosen)
@@ -63,8 +102,8 @@ struct CandidateSelectionTests {
         let whole = candidates(14)
         let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
         let longPrefix = InputCandidate(text: "很长的组合", language: .simplifiedChinese, score: 62, consumedInputCount: 18)
-        let word = InputCandidate(text: "词语", language: .simplifiedChinese, score: 74, consumedInputCount: 6)
-        let letter = InputCandidate(text: "字", language: .simplifiedChinese, score: 74, consumedInputCount: 2)
+        let word = InputCandidate(text: "词语", language: .simplifiedChinese, score: 74, consumedInputCount: 6, lexicalTokenCount: 1)
+        let letter = InputCandidate(text: "字", language: .simplifiedChinese, score: 74, consumedInputCount: 2, lexicalTokenCount: 1)
         let values = [word, letter, longPrefix] + whole + [literal]
         var selection = CandidateSelection()
         selection.update(values)
@@ -105,7 +144,7 @@ struct CandidateSelectionTests {
     }
 
     private func candidates(_ count: Int) -> [InputCandidate] {
-        (0..<count).map { InputCandidate(text: "word\($0)", language: .english, score: count - $0) }
+        (0..<count).map { InputCandidate(text: "word\($0)", language: .english, score: count - $0, lexicalTokenCount: 1) }
     }
 
     @Test func arrowsAndDigitsReferToTheSamePage() throws {
@@ -118,13 +157,13 @@ struct CandidateSelectionTests {
         #expect(selection.selected == selection.candidate(number: 2))
         selection.move(by: -1)
         #expect(selection.selected == values[0])
-        selection.move(by: 9)
+        selection.move(by: 6)
         #expect(selection.page == 1)
-        #expect(selection.visibleRange == 9..<18)
-        #expect(selection.candidate(number: 2) == values[10])
+        #expect(selection.visibleRange == 6..<12)
+        #expect(selection.candidate(number: 2) == values[7])
         selection.movePage(by: 1)
-        #expect(selection.selected == values[18])
-        #expect(selection.candidate(number: 6) == values[23])
+        #expect(selection.selected == values[12])
+        #expect(selection.candidate(number: 6) == values[17])
         #expect(selection.candidate(number: 7) == nil)
     }
 
@@ -158,8 +197,8 @@ struct CandidateSelectionTests {
         #expect(action(123) == nil)
         #expect(action(124) == nil)
         selection.setExpanded(true)
-        #expect(action(123) == .move(-9))
-        #expect(action(124) == .move(9))
+        #expect(action(123) == .move(-6))
+        #expect(action(124) == .move(6))
 
         func press(_ keyCode: UInt16) throws {
             let navigation = try #require(action(keyCode))
@@ -172,15 +211,15 @@ struct CandidateSelectionTests {
         try press(123)
         #expect(selection.selected == values[0])
         try press(124)
-        #expect(selection.page == 1 && selection.visibleRange == 9..<18)
+        #expect(selection.page == 1 && selection.visibleRange == 6..<12)
         #expect(selection.selected == selection.candidate(number: 1))
-        #expect(selection.candidate(number: 2) == values[10])
+        #expect(selection.candidate(number: 2) == values[7])
         try press(124)
-        #expect(selection.page == 2 && selection.visibleRange == 18..<22)
-        #expect(selection.candidate(number: 4) == values[21])
-        #expect(selection.candidate(number: 5) == nil)
+        #expect(selection.page == 2 && selection.visibleRange == 12..<18)
+        #expect(selection.candidate(number: 6) == values[17])
+        #expect(selection.candidate(number: 7) == nil)
         try press(123)
-        #expect(selection.page == 1 && selection.selected == values[9])
+        #expect(selection.page == 1 && selection.selected == values[6])
         selection.move(by: 100)
         try press(124)
         #expect(selection.selected == values.last)
@@ -206,7 +245,7 @@ struct CandidateSelectionTests {
         selection.update(values)
         let shortlist = selection.candidates
         #expect(shortlist.count == 27)
-        #expect(selection.pageCount == (expanded ? 3 : 5))
+        #expect(selection.pageCount == 5)
         #expect(Array(shortlist.prefix(9)) == Array(whole.prefix(9)))
         #expect(shortlist.contains(whole[0]) && shortlist.contains(chinese) && shortlist.contains(mixed))
         #expect(shortlist.last == literal)

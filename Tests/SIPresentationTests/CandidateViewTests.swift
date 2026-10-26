@@ -6,7 +6,68 @@ import SILocalization
 
 @MainActor
 struct CandidateViewTests {
-    @Test func reportedSentenceCanBePagedToClickedAndCommittedInBothLayouts() throws {
+    @Test func expandedGridShowsFourSixCandidateRowsWithTheCompactFirstLine() throws {
+        var session = InputSession()
+        session.append("sheguofennudehai")
+        var selection = CandidateSelection()
+        selection.update(session.candidates)
+        let view = CandidateListView()
+        view.render(selection)
+        view.frame = NSRect(origin: .zero, size: view.preferredSize)
+        view.layoutSubtreeIfNeeded()
+        let firstLine = view.rows.map { ($0.candidateID, $0.frame.minX, $0.frame.width) }
+        let compactSize = view.preferredSize
+        selection.setExpanded(true)
+        view.render(selection)
+        view.frame = NSRect(origin: .zero, size: view.preferredSize)
+        view.layoutSubtreeIfNeeded()
+        #expect(view.rows.count == 24 && view.preferredSize.width == compactSize.width)
+        for (row, previous) in zip(view.rows, firstLine) {
+            #expect(row.candidateID == previous.0 && row.isCompact)
+            #expect(abs(row.frame.minX - previous.1) < 0.001 && abs(row.frame.width - previous.2) < 0.001)
+            #expect(row.frame.maxY == view.rows[0].frame.maxY)
+        }
+        #expect(view.rows[6].frame.minX == view.rows[0].frame.minX)
+        #expect(view.rows[6].frame.maxY < view.rows[0].frame.minY)
+        #expect(view.rows[0].frame.maxX < view.expandButton.frame.minX)
+        var clicked: String?
+        view.onSelect = { clicked = $0 }
+        for (index, row) in view.rows.enumerated() {
+            row.performClick(nil)
+            #expect(clicked == selection.candidates[index].id)
+            #expect(row.numberLabel.stringValue == String(index % 6 + 1))
+            #expect(row.isKeyboardPage == (index < 6))
+        }
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            let regular = try snapshot(view, appearance: appearance)
+            expectColumnsAligned(view)
+            let narrow = try snapshot(view, appearance: appearance, maximumWidth: 340)
+            expectColumnsAligned(view)
+            #expect(Set(view.rows.map { $0.frame.minY }).count == 4)
+            #expect(view.rows.allSatisfy { $0.frame.minY >= 34 && $0.frame.maxX <= view.bounds.width - 33 })
+            #expect(view.rows.allSatisfy { $0.toolTip?.contains($0.candidateLabel.stringValue) == true })
+            #expect(view.rows.dropFirst(6).allSatisfy {
+                $0.candidateLabel.frame.width >= 19 && $0.sourceIndicator.isHidden
+            })
+            if let path = ProcessInfo.processInfo.environment["SI_GRID_SNAPSHOT_PATH"] {
+                let style = appearance == .aqua ? "light" : "dark"
+                try regular.write(to: URL(filePath: "\(path).\(style).png"))
+                try narrow.write(to: URL(filePath: "\(path).narrow.\(style).png"))
+            }
+        }
+    }
+
+    private func expectColumnsAligned(_ view: CandidateListView) {
+        for (index, row) in view.rows.enumerated() {
+            let first = view.rows[index % CandidateSelection.pageSize]
+            #expect(abs(row.frame.minX - first.frame.minX) < 0.001)
+            #expect(abs(row.frame.width - first.frame.width) < 0.001)
+            #expect(abs(row.numberLabel.frame.minX - first.numberLabel.frame.minX) < 0.001)
+            #expect(abs(row.candidateLabel.frame.minX - first.candidateLabel.frame.minX) < 0.001)
+        }
+    }
+
+    @Test func leadingSentenceCanBeClickedAndCommittedInBothLayouts() throws {
         for preview in [false, true] {
             for expanded in [false, true] {
                 var session = InputSession(candidateGeneration: .deferred)
@@ -18,7 +79,7 @@ struct CandidateViewTests {
                 var selection = CandidateSelection()
                 selection.update(session.candidates)
                 selection.setExpanded(expanded)
-                let index = try #require(selection.candidates.firstIndex { $0.text == "二倍做多" && !$0.isPartial })
+                let index = try #require(selection.candidates.firstIndex { $0.language == .simplifiedChinese && !$0.isMixed && !$0.isPartial })
                 while selection.page < index / selection.visiblePageSize { selection.movePage(by: 1) }
                 selection.move(by: index - selection.selectedIndex)
                 let number = index % selection.visiblePageSize + 1
@@ -38,7 +99,7 @@ struct CandidateViewTests {
                 #expect(clicked == chosen.id && view.rows[number - 1].isCurrent)
                 #expect(view.rows[number - 1].numberLabel.stringValue == String(number))
                 let commit = session.commitResult(chosen, reason: .explicitSelection)
-                #expect(commit.text == "二倍做多" && commit.input == "erbeizuoduo" && session.buffer.isEmpty)
+                #expect(commit.text == chosen.text && commit.input == "erbeizuoduo" && session.buffer.isEmpty)
             }
         }
     }
@@ -97,7 +158,7 @@ struct CandidateViewTests {
     func scrollingNeverChangesCandidatePages(expanded: Bool, pending: Bool) throws {
         var selection = CandidateSelection()
         selection.setExpanded(expanded)
-        selection.update((0..<27).map { InputCandidate(text: "Synthetic \($0)", language: .english, score: 100) })
+        selection.update((0..<27).map { InputCandidate(text: "Synthetic \($0)", language: .english, score: 100, lexicalTokenCount: 1) })
         selection.movePage(by: 1)
         let selected = selection.selected
         let view = CandidateListView()
@@ -123,7 +184,7 @@ struct CandidateViewTests {
     func freshPendingHintsReplaceOldRowsWithoutShrinkingOrEnablingStaleActions(expanded: Bool) throws {
         var selection = CandidateSelection()
         selection.setExpanded(expanded)
-        selection.update((0..<9).map { InputCandidate(text: "Previous long synthetic candidate \($0)", language: .english, score: 100) })
+        selection.update((0..<9).map { InputCandidate(text: "Previous long synthetic candidate \($0)", language: .english, score: 100, lexicalTokenCount: 1) })
         let view = CandidateListView()
         view.render(selection)
         let old = view.rows[0]
@@ -151,7 +212,7 @@ struct CandidateViewTests {
 
     @Test func compactRowsShareOneLineAndExpansionPreservesMouseAndNumberMapping() throws {
         var selection = CandidateSelection()
-        selection.update((0..<22).map { InputCandidate(text: "测试候选\($0)", language: .simplifiedChinese, score: 100) })
+        selection.update((0..<22).map { InputCandidate(text: "测试候选\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) })
         let view = CandidateListView()
         var clicked: String?
         view.onSelect = { clicked = $0 }
@@ -177,7 +238,7 @@ struct CandidateViewTests {
         view.render(selection)
         let selected = selection.selected
         view.expandButton.performClick(nil)
-        #expect(selection.isExpanded && view.isExpanded && view.rows.count == 9)
+        #expect(selection.isExpanded && view.isExpanded && view.rows.count == 22)
         #expect(selection.selected == selected)
         #expect(view.rows[7].isCurrent)
         #expect(view.expandButton.accessibilityLabel() == L10n.text("Collapse candidates"))
@@ -203,7 +264,7 @@ struct CandidateViewTests {
         let view = CandidateListView()
         var selection = CandidateSelection()
         selection.setExpanded(expanded)
-        selection.update((0..<12).map { InputCandidate(text: "旧候选\($0)", language: .simplifiedChinese, score: 100) })
+        selection.update((0..<12).map { InputCandidate(text: "旧候选\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) })
         view.render(selection)
         let oldRows = view.rows
         let size = view.preferredSize
@@ -284,13 +345,19 @@ struct CandidateViewTests {
         var session = InputSession()
         session.append("shi")
         var selection = CandidateSelection()
-        selection.setExpanded(true)
         selection.update(session.candidates)
         let view = CandidateListView()
         let down = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
                                                windowNumber: 0, context: nil, characters: "\u{F701}",
                                                charactersIgnoringModifiers: "\u{F701}", isARepeat: false, keyCode: 125))
-        let action = CandidateSelection.action(keyCode: down.keyCode, characters: down.characters)
+        let expand = CandidateSelection.action(keyCode: down.keyCode, characters: down.characters,
+                                               pageSize: selection.visiblePageSize, isExpanded: selection.isExpanded)
+        #expect(expand == .expand)
+        let previous = selection.selected
+        if expand == .expand { selection.setExpanded(true) }
+        #expect(selection.selected == previous)
+        let action = CandidateSelection.action(keyCode: down.keyCode, characters: down.characters,
+                                               pageSize: selection.visiblePageSize, isExpanded: selection.isExpanded)
         #expect(action == .move(1))
         if case .move(let offset) = action { selection.move(by: offset) }
         view.render(selection)
@@ -310,8 +377,8 @@ struct CandidateViewTests {
         #expect(CandidateSelection.action(keyCode: 29, characters: "0") == nil)
         #expect(CandidateSelection.action(keyCode: 123, characters: "\u{F702}") == nil)
         #expect(CandidateSelection.action(keyCode: 126, characters: "\u{F700}") == .move(-1))
-        #expect(CandidateSelection.action(keyCode: 121, characters: "\u{F72D}") == .move(9))
-        #expect(CandidateSelection.action(keyCode: 116, characters: "\u{F72C}") == .move(-9))
+        #expect(CandidateSelection.action(keyCode: 121, characters: "\u{F72D}") == .move(6))
+        #expect(CandidateSelection.action(keyCode: 116, characters: "\u{F72C}") == .move(-6))
     }
 
     @Test func syntheticCandidateViewCanRenderForVisualInspection() throws {
@@ -321,9 +388,9 @@ struct CandidateViewTests {
             InputCandidate(text: "然后有一个展开的按钮", language: .simplifiedChinese, score: 100, hasCompletion: true),
             InputCandidate(text: "然后有一个", language: .simplifiedChinese, score: 99),
             InputCandidate(text: "然后又", language: .simplifiedChinese, score: 74, consumedInputCount: 9),
-            InputCandidate(text: "然后", language: .simplifiedChinese, score: 73, consumedInputCount: 6),
-            InputCandidate(text: "然", language: .simplifiedChinese, score: 72, consumedInputCount: 3),
-        ] + (0..<9).map { InputCandidate(text: "测试候选\($0 + 1)", language: .simplifiedChinese, score: 70 - $0) })
+            InputCandidate(text: "然后", language: .simplifiedChinese, score: 73, consumedInputCount: 6, lexicalTokenCount: 1),
+            InputCandidate(text: "然", language: .simplifiedChinese, score: 72, consumedInputCount: 3, lexicalTokenCount: 1),
+        ] + (0..<9).map { InputCandidate(text: "测试候选\($0 + 1)", language: .simplifiedChinese, score: 70 - $0, lexicalTokenCount: 1) })
         let view = CandidateListView()
         view.render(selection)
         let light = try snapshot(view, appearance: .aqua)
@@ -348,9 +415,10 @@ struct CandidateViewTests {
         }
     }
 
-    private func snapshot(_ view: CandidateListView, appearance: NSAppearance.Name) throws -> Data {
+    private func snapshot(_ view: CandidateListView, appearance: NSAppearance.Name,
+                          maximumWidth: CGFloat = .greatestFiniteMagnitude) throws -> Data {
         view.appearance = try #require(NSAppearance(named: appearance))
-        view.frame = NSRect(origin: .zero, size: view.preferredSize)
+        view.frame = NSRect(origin: .zero, size: view.preferredSize(constrainedTo: maximumWidth))
         view.layoutSubtreeIfNeeded()
         let bitmap = try #require(view.bitmapImageRepForCachingDisplay(in: view.bounds))
         view.effectiveAppearance.performAsCurrentDrawingAppearance {
@@ -399,7 +467,7 @@ struct CandidateViewTests {
             #expect(view.rows.count == 1 && view.rows[0].candidateLabel.stringValue == ",")
             #expect(view.rows[0].detailLabel.stringValue == L10n.text("As Typed"))
             #expect(!view.rows[0].detailLabel.centersBadgeGlyph)
-            #expect(view.rows[0].detailLabel.isHidden == !expanded)
+            #expect(view.rows[0].detailLabel.isHidden)
         }
     }
 
@@ -429,7 +497,7 @@ struct CandidateViewTests {
     }
 
     @Test func compactSinglePageHidesFooterAndPageButtonsStillNavigate() {
-        let candidates = (0..<11).map { InputCandidate(text: "词\($0)", language: .simplifiedChinese, score: 100) }
+        let candidates = (0..<11).map { InputCandidate(text: "词\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) }
         var selection = CandidateSelection()
         selection.setExpanded(true)
         selection.update(Array(candidates.prefix(3)))
@@ -453,39 +521,43 @@ struct CandidateViewTests {
     @Test func renderedNumbersHighlightAndKeyboardChoiceStayInSync() throws {
         var selection = CandidateSelection()
         selection.setExpanded(true)
-        selection.update((0..<22).map { InputCandidate(text: "测试\($0)", language: .simplifiedChinese, score: 100) })
+        selection.update((0..<22).map { InputCandidate(text: "测试\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) })
         let view = CandidateListView()
         view.render(selection)
-        #expect(view.rows.map { $0.numberLabel.stringValue } == (1...9).map(String.init))
-        #expect(view.rows.filter(\.isCurrent).map(\.candidateID) == [selection.selected?.id])
-        selection.move(by: 1)
-        view.render(selection)
-        #expect(view.rows[1].isCurrent)
-        #expect(!view.rows[0].isCurrent)
-        #expect(view.rows[1].candidateID == selection.candidate(number: 2)?.id)
-        selection.movePage(by: 1)
-        view.render(selection)
-        #expect(view.rows[0].candidateID == selection.candidate(number: 1)?.id)
-        #expect(view.rows[1].isCurrent)
-        #expect(view.rows[1].accessibilityValue() as? String == L10n.text("Selected"))
-        selection.movePage(by: 1)
-        view.render(selection)
-        #expect(view.rows.count == 4)
-        #expect(view.rows.map { $0.numberLabel.stringValue } == ["1", "2", "3", "4"])
+        #expect(view.rows.map { $0.numberLabel.stringValue } == (0..<22).map { String($0 % 6 + 1) })
+        for page in 0..<4 {
+            if page > 0 { selection.movePage(by: 1) }
+            view.render(selection)
+            #expect(view.rows.filter(\.isKeyboardPage).map(\.candidateID)
+                == selection.visibleRange.map { selection.candidates[$0].id })
+            #expect(view.rows.filter(\.isCurrent).map(\.candidateID) == [selection.selected?.id])
+            let active = view.rows.filter(\.isKeyboardPage)
+            for (index, row) in active.enumerated() {
+                #expect(row.candidateID == selection.candidate(number: index + 1)?.id)
+                #expect(row.numberLabel.alphaValue == 1)
+            }
+            #expect(view.rows.filter { !$0.isKeyboardPage }.allSatisfy {
+                $0.numberLabel.alphaValue < 1 || CandidateStyle.usesHighContrast
+            })
+        }
+        #expect(view.rows.count == 22 && view.rows.filter(\.isKeyboardPage).count == 4)
     }
 
     @Test func mouseActionUsesTheSameCandidateIdentityAsItsNumber() throws {
         var selection = CandidateSelection()
         selection.setExpanded(true)
-        selection.update((0..<20).map { InputCandidate(text: "word\($0)", language: .english, score: 100) })
+        selection.update((0..<20).map { InputCandidate(text: "word\($0)", language: .english, score: 100, lexicalTokenCount: 1) })
         selection.movePage(by: 1)
         let view = CandidateListView()
         var clicked: String?
         view.onSelect = { clicked = $0 }
         view.render(selection)
-        view.rows[1].performClick(nil)
+        view.rows[7].performClick(nil)
         #expect(clicked == selection.candidate(number: 2)?.id)
-        #expect(view.rows[1].accessibilityLabel()?.contains("word10") == true)
+        #expect(view.rows[7].accessibilityLabel()?.contains("word7") == true)
+        // Other displayed pages remain directly clickable, without changing the keyboard page.
+        view.rows[13].performClick(nil)
+        #expect(clicked == selection.candidates[13].id && selection.page == 1)
     }
 
     @Test func clearingTheViewRemovesStaleRowsAndFocusStaysWithHost() {

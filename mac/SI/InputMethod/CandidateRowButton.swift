@@ -13,8 +13,10 @@ final class CandidateRowButton: NSButton {
     private(set) var candidateID = ""
     private(set) var isCurrent = false
     private(set) var isCompact = false
+    private(set) var isKeyboardPage = true
     private var configuredCandidate: InputCandidate?
     private var usesBadge = false
+    private var hasSourceIndicator = false
 
     override var acceptsFirstResponder: Bool { false }
 
@@ -44,14 +46,17 @@ final class CandidateRowButton: NSButton {
         needsDisplay = true
     }
 
-    func configure(candidate: InputCandidate, number: Int, selected: Bool, compact: Bool = false) {
+    func configure(candidate: InputCandidate, number: Int, selected: Bool, compact: Bool = false,
+                   keyboardPage: Bool = true) {
         if let previous = configuredCandidate, previous == candidate,
            previous.text.utf8.elementsEqual(candidate.text.utf8),
-           numberLabel.stringValue == String(number), isCurrent == selected, isCompact == compact { return }
+           numberLabel.stringValue == String(number), isCurrent == selected, isCompact == compact,
+           isKeyboardPage == keyboardPage { return }
         configuredCandidate = candidate
         candidateID = candidate.id
         isCurrent = selected
         isCompact = compact
+        isKeyboardPage = keyboardPage
         numberLabel.stringValue = String(number)
         candidateLabel.stringValue = candidate.text
         // Punctuation needs a visible language hint even in the compact strip.
@@ -79,13 +84,15 @@ final class CandidateRowButton: NSButton {
         else if candidate.hasLiteralSegments { symbol = "ellipsis" }
         else { symbol = nil }
         sourceIndicator.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
-        sourceIndicator.isHidden = !compact || symbol == nil || !detailLabel.isHidden
+        hasSourceIndicator = compact && symbol != nil && detailLabel.isHidden
+        sourceIndicator.isHidden = !hasSourceIndicator
         let description = CandidateDescription.label(for: candidate)
         toolTip = "\(candidate.text) — \(description)"
         setAccessibilityLabel("\(number), \(candidate.text), \(description)")
         setAccessibilityValue(selected ? L10n.text("Selected") : "")
         candidateLabel.textColor = .labelColor
         numberLabel.textColor = selected ? CandidateStyle.accent : .secondaryLabelColor
+        numberLabel.alphaValue = keyboardPage || CandidateStyle.usesHighContrast ? 1 : 0.6
         detailLabel.textColor = .secondaryLabelColor
         needsLayout = true
         needsDisplay = true
@@ -93,24 +100,29 @@ final class CandidateRowButton: NSButton {
 
     override func layout() {
         super.layout()
-        numberLabel.frame = NSRect(x: 10, y: (bounds.height - 14) / 2, width: 11, height: 14)
+        let width = min(bounds.width, preferredWidth)
+        let tight = isCompact && bounds.width < 64
+        let textStart: CGFloat = tight ? 19 : 22
+        numberLabel.frame = NSRect(x: tight ? 7 : 10, y: (bounds.height - 14) / 2, width: 11, height: 14)
         if usesBadge, !detailLabel.isHidden {
-            let badgeWidth = min(punctuationBadgeWidth, max(0, bounds.width - 25))
-            let textWidth = max(0, min(candidateLabel.intrinsicContentSize.width + 4, bounds.width - 35 - badgeWidth))
-            candidateLabel.frame = NSRect(x: 22, y: (bounds.height - 22) / 2, width: textWidth, height: 22)
+            let badgeWidth = min(punctuationBadgeWidth, max(0, width - 25))
+            let textWidth = max(0, min(candidateLabel.intrinsicContentSize.width + 4, width - 35 - badgeWidth))
+            candidateLabel.frame = NSRect(x: textStart, y: (bounds.height - 22) / 2, width: textWidth, height: 22)
             detailLabel.frame = NSRect(x: candidateLabel.frame.maxX + 3, y: (bounds.height - 14) / 2,
                                       width: badgeWidth, height: 14)
             sourceIndicator.frame = .zero
             return
         }
-        let detailWidth = detailLabel.isHidden ? 0 : min(90, max(0, bounds.width - 90), detailLabel.intrinsicContentSize.width + 8)
+        // Preserve space for a glyph before spending it on a source hint.
+        sourceIndicator.isHidden = !hasSourceIndicator || width < 64
+        let detailWidth = detailLabel.isHidden ? 0 : min(90, max(0, width - 90), detailLabel.intrinsicContentSize.width + 8)
         let indicatorWidth: CGFloat = sourceIndicator.isHidden ? 0 : 12
-        let trailing: CGFloat = detailWidth > 0 ? detailWidth + 20 : indicatorWidth > 0 ? indicatorWidth + 14 : 10
-        let textWidth = max(0, bounds.width - 22 - trailing)
-        candidateLabel.frame = NSRect(x: 22, y: (bounds.height - 22) / 2, width: textWidth, height: 22)
-        detailLabel.frame = NSRect(x: bounds.width - detailWidth - 10, y: (bounds.height - 14) / 2,
+        let trailing: CGFloat = detailWidth > 0 ? detailWidth + 20 : indicatorWidth > 0 ? indicatorWidth + 14 : tight ? 6 : 10
+        let textWidth = max(0, width - textStart - trailing)
+        candidateLabel.frame = NSRect(x: textStart, y: (bounds.height - 22) / 2, width: textWidth, height: 22)
+        detailLabel.frame = NSRect(x: width - detailWidth - 10, y: (bounds.height - 14) / 2,
                                    width: detailWidth, height: 14)
-        sourceIndicator.frame = NSRect(x: max(22, bounds.width - indicatorWidth - 9), y: (bounds.height - 12) / 2,
+        sourceIndicator.frame = NSRect(x: max(textStart, width - indicatorWidth - 9), y: (bounds.height - 12) / 2,
                                        width: indicatorWidth, height: 12)
     }
 
@@ -119,7 +131,7 @@ final class CandidateRowButton: NSButton {
             return 39 + candidateLabel.intrinsicContentSize.width + punctuationBadgeWidth
         }
         let detailWidth = detailLabel.isHidden ? 0 : min(90, detailLabel.intrinsicContentSize.width + 8) + 10
-        let indicatorWidth: CGFloat = sourceIndicator.isHidden ? 0 : 16
+        let indicatorWidth: CGFloat = hasSourceIndicator ? 16 : 0
         // Leave room for NSTextField's cell inset as well as glyph measurement.
         return 40 + candidateLabel.intrinsicContentSize.width + detailWidth + indicatorWidth
     }
@@ -130,7 +142,8 @@ final class CandidateRowButton: NSButton {
         if isCurrent {
             CandidateStyle.selection.setFill()
             let radius: CGFloat = isCompact ? bounds.height / 2 : 8
-            let highlight = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
+            let content = NSRect(x: 0, y: 0, width: min(bounds.width, preferredWidth), height: bounds.height)
+            let highlight = NSBezierPath(roundedRect: content.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
             highlight.fill()
             if CandidateStyle.usesHighContrast {
                 CandidateStyle.accent.setStroke()

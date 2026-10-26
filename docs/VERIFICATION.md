@@ -2,6 +2,28 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## First-row column alignment — 2026-10-26
+
+Expanded candidate rows now reuse the first row's six column origins and widths. Numbers and text align vertically in both appearances and at narrow widths; short candidate content/source icons and selection backgrounds still fit their text within the shared column. Numbered selection, mouse identities, page state and candidate generation are unchanged.
+
+All 353 Swift tests and the Debug build passed. The focused 18 view tests include first-row/compact equivalence, shared column widths and number/text insets, mouse identities and 340-point bounds. Light/dark regular and narrow renders were inspected. No input method was installed; live host/VoiceOver checks remain unverified. Evidence: `/tmp/si-grid-aligned-tests.log`, `/tmp/si-grid-aligned-focused.log`, `/tmp/si-grid-aligned-build.log` and `/tmp/si-grid-aligned.*.png`.
+
+## Down Arrow and four six-choice rows — 2026-10-26
+
+Down Arrow now expands a collapsed candidate strip without advancing selection. Both layouts use six-choice keyboard pages. The expanded panel displays up to four pages as rows (24 candidates), with the original compact style on the first row. Each row repeats digits 1–6; the active row is emphasized, digit selection targets that row, and every displayed candidate remains clickable by identity. Page keys and expanded Left/Right move six choices; the fifth page changes the displayed block and retains access to all 27 shortlist entries. Expansion/collapse preserves the active candidate/page/digit, and empty composition resets expansion. Expanding suspends automatic confirmation through the same controller path as the chevron.
+
+Narrow rows reserve a minimum number/glyph budget before distributing extra width. Tight cells reduce padding and hide source icons while retaining complete tooltips/accessibility. Natural widths do not depend on that temporary icon visibility. The panel measures against the anchor screen before placement. Full candidate generation, scores, privacy/storage and host focus ownership are unchanged.
+
+All 353 Swift tests passed (259 core, 74 presentation, 14 settings, 3 storage and 3 localization), including real-key expansion, four-page viewport transitions, repeated numbering/active-row/mouse identities, exact word-by-word title commits, pending controls and narrow-screen geometry. Debug build passed. Light/dark regular and 340-point grid renders were inspected. No input method was installed, and native host event routing/VoiceOver remain unverified. Evidence: `/tmp/si-grid-six-tests.log`, `/tmp/si-grid-six-build.log`, `/tmp/si-grid-six-focused.log` and `/tmp/si-grid-six.*.png`.
+
+## Four leading hypotheses and a word-only tail — 2026-10-26
+
+At the user's request, sentence-led window lists now show up to four sentence/fragment hypotheses followed by single-character/word candidates. Extra constructed sentences and multiword fragments no longer occupy later pages. Required language/mixed hypotheses share the four slots. Word-led queries keep engine-relative order; explicit personal phrases, punctuation choices, separate App History placement and the final exact literal remain available. This supersedes the earlier three-reading grouping and tail-reading protection described below. Engine results, scores, bounded search and automatic-confirmation evidence are unchanged.
+
+`sheguofennudehai` previously lost `涉` from the bilingual 27-item shortlist. Provisional/full and separated-spelling regressions now check the four-hypothesis head and word-only tail, exact consumed spelling, both panel layouts, and the full `涉` → `过` → `愤怒` → `的` → `海` sequence. The old `二倍做多` fixture remains available in full engine results; its appearance in the four-hypothesis window is no longer guaranteed. Presentation fixtures now declare their lexical metadata rather than treating every synthetic row as an unknown constructed candidate.
+
+All 350 Swift tests passed (259 core, 71 presentation, 14 settings, 3 storage and 3 localization), followed by the focused title/prefix/alternative checks; the Debug app built successfully. Light/dark compact/expanded first-page renders were inspected. No input method was installed, and native host/VoiceOver behavior remains unverified. Evidence: `/tmp/si-four-tests.log`, `/tmp/si-four-focused.log`, `/tmp/si-four-build.log` and `/tmp/si-four-title.*.png`.
+
 ## Requested removal of failing tests — 2026-10-24
 
 At the user's request, ten failing test functions were deleted from eight core test files. The baseline ran 352 Swift tests; ten core tests produced 23 issues. Removed checks covered abbreviation/full-spelling retention, personalized search and terminal compaction, mixed token learning, trailing spelling separators, normalized aliases, prefix ranking and standard-vocabulary automatic confirmation. Product implementation is unchanged, so passing the reduced suite does not establish that these behaviors were fixed.
@@ -33,7 +55,7 @@ SI now emits all six distinct rescored terminal readings per base/personalized l
 - `./scripts/build.sh` passes for the Debug app with signing disabled and the existing AppIntents metadata warning. Final focused checks pass 18 tests across core/presentation. Compiler runs required normal SwiftPM/Xcode cache access outside the restricted sandbox. Whitespace and touched-document local links pass.
 - Actual offscreen bilingual pages containing `二倍做多` were inspected in compact/light and expanded/dark renders, with light/dark variants generated for both layouts. The candidate is retained on a later page and digit/mouse/highlight mapping agrees. `而被做多` remains the leading full reading under the current scores; first-choice parity with the user's MSIME screenshot is not established.
 
-Evidence: `/tmp/si-six-candidates-final-tests.log` (baseline), `/tmp/si-sentence-alternatives-final-tests.log`, `/tmp/si-sentence-alternatives-final-focused.log`, `/tmp/si-sentence-alternatives-build.log`, and `/tmp/si-sentence-alternative.{compact,expanded}.{light,dark}.png`. No installation, app launch, process termination, input-source change or private archive access was performed. Native host typing, focus/shortcut behavior, candidate positioning and VoiceOver remain unverified; see [manual checks](TESTING.md#chinese-sentence-alternatives).
+Evidence: `/tmp/si-six-candidates-final-tests.log` (baseline), `/tmp/si-sentence-alternatives-final-tests.log`, `/tmp/si-sentence-alternatives-final-focused.log`, `/tmp/si-sentence-alternatives-build.log`, and `/tmp/si-sentence-alternative.{compact,expanded}.{light,dark}.png`. No installation, app launch, process termination, input-source change or private archive access was performed. Native host typing, focus/shortcut behavior, candidate positioning and VoiceOver remain unverified; see [manual checks](TESTING.md#four-leading-hypotheses-and-word-selection).
 
 ## Complete-input continuation comparison — 2026-10-23
 

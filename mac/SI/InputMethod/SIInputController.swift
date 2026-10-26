@@ -47,10 +47,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             guard let self, self.candidatePanel.ownsPresentation,
                   self.session.pendingCandidateRequest == nil, let client = self.client() else { return }
             guard self.configureSession(for: client) else { return }
-            self.session.suspendAutomaticConfirmation()
-            self.automaticConfirmationTask?.cancel()
-            self.selection.setExpanded(!self.selection.isExpanded)
-            self.presentCandidates(to: client)
+            self.setCandidateListExpanded(!self.selection.isExpanded, to: client)
         }
         return panel
     }()
@@ -83,6 +80,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                                                   pageSize: selection.visiblePageSize, isExpanded: selection.isExpanded) {
             resolveCandidates(to: client)
             switch action {
+            case .expand: setCandidateListExpanded(true, to: client)
             case .move(let distance): moveCandidateSelection(by: distance, to: client)
             case .choose(let number): commitCandidate(selection.candidate(number: number), to: client)
             }
@@ -353,6 +351,14 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private var currentCandidate: InputCandidate? {
         selection.selected
+    }
+
+    private func setCandidateListExpanded(_ expanded: Bool, to client: any IMKTextInput) {
+        guard !session.buffer.isEmpty, candidatePanel.ownsPresentation else { return }
+        session.suspendAutomaticConfirmation()
+        automaticConfirmationTask?.cancel()
+        selection.setExpanded(expanded)
+        presentCandidates(to: client)
     }
 
     private func moveCandidateSelection(by distance: Int, to eventClient: (any IMKTextInput)? = nil) {
