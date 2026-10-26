@@ -13,6 +13,12 @@ The Swift package tests the same core files compiled by the macOS app. Use Swift
 
 For dictionary changes, follow the [Chinese maintenance workflow](docs/CHINESE_VOCABULARY.md) or [English maintenance](docs/ENGLISH_VOCABULARY.md). Both use pinned weighted snapshots, an SI-owned `si-entries.json` overlay and the shared SQLite/weight contract in `Data/DictionaryFormat.json`. Keep snapshots, provenance, licenses and generated resources together. Run `python3 scripts/msime_dictionary.py build --check`, `python3 scripts/english_dictionary.py build --check`, `./scripts/vocabulary.sh build --check`, `python3 scripts/ranking.py --check`, and the Python maintenance tests before the shared-core checks. Private personal phrases and learning archives are separate from public dictionary maintenance.
 
+## Training data and Git LFS
+
+Install Git LFS (`brew install git-lfs` on macOS), then run `git lfs install --local` and `git lfs pull` in the checkout. The repository's `.gitattributes` routes CSV files under `llm/data/csv/`, including nested groups, through LFS. Edit and stage these files normally; commit their LFS pointers together with any provenance updates. `git push` uploads the associated data through the LFS pre-push hook. Check `git lfs status` and `git lfs fsck` before pushing data changes.
+
+Keep prepared datasets, checkpoints, reports and private archives ignored. LFS is storage for the maintained public CSVs; it does not change their license, retention or permitted sources. New clones need Git LFS to materialize the data. Existing Git history retains its original blobs; this forward migration does not rewrite published commits.
+
 ## Pull requests
 
 - Describe the user-visible problem, resulting behavior, and validation performed.

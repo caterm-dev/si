@@ -1,0 +1,2 @@
+# Keep editable training CSV contents in Git LFS, including nested source groups.
+llm/data/csv/**/*.[cC][sS][vV] filter=lfs diff=lfs merge=lfs -text

@@ -1,24 +1,3 @@
-input,target
-aomen,澳门
-beijing,北京
-changsha,长沙
-chongqing,重庆
-dalian,大连
-fuzhou,福州
-guangzhou,广州
-hangzhou,杭州
-hefei,合肥
-jinan,济南
-kunming,昆明
-nanjing,南京
-ningbo,宁波
-qingdao,青岛
-shenzhen,深圳
-suzhou,苏州
-tianjin,天津
-wuhan,武汉
-wuxi,无锡
-xiamen,厦门
-xian,西安
-xianggang,香港
-zhengzhou,郑州
+version https://git-lfs.github.com/spec/v1
+oid sha256:780b64659e78bdfe3a1136a544c903099308d264742b82cb3e585794e954e4bf
+size 350

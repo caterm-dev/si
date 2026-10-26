@@ -2,6 +2,16 @@
 
 This is the current editable source of training data. Maintain CSV rows directly; there is no automatic sentence/Pinyin/typo generation or random split in preparation.
 
+These CSVs are stored with Git LFS. Before editing data or running preparation in a new/existing clone, install Git LFS and fetch the actual content:
+
+```sh
+brew install git-lfs
+git lfs install --local
+git lfs pull
+```
+
+The `.gitattributes` rule covers CSV files in this directory's split folders and nested groups. Stage and commit CSV changes normally; Git records pointers and uploads their contents on push. Keep `provenance.json` and Markdown documentation in ordinary Git. A source archive produced by `git archive` contains LFS pointers for these files; use a Git clone with `git lfs pull` for training data. The 50,000-sample contents and existing dataset identities are unchanged by the LFS migration.
+
 ```text
 train/city.csv          Training examples about cities
 train/company.csv       Training examples about companies/work

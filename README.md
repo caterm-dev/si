@@ -89,6 +89,7 @@ The manager supports search, editing, deletion, clear, and additive JSON import/
 
 - macOS 14 or later.
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.
+- Git LFS for the maintained training CSVs. On macOS, install it with `brew install git-lfs` and run `git lfs install` before cloning.
 - Xcode resolves the pinned Sparkle 2.10.0 update framework on the first app build; no Apple Developer account is needed for an unsigned development build. Chinese vocabulary comes from pinned MSIME sources and context artifacts. English retains attributed SCOWL, CSpell and Rime Ice selections, with wordfreq frequency data.
 
 ## Get started
@@ -96,11 +97,14 @@ The manager supports search, editing, deletion, clear, and additive JSON import/
 ```sh
 git clone https://github.com/caterm-dev/si.git
 cd si
+git lfs pull
 ./scripts/test.sh
 ./scripts/build.sh
 ```
 
 The application is built at `.build/xcode/Build/Products/Debug/SI.app`.
+
+Training CSVs under `llm/data/csv/` are stored with Git LFS. For an existing clone, install Git LFS, run `git lfs install --local`, then `git lfs pull` to download the CSV contents. See [the data guide](llm/data/csv/README.md) before preparing a dataset.
 
 To work in Xcode, open `mac/SI.xcodeproj` and choose the shared **SI** scheme. The Run action passes `--settings` to show the settings window. Core tests are run through Swift Package Manager using `./scripts/test.sh`; they are not an Xcode test target.
 
