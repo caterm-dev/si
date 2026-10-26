@@ -13,7 +13,7 @@
   "intro": "Your thoughts don’t switch modes. Your input method shouldn’t have to, either. Choose your languages once. Let their candidates meet.",
   "primaryCta": "Download SI for Mac",
   "secondaryCta": "Watch SI in action ↓",
-  "requirement": "macOS 14+ · Apple Silicon · Free & open source",
+  "requirement": "macOS 14+ · Apple Silicon / Intel · Free & open source",
   "demoLabel": "A small demonstration",
   "demoTitle": "Room for both.",
   "demoNote": "An illustrated demo using SI’s example vocabulary. Each word or phrase is committed separately.",
@@ -52,8 +52,7 @@
   "downloadTitle": "Say hello to SI.",
   "downloadBody": "Download the developer preview, explore the code, or help shape what comes next.",
   "releaseLabel": "Development preview",
-  "releaseStatus": "For Apple Silicon Macs (M1 and later). Open the DMG, then run Install SI.pkg. Save your work before the installer’s final Log Out step, then log back in and add SI under English in Keyboard settings.",
-  "releasesCta": "Download for Apple Silicon ↓",
+  "releaseStatus": "Choose the version for your Mac’s chip. Open the DMG, then run Install SI.pkg. Save your work before the installer’s final Log Out step, then log back in and add SI under English in Keyboard settings.",
   "buildCta": "Build from source ↗",
   "installLink": "Installation & setup guide ↗",
   "footerLine": "One input. Every language.",
@@ -61,5 +60,11 @@
   "feedback": "Feedback ↗",
   "navigationLabel": "Main navigation",
   "checksumCta": "SHA-256 checksum ↗",
-  "sourceCta": "Source for this version ↗"
+  "sourceCta": "Source for this version ↗",
+  "arm64Cta": "Download for Apple Silicon ↓",
+  "intelCta": "Download for Intel ↓",
+  "arm64ChecksumLabel": "SHA-256 checksum for Apple Silicon",
+  "intelChecksumLabel": "SHA-256 checksum for Intel",
+  "arm64SourceLabel": "Source for the Apple Silicon version",
+  "intelSourceLabel": "Source for the Intel version"
 }

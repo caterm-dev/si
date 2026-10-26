@@ -13,7 +13,7 @@
   "intro": "想到哪里，就写到哪里。一次选好常用语言，让不同语言的候选一起出现，少一点切换，多一点专注。",
   "primaryCta": "下载 macOS 版",
   "secondaryCta": "看看 SI 如何工作 ↓",
-  "requirement": "macOS 14+ · Apple Silicon · 免费开源",
+  "requirement": "macOS 14+ · Apple Silicon / Intel · 免费开源",
   "demoLabel": "一个小小的演示",
   "demoTitle": "让语言，一起出现。",
   "demoNote": "使用 SI 示例词库制作的示意动画。每个单词或短语分别确认上屏。",
@@ -52,8 +52,7 @@
   "downloadTitle": "和 SI 打个招呼。",
   "downloadBody": "下载开发预览，看看代码，或一起决定它接下来的样子。",
   "releaseLabel": "开发预览",
-  "releaseStatus": "适用于 Apple Silicon Mac（M1 及后续芯片）。打开 DMG，运行其中的 Install SI.pkg。安装器最后一步需要注销登录，请先保存工作；重新登录后，在键盘设置的“英文”分类下添加 SI。",
-  "releasesCta": "下载 Apple Silicon 版 ↓",
+  "releaseStatus": "请选择与你的 Mac 芯片匹配的版本。打开 DMG，运行其中的 Install SI.pkg。安装器最后一步需要注销登录，请先保存工作；重新登录后，在键盘设置的“英文”分类下添加 SI。",
   "buildCta": "从源码构建 ↗",
   "installLink": "安装与启用指南 ↗",
   "footerLine": "一次输入，多种语言。",
@@ -61,5 +60,11 @@
   "feedback": "问题反馈 ↗",
   "navigationLabel": "主导航",
   "checksumCta": "SHA-256 校验文件 ↗",
-  "sourceCta": "此版本对应源码 ↗"
+  "sourceCta": "此版本对应源码 ↗",
+  "arm64Cta": "下载 Apple Silicon 版 ↓",
+  "intelCta": "下载 Intel 版 ↓",
+  "arm64ChecksumLabel": "Apple Silicon 版 SHA-256 校验文件",
+  "intelChecksumLabel": "Intel 版 SHA-256 校验文件",
+  "arm64SourceLabel": "Apple Silicon 版本对应源码",
+  "intelSourceLabel": "Intel 版本对应源码"
 }

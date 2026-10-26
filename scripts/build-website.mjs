@@ -13,22 +13,27 @@ const locales = [
 ];
 const template = await readFile(path.join(source, 'template.html'), 'utf8');
 const escapeHTML = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-const release = JSON.parse(await readFile(path.join(source, 'release.json'), 'utf8'));
-const architectures = { arm64: 'Apple Silicon', x86_64: 'Intel', universal: 'Apple Silicon + Intel' };
-if (!/^\d+\.\d+\.\d+$/.test(release.version) || !Object.hasOwn(architectures, release.architecture)) {
-    throw new Error('Invalid website release version or architecture');
-}
-const imageName = `SI-${release.version}-${release.architecture}.dmg`;
+const releases = JSON.parse(await readFile(path.join(source, 'release.json'), 'utf8'));
+const architectures = { arm64: 'Apple Silicon (arm64)', x86_64: 'Intel (x86_64)' };
 const releaseAssets = {};
-for (const [key, name] of Object.entries({ download: imageName, checksum: `${imageName}.sha256`, source: `SI-${release.version}-source.tar.gz` })) {
-    const asset = release.assets?.[name];
-    const url = new URL(asset?.url);
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash
-        || !url.pathname.endsWith(`/releases/${release.version}/mac/${release.architecture}/${name}`)
-        || !Number.isSafeInteger(asset.size) || asset.size <= 0 || !/^[a-f0-9]{64}$/.test(asset.sha256)) {
-        throw new Error(`Invalid website release asset: ${name}`);
+for (const architecture of Object.keys(architectures)) {
+    const release = releases[architecture];
+    if (!/^\d+\.\d+\.\d+$/.test(release?.version) || release.architecture !== architecture) {
+        throw new Error(`Invalid website release version or architecture: ${architecture}`);
     }
-    releaseAssets[key] = asset;
+    const imageName = `SI-${release.version}-${architecture}.dmg`;
+    const assets = {};
+    for (const [key, name] of Object.entries({ download: imageName, checksum: `${imageName}.sha256`, source: `SI-${release.version}-source.tar.gz` })) {
+        const asset = release.assets?.[name];
+        const url = new URL(asset?.url);
+        if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash
+            || !url.pathname.endsWith(`/releases/${release.version}/mac/${architecture}/${name}`)
+            || !Number.isSafeInteger(asset.size) || asset.size <= 0 || !/^[a-f0-9]{64}$/.test(asset.sha256)) {
+            throw new Error(`Invalid website release asset: ${architecture}/${name}`);
+        }
+        assets[key] = asset;
+    }
+    releaseAssets[architecture] = assets;
 }
 const dictionaries = await Promise.all(locales.map(async locale => JSON.parse(await readFile(path.join(source, 'locales', locale.file), 'utf8'))));
 const keys = Object.keys(dictionaries[0]).sort().join(',');
@@ -44,14 +49,15 @@ await cp(path.join(source, 'assets'), path.join(output, 'assets'), { recursive: 
 for (const [index, locale] of locales.entries()) {
     const dictionary = dictionaries[index];
     const raw = { base: locale.base, home: './', enCurrent: locale.enCurrent, zhCurrent: locale.zhCurrent };
-    const size = new Intl.NumberFormat(dictionary.lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(releaseAssets.download.size / 1_000_000);
-    const values = {
-        ...dictionary,
-        downloadUrl: releaseAssets.download.url,
-        checksumUrl: releaseAssets.checksum.url,
-        sourceUrl: releaseAssets.source.url,
-        releaseDetails: `v${release.version} · ${architectures[release.architecture]} · ${size} MB · DMG`,
-    };
+    const values = { ...dictionary };
+    for (const [architecture, label] of Object.entries(architectures)) {
+        const assets = releaseAssets[architecture];
+        const size = new Intl.NumberFormat(dictionary.lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(assets.download.size / 1_000_000);
+        values[`${architecture}DownloadUrl`] = assets.download.url;
+        values[`${architecture}ChecksumUrl`] = assets.checksum.url;
+        values[`${architecture}SourceUrl`] = assets.source.url;
+        values[`${architecture}ReleaseDetails`] = `v${releases[architecture].version} · ${label} · ${size} MB · DMG`;
+    }
     const html = template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
         if (Object.hasOwn(raw, key)) return raw[key];
         if (!Object.hasOwn(values, key)) throw new Error(`Unknown template key: ${key}`);

@@ -16,7 +16,7 @@ Open <http://127.0.0.1:4173/> for English or <http://127.0.0.1:4173/zh/> for Sim
 ## Content and localization
 
 - `website/template.html` provides the shared accessible page structure.
-- `website/release.json` pins the public version, architecture, and asset metadata from a successfully published R2 channel. The build validates it and renders identical download URLs in both locales without browser-side fetching.
+- `website/release.json` pins the public version, architecture, and asset metadata separately under `arm64` and `x86_64`, from each successfully published R2 channel. The build validates it and renders identical download URLs in both locales without browser-side fetching.
 - `website/locales/en.json` and `website/locales/zh-CN.json` contain the translated copy and metadata. Both must contain the same nonempty string keys; the build fails on missing translations or template keys.
 - `website/assets/style.css` contains responsive styles and reduced-motion rules.
 - `website/assets/demo.js` illustrates `shi` candidates, then separate commits for `nihao` and `world`. It has pause, resume, replay, and manual step controls. It starts paused for reduced-motion preferences and suspends animation while the document or demo is not visible.
@@ -27,16 +27,16 @@ Use relative paths for local assets and language routes so the site works at the
 
 ## Downloads
 
-The page currently links to SI 0.1.0 for Apple Silicon (arm64), verified anonymously on October 20, 2026. The downloadable file is a **DMG containing `Install SI.pkg`**, not a standalone PKG or a Universal build. Both the hero and download-panel buttons point to that exact image. The download panel shows the version, architecture, decimal MB size, a SHA-256 file link, and the corresponding source archive for that binary.
+The page offers separate **Apple Silicon (arm64)** and **Intel (x86_64)** downloads. The hero button links to this platform choice; no Universal download is offered. Each option shows its own published version, architecture, decimal MB size, SHA-256 file link, and corresponding source archive. Versions can differ between architecture channels. Each download is a **DMG containing `Install SI.pkg`**. The current snapshot pins Apple Silicon 0.1.6 and Intel 0.1.8, verified anonymously on October 26, 2026.
 
 The bilingual installation summary tells visitors to open the DMG, run `Install SI.pkg`, save their work before the Installer's final **Log Out** step, log back in, and add SI under **English** in Keyboard settings. Downloading/installing the published build does not require Xcode. Source-build instructions remain available separately. See [RELEASING.md](RELEASING.md#local-packaging) for the complete package behavior.
 
 ### Updating the pinned release
 
-1. Finish publication with `scripts/release.sh`; do not run it just to build the website. Read the resulting public channel (currently `https://downloads.caterm.com/si/channels/mac/stable-arm64.json`). Channels are architecture-specific; a `stable-universal.json` example in the release guide does not establish that a Universal artifact exists.
+1. Finish publication with `scripts/release.sh`; do not run it just to build the website. Read the public channels `https://downloads.caterm.com/si/channels/mac/stable-arm64.json` and `https://downloads.caterm.com/si/channels/mac/stable-x86_64.json`. Use each channel’s actual version; publishing one architecture does not publish the other.
 2. Anonymously download the DMG, checksum file, and source archive listed in the channel. Verify every file's byte size and SHA-256 against the manifest. Never copy a local release directory as proof of successful public publication.
-3. Copy only the channel's `version`, `architecture`, and `assets` fields into `website/release.json`. Do not copy signing identities, credentials, or private configuration. This is a reviewed static snapshot; the site does not automatically follow channel updates.
-4. If the architecture changes, also update `requirement`, `releaseStatus`, and `releasesCta` in **both** locale dictionaries. The current copy explicitly targets Apple Silicon. Preserve the development-preview qualification.
+3. Copy each channel’s `version`, `architecture`, and the three verified download/checksum/source `assets` into the matching `arm64` or `x86_64` entry in `website/release.json`. Do not copy signing identities, credentials, private configuration, or Sparkle update ZIPs. This is a reviewed static snapshot; the site does not automatically follow channel updates.
+4. Keep the two explicit platform choices, architecture-specific accessible resource labels, and development-preview qualification in **both** locale dictionaries. The build requires valid metadata for both architectures; never substitute one platform’s asset or source archive for the other.
 5. Run `node scripts/build-website.mjs`, inspect both locales and narrow screens, and commit/deploy the website changes through the existing Pages workflow. The build checks version/architecture, HTTPS asset URLs matching the release's version/architecture/filenames, positive byte sizes, and SHA-256 metadata before producing pages.
 
 The website build uses checked-in metadata and performs no network requests. Downloads work through ordinary HTML links, including with JavaScript disabled, so browser CORS configuration is not needed. Generated Pages output contains the two HTML files and presentation assets; release manifests, app source, and installer binaries are not copied into the Pages artifact. Source and checksum downloads are served directly from R2 alongside the DMG. The app's separate Sparkle update feed is managed by the [release tooling](RELEASING.md#in-app-updates), independently of the website snapshot.
@@ -71,3 +71,10 @@ The website does not change input-method behavior or establish host-app compatib
 - Verified both generated locales contain two identical DMG links plus checksum/source links, correct version/architecture/size, and no unavailable-release message. Isolated build checks rejected missing source assets, mismatched architecture paths, insecure URLs, and malformed checksum metadata.
 - Inspected the rendered download section on desktop and in English/Chinese at 320px width; neither mobile page overflowed horizontally. A browser click/download-event test timed out and could not confirm the browser's save completion; HTTP downloads and link destinations were verified separately. No claim is made about a completed browser download or installer execution.
 - `./scripts/test.sh` passed 157 tests in 21 suites; `./scripts/build.sh` completed the Debug app build. Pages deployment was not triggered during this change.
+
+### Platform download verification — October 26, 2026
+
+- Read both public channels anonymously and verified all six linked DMG, checksum and source files against their channel byte sizes and SHA-256 hashes. Apple Silicon currently publishes 0.1.6; Intel publishes 0.1.8. No image was mounted or installed.
+- Generated both locales and checked their architecture-specific download/resource URLs, local links, anchors, version/size text and absence of a Universal option. Isolated build checks rejected missing Intel metadata, mismatched architecture identity/path, missing source, insecure URLs, invalid sizes and malformed hashes.
+- Inspected both desktop download sections and both locales in 320px sandboxed iframes with scripts disabled. Resource links have architecture-specific accessible names. A manual VoiceOver review and completed browser download remain unverified; file transfers were checked separately over HTTP.
+- `./scripts/test.sh` passed 258 tests in 36 suites and `./scripts/build.sh` completed the Debug app build. Both ran outside the restricted sandbox for Swift/Xcode caches and compiler processes. No commit, deployment or installation was performed.
