@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 import sys
 import tempfile
+import unicodedata
 import unittest
 from unittest.mock import patch
 
@@ -138,6 +139,21 @@ class MSIMEDictionaryTests(unittest.TestCase):
         self.assertEqual([row['update_available'] for row in report['sources']], [True, False])
         self.assertTrue(report['sources'][0]['compare_url'].endswith('1' * 40 + '...' + '2' * 40))
         self.assertEqual(lock_path.read_bytes(), before)
+
+
+class BundledChineseDictionaryTests(unittest.TestCase):
+    def test_no_private_use_characters_without_removing_unicode_han_extensions(self):
+        database = dictionary.ROOT / 'mac/SI/Core/Resources/Chinese/si-pinyin.sqlite'
+        with sqlite3.connect(database.resolve().as_uri() + '?mode=ro&immutable=1', uri=True) as connection:
+            tables = [row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tbl_%'")]
+            self.assertTrue(tables)
+            for table in tables:
+                for reading, text in connection.execute(f'SELECT key,value FROM {table}'):
+                    if any(unicodedata.category(character) == 'Co' for character in text):
+                        self.fail(f'Bundled private-use entry: {reading} {ascii(text)}')
+            self.assertIsNotNone(connection.execute(
+                "SELECT 1 FROM tbl_1_b WHERE key='biang' AND value=?", ('\U00030ede',)).fetchone())
 
 
 if __name__ == '__main__':

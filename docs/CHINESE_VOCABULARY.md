@@ -1,6 +1,6 @@
 # Chinese dictionary maintenance
 
-SI maintains one Chinese dictionary family: the [MSIME-derived sources](../Data/Chinese/MSIME/README.md). The former direct Rime Chinese selection and original SI tables have been removed. [English maintenance](ENGLISH_VOCABULARY.md) now uses the same weighted-snapshot, SI-overlay and SQLite contract. Both share the schema and fixed dictionary-relative weight unit defined in `Data/DictionaryFormat.json`; Chinese entries and numerical weights are unchanged. MSIME's own upstream Rime Ice / rime-wanxiang attribution remains required; using one maintained source does not erase its underlying provenance.
+SI maintains one Chinese dictionary family: the [MSIME-derived sources](../Data/Chinese/MSIME/README.md). The former direct Rime Chinese selection and original SI tables have been removed. [English maintenance](ENGLISH_VOCABULARY.md) now uses the same weighted-snapshot, SI-overlay and SQLite contract. Both share the schema and fixed dictionary-relative weight unit defined in `Data/DictionaryFormat.json`; retained Chinese entries keep their upstream weights. MSIME's own upstream Rime Ice / rime-wanxiang attribution remains required; using one maintained source does not erase its underlying provenance.
 
 ## Source and runtime files
 
@@ -16,7 +16,7 @@ SI maintains one Chinese dictionary family: the [MSIME-derived sources](../Data/
 
 The SQLite file is a compiled dictionary containing both data and indexes. It is not the editable source or an index pointing back into source text files. App and package use the same read-only database; no source parsing, regeneration or downloads occur on a keystroke.
 
-The retained inputs produce 953,710 unique text/reading entries with an empty SI overlay. Different explicit pronunciations remain distinct. This count is not a quality or coverage measure. MSIME bigram/trigram tables remain part of the same dictionary family; they supply context scores rather than replacement word lists.
+The retained inputs produce 953,710 unique text/reading entries before the SI overlay. The overlay excludes 85 readings of 70 private-use characters, leaving 953,625 entries. These zero-weight source entries require nonstandard font mappings; ordinary Unicode Han characters, including extension-block characters, remain available. The pinned source snapshots are preserved for provenance and reproducible builds. Different explicit pronunciations remain distinct. This count is not a quality or coverage measure. MSIME bigram/trigram tables remain part of the same dictionary family; they supply context scores rather than replacement word lists.
 
 ## Make a public correction
 

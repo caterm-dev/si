@@ -1,1 +1,512 @@
-[]
+[
+  {
+    "text": "\ue815",
+    "reading": "ye",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E815; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue816",
+    "reading": "you",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E816; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue816",
+    "reading": "zuo",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E816; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue818",
+    "reading": "gun",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E818; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue81a",
+    "reading": "zhou",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E81A; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue81a",
+    "reading": "zhu",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E81A; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue81b",
+    "reading": "zhou",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E81B; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue81b",
+    "reading": "zhu",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E81B; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue81d",
+    "reading": "jie",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E81D; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue81f",
+    "reading": "wai",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E81F; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue820",
+    "reading": "han",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E820; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue821",
+    "reading": "han",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E821; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue824",
+    "reading": "zhou",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E824; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue825",
+    "reading": "zhou",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E825; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue826",
+    "reading": "shou",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E826; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue827",
+    "reading": "gang",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E827; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue828",
+    "reading": "kuai",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E828; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue829",
+    "reading": "song",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E829; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue82a",
+    "reading": "song",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E82A; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue82b",
+    "reading": "feng",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E82B; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue82c",
+    "reading": "gong",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E82C; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue82d",
+    "reading": "gang",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E82D; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue82e",
+    "reading": "hui",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E82E; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue82e",
+    "reading": "kui",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E82E; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue82f",
+    "reading": "ta",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E82F; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue830",
+    "reading": "jian",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E830; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue831",
+    "reading": "en",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E831; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue832",
+    "reading": "xiao",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E832; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue834",
+    "reading": "lou",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E834; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue834",
+    "reading": "lv",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E834; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue835",
+    "reading": "can",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E835; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue835",
+    "reading": "cen",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E835; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue835",
+    "reading": "shan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E835; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue836",
+    "reading": "zhu",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E836; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue837",
+    "reading": "chou",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E837; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue838",
+    "reading": "wang",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E838; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83a",
+    "reading": "xiang",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83A; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83a",
+    "reading": "yang",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83A; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83b",
+    "reading": "zai",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83B; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83c",
+    "reading": "ba",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83C; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83c",
+    "reading": "bei",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83C; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83d",
+    "reading": "ba",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83D; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83d",
+    "reading": "bei",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83D; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83f",
+    "reading": "chuan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83F; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83f",
+    "reading": "chun",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83F; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue83f",
+    "reading": "zhuan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E83F; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue840",
+    "reading": "qiong",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E840; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue841",
+    "reading": "hui",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E841; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue841",
+    "reading": "kui",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E841; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue842",
+    "reading": "hui",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E842; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue842",
+    "reading": "kui",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E842; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue843",
+    "reading": "juan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E843; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue844",
+    "reading": "xin",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E844; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue845",
+    "reading": "yan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E845; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue846",
+    "reading": "qing",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E846; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue847",
+    "reading": "qing",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E847; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue849",
+    "reading": "shan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E849; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue84a",
+    "reading": "ya",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E84A; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue84a",
+    "reading": "ye",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E84A; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue84b",
+    "reading": "po",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E84B; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue84c",
+    "reading": "shan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E84C; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue84d",
+    "reading": "zhuo",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E84D; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue84e",
+    "reading": "shan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E84E; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue84f",
+    "reading": "jue",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E84F; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue850",
+    "reading": "chuai",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E850; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue851",
+    "reading": "zheng",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E851; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue852",
+    "reading": "chuai",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E852; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue853",
+    "reading": "zheng",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E853; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue854",
+    "reading": "zhuo",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E854; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue855",
+    "reading": "ying",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E855; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue856",
+    "reading": "yu",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E856; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue857",
+    "reading": "yin",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E857; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue858",
+    "reading": "chun",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E858; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue859",
+    "reading": "qiu",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E859; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue85a",
+    "reading": "yu",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E85A; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue85b",
+    "reading": "teng",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E85B; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue85c",
+    "reading": "shi",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E85C; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue85d",
+    "reading": "jiao",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E85D; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue85e",
+    "reading": "lie",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E85E; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue85f",
+    "reading": "jing",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E85F; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue860",
+    "reading": "ju",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E860; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue861",
+    "reading": "ti",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E861; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue862",
+    "reading": "pi",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E862; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue863",
+    "reading": "yan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E863; rendering requires a nonstandard font mapping."
+  },
+  {
+    "text": "\ue864",
+    "reading": "luan",
+    "exclude": true,
+    "reason": "Exclude upstream private-use character U+E864; rendering requires a nonstandard font mapping."
+  }
+]

@@ -24,7 +24,7 @@ python3 scripts/msime_dictionary.py fetch-context
 
 The commands generate files in `mac/SI/Core/Resources/Chinese/`, shared by the Swift package and Xcode app. Resource generation is separate from compiling or running SI.
 
-`si-entries.json` is SI's own maintained overlay. Each entry has `text`, apostrophe-separated `reading`, a documented `reason`, and either an integer `weight` or `exclude: true`. A correction excludes the wrong reading and adds the right one. Keep edits here rather than changing imported snapshots. This public developer-maintained data is separate from each user's private personal phrases and learned preferences.
+`si-entries.json` is SI's own maintained overlay. Each entry has `text`, apostrophe-separated `reading`, a documented `reason`, and either an integer `weight` or `exclude: true`. A correction excludes the wrong reading and adds the right one. Keep edits here rather than changing imported snapshots. The current overlay excludes 85 zero-weight readings of 70 private-use characters that require nonstandard font mappings. The generated dictionary contains 953,625 entries; ordinary Unicode Han characters, including extension-block characters, remain available. The pinned source snapshots remain unchanged. This public developer-maintained data is separate from each user's private personal phrases and learned preferences.
 
 SI's decoder intentionally lowers the single-character insertion cost relative to upstream; this changes scoring without editing these public dictionary weights or resources. See [current ranking](../../../docs/UNIFIED_RANKING.md).
 
