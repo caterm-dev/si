@@ -131,7 +131,7 @@ python3 -m unittest discover -s Tests/ScriptTests -v
 
 `UnifiedRankingTests` independently checks probability/unknown normalization, conditional pronunciation, Witten–Bell boundary interpolation, finite spelling-channel mass, exact/composed unit consistency, deterministic initialization and cached versus unbounded English preview ranking. Exhaustive small-lexicon regressions compare optimal costs with floating-point tolerance and require identical output bytes across insertion orders. `UnifiedRankingPresentationTests` checks bilingual `abilit` → `ability` through both generation stages/layouts, literal retention, exact commit spelling and complete-language reservations. `--quality` reads only fixed synthetic JSON fixtures and reports development/regression and later holdout partitions separately; it never reads a user's archive or host text. See [model/provenance](UNIFIED_RANKING.md).
 
-The vocabulary checks run offline and verify deterministic generation, source precedence, durable exclusions/corrections, checksums, rejected imports, and failure preservation. Network refresh/audit checks are separate maintainer actions; their workflow does not install SI. See [English vocabulary maintenance](ENGLISH_VOCABULARY.md) and [Chinese vocabulary maintenance](CHINESE_VOCABULARY.md).
+The vocabulary checks run offline and verify deterministic generation, source precedence, durable exclusions/corrections, checksums, rejected imports, and failure preservation. Network refresh/audit checks are separate manual maintainer actions and do not install SI. See [English vocabulary maintenance](ENGLISH_VOCABULARY.md) and [Chinese vocabulary maintenance](CHINESE_VOCABULARY.md).
 
 The reinstall script checks use isolated process-command and installer fixtures. They verify current-user/exact-name matching, graceful exit, forced-stop fallback, failure handling, argument validation, and installer status propagation without stopping SI or installing an app.
 
@@ -183,7 +183,7 @@ Two additional measurements compare all edits in a 16-character synthetic burst 
 
 `./scripts/benchmark.sh --previews` measures the eighteen bounded provisional-search scenarios only, using the same synthetic profiles/dictionaries, ten warmups and 200 iterations. Each scenario freezes one request before timing. These results exclude worker scheduling, full-search contention, UI delivery and host-app events; narrower provisional coverage is not equivalent to final candidate output.
 
-The app build validates the SwiftUI, AppKit, and InputMethodKit integration against the active SDK. GitHub Actions runs both checks on macOS. A local build does not validate the hosted workflow itself.
+The app build validates the SwiftUI, AppKit, and InputMethodKit integration against the active SDK. Run core tests and app builds locally; GitHub Actions retains only the website workflow.
 
 Release signing discovery checks cover a unique complete same-team pair among unpaired certificates, missing/ambiguous pairs, explicit signer filtering, profile overrides, inaccessible Keychain, and unsigned local/offline explicit dry-run behavior. On October 20, 2026, all 157 shared-core and 35 script tests passed, along with Debug/Release builds. `./scripts/release.sh --arch arm64 --dry-run` successfully discovered the local complete pair and printed the Caterm profile defaults without building, signing, notarizing or uploading. Notarization-profile/team association and live publication remain unverified; the working tree still contains unrelated uncommitted work.
 

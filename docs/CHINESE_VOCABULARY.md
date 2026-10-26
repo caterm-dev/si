@@ -63,6 +63,6 @@ python3 scripts/msime_dictionary.py fetch-context
 
 Review `sources.lock.json`, the independently retained upstream/license/review records and generated manifest together when adopting revisions. Context releases have a separate pin; updating lexical sources does not automatically regenerate or upgrade context tables. New words use unigram backoff where context entries are absent. Keep all required notices with distributed data; see [the retained attribution](../Data/Chinese/MSIME/README.md#attribution) and [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-The existing monthly audit checks MSIME engine/dictionary revision metadata, retained-file consistency and the preserved English sources. `python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json` produces a read-only comparison report; neither audit nor CI adopts updates automatically. The schedule takes effect only after the workflow reaches the default branch with Actions enabled.
+Run `python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json` manually to check MSIME engine/dictionary revision metadata and retained-file consistency and produce a read-only comparison report. Check English sources separately with `./scripts/vocabulary.sh audit`. Audits do not adopt updates automatically; no scheduled vocabulary workflow remains.
 
 Private personal phrases and opt-in aggregate learning remain separate, with their existing retention/deletion controls. Maintenance tools never inspect those archives.

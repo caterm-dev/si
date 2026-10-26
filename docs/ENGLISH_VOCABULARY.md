@@ -52,7 +52,7 @@ Source priority chooses casing and completion score for duplicates: `cspell-comp
 
 The 75/85 source fields remain legacy import provenance metadata and do not affect runtime ranking. These lists provide spellings; wordfreq 3.1.1 supplies the initial base weights only during explicit snapshot adoption. Added words and abbreviations can change mixed segmentation, ranking and bounded unknown-span choices. For example, `QWERT` becomes a known prefix; privacy fixtures therefore use a synthetic span without that lexical prefix and check unknown text after a known product. Any generated path still containing an unrecognized span remains excluded from learning/context, and the complete exact input remains independently available.
 
-The existing monthly upstream audit includes these registered sources automatically. Reproduce the pinned imports with:
+The manual `./scripts/vocabulary.sh audit` command includes these registered sources automatically. Reproduce the pinned imports with:
 
 ```sh
 ./scripts/vocabulary.sh refresh cspell-tools
@@ -108,7 +108,7 @@ Rules match case-insensitively. Replacements can correct spelling or casing and 
 
 ## Refresh an upstream source
 
-The monthly GitHub Actions workflow audits both English and Chinese; its manual **Run workflow** action also runs an **audit**. They compare tracked upstream branches against pinned revisions, show comparison links and refresh commands in the job summary, and retain a JSON artifact. The workflow uses its read-only GitHub token for API quotas; local public-source checks fall back to Git ref discovery if the API is rate limited. The audit does not execute upstream exporters, change repository contents, open PRs, or update an installed input method. Scheduling begins only after the workflow reaches the default branch and Actions is enabled; it is not a timer installed on this Mac.
+Run `./scripts/vocabulary.sh audit --report .build/vocabulary-english-audit.json` manually to compare tracked upstream branches against pinned revisions and save a JSON report. Check Chinese sources separately with `python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json`. Public-source checks fall back to Git ref discovery if the API is rate limited. Audits do not execute upstream exporters, change repository contents, open PRs, or update an installed input method. No scheduled vocabulary workflow remains.
 
 ```sh
 ./scripts/vocabulary.sh audit --report .build/vocabulary-upstream-audit.json

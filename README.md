@@ -235,7 +235,7 @@ The static website supports English and Simplified Chinese, with dedicated Priva
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture](docs/ARCHITECTURE.md). Keep code, source localization keys, documentation, issue reports, and pull requests in English. App translations, language data and user input retain their original scripts.
 
-See the [roadmap](docs/ROADMAP.md) for planned work and [manual verification](docs/TESTING.md) for host-app checks. GitHub Actions builds the macOS app and runs core tests on pushes and pull requests.
+See the [roadmap](docs/ROADMAP.md) for planned work and [manual verification](docs/TESTING.md) for host-app checks. Run core tests and macOS builds locally; GitHub Actions retains only the website workflow.
 
 The `./scripts/benchmark.sh` harness covers synthetic Chinese/mixed scenarios, including `woxiangyaodeploy`, saved preferences and personal phrases, English lookup, and synchronous/deferred edit costs. It has been run for the mixed lexical integration; initialization is lazy on candidate workers and older timing figures do not describe this version. Benchmark scenarios and quality fixtures still need reconciliation with the new policy. See [dictionary provenance and decoder limits](docs/DICTIONARIES.md), [the MSIME algorithm study](docs/MSIME_ALGORITHM.md), and [verification status](docs/VERIFICATION.md).
 
