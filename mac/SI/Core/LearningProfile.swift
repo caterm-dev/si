@@ -6,6 +6,7 @@ public struct LearningProfile: Sendable, Equatable {
     public static let retentionDays = 90
     private static let halfLife: TimeInterval = 14 * 24 * 60 * 60
     private static let maximumStrength = 1_000.0
+    private let retainsIndefinitely: Bool
     private var records: [String: LearnedPreference] = [:]
     // Skip token lookups for spellings with no single-language frequency records.
     private var tokenInputs: [String: Int] = [:]
@@ -46,8 +47,9 @@ public struct LearningProfile: Sendable, Equatable {
         }
     }
 
-    public init(entries: [LearnedPreference] = [], now: Date = .now) {
-        for entry in entries where Self.isValid(entry, now: now) {
+    public init(entries: [LearnedPreference] = [], now: Date = .now, retainsIndefinitely: Bool = false) {
+        self.retainsIndefinitely = retainsIndefinitely
+        for entry in entries where Self.isValid(entry, now: now, retainsIndefinitely: retainsIndefinitely) {
             if let previous = records[entry.id], previous.lastUsed >= entry.lastUsed { continue }
             records[entry.id] = entry
         }
@@ -74,11 +76,11 @@ public struct LearningProfile: Sendable, Equatable {
                                             isMixed: candidate.isMixed, context: context)
         let previous = records[id]
         let strength = min(Self.maximumStrength,
-                           previous.map { Self.decayedStrength($0, now: now) } ?? 0) + commit.reason.learningWeight
+                           previous.map { effectiveStrength($0, now: now) } ?? 0) + commit.reason.learningWeight
         let entry = LearnedPreference(input: input, text: candidate.text, language: language,
                                       strength: min(Self.maximumStrength, strength), lastUsed: now,
                                       isMixed: candidate.isMixed, context: context)
-        guard Self.isValid(entry, now: now) else { return false }
+        guard Self.isValid(entry, now: now, retainsIndefinitely: retainsIndefinitely) else { return false }
         records[id] = entry
         if previous == nil { rankingInputs[input, default: 0] += 1 }
         if previous == nil, Self.isTokenPreference(entry) { tokenInputs[input, default: 0] += 1 }
@@ -145,8 +147,8 @@ public struct LearningProfile: Sendable, Equatable {
     }
 
     private func weight(id: String, maximum: Double, now: Date) -> Double {
-        guard let entry = records[id], Self.isValid(entry, now: now) else { return 0 }
-        return min(maximum, 12 * log2(1 + Self.decayedStrength(entry, now: now)))
+        guard let entry = records[id], Self.isValid(entry, now: now, retainsIndefinitely: retainsIndefinitely) else { return 0 }
+        return min(maximum, 12 * log2(1 + effectiveStrength(entry, now: now)))
     }
 
     public mutating func remove(id: String) {
@@ -158,9 +160,9 @@ public struct LearningProfile: Sendable, Equatable {
         else { tokenInputs[entry.input, default: 0] -= 1 }
     }
 
-    /// Replace app-scoped ranking evidence without interpreting an ordinary use as a correction.
+    /// Replace aggregate ranking evidence without interpreting an ordinary use as a correction.
     mutating func setPreference(_ entry: LearnedPreference, now: Date) {
-        guard Self.isValid(entry, now: now) else { remove(id: entry.id); return }
+        guard Self.isValid(entry, now: now, retainsIndefinitely: retainsIndefinitely) else { remove(id: entry.id); return }
         let previous = records.updateValue(entry, forKey: entry.id)
         if previous == nil {
             rankingInputs[entry.input, default: 0] += 1
@@ -174,7 +176,7 @@ public struct LearningProfile: Sendable, Equatable {
     }
 
     public mutating func prune(now: Date = .now) {
-        records = records.filter { Self.isValid($0.value, now: now) }
+        records = records.filter { Self.isValid($0.value, now: now, retainsIndefinitely: retainsIndefinitely) }
         if records.count > Self.maximumEntries {
             records = Dictionary(uniqueKeysWithValues: entries.prefix(Self.maximumEntries).map { ($0.id, $0) })
         }
@@ -194,11 +196,16 @@ public struct LearningProfile: Sendable, Equatable {
         return lower.replacing("u:", with: "v").replacing("ü", with: "v")
     }
 
+    private func effectiveStrength(_ entry: LearnedPreference, now: Date) -> Double {
+        retainsIndefinitely ? entry.strength : Self.decayedStrength(entry, now: now)
+    }
+
     static func decayedStrength(_ entry: LearnedPreference, now: Date) -> Double {
         entry.strength * pow(0.5, max(0, now.timeIntervalSince(entry.lastUsed)) / halfLife)
     }
 
-    static func isValid(_ entry: LearnedPreference, now: Date, allowsZeroStrength: Bool = false) -> Bool {
+    static func isValid(_ entry: LearnedPreference, now: Date, allowsZeroStrength: Bool = false,
+                        retainsIndefinitely: Bool = false) -> Bool {
         !entry.input.isEmpty && entry.input.utf8.count <= 128
             && entry.input.unicodeScalars.allSatisfy { $0.isASCII && (CharacterSet.letters.contains($0) || $0 == "'") }
             && !entry.text.isEmpty && entry.text.utf8.count <= 512
@@ -209,6 +216,6 @@ public struct LearningProfile: Sendable, Equatable {
             && (entry.mixed != true || entry.language == .simplifiedChinese)
             && entry.lastUsed.timeIntervalSince1970.isFinite
             && entry.lastUsed <= now.addingTimeInterval(5 * 60)
-            && now.timeIntervalSince(entry.lastUsed) < Double(retentionDays) * 24 * 60 * 60
+            && (retainsIndefinitely || now.timeIntervalSince(entry.lastUsed) < Double(retentionDays) * 24 * 60 * 60)
     }
 }

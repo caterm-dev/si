@@ -35,8 +35,12 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] Integrate large-model conversion with local inference, bounded candidate generation, exact literal fallback and independent quality/host verification.
 - [x] Incomplete final mixed-word prediction and bounded preservation of unrecognized spans.
 - [ ] Broader unknown-word/language-boundary detection beyond bounded lexical heuristics.
-- [x] Opt-in app-scoped learning with separate usage/correction counts, neutral first choices, gradual nonfirst-choice rewards, pause, deletion, clear, expiry and bounded persistence.
-- [x] Remove App History recording/completion and migrate app archives to vocabulary-only schema 3 while preserving vocabulary/usage counts and resetting old mixed ranking evidence.
+- [x] Opt-in global Personal Learning with shared usage/correction counts, neutral first choices, one-correction exact-spelling priority, bounded frequency rewards and global management; no per-app learning controls, decay or age expiry.
+- [x] Remove App History recording/completion; migrate app archives to global vocabulary-only schema 4, merging app counts, preserving schema-3 evidence and resetting older ambiguous ranking evidence.
+- [x] Independently opted-in permanent Input History with exact per-submission spelling/output, repeat preservation, local SQLite pages, search, explicit deletion and error/retry controls; no candidate/training integration.
+- [x] User-controlled single-file history export, one direct save action, checksum-validated offline restoration and unsplit training candidates without purpose flags; no automatic transfer/training.
+- [ ] Native Input History export save/cancel/accessibility verification.
+- [ ] Native Input History verification, including consent, secure input, prefix/automatic/literal submissions, host reentry, keyboard/VoiceOver and appearance.
 - [ ] Native app-vocabulary verification, including WeChat, editors, Terminal, focus changes, keyboard/mouse selection and accessibility.
 - [x] Existing single-language preferences influence internal tokens with bounded, length-weighted scoring and a separate base beam.
 - [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, without corpus context; former MSNG tables are archived outside the App.
@@ -92,4 +96,4 @@ See [the experiment framework](../llm/README.md). The data/tooling and small-mod
 
 ## Retired options
 
-The separate global Personal learning and previous-word pair UI/storage feature was removed on October 23, 2026 in favor of app-scoped vocabulary (App History was subsequently removed on October 27, 2026). Core frequency/context ranking primitives remain for reuse and fixtures; the app enables no shared-profile fallback or previous-word learning. Old shared files are left inactive until explicitly deleted through Settings.
+The separate global Personal learning and previous-word pair UI/storage feature was removed on October 23, 2026 in favor of app-scoped vocabulary (App History was subsequently removed on October 27, 2026); on November 1, 2026, that app archive became global Personal Learning with exact-choice priority, no per-app learning controls and no age expiry/decay. Core frequency/context ranking primitives remain for reuse and fixtures; the separate retired archive remains inactive, and the app enables no previous-word learning. Old shared files are left inactive until explicitly deleted through Settings.

@@ -5,6 +5,7 @@ struct SettingsView: View {
     var updater: AppUpdater
     var dictionary: UserDictionarySettings = .shared
     var applicationMemory: ApplicationMemorySettings = .shared
+    var inputHistory: InputHistorySettings = .shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -30,12 +31,13 @@ struct SettingsView: View {
                 } header: {
                     Text("Typing")
                 } footer: {
-                    Text("Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train app vocabulary. Return and shortcuts keep the remaining original spelling.")
+                    Text("Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train Personal Learning. Return and shortcuts keep the remaining original spelling.")
                     Text("Punctuation candidates are off by default. Enable them to choose English or Chinese symbols with language badges. When off, punctuation outside composition passes through unchanged.")
                     Text(L10n.text(settings.punctuationBehavior.explanation))
                 }
                 ApplicationPassthroughSection(settings: settings)
                 ApplicationMemorySection(settings: applicationMemory)
+                InputHistorySection(history: inputHistory)
                 UserDictionarySection(dictionary: dictionary)
                 UpdateSettingsSection(updater: updater)
                 Section("Development Preview") {
@@ -58,5 +60,6 @@ struct SettingsView: View {
 #Preview {
     SettingsView(settings: LanguageSettings(defaults: UserDefaults(suiteName: "SI.Preview") ?? .standard), updater: AppUpdater(),
                  dictionary: UserDictionarySettings(isPreview: true),
-                 applicationMemory: ApplicationMemorySettings(isPreview: true))
+                 applicationMemory: ApplicationMemorySettings(isPreview: true),
+                 inputHistory: InputHistorySettings(isPreview: true))
 }

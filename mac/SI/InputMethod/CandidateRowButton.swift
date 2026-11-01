@@ -64,7 +64,7 @@ final class CandidateRowButton: NSButton {
         usesBadge = showsPunctuation
         var details: [String] = []
         if let language = candidate.punctuationLanguage { details.append(language == .english ? "E" : "C") }
-        else if candidate.isApplicationVocabulary { details.append(L10n.text("App Vocabulary")) }
+        else if candidate.isApplicationVocabulary { details.append(L10n.text("Personal Learning")) }
         else if candidate.isLiteral { details.append(usesBadge ? "A" : L10n.text("As Typed")) }
         else if candidate.isUserPhrase { details.append(L10n.text("Personal")) }
         else if candidate.hasLiteralSegments { details.append(L10n.text("Typed text")) }
@@ -75,7 +75,7 @@ final class CandidateRowButton: NSButton {
         candidateLabel.alignment = .left
         detailLabel.alignment = usesBadge ? .center : .left
         let symbol: String?
-        if candidate.isApplicationVocabulary { symbol = "app.badge" }
+        if candidate.isApplicationVocabulary { symbol = "book.closed" }
         else if candidate.isPartial { symbol = "arrow.right" }
         else if candidate.isLiteral { symbol = "textformat" }
         else if candidate.isUserPhrase { symbol = "pin.fill" }

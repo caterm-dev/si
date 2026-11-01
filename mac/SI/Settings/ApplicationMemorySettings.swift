@@ -12,7 +12,6 @@ import SIStorage
 final class ApplicationMemorySettings {
     static let shared = ApplicationMemorySettings(defaults: SettingsDefaults.shared)
     private static let vocabularyKey = "applicationMemory.vocabularyEnabled"
-    private static let vocabularyExclusionsKey = "applicationMemory.vocabularyExclusions"
 
     var vocabularyEnabled: Bool {
         didSet {
@@ -20,7 +19,6 @@ final class ApplicationMemorySettings {
             if vocabularyEnabled != oldValue { invalidateConsent() }
         }
     }
-    private(set) var vocabularyExclusions: Set<String>
     private(set) var memory = ApplicationMemory()
     private(set) var generation: UInt64 = 0
     private(set) var isLoading = true
@@ -32,17 +30,13 @@ final class ApplicationMemorySettings {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let store: ApplicationMemoryStore?
     @ObservationIgnored private let allowsRecording: @MainActor () -> Bool
-    @ObservationIgnored private var snapshots: [String: ApplicationMemorySnapshot] = [:]
+    @ObservationIgnored private var sharedSnapshot: ApplicationMemorySnapshot?
     @ObservationIgnored private var pendingWrite: Task<Void, Never>?
-    @ObservationIgnored private var maintenance: Task<Void, Never>?
     @ObservationIgnored private var legacyRemoval: Task<Void, Never>?
     @ObservationIgnored private var revision = 0
     @ObservationIgnored private var hasStarted = false
     @ObservationIgnored private var loadSucceeded = false
 
-    var applicationIDs: [String] {
-        Set(memory.applicationIDs).union(vocabularyExclusions).sorted()
-    }
     var canRetrySaving: Bool { loadSucceeded && errorMessage != nil }
 
     init(defaults: UserDefaults = .standard, store: ApplicationMemoryStore? = nil, isPreview: Bool = false,
@@ -50,13 +44,13 @@ final class ApplicationMemorySettings {
         self.defaults = defaults
         self.allowsRecording = allowsRecording
         vocabularyEnabled = !isPreview && defaults.bool(forKey: Self.vocabularyKey)
-        vocabularyExclusions = Set(defaults.stringArray(forKey: Self.vocabularyExclusionsKey) ?? [])
         self.store = isPreview ? nil : store ?? ApplicationMemoryStore(
             url: URL.applicationSupportDirectory.appending(path: "SI/Personalization/application-memory-v1.json"),
             legacyLearningURL: URL.applicationSupportDirectory.appending(path: "SI/Personalization/preferences-v1.json")
         )
         if isPreview { isLoading = false; loadSucceeded = true }
         else {
+            defaults.removeObject(forKey: "applicationMemory.vocabularyExclusions")
             defaults.removeObject(forKey: "applicationMemory.historyEnabled")
             defaults.removeObject(forKey: "applicationMemory.historyExclusions")
         }
@@ -70,43 +64,30 @@ final class ApplicationMemorySettings {
             memory = try await store.load()
             loadSucceeded = true
         } catch {
-            errorMessage = L10n.text("App vocabulary could not be opened. Recording and suggestions are paused. Clear all app data to start again.")
+            errorMessage = L10n.text("Personal Learning data could not be opened. Recording and suggestions are paused. Clear all learning data to start again.")
         }
         isLoading = false
         invalidateConsent()
-        maintenance = Task { [weak self] in
-            while !Task.isCancelled {
-                do { try await Task.sleep(for: .seconds(86_400)) } catch { return }
-                guard let self else { return }
-                self.prune()
-            }
-        }
     }
 
-    func usesVocabulary(in applicationID: String) -> Bool {
-        vocabularyEnabled && loadSucceeded && allowsRecording() && !vocabularyExclusions.contains(applicationID)
+    var usesVocabulary: Bool {
+        vocabularyEnabled && loadSucceeded && allowsRecording()
     }
 
-    func snapshot(for applicationID: String) -> ApplicationMemorySnapshot {
+    func snapshot() -> ApplicationMemorySnapshot {
         // Observe consent invalidation even when a cached snapshot is returned to SwiftUI.
         _ = generation
-        guard loadSucceeded, allowsRecording() else { return .empty }
-        if let snapshot = snapshots[applicationID] { return snapshot }
-        let snapshot = memory.snapshot(applicationID: applicationID, vocabularyEnabled: usesVocabulary(in: applicationID))
-        snapshots[applicationID] = snapshot
+        guard usesVocabulary else { return .empty }
+        if let sharedSnapshot { return sharedSnapshot }
+        let snapshot = memory.snapshot(vocabularyEnabled: true)
+        sharedSnapshot = snapshot
         return snapshot
     }
 
-    func recordVocabulary(_ commit: InputCommit, applicationID: String) {
-        guard usesVocabulary(in: applicationID), memory.recordVocabulary(commit, applicationID: applicationID) else { return }
-        snapshots.removeAll()
+    func recordVocabulary(_ commit: InputCommit) {
+        guard usesVocabulary, memory.recordVocabulary(commit) else { return }
+        sharedSnapshot = nil
         scheduleSave()
-    }
-
-    func setVocabularyAllowed(_ allowed: Bool, applicationID: String) {
-        if allowed { vocabularyExclusions.remove(applicationID) } else { vocabularyExclusions.insert(applicationID) }
-        defaults.set(vocabularyExclusions.sorted(), forKey: Self.vocabularyExclusionsKey)
-        invalidateConsent()
     }
 
     func removeVocabulary(id: String) {
@@ -116,9 +97,9 @@ final class ApplicationMemorySettings {
         scheduleSave(immediate: true)
     }
 
-    func clearVocabulary(applicationID: String? = nil) {
+    func clearVocabulary() {
         guard loadSucceeded else { return }
-        memory.clearVocabulary(applicationID: applicationID)
+        memory.clearVocabulary()
         invalidateConsent()
         scheduleSave(immediate: true)
     }
@@ -142,7 +123,7 @@ final class ApplicationMemorySettings {
                 isSaving = false
             } catch {
                 guard revision == currentRevision else { return }
-                errorMessage = L10n.text("App data could not be cleared. Recording and suggestions remain paused; retry clearing.")
+                errorMessage = L10n.text("Learning data could not be cleared. Recording and suggestions remain paused; retry clearing.")
                 isSaving = false
             }
         }
@@ -175,17 +156,7 @@ final class ApplicationMemorySettings {
 
     private func invalidateConsent() {
         generation &+= 1
-        snapshots.removeAll()
-    }
-
-    private func prune() {
-        guard loadSucceeded else { return }
-        let previous = memory
-        memory.prune()
-        if previous != memory {
-            invalidateConsent()
-            scheduleSave(immediate: true)
-        }
+        sharedSnapshot = nil
     }
 
     private func scheduleSave(immediate: Bool = false) {
@@ -206,7 +177,7 @@ final class ApplicationMemorySettings {
                 isSaving = false
             } catch {
                 guard revision == currentRevision else { return }
-                errorMessage = L10n.text("App vocabulary changes could not be saved. They remain in memory; retry saving before quitting.")
+                errorMessage = L10n.text("Personal Learning changes could not be saved. They remain in memory; retry saving before quitting.")
                 isSaving = false
             }
         }

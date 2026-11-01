@@ -34,7 +34,7 @@ To stop tracking an artifact accidentally added earlier, use `git rm --cached` w
 - Keep changes focused and use English for code identifiers, comments, documentation, source localization keys, issues, and pull requests. Keep app translations in the matching `Localizable.strings` resources with identical keys and format arguments. Translations, language examples and lexicons use their native scripts.
 - Do not introduce a current-language mode, a language toggle shortcut, or a ranking rule that silently hides other enabled languages.
 - Keep the original input available, including unknown words and identifiers.
-- Do not log typed content or send it to external services.
+- Do not put typed content in diagnostic logs or send it to external services. Only the independently opted-in local Input History feature may retain successful SI submissions; keep live recording separate from ranking/training and preserve its secure-input, deletion and error safeguards. Explicitly shared exports may become private offline candidate data through the documented receiver workflow; never commit contributions, infer redistribution rights or silently append them to maintained datasets.
 - Discuss third-party engines, dictionaries, models, and large dependencies in an issue first. Include their license and data provenance.
 - Leave signing identities, provisioning profiles, user-specific Xcode state, and build products out of commits.
 

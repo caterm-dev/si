@@ -17,7 +17,7 @@ enum CandidateDescription {
         }
         let source: String
         if candidate.isApplicationVocabulary {
-            source = L10n.format("App Vocabulary · %@", language, bundle: bundle)
+            source = L10n.format("Personal Learning · %@", language, bundle: bundle)
         } else if candidate.isUserPhrase {
             source = L10n.format("Personal · %@", language, bundle: bundle)
         } else {

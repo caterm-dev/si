@@ -86,7 +86,7 @@
   "privacyPoint1Title": "输入，留在设备上。",
   "privacyPoint1Body": "没有云端推理、使用分析或按键日志。打字不需要注册账号。",
   "privacyPoint2Title": "记住什么，由你决定。",
-  "privacyPoint2Body": "应用词汇学习默认关闭，数据仅保存在本机，可查看、暂停或删除。应用历史记录功能已移除。",
+  "privacyPoint2Body": "个人学习与输入历史都需要单独启用，默认关闭。学习数据全局共用；输入历史可逐次永久保存在本机，并支持查看和删除。",
   "privacyPoint3Title": "你想更新时，再连接。",
   "privacyPoint3Body": "只有主动检查更新才会联系下载服务，不发送输入内容或个人短语。",
   "privacyCta": "阅读隐私政策 ↗",

@@ -42,3 +42,7 @@ __pycache__/
 *.db-*
 *.sqlite-*
 *.sqlite3-*
+
+# User-contributed input history and derived private training candidates
+/llm/private-history/
+SI-Input-History*.jsonl

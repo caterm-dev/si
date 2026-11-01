@@ -33,7 +33,7 @@ public struct CandidateEngine: Sendable {
             .filter { !identities.contains($0.id) }
         let merged = merge(generated + saved,
                            input: input, languages: languages, learning: learning,
-                           now: now, context: context)
+                           now: now, context: context, applicationMemory: applicationMemory)
         return merged
     }
 
@@ -44,9 +44,11 @@ public struct CandidateEngine: Sendable {
                            applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         guard providers == nil else {
-            return punctuationCandidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
-                                         now: now, context: context, applicationMemory: applicationMemory, preview: true)
-                + [literalCandidate(for: input)]
+            let generated = punctuationCandidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
+                now: now, context: context, applicationMemory: applicationMemory, preview: true)
+                + applicationMemory.vocabularyCandidates(for: input, languages: languages, now: now)
+            return merge(generated, input: input, languages: languages, learning: learning,
+                         now: now, context: context, applicationMemory: applicationMemory)
         }
         var generated: [InputCandidate] = []
         if languages.contains(.english) {
@@ -69,7 +71,7 @@ public struct CandidateEngine: Sendable {
             .filter { !identities.contains($0.id) }
         let merged = merge(generated + saved,
                            input: input, languages: languages, learning: learning,
-                           now: now, context: context)
+                           now: now, context: context, applicationMemory: applicationMemory)
         return merged
     }
 
@@ -95,7 +97,7 @@ public struct CandidateEngine: Sendable {
 
     private func merge(_ generated: [InputCandidate], input: String, languages: Set<InputLanguage>,
                        learning: LearningProfile, now: Date,
-                       context: CandidateContext?) -> [InputCandidate] {
+                       context: CandidateContext?, applicationMemory: ApplicationMemorySnapshot) -> [InputCandidate] {
         // Personal entries may share text with a built-in candidate. Keep the stronger derivation.
         var best: [String: (candidate: InputCandidate, score: Double)] = [:]
         best.reserveCapacity(generated.count)
@@ -117,10 +119,14 @@ public struct CandidateEngine: Sendable {
             if let previous = best[candidate.id] { candidate.retainLexicalEvidence(from: previous.candidate) }
             best[candidate.id] = (candidate, score)
         }
+        let preferredID = applicationMemory.preferredCandidateID(for: input, languages: languages)
         let merged = best.values
             .sorted {
                 // Shared lexical/preferences score plus reward for actually matched input.
                 if $0.candidate.isPreferred != $1.candidate.isPreferred { return $0.candidate.isPreferred }
+                let leftSelected = $0.candidate.canLearn && !$0.candidate.isPartial && $0.candidate.id == preferredID
+                let rightSelected = $1.candidate.canLearn && !$1.candidate.isPartial && $1.candidate.id == preferredID
+                if leftSelected != rightSelected { return leftSelected }
                 if $0.score != $1.score { return $0.score > $1.score }
                 return $0.candidate.id < $1.candidate.id
             }

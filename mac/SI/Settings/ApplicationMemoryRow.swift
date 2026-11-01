@@ -3,7 +3,6 @@ import SwiftUI
 struct ApplicationMemoryRow: View {
     let text: String
     let input: String
-    let applicationID: String
     let count: Int
     let lastUsed: Date
     let forget: () -> Void
@@ -13,7 +12,6 @@ struct ApplicationMemoryRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(text).font(.headline).textSelection(.enabled)
                 Text(input).foregroundStyle(.secondary).textSelection(.enabled)
-                Text(applicationID).font(.caption).foregroundStyle(.secondary)
                 HStack {
                     Text(L10n.format("Times used: %ld", count))
                     Text(lastUsed, format: .dateTime.year().month().day())
@@ -23,7 +21,7 @@ struct ApplicationMemoryRow: View {
             .accessibilityElement(children: .combine)
             Spacer()
             Button("Forget", role: .destructive, action: forget)
-                .accessibilityLabel(L10n.format("Forget %@ in %@", text, applicationID))
+                .accessibilityLabel(L10n.format("Forget %@", text))
         }
         .padding(.vertical, 4)
     }

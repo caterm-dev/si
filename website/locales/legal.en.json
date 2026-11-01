@@ -1,6 +1,6 @@
 {
-  "updatedISO": "2026-10-27",
-  "updated": "October 27, 2026",
+  "updatedISO": "2026-11-01",
+  "updated": "November 1, 2026",
   "privacy": {
     "title": "Privacy policy",
     "description": "How SI processes input locally, handles optional saved data, and connects only for user-initiated app updates.",
@@ -10,7 +10,7 @@
         "id": "local-input",
         "title": "1. Input stays on your Mac",
         "paragraphs": [
-          "SI processes composition and generates candidates locally using resources on your Mac. Typing requires no internet connection or account. SI does not send keystrokes, composition text, committed text, personal phrases, or app vocabulary to a server. It has no analytics, cloud inference, or keystroke logger.",
+          "SI processes composition and generates candidates locally using resources on your Mac. Typing needs no internet connection or account. Keystrokes, composition, committed text, personal phrases, learned preferences and input history are not sent to a server. SI has no analytics, cloud inference or raw-keystroke logger. Separately enabled Input History can retain each SI submission locally.",
           "SI does not read documents or clipboard text, request Accessibility or Input Monitoring permissions, or use a global event tap. The host application still receives text you commit and handles it under its own privacy practices."
         ],
         "links": []
@@ -19,9 +19,11 @@
         "id": "optional-memory",
         "title": "2. You choose what SI remembers",
         "paragraphs": [
-          "Language and feature preferences are saved locally in macOS UserDefaults. App vocabulary is an independent opt-in, off by default; enabling a language does not enable it. Records are scoped to the client application’s bundle identifier. Browser tabs and sites share their browser app’s scope.",
-          "If enabled, app vocabulary keeps consumed spelling, candidate text and language identity, app identifier, aggregate usage and nonfirst-choice counts, ranking strength, and last-use time. Accepting the displayed first candidate only counts usage. Each three choices of a later candidate add one ranking point, subject to decay and a 32-point cap. No per-selection sequence is retained. It retains up to 5,000 entries across apps, expiring after 90 days without use.",
-          "App History recording and completions have been removed. SI no longer accumulates input-unit drafts or saves literal text when Return reaches the host. On the next successful load, the new app rewrites a version-1 or version-2 app archive as vocabulary-only version 3, retaining valid vocabulary and usage counts and removing the retired history field. Old strengths mixed default acceptance and deliberate corrections and are reset to neutral; new correction counts and ranking strengths survive restart. Old history consent and pause settings are removed. Corrupt or unsupported archives remain unchanged with an error until explicitly cleared; external backups are outside SI’s deletion controls."
+          "Language and feature preferences stay in macOS UserDefaults. Personal Learning and Input History have independent switches and both default to off; language choices and one feature never enable the other. Personal Learning is global, without per-app learning controls. Retired consent/history/app-exclusion settings cannot enable the new history feature.",
+          "Personal Learning keeps consumed spelling, output/language identity, aggregate usage/correction counts, strength, last-use time and the current deliberate choice. One nonfirst choice leads the next exact normalized spelling, after explicit personal-phrase pins. Accepting the first choice counts usage only; every three corrections also add one frequency point up to 32. Strength does not decay and rows do not expire by age. Up to 5,000 rows remain, with least-recently-used capacity eviction.",
+          "When enabled, Input History saves each SI submission with exact source spelling, submitted text, time, a distinct event identity, language and commit type. Repeats remain separate. Original English, personal phrases, punctuation and automatic confirmations are included; prefixes record only their submitted portion. History is retained indefinitely until deletion, without age/count eviction or the learning vocabulary cap. It is for local viewing/search, not ranking, completions or automatic training/upload.",
+          "Cancelled/unconfirmed compositions, standalone passthrough keys, text outside SI, direct-input apps and secure input are excluded. Secure event input cannot identify every sensitive field. No document, clipboard, URL or recipient is read. Past input and retired history archives are not imported; migration of old app archives to global learning still drops retired history fields.",
+          "Users can explicitly export all saved history as one JSONL file to a selected destination. Export opens the save panel directly, without backup/training choices or training-permission fields. SI does not send the file or start training. After the owner manually shares it, receiver tools can validate version/count/checksum and restore every event or prepare unreviewed training observations from the same file. Local deletion cannot erase exported or shared copies."
         ],
         "links": []
       },
@@ -35,10 +37,11 @@
       },
       {
         "id": "controls",
-        "title": "4. Inspect, pause, and delete",
+        "title": "4. Inspect, disable, and delete",
         "paragraphs": [
-          "Settings → App Vocabulary → Manage App Data lets you inspect entries, pause vocabulary for an app, forget individual entries, or clear vocabulary for one app or all apps. Clear All App Data removes the app vocabulary archive, including unreadable data. Turning learning off or pausing it preserves existing records; use deletion controls to erase them. Personal phrases have their own edit/delete/clear controls.",
-          "Older shared learning data is inactive and is not automatically loaded, migrated, or deleted. Use Delete Old Shared Learning Data in Settings to remove it. SI’s controls do not erase exported files or external backups. Secure event input suppresses app recording and suggestions; it is not a detector for every sensitive field."
+          "Settings → Personal Learning → Manage Learning Data offers global inspection, Forget and clear. Settings → Input History offers independent recording consent, paged viewing/search, individual Delete and Clear Input History. Turning a switch off stops new recording while keeping saved data and finishing accepted queued writes. History clear also discards pending retries, and older writes cannot restore cleared rows. Learning, history and phrases are deleted independently; removing one category does not erase copies in another.",
+          "History uses a separate local SQLite file without age/count eviction. Files/directories have owner-only permissions, but are not encrypted; other software running as you, administrators or backups may access private text. Writes and bounded page reads run off the main actor. Open/save errors pause recording and show recovery controls. Pending failed writes are only in memory and require retry before quitting. Normal termination waits for queued writes; forced termination, disk failure or unretried errors may lose unsaved entries.",
+          "The separate retired shared-learning archive remains inactive and is never automatically loaded, imported or deleted; Delete Old Shared Learning Data explicitly removes it. SI deletion does not erase exports, external backups or forensic filesystem remnants. Independent direct-input app rules stop conversion and recording in those apps."
         ],
         "links": [
           {

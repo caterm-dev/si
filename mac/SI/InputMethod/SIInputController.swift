@@ -185,7 +185,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             }
         }
         let appSettings = ApplicationMemorySettings.shared
-        let memory = applicationID.map { appSettings.snapshot(for: $0) } ?? .empty
+        let memory = appSettings.snapshot()
         session.configure(languages: LanguageSettings.shared.enabledLanguages,
                           learning: memory.learning,
                           dictionary: UserDictionarySettings.shared.dictionaryForInput,
@@ -451,14 +451,18 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private func apply(_ commit: InputCommit, suffix: String = "", to client: any IMKTextInput) {
         let app = applicationID
         let generation = ApplicationMemorySettings.shared.generation
+        let history = InputHistorySettings.shared
+        let historyGeneration = history.generation
+        let recordsHistory = history.canRecord
         guard insert(commit.text + suffix, into: client) else { return }
-        guard app == applicationID, generation == ApplicationMemorySettings.shared.generation else { return }
+        guard app == applicationID else { return }
         guard !LanguageSettings.shared.usesPassthrough(in: app) else {
             configureSession(for: client)
             return
         }
-        if let app {
-            ApplicationMemorySettings.shared.recordVocabulary(commit, applicationID: app)
+        if recordsHistory { history.record(commit, suffix: suffix, expectedGeneration: historyGeneration) }
+        if generation == ApplicationMemorySettings.shared.generation {
+            ApplicationMemorySettings.shared.recordVocabulary(commit)
         }
         configureSession(for: client)
         if !session.buffer.isEmpty { update(client) }

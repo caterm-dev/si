@@ -37,7 +37,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public var label: String {
         let languageLabel = punctuationLanguage.map { $0 == .english ? "English Punctuation" : "Chinese Punctuation" }
             ?? (isMixed ? (hasLiteralSegments ? "Chinese + As Typed" : "Chinese + English") : language?.displayName ?? "As Typed")
-        let source = isApplicationVocabulary ? "App Vocabulary · \(languageLabel)"
+        let source = isApplicationVocabulary ? "Personal Learning · \(languageLabel)"
             : isUserPhrase ? "Personal · \(languageLabel)" : languageLabel
         return consumedInputCount.map { "First \($0) characters · \(source)" } ?? source
     }

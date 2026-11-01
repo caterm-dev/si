@@ -1,12 +1,12 @@
 # Personal data and privacy
 
-SI processes input locally with no analytics, keystroke logger, or cloud dependency for typing. User-initiated software updates are the only app network feature.
+SI processes input locally with no analytics, raw-keystroke logger, or cloud dependency for typing. Independently opted-in Input History can retain each SI submission locally as described below. User-initiated software updates are the only app network feature.
 
 ## Model experiments
 
 The input method currently uses local dictionaries without a language model. The
 separate `llm/` experiments use explicit offline training data and are not connected
-to typed text, personal phrases or app vocabulary. Future model integration must
+to typed text, personal phrases or Personal Learning. Future model integration must
 preserve the input method's privacy and retention contract.
 
 ## Software update requests
@@ -15,37 +15,61 @@ preserve the input method's privacy and retention contract.
 
 Sparkle retains its ordinary updater preferences and last-check information in the app's bundle defaults domain (`com.caterm.inputmethod.si`) and may cache update downloads. This is separate from language/learning consent and private phrase/learning archives. No vocabulary is downloaded while typing. Closing Settings keeps the input server alive; choosing to install an update restarts SI after its normal pending-write flush. A log out/back in may still be needed if macOS does not resume the input method.
 
-## Opt-in app vocabulary
+## Personal Learning
 
-**Learn vocabulary separately for each app** in **App Vocabulary** defaults to off. Scope is the IMK client application's bundle identifier; browser sites share their browser's scope. SI does not query the document, clipboard, window title, URL or chat recipient, and requests no Accessibility/Input Monitoring permission or global event tap.
+**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. SI does not read documents, clipboard, window titles, URLs or chat recipients and requests no Accessibility/Input Monitoring permission or global event tap.
 
-App vocabulary retains the application identifier, normalized consumed spelling, output/language/mixed identity, bounded decaying strength, aggregate usage and nonfirst-choice counts, base score, lexical-unit evidence and last-use time. Every eligible candidate confirmation counts as one use. Accepting the displayed first candidate by Space, number or mouse leaves ranking strength unchanged apart from ordinary decay. Each three choices of a nonfirst candidate add one ranking point, with a 32-point cap. Only aggregate counts are kept; no sequence of selections or additional timestamps is retained. Literal, personal/verbatim paths, delimiter commits and automatic confirmation are excluded. There are at most 5,000 entries across all apps, with 90-day inactivity expiry, the existing 14-day strength half-life and bounded ranking bonus. App vocabulary is the only automatic vocabulary-learning feature. Disabling or pausing it restores base ranking, with no shared-profile fallback or previous-word pair learning.
+Each record retains normalized consumed spelling, exact output/language/mixed identity, bounded strength, aggregate usage/nonfirst-choice counts, base score, lexical-unit evidence and last-use time. The currently remembered deliberate choice for a spelling also retains its selection time. A new deliberate nonfirst choice replaces the prior selection marker for that spelling; no chronological sequence is saved by Personal Learning. App identifiers are no longer stored in vocabulary rows. First-choice Space/number/mouse acceptance only updates usage, never preference strength or the selection marker. Every three nonfirst choices add one frequency point up to 32. Separately, one deliberate selection is enough to lead the next exact normalized-spelling search, after any explicit personal-phrase pin. Prefixes save only consumed spelling. Literal, personal/verbatim, punctuation, delimiter and automatic confirmations are excluded, and confirmed sentences do not create additional component-word records.
 
-**Manage App Data…** supports search and application filtering, Forget, per-app vocabulary pause, and clearing vocabulary for one app or all apps. Pause stops recording and suggestions while preserving saved rows. **Clear All App Data…** removes the app archive, including unreadable data, without deleting shared preferences or explicit phrases. Clearing invalidates pending candidates. Old queued writes cannot undo a newer clear. Disabled languages cannot be reintroduced by saved candidates.
+**There is no age expiry or strength decay.** Records remain until Forget, clear or capacity eviction; a maximum of 5,000 global records is retained, removing the least recently used entries first with deterministic identity ties when full. This longer retention applies to existing records still present at migration, but cannot restore previously removed data. Personal Learning does not create input history; the separately opted-in Input History feature below has its own retention and deletion. There is no synchronization, learning export/import or remote aggregation.
 
-App vocabulary is stored separately from explicit personal phrases:
+**Manage Learning Data…** provides global vocabulary search, Forget and clear. Forgetting or clearing immediately invalidates learned ranking and exact-choice placement, including pending candidates; older queued saves cannot undo a newer deletion. Clearing learning leaves Input History, explicit phrases and the retired shared archive alone. Disabling Personal Learning, secure input and disabled-language filtering suppress both saved candidates and token/whole learning effects. Enabled languages never grant recording consent. Preview never records.
+
+The archive remains at:
 
 ```text
 ~/Library/Application Support/SI/Personalization/application-memory-v1.json
 ```
 
-The filename is retained for compatibility; new writes use a vocabulary-only version-3 JSON schema. The archive has a 64 MiB file limit, owner-only directory/file permissions and atomic replacement. SI does not encrypt it; other software under the same user, administrators or backups may be able to access it. Startup and daily maintenance physically prune expired entries, and expired rows are excluded from suggestions before cleanup. Oldest rows are evicted first with deterministic identity tie-breaking. Saves are off the main actor, coalesced for 300 ms and flushed on normal termination. Forced termination can lose recent updates. Open/corruption or migration failures pause recording/suggestions until recovery; save/erase failures are shown in Settings. Vocabulary consent and per-app exclusions remain in UserDefaults. No app vocabulary data is supplied to Sparkle or any network service.
+New writes use vocabulary-only schema 4. The archive has a 64 MiB limit, owner-only directory/file permissions and atomic replacement. SI does not encrypt it; software under the same user, administrators or backups may access it. Saves run off the main actor, coalesce for 300 ms and flush at normal termination; forced termination can lose recent updates. Open/migration errors pause recording and learned suggestions; save/erase errors appear in Settings. Learning consent remains in UserDefaults. The retired per-app learning exclusion key is removed. No personal data is supplied to Sparkle or another network service.
 
-## Removed App History
+## Input History
 
-App History recording and completions have been removed. SI no longer accumulates source/output drafts, includes printable passthrough text in a history unit or records text when Return reaches the host. The old history consent and exclusion defaults are removed and never enable vocabulary learning.
+**Save Input History** in **Input History** has independent `inputHistory.enabled` consent and defaults to off. Language, Personal Learning and retired history settings do not enable it. When on, each successful SI submission saves a new UUID, exact consumed spelling, exact submitted output (including SI-inserted suffixes), timestamp, optional language/mixed identity and commit reason. Repeat submissions stay separate. Literal English/code, personal phrases, punctuation and automatic confirmations are included. Prefixes save only their committed spelling/output; the pending suffix stays unrecorded until committed. This is a record of SI submissions, without document readback or monitoring raw key events.
 
-On the next successful load by the new app, an existing version-1 or version-2 app archive is validated for vocabulary and atomically rewritten as version 3 without its retired history field. Words and total usage counts remain subject to their existing retention rules. Older strengths mixed default acceptance and deliberate corrections and are reset to neutral, with new correction counts starting at zero. Schema-3 correction counts and ranking strengths survive restart. No old shared-learning archive is imported. Corrupt or unsupported archives remain untouched with a visible storage error until explicitly cleared; migration write failures also pause loading. Explicit personal phrases and the separate retired shared-learning archive are unaffected. Removing local history fields cannot remove copies in external backups or guarantee forensic erasure of previous filesystem data.
+**Records are retained indefinitely with no age or count eviction**, separate from Personal Learning's 5,000-entry cap. History grows with use and available disk space. **View Input History…** supports literal spelling/text search and newest-first pages of up to 100 entries, individual Delete and **Clear Input History…**. Turning history off stops new recording but keeps saved records and lets already accepted writes finish. History deletion/clear leaves learning/phrases alone; learning/phrase deletion does not remove separately recorded history copies. Clear also discards pending failed-write records. No prior input or retired history archive is imported.
 
-## Retired shared learning data
+History is stored at:
 
-The separate **Personal learning** feature, previous-word pair option and shared-preference manager have been removed. SI no longer opens, ranks with, updates, expires or automatically migrates the former shared archive:
+```text
+~/Library/Application Support/SI/InputHistory/history-v1.sqlite3
+```
+
+The system SQLite database uses schema 1, a 0700 directory, 0600 file and DELETE journaling. It is not encrypted; software running as you, administrators and backups may access private text. Parameterized SQL preserves exact UTF-8 input/output and never includes that text in diagnostic messages. Actor-isolated transactional writes and bounded pages avoid main-actor I/O and loading the entire history. Stable event IDs avoid retry duplicates. Clear is ordered after in-flight writes, rejects obsolete queued records and removes the database/sidecars; ordinary deletion does not provide a forensic/backup erasure guarantee.
+
+Recording is checked around host insertion, with generation checks for off/on changes during callbacks. Secure event input and the independent direct-input app rules suppress recording. Secure event input cannot detect every sensitive field. Cancelled/unconfirmed compositions, host documents/clipboard, standalone passthrough keys, other input sources and text typed in direct-input apps are not captured. There is no global event tap or added permission. Records are not used for candidates, automatic learning/training or remote services. Explicit export and separately permitted offline training preparation are described below.
+
+Open/save failures visibly pause new recording. Failed accepted writes remain in memory for explicit **Retry Saving History**; **Reopen History** retries opening, and explicit clear can recover corrupt/unsupported data. Existing corrupt/unsupported bytes remain untouched until clear. Normal termination waits for queued writes; forced termination, disk failure or quitting with unretried errors may lose unsaved records. External backups and previously deleted filesystem remnants remain outside SI's deletion controls.
+
+## User-controlled history export and training contributions
+
+**Export Input History…** opens a save panel directly and exports all saved records, including private text, personal-phrase copies and timestamps, as one unencrypted JSONL file at a user-selected destination. There is one export, without backup/training choices, training-permission fields or a receiver-tool purpose gate. Exporting does not change recording consent or send/upload anything. The owner decides whether/how to share it.
+
+The export streams a consistent snapshot, preserves repeats and exact source/output data, and includes version, record-count and SHA-256 checks. Accepted queued writes finish first; unresolved failed saves prevent incomplete export. The receiver's offline tool can restore the exact native SQLite records or prepare unreviewed candidate CSV/provenance from the same file. It does not auto-train, edit maintained sources or declare redistribution rights. A checksum detects corruption, not forgery.
+
+Exports use 0600 file permissions and atomic replacement. SI's clear/delete controls cannot delete exported files, backups or files already sent to someone else. Training contributions must be reviewed for private/unsuitable material, provenance and evaluation leakage before any explicit model training. Received exports and derived candidates are kept outside Git/public datasets; nothing is uploaded by the app or helper. See [format and receiver commands](INPUT_HISTORY_EXPORT.md).
+
+## Older archives and retired features
+
+On successful load, schema-1/2/3 app archives migrate atomically to global schema 4, dropping application identifiers and retired history fields. Equal spelling/language/output rows merge bounded usage/correction counts, use the latest usage/base metadata and retain the maximum stored strength without adding app bonuses. Schema-1/2 strengths/corrections are reset because they mixed default acceptance and deliberate corrections; schema-3 evidence is preserved. Old archives lack deliberate-selection times, so migration does not invent a first-choice override. Existing learning consent remains intact; old history consent/exclusion keys are discarded and cannot enable learning. Corrupt/unsupported files remain untouched; migration write errors pause loading. External backups and forensic remnants of previous files are outside SI's deletion controls.
+
+The former App History completion/draft feature, Return-delimited passthrough units and previous-word pair learning remain removed. New Input History does not load those archives or reuse their consent. The former shared **Personal learning** feature's archive is separate:
 
 ```text
 ~/Library/Application Support/SI/Personalization/preferences-v1.json
 ```
 
-Its old `personalization.enabled` and `personalization.contextEnabled` UserDefaults flags do not enable app vocabulary or any fallback. Shared entries have no app identity and are never copied into every app's vocabulary. Removing the feature does not automatically erase this sensitive file. If it exists, **App Vocabulary → Delete Old Shared Learning Data…** offers confirmed deletion of that file and the two retired consent flags. SI only checks file existence, without decoding its contents, and deletion happens on the storage actor. Progress and failure are shown independently of current app-data errors; a failed deletion can be retried. This operation does not alter app vocabulary or explicit personal phrases. The inactive old file has no further automatic expiry cleanup; delete it through this control when no longer needed. External backups remain outside SI's deletion controls.
+That file is never opened for ranking, imported, updated, expired or automatically deleted. Old `personalization.enabled` and `personalization.contextEnabled` flags cannot enable current learning. **Delete Old Shared Learning Data…** checks existence without decoding, then explicitly deletes only that inactive archive and its flags, with independent progress/error feedback. Current global vocabulary uses the app archive's migration and consent, rather than restoring this retired feature or its data.
 
 ## Explicit personal phrases
 
@@ -56,4 +80,4 @@ There is no app-vocabulary export/import, synchronization, remote aggregation or
 
 ## Ranking and safeguards
 
-App word preferences use the shared core ranking model: 14-day strength half-life, logarithmic bonus capped at 32 points, and application-specific whole/prefix spelling. Eligible English words and Chinese words of two or more characters can influence internal tokens; Chinese single-character preferences remain limited to their own spelling. Token and whole bonuses use their maximum rather than being added twice. This does not save decomposed sentence tokens. Personal/verbatim paths receive no bonus. Secure event input suppresses recording and app ranking; it is a conservative process-wide check, not a detector for every sensitive field. Pausing, deletion, clear and expiry also stop token effects. Enabled-language settings never grant learning consent. Preview never records.
+Global frequency rewards affect whole/prefix and eligible token ranking with a shared 32-point cap and no decay. Chinese single-character preferences remain limited to their own spelling; English words and Chinese words of at least two characters can influence matching internal tokens. Token/whole bonuses use their maximum rather than adding twice. Immediate last-choice placement requires the whole normalized spelling and does not add unbounded score or leak into pending suffixes. Personal-phrase pins keep their explicit contract. Personal/verbatim paths receive no automatic-learning bonus. Secure event input suppresses all automatic learning and learned suggestions; it is a conservative process-wide check, not a detector for every sensitive field. Disabling learning, deletion and clear also stop token effects. Existing core contextual APIs remain library fixtures and do not enable previous-word product learning.

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Immutable per-app data passed to the same engine used by input and preview.
+/// Immutable global vocabulary, suppressed entirely when learning is disabled or input is secure.
 public struct ApplicationMemorySnapshot: Equatable, Sendable {
     public static let empty = ApplicationMemorySnapshot()
     private let revision = UUID()
@@ -14,15 +14,32 @@ public struct ApplicationMemorySnapshot: Equatable, Sendable {
     public init(vocabulary: [ApplicationVocabularyEntry] = [], now: Date = .now,
                 learning: LearningProfile? = nil) {
         self.vocabulary = vocabulary
-        self.learning = learning ?? LearningProfile(entries: vocabulary.map(\.preference), now: now)
+        self.learning = learning ?? LearningProfile(entries: vocabulary.map(\.preference), now: now, retainsIndefinitely: true)
+    }
+
+    /// Exact normalized source spelling only: never promote a prefix because its remainder matches elsewhere.
+    func preferredCandidateID(for input: String, languages: Set<InputLanguage>) -> String? {
+        let english = LearningProfile.normalizedInput(input, language: .english)
+        let chinese = LearningProfile.normalizedInput(input, language: .simplifiedChinese)
+        let selected = vocabulary.lazy.filter { entry in
+            let word = entry.preference
+            return entry.lastSelected != nil && languages.contains(word.language)
+                && (word.mixed != true || languages.contains(.english))
+                && word.input == (word.language == .english ? english : chinese)
+        }.max {
+            if $0.lastSelected != $1.lastSelected { return ($0.lastSelected ?? .distantPast) < ($1.lastSelected ?? .distantPast) }
+            return $0.id > $1.id
+        }
+        guard let word = selected?.preference else { return nil }
+        return InputCandidate(text: word.text, language: word.language, score: 0, isMixed: word.mixed == true).id
     }
 
     func vocabularyCandidates(for input: String, languages: Set<InputLanguage>, now: Date) -> [InputCandidate] {
         vocabulary.sorted { $0.id < $1.id }.compactMap { entry in
             let word = entry.preference
-            // Usage-only rows must not change ranking by injecting cached completions either.
-            guard word.strength > 0, languages.contains(word.language), word.mixed != true || languages.contains(.english),
-                  now.timeIntervalSince(word.lastUsed) < Double(ApplicationMemory.vocabularyRetentionDays) * 86_400 else { return nil }
+            // A single correction is sufficient to retain a candidate even before frequency rewards accrue.
+            guard word.strength > 0 || entry.lastSelected != nil,
+                  languages.contains(word.language), word.mixed != true || languages.contains(.english) else { return nil }
             let key = LearningProfile.normalizedInput(input, language: word.language)
             guard word.input.hasPrefix(key) else { return nil }
             let exact = word.input == key
@@ -33,5 +50,4 @@ public struct ApplicationMemorySnapshot: Equatable, Sendable {
                                   isApplicationVocabulary: true)
         }
     }
-
 }

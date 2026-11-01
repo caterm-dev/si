@@ -8,28 +8,28 @@ struct ApplicationMemorySection: View {
 
     var body: some View {
         Section {
-            Toggle("Learn vocabulary separately for each app", isOn: $settings.vocabularyEnabled)
+            Toggle("Enable Personal Learning", isOn: $settings.vocabularyEnabled)
                 .disabled(settings.isLoading)
-            Text("Counts confirmed candidate uses for each app. Accepting the first candidate only updates its use count; every three choices of a later candidate add one ranking point, with decay and a 32-point cap. Turning this off returns to base ranking.")
+            Text("Shares learned vocabulary across apps. A deliberate choice of a later candidate becomes the first choice for the same spelling next time, unless a personal phrase is pinned. Frequency rewards remain capped at 32 points. Learning does not decay or expire; turning it off returns to base ranking.")
                 .font(.callout).foregroundStyle(.secondary)
             if settings.isLoading {
-                ProgressView("Opening app vocabulary…")
+                ProgressView("Opening learning data…")
             } else {
-                Text(L10n.format("Vocabulary entries: %ld", settings.memory.vocabulary.count))
+                Text(L10n.format("Learning entries: %ld", settings.memory.vocabulary.count))
                     .foregroundStyle(.secondary)
                 HStack {
-                    Button("Manage App Data…") { showsManager = true }
-                    Button("Clear All App Data…", role: .destructive) { showsClearConfirmation = true }
-                        .disabled(settings.memory.applicationIDs.isEmpty && settings.errorMessage == nil)
+                    Button("Manage Learning Data…") { showsManager = true }
+                    Button("Clear All Learning Data…", role: .destructive) { showsClearConfirmation = true }
+                        .disabled(settings.memory.vocabulary.isEmpty && settings.errorMessage == nil)
                 }
-                if settings.isSaving { ProgressView("Saving app data…").controlSize(.small) }
+                if settings.isSaving { ProgressView("Saving learning data…").controlSize(.small) }
             }
             if let error = settings.errorMessage {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
                 if settings.canRetrySaving { Button("Retry Saving") { Task { await settings.flush() } } }
             }
             if settings.hasLegacyLearningData {
-                Text("Older shared learning data is no longer used. You can delete it without affecting app vocabulary or personal phrases.")
+                Text("The legacy learning archive is no longer used. You can delete it without affecting Personal Learning or personal phrases.")
                     .font(.callout).foregroundStyle(.secondary)
                 Button("Delete Old Shared Learning Data…", role: .destructive) { showsLegacyClearConfirmation = true }
                     .disabled(settings.isRemovingLegacyData)
@@ -37,22 +37,22 @@ struct ApplicationMemorySection: View {
             }
             if let error = settings.legacyRemovalError { Text(error).foregroundStyle(.red) }
         } header: {
-            Text("App Vocabulary")
+            Text("Personal Learning")
         } footer: {
-            Text("App vocabulary is off by default and stays on this Mac. Entries expire after 90 days without use (5,000 entries total). No document or clipboard content is read. You can pause vocabulary learning for an individual app in Manage App Data.")
+            Text("Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. No document or clipboard content is read.")
         }
         .sheet(isPresented: $showsManager) { ApplicationMemoryView(settings: settings) }
-        .confirmationDialog("Clear all app vocabulary?", isPresented: $showsClearConfirmation) {
-            Button("Clear All App Data", role: .destructive) { settings.clearAll() }
+        .confirmationDialog("Clear all learning data?", isPresented: $showsClearConfirmation) {
+            Button("Clear All Learning Data", role: .destructive) { settings.clearAll() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Deletes every app’s vocabulary on this Mac. Explicit personal phrases are kept.")
+            Text("Deletes all learned vocabulary on this Mac. Explicit personal phrases are kept.")
         }
         .confirmationDialog("Delete old shared learning data?", isPresented: $showsLegacyClearConfirmation) {
             Button("Delete Old Shared Learning Data", role: .destructive) { settings.clearLegacyLearningData() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Deletes the retired Personal learning archive on this Mac. App vocabulary and explicit personal phrases are kept.")
+            Text("Deletes the legacy learning archive on this Mac. Current Personal Learning data and explicit personal phrases are kept.")
         }
     }
 }

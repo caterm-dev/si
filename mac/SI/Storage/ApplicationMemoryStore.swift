@@ -10,6 +10,18 @@ public actor ApplicationMemoryStore {
         let vocabulary: [ApplicationVocabularyEntry]
     }
 
+    private struct LegacyArchive: Decodable {
+        struct Entry: Decodable {
+            let applicationID: String
+            let preference: LearnedPreference
+            let count: Int
+            let correctionCount: Int?
+            let baseScore: Double
+            let lexicalTokenCount: Int?
+        }
+        let vocabulary: [Entry]
+    }
+
     public static let maximumFileBytes = 64 * 1_024 * 1_024
     private let url: URL
     private let legacyLearningURL: URL?
@@ -32,21 +44,29 @@ public actor ApplicationMemoryStore {
     public func load(now: Date = .now) throws -> ApplicationMemory {
         guard let data = try PrivateArchiveFile.read(url, maximumBytes: Self.maximumFileBytes) else { return ApplicationMemory() }
         let archive = try JSONDecoder().decode(Archive.self, from: data)
-        guard (1...3).contains(archive.version) else { throw StoreError.unsupportedVersion }
-        var memory = ApplicationMemory(vocabulary: archive.vocabulary, now: now)
-        if archive.version < 3 {
-            // Old strengths mixed defaults and corrections, so they cannot be reused as preference evidence.
-            memory = ApplicationMemory(vocabulary: memory.vocabulary.map { entry in
+        guard (1...4).contains(archive.version) else { throw StoreError.unsupportedVersion }
+        let entries: [ApplicationVocabularyEntry]
+        if archive.version < 4 {
+            let legacy = try JSONDecoder().decode(LegacyArchive.self, from: data)
+            entries = legacy.vocabulary.compactMap { entry in
+                guard !entry.applicationID.isEmpty, entry.applicationID.utf8.count <= 255,
+                      !entry.applicationID.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { return nil }
                 let old = entry.preference
-                let neutral = LearnedPreference(input: old.input, text: old.text, language: old.language,
-                                                strength: 0, lastUsed: old.lastUsed, isMixed: old.mixed == true)
-                return ApplicationVocabularyEntry(applicationID: entry.applicationID, preference: neutral, count: entry.count,
-                    baseScore: entry.baseScore, lexicalTokenCount: entry.lexicalTokenCount)
-            }, now: now)
+                // v1/2 mixed defaults and corrections. v3 strengths are reliable but have no selection timestamp.
+                let preference = LearnedPreference(input: old.input, text: old.text, language: old.language,
+                    strength: archive.version < 3 ? 0 : old.strength, lastUsed: old.lastUsed,
+                    isMixed: old.mixed == true, context: old.context)
+                return ApplicationVocabularyEntry(preference: preference, count: entry.count,
+                    baseScore: entry.baseScore, lexicalTokenCount: entry.lexicalTokenCount,
+                    correctionCount: archive.version < 3 ? 0 : entry.correctionCount ?? 0)
+            }
+        } else {
+            entries = archive.vocabulary
         }
-        // New writes also remove the retired history field from v1 archives.
-        // Decoding errors propagate without rewriting; migration write errors pause loading.
-        if archive.version < 3 || memory.vocabulary != archive.vocabulary { try write(memory) }
+        let memory = ApplicationMemory(vocabulary: entries, now: now)
+        // Atomically remove app scope/history, merge duplicates, and retain existing records without age expiry.
+        // Decoding errors never rewrite the original; migration write errors pause loading.
+        if archive.version < 4 || memory.vocabulary != archive.vocabulary { try write(memory) }
         return memory
     }
 
@@ -63,7 +83,7 @@ public actor ApplicationMemoryStore {
     }
 
     private func write(_ memory: ApplicationMemory) throws {
-        let data = try JSONEncoder().encode(Archive(version: 3, vocabulary: memory.vocabulary))
+        let data = try JSONEncoder().encode(Archive(version: 4, vocabulary: memory.vocabulary))
         try PrivateArchiveFile.write(data, to: url, maximumBytes: Self.maximumFileBytes)
     }
 }

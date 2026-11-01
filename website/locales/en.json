@@ -86,7 +86,7 @@
   "privacyPoint1Title": "Your input stays on-device.",
   "privacyPoint1Body": "No cloud inference, analytics, or keystroke logging. No account needed to type.",
   "privacyPoint2Title": "Memory is your choice.",
-  "privacyPoint2Body": "App vocabulary is an optional local feature, off by default. You can inspect, pause, or delete saved app vocabulary. App History has been removed.",
+  "privacyPoint2Body": "Personal Learning and Input History are independent local opt-ins, off by default. Learning is shared across apps; history can keep every SI submission indefinitely, with viewing and deletion controls.",
   "privacyPoint3Title": "Updates, when you ask.",
   "privacyPoint3Body": "Only a manual update check contacts the download service. It sends no typed content or personal phrases.",
   "privacyCta": "Read the privacy policy ↗",

@@ -55,7 +55,6 @@ struct PrefixLearningTests {
 
     @Test func appVocabularyKeepsUsageAndConsumedPrefixLearningSeparate() throws {
         let engine = CandidateEngine()
-        let app = "org.example.synthetic-editor"
         let character = try #require(engine.candidates(for: "shi", languages: [.simplifiedChinese])
             .first { $0.text == "是" && !$0.isPartial })
         let phrase = try #require(engine.candidates(for: "shizenme", languages: [.simplifiedChinese])
@@ -63,14 +62,14 @@ struct PrefixLearningTests {
         var memory = ApplicationMemory()
         for _ in 0..<5 {
             let recorded = memory.recordVocabulary(InputCommit(input: "shi", candidate: character, reason: .defaultAcceptance),
-                                                    applicationID: app, now: now)
+                                                    now: now)
             #expect(recorded)
         }
         let recorded = memory.recordVocabulary(InputCommit(input: "shizenme", candidate: phrase, reason: .defaultAcceptance),
-                                                applicationID: app, now: now)
+                                                now: now)
         #expect(recorded)
         let saved = memory.vocabulary
-        let snapshot = memory.snapshot(applicationID: app, vocabularyEnabled: true, now: now)
+        let snapshot = memory.snapshot(vocabularyEnabled: true, now: now)
         for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             var session = InputSession(engine: engine, candidateGeneration: .deferred)
             session.configure(languages: languages, learning: snapshot.learning, applicationMemory: snapshot)
@@ -90,7 +89,7 @@ struct PrefixLearningTests {
 
         // Repeated default acceptance records usage without adding ranking strength.
         memory.removeVocabulary(id: try #require(saved.first { $0.preference.input == "shizenme" }?.id))
-        let prefixOnly = memory.snapshot(applicationID: app, vocabularyEnabled: true, now: now)
+        let prefixOnly = memory.snapshot(vocabularyEnabled: true, now: now)
         let candidates = engine.candidates(for: "shizenme", languages: [.simplifiedChinese],
                                            learning: prefixOnly.learning, now: now, applicationMemory: prefixOnly)
         #expect(candidates.contains { $0.id == phrase.id })
@@ -98,9 +97,9 @@ struct PrefixLearningTests {
         // Explicit corrections add a bonus only for the consumed prefix spelling.
         for _ in 0..<72 {
             memory.recordVocabulary(InputCommit(input: "shi", candidate: prefix, reason: .explicitSelection),
-                                    applicationID: app, now: now)
+                                    now: now)
         }
-        let corrected = memory.snapshot(applicationID: app, vocabularyEnabled: true, now: now)
+        let corrected = memory.snapshot(vocabularyEnabled: true, now: now)
         let ranked = engine.candidates(for: "shizenme", languages: [.simplifiedChinese],
                                        learning: corrected.learning, now: now, applicationMemory: corrected)
         #expect(ranked.first?.id == prefix.id)

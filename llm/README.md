@@ -32,7 +32,7 @@ Public raw and cleaned text stays in the separate [corpus workspace](../corpus/R
 The small reranker's explicit preparation command freezes selected cleaned whole
 documents and token arrays in its own ignored dataset directory. No training stage
 starts automatically. Models retain actual selected corpus provenance and licenses.
-Personal phrases, app vocabulary and typing history are not model inputs.
+Live personal phrases, learning archives and typing history are not model inputs. A user may explicitly export and voluntarily share history as one ordinary JSONL file; the separate [receiver workflow](../docs/INPUT_HISTORY_EXPORT.md) validates/restores it and prepares private, unsplit, unreviewed CSV candidates. That workflow does not append to current datasets or start training. Review rights/private content, correct labels and grouped split separation before any explicit use.
 
 Git retains model code, scripts, configurations, dependency pins, authored static
 training CSVs and frozen benchmark fixtures. Static CSVs are source inputs, not
