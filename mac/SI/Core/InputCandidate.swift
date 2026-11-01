@@ -4,12 +4,9 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let score: Int
     /// Base lexical score for the spelling this candidate actually consumes.
     public let rankingScore: Double
-    /// Request-local score for handling the exact unconsumed spelling after a prefix confirmation.
-    /// Kept separate from the word score so it cannot be persisted as a learned word frequency.
-    public private(set) var remainingInputScore = 0.0
-    /// Full-input comparison score before preferences; complete candidates keep their base score.
-    public var inputScore: Double { rankingScore + remainingInputScore }
-    var wordContext: CandidateWordContext?
+    /// Lexical score before learning and the consumed-input coverage reward.
+    public var inputScore: Double { rankingScore }
+    var languageBoundary: CandidateLanguageBoundary?
     var sourceTrace: CandidateSourceTrace?
     /// Runtime provenance for generated Chinese sentence alternatives.
     private(set) var isChineseSentence = false
@@ -18,9 +15,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let isMixed: Bool
     public let isUserPhrase: Bool
     public let isApplicationVocabulary: Bool
-    public let isHistory: Bool
-    /// Original uncommitted source spelling of a history completion; never a document range.
-    public let historyInput: String?
     /// Language of an explicitly selectable punctuation variant, independent of its word prefix.
     public let punctuationLanguage: InputLanguage?
     /// Explicit punctuation presentation/acceptance metadata, including its exact literal fallback.
@@ -36,19 +30,19 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
 
     // Language is part of identity: matching text from two languages remains visible.
     public let id: String
-    public var isLiteral: Bool { language == nil && !isHistory }
+    public var isLiteral: Bool { language == nil }
     public var isPartial: Bool { consumedInputCount != nil }
     public var isLexicalPrefix: Bool { isPartial && lexicalTokenCount == 1 && !hasCompletion && !hasLiteralSegments }
-    public var canLearn: Bool { !isLiteral && !isUserPhrase && !isHistory && !hasLiteralSegments && punctuationLanguage == nil }
+    public var canLearn: Bool { !isLiteral && !isUserPhrase && !hasLiteralSegments && punctuationLanguage == nil }
     public var label: String {
         let languageLabel = punctuationLanguage.map { $0 == .english ? "English Punctuation" : "Chinese Punctuation" }
             ?? (isMixed ? (hasLiteralSegments ? "Chinese + As Typed" : "Chinese + English") : language?.displayName ?? "As Typed")
-        let source = isHistory ? "App History" : isApplicationVocabulary ? "App Vocabulary · \(languageLabel)"
+        let source = isApplicationVocabulary ? "App Vocabulary · \(languageLabel)"
             : isUserPhrase ? "Personal · \(languageLabel)" : languageLabel
         return consumedInputCount.map { "First \($0) characters · \(source)" } ?? source
     }
     public var appendsSpaceOnAcceptance: Bool {
-        !isHistory && !isPunctuation
+        !isPunctuation
             && (isLiteral || language == .english || (isMixed && text.last?.isASCII == true))
     }
 
@@ -56,7 +50,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
                 hasLiteralSegments: Bool = false, consumedInputCount: Int? = nil, rankingScore: Double? = nil,
                 hasCompletion: Bool = false, tokenLearningBonus: Double = 0, isPreferred: Bool = false,
                 lexicalTokenCount: Int? = nil, confirmationBoundaries: [ConfirmationBoundary] = [],
-                isApplicationVocabulary: Bool = false, isHistory: Bool = false, historyInput: String? = nil,
+                isApplicationVocabulary: Bool = false,
                 punctuationLanguage: InputLanguage? = nil, isPunctuation: Bool = false) {
         self.text = text
         self.language = language
@@ -66,11 +60,9 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
             ? min(32, max(0, tokenLearningBonus)) : 0
         self.isMixed = isMixed && language != nil
         self.isUserPhrase = isUserPhrase && language != nil
-        self.isApplicationVocabulary = isApplicationVocabulary && language != nil && !isHistory
-        self.isHistory = isHistory
-        self.historyInput = isHistory ? historyInput : nil
+        self.isApplicationVocabulary = isApplicationVocabulary && language != nil
         self.punctuationLanguage = language == nil ? nil : punctuationLanguage
-        self.isPunctuation = self.punctuationLanguage != nil || (language == nil && !isHistory && isPunctuation)
+        self.isPunctuation = self.punctuationLanguage != nil || (language == nil && isPunctuation)
         self.isPreferred = isPreferred && self.isUserPhrase && consumedInputCount == nil && !hasCompletion
         self.hasLiteralSegments = hasLiteralSegments
         self.hasCompletion = hasCompletion
@@ -81,7 +73,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         let base = "\(isMixed && language != nil ? "zh-Hans+en" : language?.rawValue ?? "literal"):\(text)"
         let punctuated = self.punctuationLanguage.map { "punctuation:\($0.rawValue):\(base)" } ?? base
         let identity = consumedInputCount.map { "prefix\($0):\(punctuated)" } ?? punctuated
-        id = isHistory ? "history:\(identity)" : identity
+        id = identity
     }
 
     /// A stronger composed derivation must not erase evidence that the same output is one lexical unit.
@@ -93,17 +85,13 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     func withChineseSentenceOrigin() -> Self {
         var result = self
         result.isChineseSentence = language == .simplifiedChinese && !isMixed && !isPartial
-            && !isUserPhrase && !hasLiteralSegments && !isHistory && punctuationLanguage == nil
+            && !isUserPhrase && !hasLiteralSegments && punctuationLanguage == nil
         return result
     }
 
-    mutating func accountForRemainingInput(score: Double) {
-        remainingInputScore = isPartial && score.isFinite ? score : 0
-    }
-
-    func withWordContext(_ context: CandidateWordContext) -> Self {
+    func withLanguageBoundary(_ context: CandidateLanguageBoundary) -> Self {
         var result = self
-        result.wordContext = context
+        result.languageBoundary = context
         return result
     }
 
@@ -116,11 +104,9 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     func hasSameCommitValue(as other: Self) -> Bool {
         var left = self
         var right = other
-        // Request-local lookahead must not invalidate an otherwise identical decoder candidate.
-        left.remainingInputScore = 0
-        right.remainingInputScore = 0
-        left.wordContext = nil
-        right.wordContext = nil
+        // Transient decoder evidence does not change the committed value.
+        left.languageBoundary = nil
+        right.languageBoundary = nil
         left.sourceTrace = nil
         right.sourceTrace = nil
         left.isChineseSentence = false

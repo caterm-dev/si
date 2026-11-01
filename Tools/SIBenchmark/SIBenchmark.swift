@@ -179,7 +179,7 @@ enum SIBenchmark {
     private static func fingerprint(_ candidates: [InputCandidate]) -> String {
         var value: UInt64 = 14_695_981_039_346_656_037
         for candidate in candidates {
-            let fields = [candidate.id, String(candidate.score), String(candidate.rankingScore.bitPattern), String(candidate.remainingInputScore.bitPattern),
+            let fields = [candidate.id, String(candidate.score), String(candidate.rankingScore.bitPattern),
                           String(candidate.isMixed), String(candidate.isUserPhrase), String(candidate.hasLiteralSegments),
                           String(candidate.hasCompletion), String(candidate.consumedInputCount ?? -1)]
             for field in fields {

@@ -25,7 +25,7 @@ struct LanguageSettingsTests {
         settings.setPassthrough(false, for: terminal)
         #expect(!LanguageSettings(defaults: defaults).usesPassthrough(in: terminal))
         let appMemory = ApplicationMemorySettings(defaults: defaults, isPreview: true)
-        #expect(!appMemory.vocabularyEnabled && !appMemory.historyEnabled)
+        #expect(!appMemory.vocabularyEnabled)
     }
 
     @Test func directInputChangesInvalidateConfigurationWithoutChangingLanguagePreferences() throws {
@@ -65,7 +65,7 @@ struct LanguageSettingsTests {
         settings.punctuationCandidatesEnabled = false
         #expect(!LanguageSettings(defaults: defaults).punctuationCandidatesEnabled)
         let appMemory = ApplicationMemorySettings(defaults: defaults, isPreview: true)
-        #expect(!appMemory.vocabularyEnabled && !appMemory.historyEnabled)
+        #expect(!appMemory.vocabularyEnabled)
     }
 
     @Test func automaticConfirmationIsOptInAndPersistsWithoutEnablingLearning() throws {
@@ -82,7 +82,7 @@ struct LanguageSettingsTests {
         let restarted = LanguageSettings(defaults: defaults)
         #expect(restarted.automaticConfirmationEnabled)
         let appMemory = ApplicationMemorySettings(defaults: defaults, isPreview: true)
-        #expect(!appMemory.vocabularyEnabled && !appMemory.historyEnabled)
+        #expect(!appMemory.vocabularyEnabled)
     }
 
     @Test func punctuationChoicePersistsIndependentlyOfEnabledLanguages() throws {

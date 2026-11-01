@@ -19,6 +19,8 @@ enum RankingQuality {
         let wholeTopFive: [String]
         let bestWholeInputScore: Double?
         let bestPrefixInputScore: Double?
+        let bestWholePresentationScore: Double?
+        let bestPrefixPresentationScore: Double?
         let characterErrors: Int
     }
     struct ExampleRecord: Encodable {
@@ -74,6 +76,8 @@ enum RankingQuality {
                                   wholeTopFive: Array(whole.prefix(5).map(\.text)),
                                   bestWholeInputScore: whole.first?.inputScore,
                                   bestPrefixInputScore: engineCandidates.filter(\.isPartial).map(\.inputScore).max(),
+                                  bestWholePresentationScore: whole.map { session.presentationScore(for: $0) }.max(),
+                                  bestPrefixPresentationScore: engineCandidates.filter(\.isPartial).map { session.presentationScore(for: $0) }.max(),
                                   characterErrors: distance(candidates.first?.text ?? "", example.expected)))
         }
         let partitions = Dictionary(grouping: results) { $0.example.category.hasPrefix("holdout-") ? "historical-holdout"
@@ -81,7 +85,7 @@ enum RankingQuality {
             .mapValues { rows in Metrics(examples: rows.count, topOne: rows.count { $0.rank == 1 },
                                         topFive: rows.count { ($0.rank ?? .max) <= 5 }, recall: rows.count { $0.engineRank != nil },
                                         previewTopFive: rows.count { ($0.previewRank ?? .max) <= 5 }) }
-        let report = Report(model: "SI shared-cost engine; actual ordered 27-choice window including prefixes", examples: results.count,
+        let report = Report(model: "SI lexical/preferences + matched-input coverage; actual ranked window including prefixes", examples: results.count,
                             topOne: results.count { $0.rank == 1 }, topFive: results.count { ($0.rank ?? .max) <= 5 },
                             engineRecall: results.count { $0.engineRank != nil },
                             previewTopFive: results.count { ($0.previewRank ?? .max) <= 5 },

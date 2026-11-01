@@ -1,6 +1,8 @@
 SI English vocabulary notices
 
-Generated from Data/English/sources.json. Local processing; no user input is included.
+Retained bootstrap attribution; source metadata is in Data/Vocabulary/meta.json.
+SI now maintains the migrated vocabulary in category CSVs; old source wordlists
+and import tools have been removed. No user input is included.
 
 scowl
 Origin: https://github.com/en-wl/wordlist

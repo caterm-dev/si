@@ -439,7 +439,8 @@ def package(args, root, version, output):
             run(["codesign", "--verify", "--deep", "--strict", app], args.dry_run)
             run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, update_archive], args.dry_run)
         build_installer(args, root, work, contents, version)
-        run(["hdiutil", "create", "-volname", "SI", "-srcfolder", contents,
+        # APFS source-folder sizing can leave too little room for the installer.
+        run(["hdiutil", "create", "-fs", "HFS+", "-volname", "SI", "-srcfolder", contents,
              "-format", "UDZO", image], args.dry_run)
         if args.sign:
             run(["codesign", "--sign", args.sign, "--timestamp", image], args.dry_run)

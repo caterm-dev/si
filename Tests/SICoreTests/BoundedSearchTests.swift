@@ -40,9 +40,9 @@ struct BoundedSearchTests {
                 words.map { word in
                     let language = path.text.isEmpty ? 1.0 : -log2(1 - RankingCalibration.switchProbability)
                     // Injected compatibility scores become integer dictionary weights;
-                    // current Chinese scoring uses a fixed 22-nat character prior.
+                    // Current Chinese scoring uses a 20 + 2 nat character prior.
                     let weight = Double(Int64(exp2(Double(word.score) / 10)))
-                    let cost = (22 - log(weight)) / log(2.0) + log2(16.5 / 16)
+                    let cost = (22 - 1.05 * log(weight)) / log(2.0) + log2(16.5 / 16)
                     return (path.text + word.text, path.cost + cost + language)
                 }
             }

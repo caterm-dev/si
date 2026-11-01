@@ -8,14 +8,14 @@ struct PartialCommitTests {
         var profile = LearningProfile()
         let you = InputCandidate(text: "你", language: .simplifiedChinese, score: 100)
         for _ in 0..<100 { profile.record(InputCommit(input: "ni", candidate: you, reason: .explicitSelection), now: now) }
-        let candidates = CandidateEngine().candidates(for: "nihaopengyou", languages: [.simplifiedChinese], learning: profile, now: now)
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.simplifiedChinese], learning: profile, now: now)
+        session.append("nihaopengyou", now: now)
+        let candidates = session.pendingCandidateRequest!.generate().candidates
         #expect(candidates.contains { $0.text == "你好朋友" && !$0.isPartial })
         let ranked = candidates.dropLast()
         for (left, right) in zip(ranked, ranked.dropFirst()) {
-            let leftInput = left.consumedInputCount.map { String("nihaopengyou".prefix($0)) } ?? "nihaopengyou"
-            let rightInput = right.consumedInputCount.map { String("nihaopengyou".prefix($0)) } ?? "nihaopengyou"
-            #expect(profile.rankingScore(for: left, input: leftInput, now: now, context: nil)
-                >= profile.rankingScore(for: right, input: rightInput, now: now, context: nil))
+            #expect(session.presentationScore(for: left, now: now) >= session.presentationScore(for: right, now: now))
         }
     }
 

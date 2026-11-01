@@ -1,68 +1,48 @@
-# Chinese dictionary maintenance
+# Chinese vocabulary maintenance
 
-SI maintains one Chinese dictionary family: the [MSIME-derived sources](../Data/Chinese/MSIME/README.md). The former direct Rime Chinese selection and original SI tables have been removed. [English maintenance](ENGLISH_VOCABULARY.md) now uses the same weighted-snapshot, SI-overlay and SQLite contract. Both share the schema and fixed dictionary-relative weight unit defined in `Data/DictionaryFormat.json`; retained Chinese entries keep their upstream weights. MSIME's own upstream Rime Ice / rime-wanxiang attribution remains required; using one maintained source does not erase its underlying provenance.
+The current [base.csv](../Data/Vocabulary/chinese/base.csv) is converted from pinned Wanxiang `zi.dict.yaml`, `jichu.dict.yaml` and `duoyin.dict.yaml`. It contains 1,547,554 text/toneless-reading pairs, initially preserving upstream integer weights, with [documented SI editorial adjustments](../Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments). Tone marks are removed from readings, ü becomes `v`, and tone-collapsed duplicate identities retain the maximum source weight. Output text is not normalized. The [import guide](../Data/Vocabulary/Wanxiang/README.md) contains the source lock, CC BY 4.0 data licensing, exact transformations and reproduction/update workflow.
 
-## Source and runtime files
+The seven remaining local nonbase category CSVs retain their text/readings with all weights set to 10. Base owns overlapping weights, including lower or zero weights; categories add missing identities, with maximum-weight merging among nonbase duplicates. Existing movie/domain catalogs and source attribution remain intact. The requested `炼仙丹` now exists in the Wanxiang base with source weight 333, replacing the former SI-authored base weight of 2,916.
 
-| Path | Role |
-| --- | --- |
-| `Data/Chinese/MSIME/sources/*.gz` | Byte-preserving compressed snapshots of the five pinned MSIME lexical inputs |
-| `Data/Chinese/MSIME/sources.lock.json` | Engine/dictionary revisions, source sizes and checksums |
-| `Data/Chinese/MSIME/reading-corrections.tsv` | Pinned upstream reading corrections |
-| `Data/Chinese/MSIME/si-entries.json` | SI-maintained public additions, exclusions and weight corrections |
-| `mac/SI/Core/Resources/Chinese/si-pinyin.sqlite` | Generated runtime words, explicit readings, weights, initials and lookup indexes |
-| `mac/SI/Core/Resources/Chinese/dictionary-manifest.json` | Build provenance, count and generated database checksum |
-| `Data/Chinese/MSIME/resources.lock.json` | Independently pinned MSIME word-context artifacts and corpus attribution |
+Ten other normal upstream dictionaries remain separate categories named after the upstream files, containing 602,516 rows; see the import guide for names and per-file counts. Their weights take precedence over legacy category copies absent from base. The merged Chinese database has 2,141,202 entries.
 
-The SQLite file is a compiled dictionary containing both data and indexes. It is not the editable source or an index pointing back into source text files. App and package use the same read-only database; no source parsing, regeneration or downloads occur on a keystroke.
-
-The retained inputs produce 953,710 unique text/reading entries before the SI overlay. The overlay excludes 85 readings of 70 private-use characters, leaving 953,625 entries. These zero-weight source entries require nonstandard font mappings; ordinary Unicode Han characters, including extension-block characters, remain available. The pinned source snapshots are preserved for provenance and reproducible builds. Different explicit pronunciations remain distinct. This count is not a quality or coverage measure. MSIME bigram/trigram tables remain part of the same dictionary family; they supply context scores rather than replacement word lists.
-
-## Make a public correction
-
-Edit `Data/Chinese/MSIME/si-entries.json`, then rebuild. Each entry requires nonempty `text`, apostrophe-separated lowercase `reading`, a `reason`, and either a nonnegative signed-64-bit integer `weight` or `exclude: true`. Duplicate text/reading pairs, unsupported fields, control characters and conflicting weight/exclusion fields are rejected.
-
-Synthetic format examples, not proposed dictionary changes:
-
-```json
-[
-  {"text": "示例", "reading": "shi'li", "weight": 100, "reason": "Synthetic format example"},
-  {"text": "示例", "reading": "shi'lie", "exclude": true, "reason": "Synthetic wrong-reading exclusion"}
-]
-```
-
-The builder imports checksum-verified snapshots, merges duplicate text/readings using upstream weight/row-order policy, applies pinned reading corrections, then applies the SI overlay. It stores the resulting data and key/initial indexes. Do not edit the SQLite file or imported snapshots to make lasting local corrections. Weights are model inputs, not measured probabilities or guaranteed candidate positions.
-
-## Build and check
-
-Run from the repository root:
+The old MSIME-derived base is replaced. Historical source records and licenses remain for retained category data and attribution. The shared runtime contract is `si-wanxiang-weight-v1`, reference mass one and unknown weight one; no wordfreq conversion or frequency rescaling is applied. These are source ranking weights, not measured occurrence counts or normalized probabilities.
 
 ```sh
-python3 scripts/msime_dictionary.py build
+python3 scripts/wanxiang_dictionary.py fetch
+python3 scripts/wanxiang_dictionary.py convert
+python3 scripts/wanxiang_dictionary.py convert --check
+python3 scripts/csv_dictionary.py build
+python3 scripts/csv_dictionary.py build --check
 python3 scripts/msime_dictionary.py build --check
-python3 scripts/english_dictionary.py build --check
-python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 ./scripts/test.sh
 ./scripts/build.sh
 ```
 
-`build` works offline from retained sources. `build --check` rebuilds into a temporary file, checks schema, row order, data, indexes and the retained database hash/manifest, verifies context sizes/hashes, and leaves packaged outputs unchanged. Equivalent databases from another SQLite version are accepted even when header or page bytes differ; source/overlay checks and retained binary hashes must still agree. A source or overlay error must not replace the existing dictionary. The Python fixtures check ties, duplicate merging, overlay exclusions/additions, invalid edits, reproducibility and preservation on failure. Full core/quality failures remain visible; removing old data does not establish MSIME conversion parity.
+Only `fetch` downloads source data. Conversion replaces both bases and imported categories offline; normal CSV builds do not reimport them. Reimport overwrites manual base edits; keep additional SI vocabulary in separate categories. See [the CSV contract](../Data/Vocabulary/README.md) for editing and duplicate precedence.
 
-## Adopt upstream changes
+The preserved local categories came from an earlier broad heuristic grouping of the MSIME-derived collection. That grouping was not exhaustive semantic annotation and does not classify the current Wanxiang base. New upstream classifications remain separate; no automatic semantic classifier runs during builds. Base owns overlaps, imported Wanxiang categories take precedence over legacy copies absent from base, and duplicates within each tier use maximum weight. New category files are discovered automatically without provider registration or Settings changes. Output text remains byte-preserving and row IDs follow content order.
 
-Review the new revisions, data changes and notices first. Snapshot adoption is explicit:
+See [the CSV contract and category workflow](../Data/Vocabulary/README.md) for columns, validation, ties, weights and provenance. [English](ENGLISH_VOCABULARY.md) uses the same compiler and SQLite schema. Source-level provenance is indexed once in [meta.json](../Data/Vocabulary/meta.json); source versions and input hashes are inline there, while full licenses and attribution remain under [Data/Chinese/MSIME](../Data/Chinese/MSIME/README.md). MSIME's underlying Rime Ice / rime-wanxiang attribution still applies. Moving data into SI CSV does not erase those obligations.
 
 ```sh
-python3 scripts/msime_dictionary.py snapshot --dictionary /path/to/msime-dictionary --engine /path/to/msime
-python3 scripts/msime_dictionary.py build
+python3 scripts/csv_dictionary.py build
+python3 scripts/csv_dictionary.py build --check
 python3 scripts/msime_dictionary.py build --check
-# Only when the pinned context artifacts are intentionally needed:
+python3 -m unittest discover -s Tests/VocabularyTests -v
+./scripts/test.sh
+./scripts/build.sh
+```
+
+The first two commands compile/check both languages offline. The Chinese compatibility command compiles the Chinese CSV collection and also verifies the pinned context-table sizes/hashes. Runtime SQLite files contain data and lookup indexes, not references back into CSV. App and package share the same resources; no import or download occurs while typing.
+
+Historical word-context tables, archived outside App resources under `Data/Chinese/MSIME/artifacts/`, are independently pinned in `Data/Chinese/MSIME/resources.lock.json`. They are not regenerated when words change and are not loaded by the App. Runtime scoring uses dictionary, spelling and language-transition costs. Fetching these existing pinned tables remains an explicit maintainer action:
+
+```sh
 python3 scripts/msime_dictionary.py fetch-context
 ```
 
-Review `sources.lock.json`, the independently retained upstream/license/review records and generated manifest together when adopting revisions. Context releases have a separate pin; updating lexical sources does not automatically regenerate or upgrade context tables. New words use unigram backoff where context entries are absent. Keep all required notices with distributed data; see [the retained attribution](../Data/Chinese/MSIME/README.md#attribution) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+`python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json` reads the recorded MSIME revisions from `meta.json` and compares them with upstream without adopting changes. Any upstream update must be reviewed, licensed and deliberately integrated into the maintained CSVs. This audit does not adopt lexical updates. Wanxiang adoption uses its separate explicit fetch/convert workflow; context adoption remains separate.
 
-Run `python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json` manually to check MSIME engine/dictionary revision metadata and retained-file consistency and produce a read-only comparison report. Check English sources separately with `./scripts/vocabulary.sh audit`. Audits do not adopt updates automatically; no scheduled vocabulary workflow remains.
-
-Private personal phrases and opt-in aggregate learning remain separate, with their existing retention/deletion controls. Maintenance tools never inspect those archives.
+Private phrases and opt-in app vocabulary retain their own consent, retention and deletion controls. These maintenance commands never read user archives. Automated resource checks do not establish input quality or native host compatibility; see [testing](TESTING.md).

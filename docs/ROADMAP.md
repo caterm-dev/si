@@ -6,16 +6,19 @@ SI is currently a development preview. Checked items have implementations; unche
 
 The current worktree replaces the historical Chinese/mixed decoder with a Swift MSIME adaptation and an SI-maintained dictionary. Full/prefix/initial lookup, spelling aliases, word-lattice search and word bigram/trigram ranking are written. The user authorized validation on October 22. Builds pass, while full regressions and Chinese quality remain unresolved; live host checks remain unverified. MSIME quality parity is unproven; optional general typo paths and neural reranking remain incomplete. Bounded complete-Pinyin/English lexical paths are connected, including `woxiangyaodeploy`; mixed initials and Chinese-tail completion remain incomplete. The checked historical Chinese/mixed milestones below describe the previous implementation, not verification of this migration. See [the implementation plan](IMPLEMENTATION_PLAN.md) and [algorithm study](MSIME_ALGORITHM.md).
 
-The October 22 dictionary consolidation removes old Chinese sources and their maintenance adapter. English now has the same maintained weighted snapshots, public SI overlay, SQLite schema and relative-frequency weight unit as Chinese. Original English import provenance and functionality are retained; complete-candidate calibration remains separate work. Mixed lexical integration now queries those same dictionaries.
+The October 22 dictionary consolidation removes old Chinese sources and their maintenance adapter. English shares the Chinese SQLite schema. The October 29 Wanxiang replacement supersedes the former relative-frequency weight unit with raw upstream ranking weights. The October 27 source migration places both effective dictionaries in SI-maintained `base.csv` files, supports additional category CSVs and centralizes source-level provenance in `Data/Vocabulary/meta.json`; source-level metadata and notices remain attribution records, while superseded wordlists/import pipelines are deleted. Original English import provenance and functionality are retained; complete-candidate calibration remains separate work. Mixed lexical integration now queries those same dictionaries.
 
 ## Foundation — included
 
 - [x] One InputMethodKit input source without internal language modes.
 - [x] Persistent English and Simplified Chinese language preferences.
 - [x] Unified candidate engine with ambiguity preservation and literal fallback.
-- [x] Offline MSIME Chinese dictionary with pinned provenance and a public SI correction overlay.
-- [x] Shared Chinese/English SQLite dictionary format, fixed relative-frequency weight unit, pinned weighted snapshots and SI-owned public overlays.
-- [x] Multi-source English import provenance, pinned imports, source tracing and scheduled upstream audits.
+- [x] Pinned Wanxiang Chinese/English bases and normal Chinese category dictionaries, with an offline converter and preserved local category data.
+- [x] Shared Chinese/English category CSV compiler, base categories, source-level metadata, SQLite format and versioned upstream-weight weight unit.
+- [x] Conservatively group existing Chinese vocabulary into base plus geography, organizations, technology, science, medicine, culture/sports, movie and game without changing effective rows or weights.
+- [x] Curate paired Chinese/English titles for 400 selected films from 2007–2026, preserving older movie vocabulary and adding English title typing keys.
+- [ ] Further semantic review, finer categories and broader film coverage beyond the initial movie selection.
+- [x] Multi-source English bootstrap provenance retained inline in metadata, with source versions, filtering and full attribution; superseded import data/tools removed.
 - [x] Selected annotated Rime Ice Chinese character/base vocabulary, preserved SI entries, explicit weighting, local overrides and shared upstream audits.
 - [x] Native marked text, candidate presentation, and commit/cancel integration.
 - [x] English and Simplified Chinese app interface, following macOS app-language preferences independently of input languages.
@@ -29,14 +32,15 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] English vocabulary, capitalization, completion, and correction improvements.
 - [x] Continuous mixed composition of known English words and Chinese readings.
 - [x] Continuous English lexical segmentation with spaced word candidates, preserved casing, and final-word completion.
+- [ ] Integrate large-model conversion with local inference, bounded candidate generation, exact literal fallback and independent quality/host verification.
 - [x] Incomplete final mixed-word prediction and bounded preservation of unrecognized spans.
 - [ ] Broader unknown-word/language-boundary detection beyond bounded lexical heuristics.
-- [x] Opt-in app-scoped frequency/recency learning with pause, per-entry deletion, clear, expiry, and bounded persistence.
-- [x] Independently opted-in app vocabulary and Return-delimited history completion, local bounded storage, per-app pause and scoped deletion.
-- [ ] Native app-vocabulary/history verification, including WeChat, editors, Terminal, focus changes, keyboard/mouse selection and accessibility.
+- [x] Opt-in app-scoped learning with separate usage/correction counts, neutral first choices, gradual nonfirst-choice rewards, pause, deletion, clear, expiry and bounded persistence.
+- [x] Remove App History recording/completion and migrate app archives to vocabulary-only schema 3 while preserving vocabulary/usage counts and resetting old mixed ranking evidence.
+- [ ] Native app-vocabulary verification, including WeChat, editors, Terminal, focus changes, keyboard/mouse selection and accessibility.
 - [x] Existing single-language preferences influence internal tokens with bounded, length-weighted scoring and a separate base beam.
-- [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, with retained Chinese word-context tables.
-- [x] Full-input prefix comparison with bounded continuation projection, exact source/output alignment, explicit confirmation cost and actual-shortlist quality reporting.
+- [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, without corpus context; former MSNG tables are archived outside the App.
+- [x] Consumed-spelling-only prefix ranking with a shared matched-input coverage reward, no suffix conversion estimate, learning discount or extra confirmation cost; exact prefix commits and four leading hypotheses followed by word choices in the window.
 - [ ] Broader cross-language quality calibration against representative input.
 - [x] Language-specific word/syllable spelling channels and bounded full-spelling search protection.
 - [ ] Broader sentence-level context scoring and representative independent input-quality evaluation.
@@ -74,9 +78,11 @@ Remote inference and keystroke telemetry are not part of the current design. Any
 
 ## Offline model experiments
 
-- [x] Independent from-scratch 0.403B encoder–decoder framework with training/resume, train-only tokenizer, evaluation/comparison and inference export.
+- [x] Independent 7.4M causal character-LM baseline with whole-document corpus preparation, train-only vocabulary, grouped splits, strict resume, held-out token-loss and fixed-pool candidate evaluation, plus inference-only export.
+- [ ] Formal small-reranker training, independent ranking-quality evidence, hard-negative fine-tuning, quantization and native integration.
+- [x] Independent from-scratch encoder-decoder framework with training/resume, train-only tokenizer, evaluation/comparison and inference export; 19.7M Pinyin character/word defaults with the earlier 0.403B experiment retained separately.
 - [x] Maintained static CSV groups under explicit train/validation/test directories, source snapshots/checksums, duplicate/leakage validation and no dynamic generation.
-- [x] Small CPU workflow and regression coverage, including learned conversion, exact resume and MPS numerical mask checks.
+- [x] Tiny CPU workflow and regression coverage, including learned conversion, exact resume, MPS numerical masks and nonzero-dropout checkpoint RNG/gradient checks; bounded 19.7M memorization check.
 - [x] Removal of obsolete generated data, seed/generator/importer code, configs and their test artifacts; existing trained weights retained for inference.
 - [ ] Representative licensed training corpus and independent real-error evaluation.
 - [ ] Full training and measured conversion/latency/memory quality.
@@ -86,4 +92,4 @@ See [the experiment framework](../llm/README.md). The data/tooling and small-mod
 
 ## Retired options
 
-The separate global Personal learning and previous-word pair UI/storage feature was removed on October 23, 2026 in favor of app vocabulary and app history. Core frequency/context ranking primitives remain for reuse and fixtures; the app enables no shared-profile fallback or previous-word learning. Old shared files are left inactive until explicitly deleted through Settings.
+The separate global Personal learning and previous-word pair UI/storage feature was removed on October 23, 2026 in favor of app-scoped vocabulary (App History was subsequently removed on October 27, 2026). Core frequency/context ranking primitives remain for reuse and fixtures; the app enables no shared-profile fallback or previous-word learning. Old shared files are left inactive until explicitly deleted through Settings.

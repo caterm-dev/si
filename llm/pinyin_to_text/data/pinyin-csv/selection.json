@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "source_csv_sha256": {
+    "llm/data/csv/train/words.csv": "7477f98b7e8affd7e39da9a46ea1cd5bfff23ca857b917f9d54dbdea7943a698",
+    "llm/data/csv/train/city.csv": "780b64659e78bdfe3a1136a544c903099308d264742b82cb3e585794e954e4bf",
+    "llm/data/csv/train/company.csv": "cdabed2381cbdf2380922fc40744070addb85d423df45c6096ae44419373b885",
+    "llm/data/csv/validation/words.csv": "30a21c35569a7717fa98576f0094479d8cb414fc022195ca09500983860c0369",
+    "llm/data/csv/validation/city.csv": "7ca8b47d0b8aa01eb04fffaad131d6b5e55ec6cf3fbf034e5f9130013cc9eaee",
+    "llm/data/csv/validation/company.csv": "8624fdd456ecbe4c841a3714433630d261ed8d1ae5035f48ef457b4faf065e28",
+    "llm/data/csv/test/words.csv": "c998367ffa61abaa4be65ea9728f679529b480f17d228454077d9ec57f7c787b",
+    "llm/data/csv/test/company.csv": "eee9e0a0beb294573d6b52ef79c46c2b0582ae65d8cdaa1eb9cccbcfb2bdae38"
+  },
+  "excluded_phrase_category_revision": "072a857",
+  "extra_excluded_targets": [
+    "上个月",
+    "下个月",
+    "下午好",
+    "不确定",
+    "中午好",
+    "写作业",
+    "可以的",
+    "听音乐",
+    "周末好",
+    "在哪儿",
+    "在哪里",
+    "好的",
+    "当然了",
+    "早上好",
+    "晚上好",
+    "晾衣服",
+    "有时间",
+    "没关系",
+    "没办法",
+    "没时间",
+    "没问题",
+    "洗衣服",
+    "玩游戏",
+    "看电影",
+    "看电视",
+    "这个月"
+  ],
+  "selection": "Retain 1-3 Han targets and continuous lowercase Pinyin from words/city/company; remove the original short-phrase category, reviewed phrase targets and sentence-final particles. No chat/typo/English/mixed source is read. Preserve retained split assignments.",
+  "character_derivation": "Uniquely segment a TRAIN word spelling into character readings; add train-only (syllable, character) pairs unless input/target belongs to a held-out split. Preserve complete-word data; never decompose validation/test targets into training.",
+  "character_reading_inventory": {
+    "path": "Data/Vocabulary/chinese/base.csv",
+    "sha256": "75c6f4d020babc61a5ae38e7498ad79cc777ee2496ed22e018f9a041829a3e52",
+    "metadata": "Data/Vocabulary/meta.json",
+    "notice": "Data/Chinese/MSIME/NOTICE.md"
+  },
+  "counts": {
+    "train": {
+      "characters": 937,
+      "words": 1084,
+      "total": 2021
+    },
+    "validation": {
+      "characters": 6,
+      "words": 67,
+      "total": 73
+    },
+    "test": {
+      "characters": 11,
+      "words": 58,
+      "total": 69
+    }
+  },
+  "excluded_counts": {
+    "phrases": 103,
+    "outside_1_to_3_han": 55,
+    "noncontinuous_input": 1
+  },
+  "derived_training_character_pairs_added": 767,
+  "blocked_heldout_character_pairs": 43,
+  "unmatched_training_words": [],
+  "ambiguous_training_words": [],
+  "initial_output_character_coverage": {
+    "distinct_training_characters": 965,
+    "validation_rows_with_unseen_output_characters": 22,
+    "test_rows_with_unseen_output_characters": 19
+  }
+}

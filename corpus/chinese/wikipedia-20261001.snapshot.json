@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "source_lock_sha256": "31f5cf0a58c414995fdec8644224ceefc2c33cdee49235a67d0bae77d17bcef0",
+  "bundle_manifest_sha256": "0d2baca2651f2d9a89deada232936c4b3ab5c0d108ac2800f758fcdf8baab0cd",
+  "sources": [
+    {
+      "id": "wikipedia",
+      "lines": 942413,
+      "characters": 9999995,
+      "text_sha256": "7b53d33eed4cdad54c7035988bdb519ebeb8b8c0566ce4b59e21b054ed502ed3",
+      "origins_sha256": "14d62e1cb5706da2f6003882240f74d6a3b9ef3ad14d9992faa27f40cef6339b",
+      "stopped_at_limit": true,
+      "license": "CC-BY-SA-4.0"
+    }
+  ],
+  "total_lines": 942413,
+  "total_characters": 9999995
+}

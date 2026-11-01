@@ -56,7 +56,7 @@ struct TokenLearningTests {
         let alternative = try #require(engine.candidates(for: "bangwozaixie", languages: languages, now: now)
             .first { $0.text == "帮我在写" && !$0.isPartial })
         profile.record(InputCommit(input: "bangwozaixie", candidate: alternative, reason: .explicitSelection), now: now)
-        #expect(engine.candidates(for: "bangwozaixie", languages: languages, learning: profile, now: now).first?.text == "帮我在写")
+        #expect(engine.candidates(for: "bangwozaixie", languages: languages, learning: profile, now: now).first { !$0.isPartial }?.text == "帮我在写")
         var session = InputSession()
         session.configure(languages: languages, learning: profile, now: now)
         session.append("bangwozaixieyige")
@@ -101,12 +101,12 @@ struct TokenLearningTests {
         // Isolate learning from the maintained Chinese homophone fanout.
         let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好")])
         let ranked = decoder.compositionCandidates(for: "nihaofi", languages: languages, learning: profile, now: now)
-        let find = try #require(ranked.firstIndex { $0.text == "你好find" && !$0.isPartial })
-        let first = try #require(ranked.firstIndex { $0.text == "你好first" && !$0.isPartial })
+        let find = try #require(ranked.firstIndex { $0.text == "你好 find" && !$0.isPartial })
+        let first = try #require(ranked.firstIndex { $0.text == "你好 first" && !$0.isPartial })
         #expect(find < first)
         #expect(ranked[find].hasCompletion && ranked[find].canLearn && ranked[find].tokenLearningBonus > 0)
         #expect(!engine.candidates(for: "nihaofi", languages: [.simplifiedChinese], learning: profile, now: now)
-            .contains { $0.text == "你好find" })
+            .contains { $0.text == "你好 find" })
     }
 
     @Test func repeatedTokensAndWholeInputPreferencesShareOneFrequencyCap() throws {
@@ -217,10 +217,10 @@ struct TokenLearningTests {
         let candidates = engine.candidates(for: "woshikenihao", languages: languages, learning: profile, now: now)
         let prefix = try #require(candidates.first { $0.text == "我食客" && $0.consumedInputCount == 7 })
         #expect(abs(prefix.tokenLearningBonus - 32 * 5 / 7) < 0.0001)
-        let scores = candidates.dropLast().map { candidate in
-            let spelling = candidate.consumedInputCount.map { String("woshikenihao".prefix($0)) } ?? "woshikenihao"
-            return profile.rankingScore(for: candidate, input: spelling, now: now, context: nil)
-        }
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: languages, learning: profile, now: now)
+        session.append("woshikenihao", now: now)
+        let scores = candidates.dropLast().map { session.presentationScore(for: $0, now: now) }
         #expect(scores == scores.sorted(by: >))
     }
 

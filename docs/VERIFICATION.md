@@ -2,6 +2,75 @@
 
 This records the current implementation checkpoint, not a stable-release certification. The overall daily-use input-method objective remains open.
 
+## Dictionary-only runtime — 2026-10-30
+
+The retired native n-gram dependency, Swift wrapper, corpus/training/evaluation
+workflow, model binaries/manifests/notices and build-stage verification have been
+removed. Neither decoder loads a language model or adds corpus context corrections.
+Dictionary weights, spelling costs, language transitions and app vocabulary remain.
+Endpoint language metadata retains mixed-word spacing and continuation costs;
+the bounded suffix pool keeps two distinct choices per language-boundary/private
+path group. Large-model conversion is the planned direction; `llm/` remains an
+independent offline experiment and is not connected to the input method.
+
+All 399 Swift tests passed with `./scripts/test.sh --disable-sandbox`: 287 core,
+87 presentation, 15 settings, 7 localization and 3 storage. The default test command
+was blocked by nested sandbox restrictions; Xcode builds required system-cache
+access. Debug and Release builds passed with `./scripts/build.sh` and
+`./scripts/build.sh Release`. Source scanning found no retired dependency references;
+both app bundles exclude its resources. Project plist, shell syntax and diff
+whitespace checks passed. Fixed score fixtures now use independent dictionary
+arithmetic; the `bufenci` presentation regression follows dictionary-only order
+while preserving keyboard/mouse commit checks. No weights were retuned.
+
+No input method was installed, launched or restarted. Live host input, focus,
+shortcuts, native automatic confirmation and VoiceOver remain unverified. Removal
+of corpus corrections changes candidate scores/order and is not a quality claim.
+
+## Ranked shortlist — 2026-10-27
+
+The shortlist no longer groups constructed output ahead of higher-ranked words.
+Only the first four ranked choices can add ordinary constructed hypotheses;
+remaining ordinary slots select single characters/words. Required language/mixed
+identities remain reachable in their original ranked positions and share the
+four-constructed-choice cap. All retained nonliteral choices preserve engine order.
+This supersedes the older four-leading-hypotheses descriptions below.
+
+With empty learning and both languages enabled, `hei` now starts with `黑`,
+`he I`, `和I`, `he`, `黒`, `嘿`; `合I` remains in full engine results but is omitted
+from the shortlist. `黑` scores -11.547 and `he I` scores -13.038. For `heihe`,
+the shortlist begins `黑盒`, `he I hear`, `黑河`, `和Ihear`, `黑`, `he`.
+The stronger positive context also raises incomplete-word hypotheses: this is an
+evaluation setting, not evidence that unnatural segmentation has been solved.
+`heishere` and `iwanttobuild` still lead with `he is here` and `I want to build`.
+
+All 383 Swift tests passed with `./scripts/test.sh --disable-sandbox`: 275 core,
+83 presentation, 15 settings, 7 localization and 3 storage. The two runtime staging
+tests passed, and `./scripts/build.sh` passed for Debug arm64/x86_64. Tests cover
+interleaved ranked words/hypotheses, preview/full `hei` through both layouts and
+numbered selection, existing offscreen light/dark rendering and mouse identities,
+prefix consumption. The initial
+unmodified test command could not run SwiftPM's nested sandbox in this environment;
+the disable-sandbox retry ran the suite. Xcode required normal system-cache access.
+No installation, running-process change, host input or live VoiceOver check was
+performed. No Release build or independent quality claim is made for this setting.
+
+## Gradual learning from nonfirst choices — 2026-10-27
+
+App vocabulary usage and ranking updates are now separate. The displayed global first candidate is rank-neutral for Space, number and mouse acceptance, including navigation away and back. Every three choices of a later candidate add one ranking point, up to 32, using the existing 14-day strength decay and prefix coverage rule. First-choice use does not rejuvenate decayed strength. Usage and nonfirst-choice counts persist independently; zero-strength vocabulary stays in the manager but adds neither saved completion candidates nor frequency/token bonuses. Core library ranking fixtures retain their existing API.
+
+Archive schema 3 retains correction progress across restart. Schema-1/2 migration preserves valid words, usage counts, base scores, lexical evidence and last-use times, drops retired history data and resets ambiguous old strengths/correction counts. Corrupt/unsupported archives and the separate retired shared-learning archive retain their existing preservation/deletion behavior.
+
+All 373 Swift tests passed (267 core, 81 presentation, 15 settings, 7 storage and 3 localization), and the Debug app built successfully. Added checks cover neutral first use, gradual steps/cap, nonrejuvenating decay, app/token isolation and deletion, visible-first selection for number/mouse/navigation/page paths, schema migration and restart continuity. No input method was installed or personal archive changed; native host and VoiceOver checks remain unverified.
+
+Commit-isolation check: excluding the separate pending font-coverage work, the staged source snapshot passed all 369 Swift tests (267 core, 77 presentation, 15 settings, 7 storage and 3 localization) and the Debug app build. The 373-test result above describes the combined working tree. Native host behavior remains unverified.
+
+## App History removal — 2026-10-27
+
+App History settings, Return-delimited recording, controller drafts/timers/selection tracking, history candidates and their special placement have been removed. App Vocabulary, personal phrases and the prefix-learning coverage adjustment remain. The new app migrates schema-1 app archives at the existing path to vocabulary-only schema 2 on successful load, dropping the history field and preserving valid vocabulary. Old history defaults are removed; corrupt/unsupported archives are preserved with visible errors. The separate retired shared-learning archive retains its explicit deletion control. Earlier history/placement descriptions below are historical and are superseded by this removal.
+
+All 366 Swift tests passed (263 core, 79 presentation, 15 settings, 6 storage and 3 localization) using `./scripts/test.sh --disable-sandbox`; the Debug app built with `./scripts/build.sh`. Added checks cover migration/restart/permissions, ignoring malformed retired history fields, preserving corrupt/unsupported archives and the shared archive, vocabulary-only writes, deletion revision ordering, and retired-consent cleanup without enabling vocabulary. Both localization tables pass `plutil -lint`. The static website builds and passes its six-page link/anchor/locale/asset checks. No input method was installed, personal archive changed or website published. Native host event routing, keyboard/VoiceOver and appearance checks remain unverified.
+
 ## Spatial navigation, whole-grid pages and character recall — 2026-10-26
 
 Collapsed Left/Right now selects candidates and Down expands without advancing. Expanded Left/Right moves columns and Up/Down moves rows within the grid. The whole four-by-six grid is one page; Page Up/Down and footer controls move 24 choices (six when collapsed), preserving the cell position where available. Digits 1–6 still address the active row. Home/End retains composition-caret editing; navigation outside composition passes to the host. Localized accessibility help identifies the whole page, row and column.
@@ -802,3 +871,71 @@ Added a process-lifetime updater shared by Settings and the input menu, pinned t
 Inspected the Release bundle: the feed resolves to `https://downloads.caterm.com/si/channels/mac/stable-universal.xml`; automatic checks/updates/profile submission are false and pre-extraction signature verification is true. Confirmed Sparkle's notice bytes are bundled. Copied the Release app into a temporary directory under `.build`, re-signed its nested Sparkle helpers/framework and SI app ad hoc using the packaging helper, and passed `codesign --verify --deep --strict`; the temporary copy was then removed. Local-package and publish dry runs with synthetic explicit certificate names passed without real signing, key access or publication. Shell syntax, Python 3.9 grammar, touched-document local links and whitespace checks passed.
 
 No SI process was launched/stopped, no input source or installed app was changed, and no real Keychain update signing, Developer ID signing, Apple notarization or R2 publication was performed. Keyboard/VoiceOver/appearance checks, actual installed update dialogs, signed replacement/relaunch, normal pending-write persistence through that cycle, input-source registration/recovery and representative host typing remain unverified. Existing builds without Sparkle need one manual installation of an updater-enabled release; the new XML feed must be published before checks work.
+
+
+## SI category CSV migration — 2026-10-27
+
+The effective public dictionaries now live in `Data/Vocabulary/chinese/base.csv` (953,625 text/reading pairs) and `Data/Vocabulary/english/base.csv` (63,602 word forms). `meta.json` indexes source-level provenance and attribution once. Additional category CSVs are discovered automatically; no extra categories were populated. Public JSON overlays and the generated English weight TSV are retired. Historical snapshots, pins and notices remain provenance materials, independent of ordinary CSV builds.
+
+A complete comparison against copies of the preceding packaged databases found identical schema, weight metadata, every `(rowid, reading, initials, text, weight)` row and lookup indexes for both languages. The Chinese SQLite page layout differs; logical data and tie order are unchanged. Private-use exclusions, applied reading corrections, exact Unicode bytes and English casing/weights are preserved. No ranking policy changed.
+
+Verified:
+
+- `python3 scripts/csv_dictionary.py build` and `build --check`: both dictionaries generated and checked offline.
+- `python3 scripts/msime_dictionary.py build --check`: Chinese CSV/database check and pinned context sizes/hashes passed.
+- `python3 scripts/english_dictionary.py build --check`: compatibility entry point passed.
+- `python3 -m unittest discover -s Tests/VocabularyTests -v`: all 31 tests passed, including category moves, additions/deletions/weight edits, duplicate rejection, CSV quoting/BOM/CRLF, exact Unicode bytes, stale checks and invalid-input preservation across both outputs. Historical source/frequency checks remain separate from editable CSV content.
+- `./scripts/test.sh`: all 373 Swift tests passed (267 core, 81 presentation, 15 settings, 7 storage and 3 localization).
+- `./scripts/build.sh`: Debug build passed; both bundled databases match their generated source resources by SHA-256.
+- Changed-document local links and `git diff --check` passed.
+
+Logs are under `.build/csv-vocabulary-{python-tests,check,swift-tests,build}.log`; preceding databases used for comparison are under `.build/vocabulary-before/`. Initial restricted invocations of SwiftPM/Xcode were blocked by sandbox cache access; the same required commands passed with normal toolchain access. No install, input-source change, native host/VoiceOver check, commit or publication was performed. These checks verify the source migration and packaging, not broad vocabulary quality or host compatibility.
+
+
+## Remove maintained CSV ordinals — 2026-10-27
+
+At the user's request, both base CSVs now contain only `text,reading,weight`. No maintained ordering ID remains in the CSV or a sidecar. The compiler merges identical text/reading pairs across rows/categories using their maximum weight, and assigns internal row IDs by UTF-8 binary reading/text order. Category moves, category renames and row reordering therefore cannot change the effective dictionary. Distinct Chinese readings and exact Unicode output bytes remain separate; conflicting English casing is rejected. Equal-weight order can differ from the original upstream import order. This supersedes the explicit-ordinal maintenance contract in the initial migration record above.
+
+A full comparison with the preceding original packaged databases, excluding row IDs, confirmed all 953,625 Chinese and 63,602 English entries, readings, initials and weights unchanged. The generated manifests now identify the three-column source format as `si-category-csv-v2`; the SQLite runtime schema remains unchanged.
+
+Validation passed: all 33 Python vocabulary tests, `python3 scripts/csv_dictionary.py build --check`, all 373 Swift tests with `./scripts/test.sh`, and the Debug app build with `./scripts/build.sh`. Both bundled SQLite resources match the newly generated resources. Fixtures cover cross-category duplicate merging without frequency inflation, maximum-weight updates, file/row-order independence, distinct reading/Unicode preservation and rejection of the former four-column header. Documentation links and `git diff --check` passed. Logs are `.build/csv-no-ordinal-{python-tests,generation,check,swift-tests,build}.log`. No installation or live host verification was performed; these results do not establish native compatibility or broad vocabulary quality.
+
+
+## Remove superseded dictionary sources — 2026-10-27
+
+The old Chinese compressed wordlists and reading-correction table, English source wordlists, weighted English snapshot, generated spelling table, import configuration/overrides and wordfreq source frequency archive have been deleted. The obsolete `vocabulary.py` / `vocabulary.sh` importer, its source-refresh fixtures and the old English bootstrap-snapshot test have also been removed. `ranking.py` no longer decodes/imports the removed frequency archive; it retains calibration and full attribution checks. This supersedes earlier records describing retained source snapshots or their import commands.
+
+Source-level revisions, original hashes, import rules and initial weight conversion are now inline in schema-2 `Data/Vocabulary/meta.json`; no old local lexical/frequency file is required to compile. CSV metadata validation checks inline provenance and retained attribution hashes. MSIME revision auditing now reads the same centralized metadata. Full licenses/notices, algorithm-review metadata, synthetic ranking fixtures, current SQLite dictionaries and pinned Chinese word-context models remain. The two comparison databases created for the initial migration were also removed from `.build/vocabulary-before/` after their checks were complete. Unrelated model/corpus work and private archives were not changed.
+
+Verified after deletion:
+
+- Both language dictionaries generated from category CSVs and passed `csv_dictionary.py build --check`; Chinese/English compatibility checks and pinned context checks passed.
+- Every SQLite dictionary and context binary is byte-identical to its pre-cleanup version. Only source metadata/manifests, notices and maintenance code changed.
+- All 16 current Python maintenance tests passed. Removed tests depended exclusively on deleted importer/serializer/snapshot features; current CSV category/duplicate/error-preservation tests remain, with added inline-metadata validation.
+- All 373 Swift tests passed with `./scripts/test.sh`; the Debug app built with `./scripts/build.sh`, including the updated retained notices. Bundled dictionary/context checksums match the generated resources.
+- `python3 scripts/ranking.py --check`, source/attribution checks, changed-document local links and `git diff --check` passed. No active script/test depends on removed wordlists or import tools.
+
+Logs are `.build/csv-cleanup-{python-tests,generation,check,swift-tests,build}.log`; `.build/legacy-vocabulary-removal.json` lists the 27 removed legacy files (14,676,423 bytes, excluding files already retired in the preceding migration and temporary database copies). No installation, live host check, commit or publication was performed. Vocabulary quality and native compatibility claims remain unchanged.
+
+
+## Initial Chinese maintenance categories — 2026-10-27
+
+The Chinese CSV collection is now organized into `base.csv` (915,991 rows), `geography.csv` (18,141), `organizations.csv` (4,312), `technology.csv` (3,820), `science.csv` (2,659), `medicine.csv` (5,646) and `culture_sports.csv` (3,056). The six domain files contain 37,634 existing rows. This is a conservative first pass using recognizable domain terms, place/institution suffixes and selected work titles, followed by sample-based refinement; it is not exhaustive semantic annotation. Common and unclassified vocabulary, including many personal names and idioms, remains in base. All readings of each exact output stay together. The category guide documents the initial high-weight/short-output retention heuristic, ambiguous substring examples and future manual editing boundaries.
+
+The partition was refined after reviewing category samples, high-weight moved entries and ambiguous organization/place suffixes. Verbal `学会` phrases and financial/market `入市`/`集市` phrases were returned to base; `数据集市` belongs to technology, while real place names such as `辛集市` and `攀枝花市` remain in geography. No new source, word, reading, weight, ranking policy or runtime classifier was introduced. The English CSV and both language/context databases are unchanged.
+
+Verified:
+
+- Compared the final combined `(text, reading, weight)` row multiset against the committed preceding Chinese base: exactly 953,625 unchanged rows, no duplicate identities and no output with readings spread across files.
+- Rebuilt the Chinese SQLite resource and checked both languages with `python3 scripts/csv_dictionary.py build --language chinese` and `build --check`. Both SQLite database files and the Chinese context binaries remain byte-identical to their pre-split versions; only the Chinese source manifest changes.
+- All 16 Python vocabulary maintenance tests and all 373 Swift tests passed. The Debug app built successfully and packages the same dictionary/context bytes, with the final category manifest.
+- Changed-document local links and `git diff --check` passed. The initial partition, review and invariant reports are under `.build/chinese-categories/`; generation/check/test/build logs are in the same ignored directory.
+
+No input method was installed, no native host/VoiceOver check was performed and no commit was created. Data equality verifies unchanged runtime behavior; it does not prove that every domain assignment is semantically correct or that the remaining base contains only common vocabulary.
+
+
+## Dedicated movie and game categories — 2026-10-27
+
+Added `Data/Vocabulary/chinese/movie.csv` (429 rows) and `game.csv` (741 rows), subdividing clear film/game vocabulary from the previous culture/sports group and selected explicit titles from base. The remaining culture/sports group has 1,938 rows and base has 915,939. The other domain files are unchanged. Movie covers identified films and film/cinema terms; game covers identified games/franchises, game-related terms and esports. Ambiguous names and other original media remain in their existing groups; `模仿游戏` is classified as a film rather than a game, while `哪吒`, `三体`, `哈利波特`, `传奇` and `崩坏` are not reassigned from their bare names. This remains initial manual curation, not complete semantic annotation or new vocabulary acquisition.
+
+Compared all final category rows against the committed 953,625-row Chinese base: the exact text/reading/weight multiset is unchanged, with no duplicate identities and no output split across categories by reading. Chinese rebuild and both-language offline checks passed; both runtime SQLite files remain byte-identical to their pre-refinement versions. All 16 Python vocabulary maintenance tests and the Debug package build passed. The final bundled Chinese source manifest and both dictionaries match their repository resources. Decoder code is unchanged, and the preceding full Swift regression result still applies to the identical runtime databases; no additional full Swift run or native host check was performed for this category-only refinement. Documentation links and whitespace checks passed. Logs and review records are under `.build/chinese-media/`. No install or commit was performed.

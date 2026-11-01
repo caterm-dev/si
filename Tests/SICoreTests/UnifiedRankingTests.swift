@@ -103,7 +103,7 @@ struct UnifiedRankingTests {
     @Test func directEnglishAndMixedEdgesUseTheSameBaseWordAndSpellingCosts() {
         for key in ["abilit", "ability", "develo", "SwiftUI"] {
             for entry in EnglishLexicon.matches(for: key.lowercased()) {
-                let expected = 1 + (20 - log(Double(max(1, entry.weight)))) / log(2.0)
+                let expected = 1 + (20 - 1.05 * log(Double(max(1, entry.weight)))) / log(2.0)
                     + WordPrefixChannel.cost(fullLength: entry.length, typedLength: key.count)
                 #expect(abs(entry.cost(typedLength: key.count) - expected) < 1e-12)
             }

@@ -1,0 +1,627 @@
+{
+  "schema_version": 2,
+  "dictionary_format": {
+    "schema_version": 1,
+    "weight_unit": "si-wanxiang-weight-v1",
+    "reference_mass": 1
+  },
+  "languages": {
+    "chinese": {
+      "unknown_weight": 1,
+      "bootstrap": {
+        "entries": 953625,
+        "runtime_sha256": "a5a4b97298987b454f9b342277f88c590e4dbfe7fcf1a7c1dc1e61a22dc6e504",
+        "description": "Effective packaged dictionary on 2026-10-27, after reading corrections, deduplication and SI exclusions/edits."
+      },
+      "base": {
+        "upstream": "wanxiang-data",
+        "entries": 1547554,
+        "sha256": "967952a5d9da2f87d502e270185a54b1a7bdefafef3eb7809427e790a13ecd85",
+        "description": "Pinned Wanxiang source weights, without frequency rescaling."
+      }
+    },
+    "english": {
+      "unknown_weight": 1,
+      "bootstrap": {
+        "entries": 63602,
+        "runtime_sha256": "5e0b8c686057170840dd51825b36af7b9d42da8af6fe74fa8eb04f7e7796463c",
+        "description": "Effective packaged dictionary on 2026-10-27, after reading corrections, deduplication and SI exclusions/edits."
+      },
+      "base": {
+        "upstream": "wanxiang-data",
+        "entries": 72784,
+        "sha256": "4a2047b46987c721e537515ca9e4c26a555f96eef5250b1640a91304294dccf6",
+        "description": "Pinned Wanxiang source weights, without frequency rescaling."
+      }
+    }
+  },
+  "upstreams": [
+    {
+      "id": "chinese-bootstrap",
+      "language": "chinese",
+      "description": "Source-level provenance for the initial SI-owned CSV. No per-entry upstream metadata; ordinary builds use only CSV.",
+      "metadata": {
+        "schema_version": 1,
+        "dictionary_repository": "https://github.com/metasequoiaime/msime-dictionary",
+        "dictionary_revision": "b32ac7227135255a3351f02ec5bdfc983741e81a",
+        "engine_repository": "https://github.com/metasequoiaime/msime",
+        "engine_revision": "0fce42f0dd22fe6930b5a1942498280df8073396",
+        "sources": [
+          {
+            "path": "sources/sources-pinyin-single-chars.txt.gz",
+            "upstream_path": "sources/pinyin/single-chars.txt",
+            "sha256": "bc70b486619eb8866821937cda4cd1aaa2fc08e5f64543530dcd4d7c2fd225b2",
+            "size": 619679
+          },
+          {
+            "path": "sources/sources-pinyin-rime-ice.txt.gz",
+            "upstream_path": "sources/pinyin/rime-ice.txt",
+            "sha256": "76252df96ac5e287d81b498f96fe2ec211861caa2f4423b2d30fbe331fc1d264",
+            "size": 28590541
+          },
+          {
+            "path": "sources/sources-pinyin-rime-ice-supplement.txt.gz",
+            "upstream_path": "sources/pinyin/rime-ice-supplement.txt",
+            "sha256": "41c50c9b452c89d4accd3abac57a40312a861ad36611850d584fc7d25609ffd3",
+            "size": 1341839
+          },
+          {
+            "path": "sources/sources-pinyin-places.txt.gz",
+            "upstream_path": "sources/pinyin/places.txt",
+            "sha256": "db828ded4b3dc568c14f172209a3e5acd094a196c89843dc23ac7097068b00c4",
+            "size": 28248
+          },
+          {
+            "path": "sources/custom-words.txt.gz",
+            "upstream_path": "custom/words.txt",
+            "sha256": "63984700a2a44c43e5ccff47de448eec456196261b56656e02bdebdf655b263c",
+            "size": 17858
+          }
+        ],
+        "corrections_sha256": "d77fb4183d3df50ca3ebd4de6a482d5b3bc3051ed18fa7300e70fa4c7c34eb5f"
+      },
+      "attribution": "Data/Chinese/MSIME/NOTICE.md",
+      "attribution_sha256": "2ba2ae16ceff449c62b8212acda77eec11e7273f271ded40488e2ef75ec5a102",
+      "source_retention": "Source word/frequency files removed after migration to SI-owned CSV; hashes and revisions below describe the original bootstrap inputs."
+    },
+    {
+      "id": "english-bootstrap",
+      "language": "english",
+      "description": "Source-level provenance for the initial SI-owned CSV. No per-entry upstream metadata; ordinary builds use only CSV.",
+      "metadata": {
+        "weighted_snapshot": {
+          "schema_version": 1,
+          "dictionary_format": {
+            "schema_version": 1,
+            "weight_unit": "si-relative-frequency-v1",
+            "reference_mass": 7694577936
+          },
+          "sources": [
+            {
+              "path": "sources/english-base.txt.gz",
+              "size": 1486522,
+              "sha256": "711f8ffa77a21a77c521b98a5980dfefb9bcf1fc06768513ee440ea62141b5c5"
+            }
+          ],
+          "bootstrap": {
+            "vocabulary_inputs_sha256": "425bdb5618fb3e5d3d367fb1e38ea0f07eb5f3afb16b4a01cf9c67204f4c0a83",
+            "vocabulary_words_sha256": "ce8cae1ea9660b4d42dfd297886a3aa98fea674ca8a13232289a3d707bfeb14b",
+            "wordfreq_source_sha256": "ecad0026368281a0f48f099f04c86fd9adbfd7464ca1956eef405c76ea40090f",
+            "normalization_mass": 0.8916008665275356,
+            "missing_frequency": 1e-09,
+            "conversion": "max(1, round(frequency / normalization_mass * reference_mass))"
+          },
+          "unknown_weight": 9,
+          "notices": {
+            "mac/SI/Resources/EnglishVocabularyNotices.txt": "d278154cdfddf208c8ac2b494c42b0d709d5ce182186463fbce04ce9328be226",
+            "mac/SI/Resources/RankingNotices.txt": "6ea99ad62cf3c8370773259193c6a24cab81526288330bfc9443d9bd002709a9"
+          }
+        },
+        "spelling_sources": {
+          "schema_version": 1,
+          "sources": [
+            {
+              "id": "scowl",
+              "priority": 10,
+              "path": "Data/English/sources/scowl.txt",
+              "license_file": "Data/English/licenses/SCOWL.txt",
+              "license_id": "SCOWL permissive (see full notice)",
+              "origin": "https://github.com/en-wl/wordlist",
+              "upstream": {
+                "repository": "en-wl/wordlist",
+                "ref": "v2",
+                "format": "scowl",
+                "size": 50,
+                "minimum_words": 10000,
+                "maximum_words": 100000,
+                "minimum_length": 2
+              },
+              "completion_score": 75
+            },
+            {
+              "id": "cspell-companies",
+              "priority": 1,
+              "path": "Data/English/sources/cspell-companies.txt",
+              "license_file": "Data/English/licenses/CSpellCompanies-MIT.txt",
+              "license_id": "MIT",
+              "origin": "https://github.com/streetsidesoftware/cspell-dicts/blob/main/dictionaries/companies/src/companies.txt",
+              "upstream": {
+                "repository": "streetsidesoftware/cspell-dicts",
+                "ref": "main",
+                "format": "cspell",
+                "path": "dictionaries/companies/src/companies.txt",
+                "license_path": "dictionaries/companies/LICENSE",
+                "minimum_words": 500,
+                "maximum_words": 3000,
+                "minimum_length": 2
+              },
+              "completion_score": 75
+            },
+            {
+              "id": "cspell-tools",
+              "priority": 2,
+              "path": "Data/English/sources/cspell-tools.txt",
+              "license_file": "Data/English/licenses/CSpellSoftwareTerms-MIT.txt",
+              "license_id": "MIT",
+              "origin": "https://github.com/streetsidesoftware/cspell-dicts/blob/main/dictionaries/software-terms/src/software-tools.txt",
+              "upstream": {
+                "repository": "streetsidesoftware/cspell-dicts",
+                "ref": "main",
+                "format": "cspell",
+                "path": "dictionaries/software-terms/src/software-tools.txt",
+                "license_path": "dictionaries/software-terms/LICENSE",
+                "minimum_words": 400,
+                "maximum_words": 2000,
+                "minimum_length": 2
+              },
+              "completion_score": 75
+            },
+            {
+              "id": "rime-ice-english",
+              "priority": 3,
+              "path": "Data/English/sources/rime-ice-english.txt",
+              "license_file": "Data/English/licenses/RimeIce-GPL-3.0.txt",
+              "license_id": "GPL-3.0-only (as declared by Rime Ice)",
+              "origin": "https://github.com/iDvel/rime-ice/blob/main/en_dicts/en_ext.dict.yaml",
+              "upstream": {
+                "repository": "iDvel/rime-ice",
+                "ref": "main",
+                "format": "rime",
+                "path": "en_dicts/en_ext.dict.yaml",
+                "license_path": "LICENSE",
+                "minimum_words": 1000,
+                "maximum_words": 4000,
+                "minimum_length": 2
+              },
+              "completion_score": 75
+            },
+            {
+              "id": "si-original",
+              "priority": 100,
+              "path": "Data/English/sources/si-original.txt",
+              "license_file": "Data/English/licenses/SI.txt",
+              "license_id": "GPL-3.0-only",
+              "origin": "SI original authored English vocabulary",
+              "completion_score": 85
+            },
+            {
+              "id": "si-terms",
+              "priority": 200,
+              "path": "Data/English/sources/si-terms.txt",
+              "license_file": "Data/English/licenses/SI.txt",
+              "license_id": "GPL-3.0-only",
+              "origin": "SI authored terminology and coverage additions",
+              "completion_score": 85
+            }
+          ]
+        },
+        "spelling_source_lock": {
+          "schema_version": 1,
+          "sources": {
+            "cspell-companies": {
+              "download_sha256": "44ac45eee5b9478536cb08e29c2c1008cc0fb10095ef4ad9f6ec7a8de65a545d",
+              "filtering": {
+                "collapsed_case_variants": 2,
+                "inline_comments_removed": 76,
+                "unsupported_rows": 1582
+              },
+              "license_sha256": "6245ecd81789d113a600fa0e4f5f503e6d1b4f425860f6047dc945560dfcf13c",
+              "revision": "5f051955183427037faba538a3e102a94951d003",
+              "snapshot_sha256": "ef001ccfb5dfb20533c6a4b4d1752c06d84150c4b636f1fabdb35ee040f6519b",
+              "upstream": {
+                "format": "cspell",
+                "license_path": "dictionaries/companies/LICENSE",
+                "maximum_words": 3000,
+                "minimum_length": 2,
+                "minimum_words": 500,
+                "path": "dictionaries/companies/src/companies.txt",
+                "ref": "main",
+                "repository": "streetsidesoftware/cspell-dicts"
+              }
+            },
+            "cspell-tools": {
+              "download_sha256": "dc9036b00cf72b0881274207e3a9802c4b840c4560c14d43994b919cfaf47aa3",
+              "filtering": {
+                "collapsed_case_variants": 13,
+                "inline_comments_removed": 46,
+                "unsupported_rows": 11
+              },
+              "license_sha256": "6245ecd81789d113a600fa0e4f5f503e6d1b4f425860f6047dc945560dfcf13c",
+              "revision": "5f051955183427037faba538a3e102a94951d003",
+              "snapshot_sha256": "253f33b5a61f70b9af0606f192a0ee273638b9a8a6c609f94d9d97eda176fafa",
+              "upstream": {
+                "format": "cspell",
+                "license_path": "dictionaries/software-terms/LICENSE",
+                "maximum_words": 2000,
+                "minimum_length": 2,
+                "minimum_words": 400,
+                "path": "dictionaries/software-terms/src/software-tools.txt",
+                "ref": "main",
+                "repository": "streetsidesoftware/cspell-dicts"
+              }
+            },
+            "rime-ice-english": {
+              "download_sha256": "675bd699cbdcd05409cd9c9fbc8de3f925b3d08a5175806d45d3789ea27c36eb",
+              "filtering": {
+                "collapsed_case_variants": 5,
+                "unsupported_rows": 1154
+              },
+              "license_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+              "revision": "da1fbe602e38f26db846fa10120ee64c2b0324c0",
+              "snapshot_sha256": "55993be5152297aeaafb19922c2fee49f2e4db3dccbbf86d9bb50505c322c51c",
+              "upstream": {
+                "format": "rime",
+                "license_path": "LICENSE",
+                "maximum_words": 4000,
+                "minimum_length": 2,
+                "minimum_words": 1000,
+                "path": "en_dicts/en_ext.dict.yaml",
+                "ref": "main",
+                "repository": "iDvel/rime-ice"
+              }
+            },
+            "scowl": {
+              "download_sha256": "aaecc7a54af576057e30b22a19b78bad011f2181f7e368ff3b736fbecbdfd4d0",
+              "filtering": {
+                "collapsed_case_variants": 89,
+                "unsupported_rows": 7805
+              },
+              "license_sha256": "71bffd4b74ad47fff01c8b3c666e77da92737854e568850d8728024e0a53f304",
+              "revision": "1e5b7d3a72f47a71da5d28686c1dd4b397178485",
+              "snapshot_sha256": "37b05241bf2f881dcec186875b9cb3b0779c08542d0b7e2fad3824caf6366eaf",
+              "upstream": {
+                "format": "scowl",
+                "maximum_words": 100000,
+                "minimum_length": 2,
+                "minimum_words": 10000,
+                "ref": "v2",
+                "repository": "en-wl/wordlist",
+                "size": 50
+              }
+            }
+          }
+        },
+        "bootstrap_overrides": {
+          "rules": [
+            {
+              "action": "replace",
+              "reason": "Preferred product-name capitalization for the CSpell GMail entry.",
+              "replacement": "Gmail",
+              "word": "gmail"
+            }
+          ],
+          "schema_version": 1
+        }
+      },
+      "attribution": "mac/SI/Resources/EnglishVocabularyNotices.txt",
+      "attribution_sha256": "58c912fb614e7c49218078c20cb6edff3c17e76277866c9e67dfc3106209d8e1",
+      "source_retention": "Source word/frequency files removed after migration to SI-owned CSV; hashes and revisions below describe the original bootstrap inputs."
+    },
+    {
+      "id": "english-frequency-bootstrap",
+      "language": "english",
+      "metadata": {
+        "version": 1,
+        "source": "wordfreq",
+        "release": "3.1.1",
+        "wheel_url": "https://files.pythonhosted.org/packages/24/61/62835c475d69872d30689f284497853fe33fe1d6dd18f57346d13305861d/wordfreq-3.1.1-py3-none-any.whl",
+        "wheel_sha256": "4b1c6ecffc6198be3396d5cf871c4423ca71c907c231348d352dd54d62b97473",
+        "data_sha256": "dffae8066b78dce0a6667cf5f58e567054f902674667090a7ac8a8a44628b05c",
+        "license": "CC-BY-SA-4.0",
+        "documentation": "README.md",
+        "scope": "Existing ASCII English vocabulary only; lowercase exact-token lookup, no additions",
+        "data_era": "approximately 2021",
+        "license_files": {
+          "LICENSE-Apache-2.0-full.txt": {
+            "url": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+            "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+          }
+        },
+        "documentation_sha256": "29f380e4c58e58abdad4c6180bf2b62d25ba79e3a6842bd9a82d789e9d5db849",
+        "code_notice_sha256": "262b51ebd3e7e29d3e5b82cb1fceefcf0a0db5627f119d4ad85157adfb6e16fe",
+        "documentation_origin": "Body of wordfreq-3.1.1.dist-info/METADATA in the pinned wheel",
+        "code_notice_origin": "wordfreq-3.1.1.dist-info/LICENSE.txt in the pinned wheel"
+      },
+      "attribution": "mac/SI/Resources/RankingNotices.txt",
+      "description": "wordfreq 3.1.1 initial weights; conversion recorded in the English bootstrap metadata. Existing weights are never recalculated by CSV builds.",
+      "attribution_sha256": "8bba77023bd1021225e60305597ce0a2ef082895661f7c2115c872df8d524ca6",
+      "source_retention": "Source word/frequency files removed after migration to SI-owned CSV; hashes and revisions below describe the original bootstrap inputs."
+    },
+    {
+      "id": "cloudflare-radar-top-1000",
+      "language": "english",
+      "description": "Cloudflare Radar unordered weekly top-1000 domain bucket; explicit offline merge.",
+      "attribution": "mac/SI/Core/Resources/English/CloudflareRadar-NOTICE.txt",
+      "attribution_sha256": "767b2fb9b41be537f7e6d7877c91889583ce228a17400fd0aa58328b1c82b2d6",
+      "metadata": {
+        "provider": "Cloudflare Radar",
+        "endpoint": "https://api.cloudflare.com/client/v4/radar/datasets/ranking_top_1000",
+        "dataset_alias": "ranking_top_1000",
+        "fetched_at_utc": "2026-10-28T12:14:42+00:00",
+        "retrieval": "authenticated-api",
+        "response_headers": {
+          "Date": "Wed, 28 Oct 2026 12:14:42 GMT",
+          "ETag": "W/\"a9122198d36bc9f10967610b03720847-gzip\"",
+          "Last-Modified": "Mon, 26 Oct 2026 03:16:52 GMT"
+        },
+        "snapshot": "Data/Vocabulary/CloudflareRadar/top-1000.csv",
+        "snapshot_sha256": "80bcc006b2a6e1d264051f95550e3091fcad1dd31a51e3a50f85695562192faa",
+        "domains": 1000,
+        "ordered": false,
+        "license": "CC-BY-NC-4.0",
+        "license_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+        "license_file": "mac/SI/Core/Resources/English/CloudflareRadar-CC-BY-NC-4.0.txt",
+        "license_sha256": "41003d4a74749c0220e33dd415042164b5a1093ed401f36277234f772d22d3d0",
+        "transformations": "Require 1000 unique full lowercase ASCII domains; retain literal readings; merge by exact domain; preserve all existing rows/weights; new weights are 100. Bucket membership is not a numeric rank or measured word frequency."
+      }
+    },
+    {
+      "id": "wanxiang-data",
+      "language": "chinese-and-english",
+      "description": "Current base dictionaries; earlier bootstrap records remain historical attribution.",
+      "metadata": {
+        "repository": "https://github.com/amzxyz/rime-wanxiang-data",
+        "revision": "adfa047c339627737f0a4c75674a8042c1ef7f72",
+        "license": "CC-BY-4.0",
+        "files": [
+          {
+            "path": "dicts/zi.dict.yaml",
+            "language": "chinese",
+            "size": 616558,
+            "sha256": "fde75aaf0504e2803f2004fcaf752209071584f47e3184ec4af6e99067d41dae",
+            "category": "base"
+          },
+          {
+            "path": "dicts/jichu.dict.yaml",
+            "language": "chinese",
+            "size": 49485286,
+            "sha256": "2cedcac6a4408d74d669a71c9d0cdd31657b4654d07396a739da49aa5cad2caf",
+            "category": "base"
+          },
+          {
+            "path": "dicts/duoyin.dict.yaml",
+            "language": "chinese",
+            "size": 137474,
+            "sha256": "f89a50949e93ac60746aa3058f67bc3a6bbd4a9a5c2d43652df0cb2ae973d555",
+            "category": "base"
+          },
+          {
+            "path": "dicts/en.dict.yaml",
+            "language": "english",
+            "size": 1568914,
+            "sha256": "3caf6a21c09c3b92a5167223a6a09f10b7fee0e32ffdb62415bbc0a946dcf551",
+            "category": "base"
+          },
+          {
+            "path": "dicts/diming.dict.yaml",
+            "language": "chinese",
+            "category": "diming",
+            "size": 3307073,
+            "sha256": "d763cc69ae7f4eacf7f8f39b248cb4dc0c7f996e731967f2fdbae9f7b8f823e7"
+          },
+          {
+            "path": "dicts/fangyan.dict.yaml",
+            "language": "chinese",
+            "category": "fangyan",
+            "size": 8758,
+            "sha256": "ca83030309d1e7d209aec06f80bb2b6070be3d4d37333e710f46e0063bd53d96"
+          },
+          {
+            "path": "dicts/huaxue.dict.yaml",
+            "language": "chinese",
+            "category": "huaxue",
+            "size": 1453393,
+            "sha256": "e3d4f7b1ddb5b83dc779ef5f60cabb2f013a36cd093590205d2e82928291079c"
+          },
+          {
+            "path": "dicts/mingren.dict.yaml",
+            "language": "chinese",
+            "category": "mingren",
+            "size": 667181,
+            "sha256": "3ac8931623bcb7a4e87759a5711b61d52a0e9306c57043c10cfe6d06ad8e5200"
+          },
+          {
+            "path": "dicts/shici.dict.yaml",
+            "language": "chinese",
+            "category": "shici",
+            "size": 16425028,
+            "sha256": "dad7aabc28488ccb20f04daa4d5897cfdcf696c7f18b52aa16378292d595ff41"
+          },
+          {
+            "path": "dicts/taifeng.dict.yaml",
+            "language": "chinese",
+            "category": "taifeng",
+            "size": 8381,
+            "sha256": "2d90ab6866a54207c1be91c6661cf3fc8355da3464815b46d74488e6e3b9b23b"
+          },
+          {
+            "path": "dicts/wuzhong.dict.yaml",
+            "language": "chinese",
+            "category": "wuzhong",
+            "size": 2425099,
+            "sha256": "caa772409ef4c9ba0301613c52a5e4aaa1aed02a3713dc45a6effb5ab5dab321"
+          },
+          {
+            "path": "dicts/yaopin.dict.yaml",
+            "language": "chinese",
+            "category": "yaopin",
+            "size": 898638,
+            "sha256": "42abef8a28cfaa925a2ce68c28c6546d6d6eb5ef5371c123f7b3d0de67c36dab"
+          },
+          {
+            "path": "dicts/yiren.dict.yaml",
+            "language": "chinese",
+            "category": "yiren",
+            "size": 423957,
+            "sha256": "77affd433bc53d2293e6930c185ac0ce1f1c4e6ca1dcc8602ba32e4df8266a95"
+          },
+          {
+            "path": "dicts/yixue.dict.yaml",
+            "language": "chinese",
+            "category": "yixue",
+            "size": 1107483,
+            "sha256": "c0085029792124f950c7edc0d79d4cf9af0a6994beba11a233fed662f95310b7"
+          }
+        ],
+        "category_overlap": "base",
+        "generated_outputs": {
+          "chinese/base.csv": {
+            "entries": 1547554,
+            "sha256": "967952a5d9da2f87d502e270185a54b1a7bdefafef3eb7809427e790a13ecd85"
+          },
+          "english/base.csv": {
+            "entries": 72784,
+            "sha256": "4a2047b46987c721e537515ca9e4c26a555f96eef5250b1640a91304294dccf6"
+          },
+          "chinese/diming.csv": {
+            "entries": 89420,
+            "sha256": "88dd7f19a82d029ac12804c5814f7417397cba504d58ce7f4dc2dcc95e5417de"
+          },
+          "chinese/fangyan.csv": {
+            "entries": 337,
+            "sha256": "e816f892ef2a98556857ba9abe711041a4b1f5e7665aee7beae840a88b452119"
+          },
+          "chinese/huaxue.csv": {
+            "entries": 33102,
+            "sha256": "bb2914f005c5102d8905a9abc0cc02239f323c72c79ef30d2e74d46b9f9c6f49"
+          },
+          "chinese/mingren.csv": {
+            "entries": 22125,
+            "sha256": "c8236ec9cf45cd04985698a60a4e09e3553ed9e6c0a733f47d263a8cf84e6e26"
+          },
+          "chinese/shici.csv": {
+            "entries": 335208,
+            "sha256": "3621fb1a90dba49aa1fb515cfd12aa11165be84c1f402c92eea90212c48d14a1"
+          },
+          "chinese/taifeng.csv": {
+            "entries": 217,
+            "sha256": "6bc4b57c9e6bb36fd6b837186a77c826fee52b4445062670786dc6708b21999a"
+          },
+          "chinese/wuzhong.csv": {
+            "entries": 66331,
+            "sha256": "18f61ea64fe3c7652f39b84b6fe2e472cb1d22c994f64770515fd76544b7175e"
+          },
+          "chinese/yaopin.csv": {
+            "entries": 19924,
+            "sha256": "f7aabd5ff5616283084a4cb7fb5604c82d9929fbd5bb1875c3f57a9f032e4f04"
+          },
+          "chinese/yiren.csv": {
+            "entries": 14444,
+            "sha256": "45b7cec0218c9deb7798077e5d7056d4bff42aa13e0da14a0505712cb22acedb"
+          },
+          "chinese/yixue.csv": {
+            "entries": 21408,
+            "sha256": "371146bcc5030a6793675f452e92c1bf21a17bd685b4d93f3089a2c92d6b9e60"
+          }
+        },
+        "transformations": "Tone removal; ü to v; SI English full-text keys; maximum duplicate weight; first source spelling on equal-weight case variants; missing weights zero; numeric N/s suffix prefixes; exclude private-use outputs and unsupported English forms.",
+        "preserved_categories": {
+          "chinese/game.csv": "6d818563773304846a88f03a741648e4edfc9c8f25523497ab93fc3574d48368",
+          "chinese/geography.csv": "89f8d98a5a2c74917b360637b396a352c592a899b892f57fe51e709cb13e807b",
+          "chinese/medicine.csv": "799bb65e2aaf59988d1338506b251ec89638818bdf8a278e050fa81d07d8a57a",
+          "chinese/movie.csv": "1a9ba87aa52546c745df60dfe3730ece583b544cd5339a27616bde8785bc5f5c",
+          "chinese/organizations.csv": "8263a3eb8a194e947b7daa115cccf8cd4963efe7b4fbf22d34fe5aec0ed3cc55",
+          "chinese/science.csv": "b3b7306e3e2692287d92e8171725e30db52dea542399ef25074c4ffa5860c57e",
+          "chinese/technology.csv": "5bde2596176310376b6a77070617c19566834a242b4388e470f5f654f85615e1",
+          "english/domain.csv": "19e9164d63417d7f2172bfd12b8072eacdda9d775b46d44764af9c8a2e6689f2",
+          "english/movie.csv": "74855d54718672d696775c87638959bcec4e7cbbfd41535a67192d086dff9328"
+        }
+      },
+      "attribution": "mac/SI/Core/Resources/English/Wanxiang-NOTICE.txt",
+      "attribution_sha256": "187d8f1a5fd95e42ab0a2b70fbde918c1d8d885bb9553b2bd4249d3c84133694"
+    }
+  ],
+  "curations": [
+    {
+      "id": "movie-titles-2007-2026",
+      "languages": [
+        "chinese",
+        "english"
+      ],
+      "reviewed_on": "2026-10-28",
+      "years": [
+        2007,
+        2026
+      ],
+      "films": 400,
+      "catalog": "Data/Vocabulary/movie-catalog.csv",
+      "catalog_sha256": "f7be4f464c13ad01c200e8bec9447e8359a20f60d2636a3205fead1f55a4abbb",
+      "notes": "Data/Vocabulary/MOVIES.md",
+      "metadata": {
+        "origin": "SI-maintained editorial selection of factual movie titles; no third-party lexicon import.",
+        "license": "GPL-3.0-only for SI-authored additions; reused entries retain existing upstream attribution.",
+        "new_entry_weight": 10,
+        "existing_entry_policy": "Retain texts and readings; local category weights are 10; base and imported upstream identities take precedence.",
+        "english_reading": "Lowercase ASCII letters, omit spacing/punctuation, spell digits individually from zero through nine.",
+        "initial_new_entry_weight": 100,
+        "current_category_weight": 10
+      }
+    },
+    {
+      "id": "basic-domains",
+      "languages": [
+        "english"
+      ],
+      "reviewed_on": "2026-10-28",
+      "entries": 304,
+      "catalog": "Data/Vocabulary/CloudflareRadar/si-authored.csv",
+      "catalog_sha256": "bcd8cd5bb5629d7dec6d06e2173738b5b000e4f18d8a4da6663e08d6d3709938",
+      "notes": "Data/Vocabulary/DOMAINS.md",
+      "metadata": {
+        "origin": "SI-authored selection of public service hostnames and reserved documentation examples; no third-party wordlist import.",
+        "license": "GPL-3.0-only for SI-authored vocabulary. Domain names identify their respective services.",
+        "new_entry_weight": 10,
+        "english_reading": "Exact lowercase domain text, preserving dots, hyphens and digits; no standalone suffixes.",
+        "scope": "Full ASCII domain/host names for development, cloud, research, mail, media, services and reserved examples. Bare suffixes are excluded.",
+        "initial_new_entry_weight": 100,
+        "current_category_weight": 10
+      }
+    }
+  ],
+  "domain_collection": {
+    "path": "Data/Vocabulary/english/domain.csv",
+    "entries": 1209,
+    "sha256": "19e9164d63417d7f2172bfd12b8072eacdda9d775b46d44764af9c8a2e6689f2"
+  },
+  "category_overlap": "base",
+  "upstream_categories": {
+    "chinese": [
+      "diming.csv",
+      "fangyan.csv",
+      "huaxue.csv",
+      "mingren.csv",
+      "shici.csv",
+      "taifeng.csv",
+      "wuzhong.csv",
+      "yaopin.csv",
+      "yiren.csv",
+      "yixue.csv"
+    ],
+    "english": []
+  },
+  "local_category_policy": {
+    "default_new_entry_weight": 10,
+    "category_weight": 10,
+    "description": "Local category weights reset to 10 on 2026-10-29; blank new local CSV weights and newly imported domains default to 10. Upstream weights stay explicit and unchanged."
+  }
+}

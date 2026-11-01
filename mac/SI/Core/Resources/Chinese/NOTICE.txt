@@ -5,7 +5,11 @@ MSIME source: https://github.com/metasequoiaime/msime
 Pinned engine revision: 0fce42f0dd22fe6930b5a1942498280df8073396
 Algorithm code: GPL-3.0-only. SI remains licensed under GPLv3.
 
-Dictionary source: https://github.com/metasequoiaime/msime-dictionary
+Current base and imported categories: rime-wanxiang-data, CC BY 4.0.
+See Wanxiang-NOTICE.txt and Wanxiang-CC-BY-4.0.txt in this directory.
+The following lexical notices apply to retained historical SI category data.
+
+Historical dictionary source: https://github.com/metasequoiaime/msime-dictionary
 Pinned source revision: b32ac7227135255a3351f02ec5bdfc983741e81a
 Lexical sources include Rime Ice, rime-wanxiang (amzxyz), pinyin-data,
 administrative division names, and MSIME-authored additions and corrections.
@@ -26,5 +30,7 @@ The source subset and exact artifact checksums are in
 Data/Chinese/MSIME/resources.lock.json in the SI source distribution.
 
 SI changes: read-only SQLite generation, duplicate text/reading merging,
-MSIME reading corrections, and an independently maintained SI overlay.
+MSIME reading corrections, and migration of effective entries into SI-maintained
+category CSVs. Old wordlists and overlays have been removed; source-level
+provenance is retained in Data/Vocabulary/meta.json.
 No Rust runtime is included. No user input is part of these resources.

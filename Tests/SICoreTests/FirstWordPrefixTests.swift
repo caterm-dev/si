@@ -51,23 +51,20 @@ struct FirstWordPrefixTests {
         #expect(shortlist.count == words.count + 6 && shortlist.count <= CandidateShortlist.ordinaryCandidateLimit)
         #expect(shortlist.first == sentence && shortlist.last == literal)
         #expect(words.prefix(12).allSatisfy(shortlist.contains))
-        #expect(shortlist.contains(english) && shortlist.contains(mixed))
-        #expect(shortlist.prefix(4).allSatisfy { $0.lexicalTokenCount != 1 })
-        #expect(shortlist.dropFirst(4).dropLast().allSatisfy { $0.lexicalTokenCount == 1 })
+        #expect(shortlist.contains(english) && !shortlist.contains(mixed))
+        #expect(shortlist == [sentence] + Array(fragments.prefix(3)) + words + [english, literal])
         #expect(shortlist.filter(\.isLexicalPrefix) == Array(words.prefix(20)))
         #expect(shortlist == CandidateShortlist.candidates(from: engine))
 
-        // Sentence alternatives share the four-choice cap with mixed fragments.
+        // Low-scoring mixed fragments do not displace sentence alternatives.
         let readings = (0..<12).map {
             InputCandidate(text: "完整句\($0)", language: .simplifiedChinese, score: 100 - $0)
                 .withChineseSentenceOrigin()
         }
-        let history = InputCandidate(text: "历史", language: .simplifiedChinese, score: 1,
-                                     isHistory: true, historyInput: "synthetic")
-        let crowded = CandidateShortlist.candidates(from: readings + fragments + words + [english, mixed, history, literal])
-        #expect(crowded.count == CandidateShortlist.ordinaryCandidateLimit && crowded.last == literal)
+        let crowded = CandidateShortlist.candidates(from: readings + fragments + words + [english, mixed, literal])
+        #expect(crowded.count == words.count + 6 && crowded.count <= CandidateShortlist.ordinaryCandidateLimit && crowded.last == literal)
         #expect(crowded.filter { $0.isChineseSentence || $0.isMixed }.count == 4)
-        #expect(crowded.contains(english) && crowded.contains(mixed) && crowded.contains(history))
+        #expect(crowded.contains(english) && !crowded.contains(mixed))
         #expect(words.allSatisfy(crowded.contains))
     }
 

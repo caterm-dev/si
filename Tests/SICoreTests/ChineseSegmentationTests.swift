@@ -20,7 +20,7 @@ struct ChineseSegmentationTests {
                 session.append(input)
                 let request = try #require(session.pendingCandidateRequest)
                 for values in [request.generatePreview().candidates, request.generate().candidates] {
-                    #expect(values.first?.text == expected && values.first?.isPartial == false)
+                    #expect(values.first { !$0.isPartial }?.text == expected && values.first { !$0.isPartial }?.isPartial == false)
                     #expect(values.last?.text == input && values.last?.isLiteral == true)
                 }
             }

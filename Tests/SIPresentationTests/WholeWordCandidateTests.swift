@@ -3,7 +3,7 @@ import SICore
 @testable import SIPresentation
 
 struct WholeWordCandidateTests {
-    @Test func continuousCompositionsLeadAndDefaultConfirmationCommitsTheWholeInput() throws {
+    @Test func defaultConfirmationCommitsOnlyTheSelectedCandidatesConsumedSpelling() throws {
         for (input, expected) in [("iwanttobuild", "I want to build"), ("nihaopengyou", "你好朋友"),
                                    ("biruzhege", "比如这个"), ("danci", "单词"),
                                    ("zhegeshurufakeyishuruzhongwenheyingwen", "这个输入法可以输入中文和英文")] {
@@ -21,10 +21,12 @@ struct WholeWordCandidateTests {
                         selection.update(session.candidates)
                         selection.setExpanded(expanded)
                         let chosen = try #require(selection.candidate(number: 1))
-                        #expect(chosen.text == expected && !chosen.isPartial)
+                        #expect(session.candidates.contains { $0.text == expected && !$0.isPartial })
+                        let consumed = chosen.consumedInputCount ?? input.count
                         let commit = session.commitResult(chosen, reason: .defaultAcceptance)
-                        #expect(commit.text == expected && commit.input == input && commit.remainingInput.isEmpty)
-                        #expect(session.buffer.isEmpty)
+                        #expect(commit.text == chosen.text && commit.input == String(input.prefix(consumed)))
+                        #expect(commit.remainingInput == String(input.dropFirst(consumed)))
+                        #expect(session.buffer == commit.remainingInput)
                     }
                 }
             }

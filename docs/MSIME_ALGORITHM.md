@@ -47,7 +47,7 @@ n = 1: ln(max(1, f)) − ln(1,000,000)
 n > 1: ln(max(1, f)) + 20 × (n − 1)
 ```
 
-SI intentionally diverges from this upstream formula after the October 22 frequency review: its single-character deduction is two nats, while the 20-nat word insertion prior and shared log-frequency coefficient remain. The smaller cost fixes the reported `nawomenzaichaxun` cross-boundary segmentation; completely removing it caused excessive character splitting. See [SI's current scoring and limits](UNIFIED_RANKING.md). The formula above continues to document upstream.
+SI intentionally diverges from this upstream formula after the October 22 frequency review: its current single-character deduction is two nats and its word insertion prior is 20 nats; the shared log-frequency coefficient is 1.05 rather than one, strengthening dictionary-weight differences relative to insertion and spelling costs. The October 31 experiments temporarily reduced these priors to 1.75 and 19.5 nats and tested one and ten nats; the user then requested restoring two and 20 nats. The smaller cost fixes the reported `nawomenzaichaxun` cross-boundary segmentation; completely removing it caused excessive character splitting. See [SI's current scoring and limits](UNIFIED_RANKING.md). The formula above continues to document upstream.
 
 This is a heuristic length/word objective, not a normalized unigram probability. In particular, treating the integer weight as a universal final ranking score changes the algorithm.
 
@@ -78,7 +78,7 @@ For julitebieyuan, the source actually favors 原 over 远 by about 76.8 times i
 
 The Pinyin data largely derives from Rime Ice, with shared readings reweighted from rime-wanxiang v18.0.16, plus reading corrections and additions. The dictionary repository explicitly has per-source terms, not one blanket data license. The selected import excludes its separately marked unlicensed custom dictionary sources. Preserve the [upstream notice](../Data/Chinese/MSIME/NOTICE.md), revision locks and source-specific attribution when maintaining SI's derivative dictionary.
 
-The engine adaptation is GPL-3.0-only. SI's runtime implementation is Swift; reading Rust source for the port does not introduce a Rust dependency. SI's own public lexical additions/exclusions belong in [si-entries.json](../Data/Chinese/MSIME/si-entries.json), separate from private user phrases and learned preferences.
+The engine adaptation is GPL-3.0-only. SI's runtime implementation is Swift; reading Rust source for the port does not introduce a Rust dependency. SI's own public lexical additions, deletions and corrections belong in [category CSVs](../Data/Vocabulary/README.md), separate from private user phrases and learned preferences.
 
 ## SI migration boundary
 

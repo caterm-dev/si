@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "model": {
+    "vocab_size": 512,
+    "layers": 1,
+    "width": 32,
+    "heads": 4,
+    "feedforward": 64,
+    "context": 32,
+    "dropout": 0.2
+  },
+  "data": {
+    "sources": ["fixture"],
+    "validation_fraction": 0.2,
+    "test_fraction": 0.2,
+    "max_characters_per_source": 0,
+    "max_document_characters": 10000,
+    "minimum_han_characters": 4
+  },
+  "training": {
+    "batch_size": 2,
+    "gradient_accumulation": 2,
+    "max_steps": 4,
+    "schedule_steps": 8,
+    "max_tokens": 0,
+    "warmup_steps": 1,
+    "learning_rate": 0.001,
+    "weight_decay": 0.1,
+    "gradient_clip": 1.0,
+    "validate_every": 2,
+    "save_every": 2,
+    "validation_tokens": 128
+  },
+  "scoring": {
+    "batch_size": 2,
+    "max_candidates": 32,
+    "length_penalty": 0.0
+  }
+}

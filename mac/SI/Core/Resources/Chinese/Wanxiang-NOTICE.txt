@@ -1,0 +1,34 @@
+Wanxiang Chinese and English base vocabulary
+
+Author: amzxyz and rime-wanxiang-data contributors.
+Source: https://github.com/amzxyz/rime-wanxiang-data
+Pinned revision: adfa047c339627737f0a4c75674a8042c1ef7f72
+Data license: Creative Commons Attribution 4.0 International (CC BY 4.0).
+License URL: https://creativecommons.org/licenses/by/4.0/
+Full license: Wanxiang-CC-BY-4.0.txt in this resource directory.
+
+SI imports dicts/zi.dict.yaml, dicts/jichu.dict.yaml,
+dicts/duoyin.dict.yaml and dicts/en.dict.yaml into base.csv.
+The other normal Chinese sources remain separate CSV categories named after the source files:
+diming, fangyan, huaxue, mingren, shici, taifeng, wuzhong, yaopin, yiren, yixue.
+The cuoyin, abbreviation, T9 abbreviation and mixed-language tables are excluded.
+Weights are retained without wordfreq normalization or frequency rescaling.
+SI removes Chinese tone marks, maps ü to v, and merges tone-collapsed
+text/reading pairs by maximum weight. English uses SI full-text typing keys;
+case-only duplicates use the highest-weight spelling, with first-source ties.
+Missing weights are stored as zero. The pinned source's integer+N/integer+s
+weights use their numeric prefix, matching Rime's numeric parser.
+Private-use outputs and unsupported English forms are excluded and reported.
+
+Local SI category texts/readings are retained; their weights were set to 10
+on October 29, 2026. New local entries default to 10. The base owns overlapping weights
+and English casing. Imported Wanxiang categories retain upstream weights over
+legacy category copies; preserved categories supplement other identities.
+Historical MSIME, SCOWL, CSpell, Rime Ice and wordfreq notices remain with
+the distribution for preserved category data and source history.
+
+No upstream program code, grammar model or runtime is imported by this change.
+SI's independently written conversion script and application remain GPLv3.
+Full upstream LICENSE-SCOPE.md and NOTICE.md, source checksums and conversion
+report are retained under Data/Vocabulary/Wanxiang in the source distribution.
+No user input, private phrases or learning archives are dictionary inputs.

@@ -12,9 +12,9 @@ struct DictionaryLexeme: Sendable {
 /// A dictionary connection is immutable to SQLite. The lock owns every cached statement and
 /// every SQLite call, including finalization. Sendability relies on this lock, not IMK callbacks.
 final class LexiconDatabase: @unchecked Sendable {
-    // Versioned wire contract in Data/DictionaryFormat.json. A changed reference
-    // mass requires a new unit/version rather than silently mixing scales.
-    private static let weightReferenceMass: Int64 = 7_694_577_936
+    // Versioned wire contract in Data/DictionaryFormat.json. Wanxiang base weights
+    // are stored unchanged; one point is one upstream ranking-weight unit.
+    private static let weightReferenceMass: Int64 = 1
     private let connection: OpaquePointer?
     private let lock = NSLock()
     private var statements: [String: OpaquePointer] = [:]
@@ -49,7 +49,7 @@ final class LexiconDatabase: @unchecked Sendable {
         if let statement { sqlite3_finalize(statement) }
         let mass = Int64(metadata["reference_mass"] ?? "") ?? 0
         let unknown = Int64(metadata["unknown_weight"] ?? "") ?? 0
-        if metadata["schema_version"] != "1" || metadata["weight_unit"] != "si-relative-frequency-v1"
+        if metadata["schema_version"] != "1" || metadata["weight_unit"] != "si-wanxiang-weight-v1"
             || mass != Self.weightReferenceMass || unknown <= 0 {
             if let connection { sqlite3_close(connection) }
             connection = nil

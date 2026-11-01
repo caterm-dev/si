@@ -1,8 +1,21 @@
 .venv/
 .cache/
+# Keep authored CSV sources and frozen test fixtures; ignore acquired/derived data.
+data/raw/
+data/downloads/
+data/generated/
 data/prepared/
 runs/
 reports/
 configs/*.local.json
+*/data/prepared/
+*/data/raw/
+*/data/downloads/
+*/data/generated/
+*/runs/
+*/reports/
+*/exports/
+*/configs/*.local.json
 *.pt
 *.onnx
+*.safetensors

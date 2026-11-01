@@ -6,7 +6,7 @@ import SILocalization
 
 @MainActor
 struct CandidateViewTests {
-    @Test func expandedGridShowsFourSixCandidateRowsWithTheCompactFirstLine() throws {
+    @Test func expandedGridSharesContentSizedColumnsAcrossFourRows() throws {
         var session = InputSession()
         session.append("sheguofennudehai")
         var selection = CandidateSelection()
@@ -21,10 +21,10 @@ struct CandidateViewTests {
         view.render(selection)
         view.frame = NSRect(origin: .zero, size: view.preferredSize)
         view.layoutSubtreeIfNeeded()
-        #expect(view.rows.count == 24 && view.preferredSize.width == compactSize.width)
+        #expect(view.rows.count == 24 && view.preferredSize.width >= compactSize.width)
         for (row, previous) in zip(view.rows, firstLine) {
             #expect(row.candidateID == previous.0 && row.isCompact)
-            #expect(abs(row.frame.minX - previous.1) < 0.001 && abs(row.frame.width - previous.2) < 0.001)
+            #expect(row.frame.minX >= previous.1 - 0.001 && row.frame.width >= previous.2 - 0.001)
             #expect(row.frame.maxY == view.rows[0].frame.maxY)
         }
         #expect(view.rows[6].frame.minX == view.rows[0].frame.minX)
@@ -44,7 +44,10 @@ struct CandidateViewTests {
             let narrow = try snapshot(view, appearance: appearance, maximumWidth: 340)
             expectColumnsAligned(view)
             #expect(Set(view.rows.map { $0.frame.minY }).count == 4)
-            #expect(view.rows.allSatisfy { $0.frame.minY >= 34 && $0.frame.maxX <= view.bounds.width - 33 })
+            for row in view.rows {
+                #expect(row.frame.minY >= 34)
+                #expect(row.frame.maxX <= view.bounds.width - 33 + 0.001)
+            }
             #expect(view.rows.allSatisfy { $0.toolTip?.contains($0.candidateLabel.stringValue) == true })
             #expect(view.rows.dropFirst(6).allSatisfy {
                 $0.candidateLabel.frame.width >= 19 && $0.sourceIndicator.isHidden
@@ -53,6 +56,88 @@ struct CandidateViewTests {
                 let style = appearance == .aqua ? "light" : "dark"
                 try regular.write(to: URL(filePath: "\(path).\(style).png"))
                 try narrow.write(to: URL(filePath: "\(path).narrow.\(style).png"))
+            }
+        }
+    }
+
+    @Test func expandedColumnsGrowForLowerRowWordsAndPrefixIndicators() throws {
+        let firstLine = ["一", "二", "三", "四", "五", "六"].enumerated().map {
+            InputCandidate(text: $0.element, language: .simplifiedChinese, score: 100 - $0.offset, lexicalTokenCount: 1)
+        }
+        let longWord = InputCandidate(text: "完整显示的超长候选文本用于检查展开列宽", language: .simplifiedChinese,
+                                      score: 90, lexicalTokenCount: 1)
+        let prefix = InputCandidate(text: "步", language: .simplifiedChinese, score: 89,
+                                    consumedInputCount: 2, lexicalTokenCount: 1)
+        let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
+        var selection = CandidateSelection()
+        selection.update(firstLine + [longWord, prefix, literal])
+        let view = CandidateListView()
+        view.render(selection)
+        let compactWidth = view.preferredSize.width
+        selection.setExpanded(true)
+        view.render(selection)
+        #expect(view.preferredSize.width > compactWidth)
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            let regular = try snapshot(view, appearance: appearance)
+            expectColumnsAligned(view)
+            for row in view.rows {
+                #expect(row.candidateLabel.frame.width >= row.candidateLabel.intrinsicContentSize.width)
+            }
+            #expect(view.rows[6].frame.width > 280)
+            #expect(!view.rows[7].sourceIndicator.isHidden)
+            #expect(view.rows[7].candidateLabel.frame.maxX < view.rows[7].sourceIndicator.frame.minX)
+            var clicked: String?
+            view.onSelect = { clicked = $0 }
+            view.rows[6].performClick(nil)
+            #expect(clicked == longWord.id)
+            #expect(view.rows[6].accessibilityLabel()?.contains(longWord.text) == true)
+            let narrow = try snapshot(view, appearance: appearance, maximumWidth: 340)
+            #expect(view.bounds.width <= 340)
+            expectColumnsAligned(view)
+            for row in view.rows {
+                #expect(row.frame.maxX <= view.expandButton.frame.minX)
+                #expect(row.toolTip?.contains(row.candidateLabel.stringValue) == true)
+            }
+            if let path = ProcessInfo.processInfo.environment["SI_WIDTH_SNAPSHOT_PATH"] {
+                let style = appearance == .aqua ? "light" : "dark"
+                try regular.write(to: URL(filePath: "\(path).expanded.\(style).png"))
+                try narrow.write(to: URL(filePath: "\(path).narrow.\(style).png"))
+            }
+        }
+        selection.navigate(.row(1))
+        #expect(selection.candidate(number: 2) == prefix)
+        selection.move(by: -selection.selectedIndex)
+        selection.setExpanded(false)
+        view.render(selection)
+        #expect(view.preferredSize.width == compactWidth)
+
+        // A long candidate in the compact strip can also use the available screen.
+        selection.update([longWord, literal])
+        view.render(selection)
+        _ = try snapshot(view, appearance: .aqua)
+        #expect(view.rows[0].frame.width > 280)
+        #expect(view.rows[0].candidateLabel.frame.width >= view.rows[0].candidateLabel.intrinsicContentSize.width)
+    }
+
+    @Test func bufenciExpandedCandidatesHaveRoomForTextAndSourceIndicators() throws {
+        var session = InputSession()
+        session.configure(languages: Set(InputLanguage.allCases))
+        session.append("bufenci")
+        var selection = CandidateSelection()
+        selection.update(session.candidates)
+        selection.setExpanded(true)
+        let view = CandidateListView()
+        view.render(selection)
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            let image = try snapshot(view, appearance: appearance)
+            expectColumnsAligned(view)
+            for row in view.rows {
+                #expect(row.candidateLabel.frame.width >= row.candidateLabel.intrinsicContentSize.width)
+                #expect(row.accessibilityLabel()?.contains(row.candidateLabel.stringValue) == true)
+            }
+            if let path = ProcessInfo.processInfo.environment["SI_WIDTH_SNAPSHOT_PATH"] {
+                let style = appearance == .aqua ? "light" : "dark"
+                try image.write(to: URL(filePath: "\(path).bufenci.\(style).png"))
             }
         }
     }
@@ -67,19 +152,19 @@ struct CandidateViewTests {
         }
     }
 
-    @Test func leadingSentenceCanBeClickedAndCommittedInBothLayouts() throws {
+    @Test func completeWordCanBeClickedAndCommittedInBothLayouts() throws {
         for preview in [false, true] {
             for expanded in [false, true] {
                 var session = InputSession(candidateGeneration: .deferred)
                 session.configure(languages: Set(InputLanguage.allCases))
-                session.append("erbeizuoduo")
+                session.append("danci")
                 let request = try #require(session.pendingCandidateRequest)
                 let accepted = session.accept(preview ? request.generatePreview() : request.generate())
                 #expect(accepted)
                 var selection = CandidateSelection()
                 selection.update(session.candidates)
                 selection.setExpanded(expanded)
-                let index = try #require(selection.candidates.firstIndex { $0.language == .simplifiedChinese && !$0.isMixed && !$0.isPartial })
+                let index = try #require(selection.candidates.firstIndex { $0.text == "单词" && !$0.isPartial })
                 while selection.page < index / selection.visiblePageSize { selection.movePage(by: 1) }
                 selection.move(by: index - selection.selectedIndex)
                 let number = index % selection.visiblePageSize + 1
@@ -99,7 +184,7 @@ struct CandidateViewTests {
                 #expect(clicked == chosen.id && view.rows[number - 1].isCurrent)
                 #expect(view.rows[number - 1].numberLabel.stringValue == String(number))
                 let commit = session.commitResult(chosen, reason: .explicitSelection)
-                #expect(commit.text == chosen.text && commit.input == "erbeizuoduo" && session.buffer.isEmpty)
+                #expect(commit.text == chosen.text && commit.input == "danci" && session.buffer.isEmpty)
             }
         }
     }
@@ -129,10 +214,11 @@ struct CandidateViewTests {
 
     @Test(arguments: [NSAppearance.Name.aqua, .darkAqua])
     func singleLetterCandidateRemainsVisibleAndSelectable(appearance: NSAppearance.Name) throws {
-        var session = InputSession()
-        session.append("a")
         var selection = CandidateSelection()
-        selection.update(session.candidates)
+        // Rendering a one-letter candidate is independent of public vocabulary coverage/ranking.
+        selection.update([InputCandidate(text: "a", language: .english, score: 100, lexicalTokenCount: 1),
+                          InputCandidate(text: "啊", language: .simplifiedChinese, score: 90, lexicalTokenCount: 1),
+                          InputCandidate(text: "a", language: nil, score: 0)])
         let view = CandidateListView()
         var clicked: String?
         view.onSelect = { clicked = $0 }

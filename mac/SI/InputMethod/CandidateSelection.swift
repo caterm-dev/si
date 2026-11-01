@@ -4,6 +4,11 @@ import SICore
 
 // One client owns the selected cell, numbered row and displayed page.
 struct CandidateSelection {
+    /// The displayed global first choice stays neutral, including number/mouse acceptance.
+    func confirmationReason(for candidate: InputCandidate?) -> CommitReason {
+        guard let candidate else { return .literal }
+        return candidate.id == candidates.first?.id ? .defaultAcceptance : .explicitSelection
+    }
     enum Navigation: Equatable {
         case column(Int)
         case row(Int)
@@ -24,6 +29,7 @@ struct CandidateSelection {
     var pageCapacity: Int { Self.pageSize * (isExpanded ? Self.expandedRowCount : 1) }
     private(set) var candidates: [InputCandidate] = []
     private(set) var selectedIndex = 0
+    private var textSupport = CandidateTextSupport()
 
     var selected: InputCandidate? { candidates.indices.contains(selectedIndex) ? candidates[selectedIndex] : nil }
     var page: Int { selectedIndex / pageCapacity }
@@ -57,9 +63,13 @@ struct CandidateSelection {
     }
 
     mutating func update(_ candidates: [InputCandidate]) {
-        self.candidates = CandidateShortlist.candidates(from: candidates)
+        if candidates.isEmpty { textSupport = CandidateTextSupport() }
+        // Filter before allocating shortlist slots and protecting language identities.
+        // Exact original input remains selectable regardless of font coverage.
+        let displayable = candidates.filter { $0.isLiteral || textSupport.canDisplay($0.text) }
+        self.candidates = CandidateShortlist.candidates(from: displayable)
         selectedIndex = 0
-        if candidates.isEmpty { isExpanded = false }
+        if self.candidates.isEmpty { isExpanded = false }
     }
 
     mutating func setExpanded(_ expanded: Bool) { isExpanded = expanded }

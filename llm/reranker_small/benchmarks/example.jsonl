@@ -1,0 +1,3 @@
+{"id":"meeting","context":"今天下午，","candidates":["我们开会","我们开慧"],"references":["我们开会"]}
+{"id":"computer","context":"工作时需要","candidates":["使用店脑","使用电脑"],"references":["使用电脑"]}
+{"id":"missing-gold","context":"我们要","candidates":["开始侧试","开始策试"],"references":["开始测试"]}

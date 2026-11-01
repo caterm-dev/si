@@ -7,24 +7,26 @@ struct CandidateEngineTests {
     private let languages = Set(InputLanguage.allCases)
 
     @Test(arguments: ["xianshi", "biruzhege", "danci", "nihaopengyou", "iwanttobuild"])
-    func ordinaryCandidatesRetainTheirScoresAndCompeteWithoutTypePriority(input: String) {
+    func ordinaryCandidatesCompeteByCoverageAdjustedScoreWithoutTypePriority(input: String) {
         let profile = LearningProfile()
         for enabled: Set<InputLanguage> in [[.simplifiedChinese], languages] {
+            var session = InputSession(candidateGeneration: .deferred)
+            session.configure(languages: enabled)
+            session.append(input)
             for result in [engine.candidates(for: input, languages: enabled),
                            engine.previewCandidates(for: input, languages: enabled, learning: profile,
                                                     dictionary: UserDictionary(), now: .now, context: nil)] {
-                let ranked = result.filter { !$0.isLiteral && !$0.isHistory }
+                let ranked = result.filter { !$0.isLiteral }
                 for (left, right) in zip(ranked, ranked.dropFirst()) {
-                    #expect(left.inputScore >= right.inputScore)
-                    if left.inputScore == right.inputScore { #expect(left.id < right.id) }
+                    #expect(session.presentationScore(for: left) >= session.presentationScore(for: right))
+                    if session.presentationScore(for: left) == session.presentationScore(for: right) { #expect(left.id < right.id) }
                 }
                 #expect(result.last?.isLiteral == true && result.last?.text == input)
             }
         }
     }
 
-    @Test func increasingDictionaryFrequencyRaisesTheWordWithoutChangingItsCoverageCost() throws {
-        var coverageCosts: [Double] = []
+    @Test func increasingDictionaryFrequencyRaisesTheWordUsingOnlyItsConsumedSpelling() throws {
         var scores: [Double] = []
         for weight: UInt64 in [100, 2_000_000] {
             let decoder = PinyinDecoder(entries: [
@@ -38,34 +40,31 @@ struct CandidateEngineTests {
             #expect(result.contains { $0.text == "完整候选" && !$0.isPartial })
             let standalone = try #require(decoder.candidates(for: "biru").first { $0.text == "比如" })
             #expect(abs(result[index].rankingScore - standalone.rankingScore) < 1e-12)
-            coverageCosts.append(result[index].remainingInputScore)
+            #expect(result[index].inputScore == result[index].rankingScore)
             scores.append(result[index].rankingScore)
         }
-        // A retained whole path projects its suffix by subtracting its consumed score.
-        #expect(abs(coverageCosts[0] - coverageCosts[1]) < 1e-12)
-        #expect(coverageCosts[0] < 0)
-        #expect(abs(scores[1] - scores[0] - log2(20_000.0)) < 1e-12)
+        #expect(abs(scores[1] - scores[0] - 1.05 * log2(20_000.0)) < 1e-12)
     }
 
     @Test func wholeAndPrefixCandidatesCompeteByFractionalScoreAcrossSourceSpans() {
         let values = [
             InputCandidate(text: "Whole", language: .english, score: 10, rankingScore: 10.25),
-            InputCandidate(text: "Short", language: .english, score: 12,
-                           consumedInputCount: 1, rankingScore: 12.75),
-            InputCandidate(text: "Long", language: .english, score: 12,
-                           consumedInputCount: 4, rankingScore: 12.5),
+            InputCandidate(text: "Short", language: .english, score: 19,
+                           consumedInputCount: 1, rankingScore: 19.75),
+            InputCandidate(text: "Long", language: .english, score: 19,
+                           consumedInputCount: 4, rankingScore: 19.5),
             InputCandidate(text: "Low", language: .english, score: 9, consumedInputCount: 2),
         ]
         for rows in [values, Array(values.reversed())] {
             let engine = CandidateEngine(providers: [RankedProvider(values: rows)])
             let result = engine.candidates(for: "synthetic", languages: [.english])
-            #expect(result.map(\.text) == ["Short", "Long", "Whole", "Low", "synthetic"])
+            #expect(result.map(\.text) == ["Whole", "Long", "Short", "Low", "synthetic"])
         }
     }
 
     @Test func prefixLearningUsesConsumedSpellingWithoutAReservedPosition() {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
-        let prefix = InputCandidate(text: "Word", language: .english, score: 1, consumedInputCount: 4)
+        let prefix = InputCandidate(text: "Word", language: .english, score: 5, consumedInputCount: 4)
         let whole = InputCandidate(text: "Sentence", language: .english, score: 10)
         let engine = CandidateEngine(providers: [RankedProvider(values: [prefix, whole])])
         let profile = LearningProfile(entries: [
@@ -95,7 +94,7 @@ struct CandidateEngineTests {
 
     @Test func exactEnglishMatchDoesNotHideChinese() {
         let candidates = engine.candidates(for: "he", languages: languages)
-        #expect(candidates.first?.text == "he")
+        #expect(candidates.contains { $0.text == "he" && $0.language == .english && !$0.hasCompletion })
         #expect(candidates.contains { $0.text == "和" })
         #expect(candidates.contains { $0.text == "喝" })
     }

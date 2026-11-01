@@ -1,0 +1,8 @@
+# Downloaded archives, prepared corpora and derived lexical tables stay local.
+raw/
+prepared/
+generated/
+.cache/
+.venv/
+__pycache__/
+*.pyc

@@ -29,14 +29,14 @@ struct CompositionLatticeTests {
         let engine = CandidateEngine()
         for (input, expected) in [("woshi", "我是"), ("nishi", "你是"), ("woyao", "我要"),
                                   ("zhongguoren", "中国人"), ("womenhao", "我们好")] {
-            #expect(engine.candidates(for: input, languages: [.simplifiedChinese]).first?.text == expected)
+            #expect(engine.candidates(for: input, languages: [.simplifiedChinese]).first { !$0.isPartial }?.text == expected)
         }
     }
 
     @Test func coherentChinesePathsOutrankAccidentalEnglishWordsWithoutHidingThem() {
         let candidates = CandidateEngine().candidates(for: "womenqubeijing", languages: languages)
-        #expect(candidates.first?.text == "我们去北京")
-        #expect(candidates.contains { $0.text == "women去北京" && $0.isMixed })
+        #expect(candidates.first { !$0.isPartial }?.text == "我们去北京")
+        #expect(candidates.contains { $0.text == "women 去北京" && $0.isMixed })
         #expect(candidates.last?.isLiteral == true)
     }
 
@@ -92,7 +92,7 @@ struct CompositionLatticeTests {
     @Test func incompleteMixedWordAndUnknownSpansHaveDistinctPrivacyBehavior() throws {
         let engine = CandidateEngine()
         let completion = try #require(engine.candidates(for: "nihaowor", languages: languages)
-            .first { $0.text == "你好world" && !$0.isPartial })
+            .first { $0.text == "你好 world" && !$0.isPartial })
         #expect(!completion.hasLiteralSegments)
         // Additional known segmentations can suppress verbatim paths; exact input still survives.
         #expect(engine.candidates(for: "nihaowor", languages: languages).last?.text == "nihaowor")
@@ -101,7 +101,7 @@ struct CompositionLatticeTests {
         // independent of it, and also cover an unknown tail after a known product.
         #expect(EnglishLexicon.matches(for: "qz").isEmpty)
         for (input, output) in [("nihaoQzXvJk", "你好QzXvJk"), ("QzXvJknihao", "QzXvJk你好"),
-                                ("nihaogmailQzXvJk", "你好GmailQzXvJk")] {
+                                ("nihaogmailQzXvJk", "你好gmailQzXvJk")] {
             let candidates = engine.candidates(for: input, languages: languages)
             let preserved = try #require(candidates.first { $0.text == output && !$0.isPartial })
             #expect(preserved.hasLiteralSegments)

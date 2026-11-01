@@ -101,7 +101,7 @@
   },
   {
     "input": "nihaoability",
-    "expected": "你好ability",
+    "expected": "你好 ability",
     "category": "phonetic-regression"
   }
 ]

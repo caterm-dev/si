@@ -228,10 +228,11 @@ public struct InputSession: Sendable {
         refresh()
     }
 
-    /// Inspect the consent/context-aware score using only a prefix's consumed spelling.
+    /// Inspect the lexical/preferences score plus coverage of the consumed spelling.
     public func presentationScore(for candidate: InputCandidate, now: Date = .now) -> Double {
         let spelling = candidate.consumedInputCount.map { String(buffer.prefix($0)) } ?? buffer
         return learning.rankingScore(for: candidate, input: spelling, now: now, context: currentContext(now: now))
+            + CandidateScoring.inputCoverageBonus(for: candidate, spelling: spelling)
     }
 
     private func currentContext(now: Date = .now) -> CandidateContext? {

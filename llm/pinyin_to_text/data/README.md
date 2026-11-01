@@ -1,0 +1,11 @@
+# Training data
+
+The new top-level [Chinese corpus workspace](../../../corpus/README.md) separately prepares public text and lexical reading tables. Its outputs are not automatically imported here: fragment text has no sentence-level Pinyin labels or assigned training splits. Existing CSV sources and prepared experiments retain their current meaning and paths.
+
+The default source is [pinyin-csv/](pinyin-csv/README.md): explicit Pinyin-to-Han character and short-word pairs, organized into `train/`, `validation/` and `test/` with `characters.csv` and `words.csv` in each. The initial focused collection has 2,021 training, 73 validation and 69 test pairs. It excludes sentence templates, English/mixed and typo sources. Preparation reads exactly the maintained rows, validates split separation and writes a versioned snapshot; it does not generate data or randomize splits.
+
+Use `./llm/pinyin_to_text/scripts/prepare.sh --output NEW_DIRECTORY`; see [the training guide](../README.md) for commands and experiment management. Prepared files, source snapshots, checkpoints and reports are ignored by Git. Editable static CSVs and their provenance declaration are retained in source.
+
+The earlier [csv/ collection](csv/README.md) remains unchanged with 50,000 unique samples: 47,339 training, 1,361 validation and 1,300 test. Its [expansion audit](csv/EXPANSION_50K.md) describes the synthetic templates. Existing prepared datasets and trained weights remain separate immutable experiments; they are not overwritten or automatically migrated to the new model. Template seeds, automatic generators and old raw/source-manifest paths remain retired. Some older weights have no compatible source/runtime for resume and remain inference artifacts.
+
+All current data is SI-authored synthetic material under GPLv3. New external corpora require reviewed origin, license, revision and attribution. No app memory, user phrase archive, private document, clipboard or chronological typing history is a source.

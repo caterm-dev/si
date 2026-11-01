@@ -1,0 +1,52 @@
+{
+  "cases": 1230,
+  "anchors": 337,
+  "families": 171,
+  "splits": {
+    "dev": 299,
+    "test": 931
+  },
+  "tracks": {
+    "controlled": 337,
+    "long_context": 250,
+    "phrase": 250,
+    "decoder": 337,
+    "missing_gold": 33,
+    "decoder_alias": 8,
+    "robustness": 15
+  },
+  "categories": {
+    "daily": 190,
+    "civic": 41,
+    "science": 90,
+    "technology": 180,
+    "education": 123,
+    "work": 105,
+    "finance": 33,
+    "travel": 45,
+    "health": 64,
+    "shopping": 57,
+    "names": 73,
+    "food": 8,
+    "grammar": 29,
+    "sentence": 48,
+    "pronoun": 4,
+    "mixed": 42,
+    "segmentation": 10,
+    "umlaut": 16,
+    "idiom": 25,
+    "negation": 8,
+    "numeral": 11,
+    "polyphone": 13,
+    "robustness": 15
+  },
+  "gold_positions_controlled": {
+    "1": 154,
+    "0": 181,
+    "2": 2
+  },
+  "empty_decoder_pools": 9,
+  "overlap_statuses": {
+    "clear": 1182
+  }
+}

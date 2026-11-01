@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Maintain ranking attribution/calibration and import initial wordfreq weights offline."""
+"""Maintain ranking attribution and synthetic calibration without the retired frequency import."""
 import argparse
-import gzip
 import hashlib
 import json
 from pathlib import Path
@@ -10,65 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'Data/Ranking/wordfreq-3.1.1'
 
 
-def unpack(data):
-    """Read only the bounded msgpack types used by cBpack, without executing package code."""
-    position = 0
-
-    def read(size):
-        nonlocal position
-        if size < 0 or position + size > len(data):
-            raise ValueError('Truncated cBpack')
-        value = data[position:position + size]
-        position += size
-        return value
-
-    def number(size):
-        return int.from_bytes(read(size), 'big')
-
-    def value(depth=0):
-        if depth > 4:
-            raise ValueError('Unexpected cBpack nesting')
-        tag = number(1)
-        if tag < 128:
-            return tag
-        if tag & 0xe0 == 0xa0:
-            return read(tag & 31).decode('utf-8')
-        if tag in (0xd9, 0xda, 0xdb):
-            return read(number({0xd9: 1, 0xda: 2, 0xdb: 4}[tag])).decode('utf-8')
-        if tag & 0xf0 == 0x90 or tag in (0xdc, 0xdd):
-            count = tag & 15 if tag < 0xa0 else number(2 if tag == 0xdc else 4)
-            if count > 1_000_000:
-                raise ValueError('Oversized cBpack array')
-            return [value(depth + 1) for _ in range(count)]
-        if tag & 0xf0 == 0x80:
-            return {value(depth + 1): value(depth + 1) for _ in range(tag & 15)}
-        if tag in (0xcc, 0xcd, 0xce):
-            return number({0xcc: 1, 0xcd: 2, 0xce: 4}[tag])
-        raise ValueError(f'Unsupported cBpack tag {tag}')
-
-    result = value()
-    if position != len(data) or result[0] != {'format': 'cB', 'version': 1}:
-        raise ValueError('Invalid cBpack envelope')
-    return result[1:]
-
-
-def frequency_bins(words):
-    """Maintenance-only initial frequency import; runtime dictionaries contain integer weights."""
-    manifest = json.loads((SOURCE / 'source.json').read_text())
-    raw = (SOURCE / 'large_en.msgpack.gz').read_bytes()
-    if hashlib.sha256(raw).hexdigest() != manifest['data_sha256']:
-        raise ValueError('Source checksum mismatch')
-    expanded = gzip.decompress(raw)
-    if len(expanded) > 32 * 1024 * 1024:
-        raise ValueError('Oversized cBpack')
-    buckets = unpack(expanded)
-    lookup = {word: index for index, bucket in enumerate(buckets) for word in bucket}
-    # The source's large-list minimum is 10^-8; missing terms back off one decade below it.
-    return [lookup.get(word.lower(), 900) for word in words]
-
-
 def notices():
-    manifest = json.loads((SOURCE / 'source.json').read_text())
+    records = json.loads((ROOT / 'Data/Vocabulary/meta.json').read_text())['upstreams']
+    manifest = next(record['metadata'] for record in records if record['id'] == 'english-frequency-bootstrap')
     documents = [('README.md', manifest['documentation_sha256']),
                  ('LICENSE.txt', manifest['code_notice_sha256'])]
     documents += [(name, entry['sha256']) for name, entry in manifest['license_files'].items()]

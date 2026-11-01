@@ -121,8 +121,7 @@ final class CandidateListView: NSView {
     }
 
     func preferredSize(constrainedTo maximumWidth: CGFloat) -> NSSize {
-        // Expansion preserves the compact strip's first six cells and width.
-        let naturalWidth = max(160, rows.prefix(CandidateSelection.compactPageSize).map(compactWidth).reduce(0, +) + 38)
+        let naturalWidth = max(160, naturalColumnWidths.reduce(0, +) + 38)
         let width = min(max(1, maximumWidth), max(naturalWidth, pendingMinimumSize?.width ?? 0))
         let lines = isExpanded ? max(1, (rows.count + CandidateSelection.pageSize - 1) / CandidateSelection.pageSize) : 1
         let contentHeight = CGFloat(lines) * (rowHeight + 4) + 4
@@ -130,26 +129,29 @@ final class CandidateListView: NSView {
         return NSSize(width: width, height: max(contentHeight + footer, pendingMinimumSize?.height ?? 0))
     }
 
-    private func rowWidth(_ row: CandidateRowButton) -> CGFloat {
-        row.preferredWidth
+    private var naturalColumnWidths: [CGFloat] {
+        let count = min(rows.count, CandidateSelection.pageSize)
+        var widths = Array(repeating: CGFloat(44), count: count)
+        // Every visible row shares its column's widest text, number and source hint.
+        for (index, row) in rows.enumerated() {
+            widths[index % CandidateSelection.pageSize] = max(widths[index % CandidateSelection.pageSize], row.preferredWidth)
+        }
+        return widths
     }
 
-    private func compactWidth(_ row: CandidateRowButton) -> CGFloat { min(280, max(44, rowWidth(row))) }
-
-    private func cellWidths(_ line: [CandidateRowButton], available: CGFloat) -> [CGFloat] {
-        let natural = line.map(compactWidth)
+    private func cellWidths(_ natural: [CGFloat], available: CGFloat) -> [CGFloat] {
         let total = natural.reduce(0, +)
-        guard total > available, !line.isEmpty else { return natural }
+        guard total > available, !natural.isEmpty else { return natural }
         // Keep a number and glyph available before sharing the remaining width.
-        let minimum = min(44, available / CGFloat(line.count))
-        let extra = max(0, available - minimum * CGFloat(line.count))
-        let flexible = max(1, total - minimum * CGFloat(line.count))
+        let minimum = min(44, available / CGFloat(natural.count))
+        let extra = max(0, available - minimum * CGFloat(natural.count))
+        let flexible = max(1, total - minimum * CGFloat(natural.count))
         return natural.map { minimum + ($0 - minimum) * extra / flexible }
     }
 
     private func gridCells(width: CGFloat) -> [(x: CGFloat, width: CGFloat, line: Int)] {
         let available = max(0, width - 38)
-        let columns = cellWidths(Array(rows.prefix(CandidateSelection.pageSize)), available: available)
+        let columns = cellWidths(naturalColumnWidths, available: available)
         var cells: [(x: CGFloat, width: CGFloat, line: Int)] = []
         for start in stride(from: 0, to: rows.count, by: CandidateSelection.pageSize) {
             var x: CGFloat = 5
@@ -171,7 +173,7 @@ final class CandidateListView: NSView {
         } else {
             let available = max(0, bounds.width - 38)
             var x: CGFloat = 5
-            for (row, width) in zip(rows, cellWidths(rows, available: available)) {
+            for (row, width) in zip(rows, cellWidths(naturalColumnWidths, available: available)) {
                 row.frame = NSRect(x: x, y: (bounds.height - rowHeight) / 2, width: width, height: rowHeight)
                 x += width
             }

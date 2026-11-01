@@ -1,0 +1,21 @@
+{
+  "method": "NFKC/casefold/whitespace-normalized context+reference substring, minimum 8 characters; not a semantic/paraphrase or whole-Web independence check.",
+  "splits": {
+    "train": {
+      "documents": 1394936,
+      "sha256": "eaf128876f15a13f791c6b375801238c9caddf9cdf21fbf98cbbcf55cfb0af3f",
+      "matched_anchors": []
+    },
+    "validation": {
+      "documents": 28940,
+      "sha256": "d5c2fa40277d6bce7d31b1a77b428f3ad3606f07dab09fcbeaeb555bcf20ec30",
+      "matched_anchors": []
+    },
+    "test": {
+      "documents": 14526,
+      "sha256": "6ec67d16614ff67f2cdc42dc3ef1306c2dda9265683a901e71afbb7a33eea4ac",
+      "matched_anchors": []
+    }
+  },
+  "dataset_id": "261ce0da5ced0a85481bbeb9af140e65f0b2313285dae57d76a707feb52b4cdd"
+}

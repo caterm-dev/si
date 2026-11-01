@@ -52,18 +52,16 @@ struct XianshiRankingTests {
         #expect(selection.candidates == [prefix] + words + [literal])
     }
 
-    @Test func historyKeepsItsPositionAndPrefixesSurviveTheShortlist() {
+    @Test func prefixesAndWholeWordsKeepTheirOrderWithinTheShortlist() {
         let words = (0..<40).map {
             InputCandidate(text: "Whole \($0)", language: .english, score: 50 - $0, lexicalTokenCount: 1)
         }
-        let history = InputCandidate(text: "History", language: .english, score: 0,
-                                     isHistory: true, historyInput: "Synthetic history")
         let prefix = InputCandidate(text: "Prefix", language: .english, score: 100,
                                     consumedInputCount: 2, lexicalTokenCount: 1)
         let literal = InputCandidate(text: "Synthetic", language: nil, score: 0)
         var selection = CandidateSelection()
-        selection.update([prefix] + Array(words.prefix(2)) + [history] + Array(words.dropFirst(2)) + [literal])
-        #expect(selection.candidate(number: 4)?.id == history.id)
+        selection.update([prefix] + words + [literal])
+        #expect(selection.candidate(number: 4)?.id == words[2].id)
         #expect(selection.candidates.contains { $0.id == prefix.id })
         #expect(selection.candidates.contains { $0.id == literal.id })
         #expect(selection.candidates.count == CandidateShortlist.ordinaryCandidateLimit)

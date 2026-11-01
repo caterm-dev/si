@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "weight_unit": "si-relative-frequency-v1",
-  "reference_mass": 7694577936,
-  "reference": "Sum of the 953710 retained Chinese text/reading weights before SI overlays on 2026-10-22. One point is one share of this fixed mass. Imported English probabilities are normalized over its retained vocabulary and unknown floor, then rounded to these points. This is a dictionary-relative prior, not a shared corpus count. Keep the mass fixed when either dictionary changes."
+  "weight_unit": "si-wanxiang-weight-v1",
+  "reference_mass": 1,
+  "reference": "One stored upstream point is one unscaled integer weight from the pinned rime-wanxiang-data dictionary. The unit is a ranking weight, not a measured occurrence count or normalized probability. reference_mass=1 records that no frequency rescaling is applied. SI-authored category additions use the editorial weight 10 by default; the base takes precedence for overlapping identities, followed by the imported upstream categories, then preserved local supplements."
 }

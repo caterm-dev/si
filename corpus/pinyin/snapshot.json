@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "language": "zh",
+  "counts": {
+    "characters": 49354,
+    "words": 2091723,
+    "excluded_non_han_or_unaligned": 125
+  },
+  "inputs": {
+    "Data/Vocabulary/chinese/base.csv": "967952a5d9da2f87d502e270185a54b1a7bdefafef3eb7809427e790a13ecd85",
+    "Data/Vocabulary/chinese/diming.csv": "88dd7f19a82d029ac12804c5814f7417397cba504d58ce7f4dc2dcc95e5417de",
+    "Data/Vocabulary/chinese/fangyan.csv": "e816f892ef2a98556857ba9abe711041a4b1f5e7665aee7beae840a88b452119",
+    "Data/Vocabulary/chinese/game.csv": "6d818563773304846a88f03a741648e4edfc9c8f25523497ab93fc3574d48368",
+    "Data/Vocabulary/chinese/geography.csv": "89f8d98a5a2c74917b360637b396a352c592a899b892f57fe51e709cb13e807b",
+    "Data/Vocabulary/chinese/huaxue.csv": "bb2914f005c5102d8905a9abc0cc02239f323c72c79ef30d2e74d46b9f9c6f49",
+    "Data/Vocabulary/chinese/medicine.csv": "799bb65e2aaf59988d1338506b251ec89638818bdf8a278e050fa81d07d8a57a",
+    "Data/Vocabulary/chinese/mingren.csv": "c8236ec9cf45cd04985698a60a4e09e3553ed9e6c0a733f47d263a8cf84e6e26",
+    "Data/Vocabulary/chinese/movie.csv": "1a9ba87aa52546c745df60dfe3730ece583b544cd5339a27616bde8785bc5f5c",
+    "Data/Vocabulary/chinese/organizations.csv": "8263a3eb8a194e947b7daa115cccf8cd4963efe7b4fbf22d34fe5aec0ed3cc55",
+    "Data/Vocabulary/chinese/science.csv": "b3b7306e3e2692287d92e8171725e30db52dea542399ef25074c4ffa5860c57e",
+    "Data/Vocabulary/chinese/shici.csv": "3621fb1a90dba49aa1fb515cfd12aa11165be84c1f402c92eea90212c48d14a1",
+    "Data/Vocabulary/chinese/taifeng.csv": "6bc4b57c9e6bb36fd6b837186a77c826fee52b4445062670786dc6708b21999a",
+    "Data/Vocabulary/chinese/technology.csv": "5bde2596176310376b6a77070617c19566834a242b4388e470f5f654f85615e1",
+    "Data/Vocabulary/chinese/wuzhong.csv": "18f61ea64fe3c7652f39b84b6fe2e472cb1d22c994f64770515fd76544b7175e",
+    "Data/Vocabulary/chinese/yaopin.csv": "f7aabd5ff5616283084a4cb7fb5604c82d9929fbd5bb1875c3f57a9f032e4f04",
+    "Data/Vocabulary/chinese/yiren.csv": "45b7cec0218c9deb7798077e5d7056d4bff42aa13e0da14a0505712cb22acedb",
+    "Data/Vocabulary/chinese/yixue.csv": "371146bcc5030a6793675f452e92c1bf21a17bd685b4d93f3089a2c92d6b9e60",
+    "Data/Vocabulary/meta.json": "3b1d628a81e33498e7c8ffb39fb4b19d7401bd2fd8a124305af4ff2e4c8db7f6"
+  },
+  "files": {
+    "characters.tsv": "f5530202eb33523e07723ec0824e7c3364fcacb324019d4333becb21b5f0f840",
+    "words.tsv": "bcb64aa495752b0061d90ff295290d7e7e44fc50f8a6aafe92df4ab39ee438b0"
+  },
+  "code": {
+    "corpus/pinyin/build.py": "54d7252e97a97b5bfc908f65642ec0c2f60b67248172725c8a13353eff7b0464",
+    "corpus/common.py": "71a815c9fe1d7f31560657447ea3352c322e5a52e6b874835d0fbdac37745c04",
+    "corpus/clean/chinese.py": "8009c7a9ca11c56045a9050d746c9dab017e871256ea91427386aca680a2cfc0",
+    "scripts/csv_dictionary.py": "fb7219f20948924200fbfae69e1bf94682f71fde40ba058c6c99dde33552da17",
+    "scripts/lexicon_database.py": "e04a9af73cac694de831858d9fcc40aaa9c8716dd10caf5637de5258bba6d43a"
+  },
+  "notes": "Explicit lexical readings, preserving polyphony. Weights are not corpus counts. No sentence pronunciation generation or train/validation/test assignment."
+}

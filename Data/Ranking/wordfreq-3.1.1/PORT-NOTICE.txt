@@ -5,7 +5,9 @@ Data license: Creative Commons Attribution-ShareAlike 4.0
 https://creativecommons.org/licenses/by-sa/4.0/
 
 Changes: only existing SI ASCII vocabulary keys are selected; missing words use
-a documented floor, and frequency bins are compiled into native Swift arrays.
+a documented floor, and initial frequencies were converted into fixed integer weights now maintained
+in SI category CSVs and compiled into read-only SQLite. The source word/frequency
+archive has been removed; source-level metadata and attribution remain.
 No wordfreq Python code or runtime dependencies are included in SI.
 SUBTLEX data is freely available; credit and bibliography follow.
 

@@ -1,0 +1,26 @@
+Cloudflare Radar domain ranking dataset
+
+Provider: Cloudflare, Inc. / Cloudflare Radar
+Source: https://api.cloudflare.com/client/v4/radar/datasets/ranking_top_1000
+Documentation: https://developers.cloudflare.com/radar/investigate/domain-ranking-datasets/
+License declaration: https://developers.cloudflare.com/radar/
+License: Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
+License URL: https://creativecommons.org/licenses/by-nc/4.0/
+Full license text: CloudflareRadar-CC-BY-NC-4.0.txt in this directory.
+
+The source is an unordered top-1000 bucket based on DNS queries to Cloudflare's
+1.1.1.1 resolver, covering seven days and updated weekly. The source's bucket
+membership does not provide an individual numerical rank or input-method word
+frequency, and is not an endorsement or security/availability assessment.
+
+SI validates full lowercase ASCII domains, retains dots/hyphens/digits as literal
+readings, and merges exact duplicate domains without changing existing weights.
+New entries use an editorial weight of 100. SI's separately authored domain
+selection is retained alongside the imported data. Snapshot bytes, retrieval time,
+checksums and transformations are recorded in Data/Vocabulary/meta.json.
+
+Cloudflare-derived data retains CC BY-NC 4.0, including its attribution and
+NonCommercial conditions. It is not relicensed under SI's GPLv3 code license.
+No additional permission from Cloudflare or commercial redistribution rights
+are asserted. Distribution of a resource containing this data must retain these
+terms; the software's GPLv3 license does not remove the data's restrictions.

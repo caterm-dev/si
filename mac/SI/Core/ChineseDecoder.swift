@@ -1,7 +1,7 @@
 import Foundation
 
 /// Swift adaptation of MSIME's full-pinyin dictionary and word-lattice pipeline.
-/// The source revision, GPL attribution and local data changes live in Data/Chinese/MSIME.
+/// Source metadata and maintained entries live in Data/Vocabulary; GPL attribution is in Data/Chinese/MSIME.
 /// Mutable search state belongs to a request; the decoder retains only immutable resources.
 struct ChineseDecoder: Sendable {
     static let standard = ChineseDecoder(lexicon: .standard)
@@ -32,9 +32,9 @@ struct ChineseDecoder: Sendable {
         var sourceEnd = 0
         var text = ""
         var words: [String] = []
-        /// Keep natural-log arithmetic through search and trigram rescoring.
+        /// Keep natural-log arithmetic through search and terminal selection.
         /// Conversion to SI's bit-based preference units happens at ranking boundaries.
-        var contextScore = 0.0
+        var languageBoundary = CandidateLanguageBoundary()
         var score = -CandidateScoring.initialLanguageCost * log(2.0)
         var personal = false
         var tokenSum = 0.0
@@ -45,7 +45,7 @@ struct ChineseDecoder: Sendable {
 
     func candidates(for source: String, dictionary: UserDictionary, learning: LearningProfile,
                     now: Date, context: CandidateContext?, includesPartials: Bool,
-                    includesConfirmationEvidence: Bool, preview: Bool, lookahead: Bool = false) -> [InputCandidate] {
+                    includesConfirmationEvidence: Bool, preview: Bool) -> [InputCandidate] {
         guard let input = PinyinInput(source) else { return [] }
         // Saved codes augment the Chinese lattice; they must not change or erase the
         // standard dictionary reading (for example a saved nihao code versus ni'hao).
@@ -56,7 +56,7 @@ struct ChineseDecoder: Sendable {
         // Ambiguous consonant boundaries must compete in sentence search too:
         // wo/xian/gan/zhao and wo/xiang/an/zhao have equal spelling evidence.
         var sentenceReadings = cuts
-        if !lookahead, let primary, !primary.isCorrected,
+        if let primary, !primary.isCorrected,
            primary.syllables.allSatisfy(ChineseSyllables.complete.contains) {
             var seen: Set<[String]> = [primary.syllables.map(ChineseSyllables.canonical)]
             for cut in ChineseSyllables.alternatives(input, minimumOnly: true)
@@ -107,7 +107,7 @@ struct ChineseDecoder: Sendable {
                 choices.append(InputCandidate(text: row.text, language: .simplifiedChinese,
                     score: Int(score), rankingScore: score,
                     hasCompletion: completion, lexicalTokenCount: exact || completion ? 1 : nil)
-                    .withWordContext(wordContext(row, typed: typed, score: score))
+                    .withLanguageBoundary(.chinese())
                     .withSourceTrace(wordTrace(row, typed: typed, input: input)))
             }
             guard cutIndex == 0 else { continue }
@@ -135,7 +135,7 @@ struct ChineseDecoder: Sendable {
                                     rankingScore: score,
                                     hasCompletion: Self.completes(row.reading, typed: prefix.syllables),
                                     lexicalTokenCount: full ? 1 : nil)
-                                    .withWordContext(wordContext(row, typed: prefix.syllables, score: score))
+                                    .withLanguageBoundary(.chinese())
                                     .withSourceTrace(wordTrace(row, typed: prefix.syllables, input: input)))
                             }
                         }
@@ -158,7 +158,7 @@ struct ChineseDecoder: Sendable {
                         tokenLearningBonus: path.tokenBonus, lexicalTokenCount: path.words.count,
                         confirmationBoundaries: path.personal ? [] : path.boundaries)
                         .withChineseSentenceOrigin()
-                        .withWordContext(pathContext(path))
+                        .withLanguageBoundary(path.languageBoundary)
                         .withSourceTrace(path.sourceTrace)
                     choices.append(candidate)
                 }
@@ -171,7 +171,7 @@ struct ChineseDecoder: Sendable {
                         let candidate = InputCandidate(text: row.text, language: .simplifiedChinese,
                             score: Int(score), consumedInputCount: consumed < source.count ? consumed : nil,
                             rankingScore: score, lexicalTokenCount: row.reading == fallback.syllables ? 1 : nil)
-                            .withWordContext(wordContext(row, typed: fallback.syllables, score: score))
+                            .withLanguageBoundary(.chinese())
                             .withSourceTrace(wordTrace(row, typed: fallback.syllables, input: input))
                         if candidate.isPartial {
                             if includesPartials { prefixes.append(candidate) }
@@ -195,7 +195,7 @@ struct ChineseDecoder: Sendable {
                     let score = path.score * Self.bitsPerNat
                     let candidate = InputCandidate(text: path.text, language: .simplifiedChinese,
                         score: Int(score), isUserPhrase: true, rankingScore: score, lexicalTokenCount: path.words.count)
-                        .withWordContext(pathContext(path))
+                        .withLanguageBoundary(path.languageBoundary)
                         .withSourceTrace(path.sourceTrace)
                     choices.append(candidate)
                 }
@@ -355,20 +355,8 @@ struct ChineseDecoder: Sendable {
             let personalized = tokenPreferences ? personalColumns[start].finish() : []
             var seen = Set<Int>()
             let paths = (base + personalized).filter { seen.insert($0.arrival).inserted }
-            // A column can reach a word through several histories. Its outgoing static
-            // bigram row depends only on the previous word, so compute that row once.
-            var bigramRows: [String: [Double]] = [:]
             for path in paths {
-                let previous = path.words.last ?? "\u{1}"
-                let bonuses: [Double]
-                if let cached = bigramRows[previous] { bonuses = cached }
-                else {
-                    bonuses = graph[start].map { edge in
-                        2 * max(0, lexicon.bigram?.score([previous, edge.text]) ?? 0)
-                    }
-                    bigramRows[previous] = bonuses
-                }
-                for (index, edge) in graph[start].enumerated() {
+                for edge in graph[start] {
                     guard edge.sourceStart == path.sourceEnd else { continue }
                     guard path.text.utf8.count + edge.text.utf8.count <= PinyinDecoder.maximumOutputBytes else { continue }
                     var next = path
@@ -385,9 +373,7 @@ struct ChineseDecoder: Sendable {
                     if !path.words.isEmpty {
                         next.score -= CandidateScoring.languageCost(previous: 1, next: 1) * log(2.0)
                     }
-                    let contextIncrement = edge.personal || path.personal ? 0 : bonuses[index]
-                    next.score += contextIncrement
-                    next.contextScore += contextIncrement
+                    next.languageBoundary = path.languageBoundary.appending(language: 1)
                     next.personal = path.personal || edge.personal
                     next.tokenSum += edge.tokenBonus * Double(edge.letters)
                     next.letters += edge.letters
@@ -451,14 +437,7 @@ struct ChineseDecoder: Sendable {
     }
 
     private func rescored(_ path: Path) -> Double {
-        guard !path.personal else { return path.score }
-        var bonus = 0.0
-        for position in path.words.indices {
-            let before = position >= 2 ? path.words[position - 2] : "\u{1}"
-            let previous = position >= 1 ? path.words[position - 1] : "\u{1}"
-            bonus += lexicon.trigram?.score([before, previous, path.words[position]]) ?? 0
-        }
-        return path.score + bonus
+        path.score
     }
 
     private func prefixCandidates(_ paths: [Path], consumed: Int, source: String,
@@ -468,7 +447,7 @@ struct ChineseDecoder: Sendable {
             return InputCandidate(text: path.text, language: .simplifiedChinese, score: Int(score),
                 isUserPhrase: path.personal, consumedInputCount: consumed, rankingScore: score,
                 tokenLearningBonus: path.tokenBonus, lexicalTokenCount: path.words.count)
-                .withWordContext(pathContext(path))
+                .withLanguageBoundary(path.languageBoundary)
                 .withSourceTrace(path.sourceTrace)
         }
     }
@@ -506,26 +485,11 @@ struct ChineseDecoder: Sendable {
             interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text, sourceCounts: sources))
     }
 
-    private func wordContext(_ row: DictionaryLexeme, typed: [String], score: Double) -> CandidateWordContext {
-        let cost = CandidateScoring.initialLanguageCost
-            + CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
-            + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: typed)
-        return .chinese([row.text], corpusScore: score + cost,
-                        usesContext: lexicon.bigram != nil || lexicon.trigram != nil)
-    }
-
-    private func pathContext(_ path: Path) -> CandidateWordContext {
-        .chinese(path.words, corpusScore: (path.contextScore + rescored(path) - path.score) * Self.bitsPerNat,
-                 usesContext: lexicon.bigram != nil || lexicon.trigram != nil)
-    }
-
     private func wordScore(_ row: DictionaryLexeme, typed: [String]) -> Double {
         let cost = CandidateScoring.initialLanguageCost
             + CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
             + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: typed)
-        let context = 2 * max(0, lexicon.bigram?.score(["\u{1}", row.text]) ?? 0)
-            + (lexicon.trigram?.score(["\u{1}", "\u{1}", row.text]) ?? 0)
-        return -cost + context * Self.bitsPerNat
+        return -cost
     }
 
     private static func completes(_ reading: [String], typed: [String]) -> Bool {

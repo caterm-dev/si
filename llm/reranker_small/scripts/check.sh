@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
+ri_module unittest discover -s llm/reranker_small/tests -v "$@"

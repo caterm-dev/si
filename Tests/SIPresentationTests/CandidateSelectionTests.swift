@@ -38,14 +38,19 @@ struct CandidateSelectionTests {
         #expect(!selection.isExpanded)
     }
 
-    @Test func lingKeepsHigherScoringHomophonesAheadOfItsProtectedMixedAlternative() throws {
+    @Test func lingKeepsHigherScoringHomophonesWithoutReservingItsMixedAlternative() throws {
         let values = CandidateEngine().candidates(for: "ling", languages: Set(InputLanguage.allCases))
         var selection = CandidateSelection()
         selection.update(values)
         let zero = try #require(selection.candidates.firstIndex { $0.text == "零" })
-        let split = try #require(selection.candidates.firstIndex { $0.text == "里NG" && $0.isMixed })
-        #expect(zero < split)
-        #expect(selection.candidates.count >= values.filter { $0.language == .simplifiedChinese && $0.text.count == 1 }.count)
+        let split = try #require(values.first { $0.text == "里 NG" && $0.isMixed })
+        #expect(selection.candidates[zero].inputScore > split.inputScore)
+        #expect(!selection.candidates.contains(split))
+        var support = CandidateTextSupport()
+        let displayableCharacters = values.filter {
+            $0.language == .simplifiedChinese && $0.text.count == 1 && support.canDisplay($0.text)
+        }
+        #expect(displayableCharacters.allSatisfy { selection.candidates.contains($0) })
         #expect(selection.candidates.contains { $0.language == .english })
         #expect(selection.candidates.contains { $0.isLiteral && $0.text == "ling" })
         selection.setExpanded(true)
@@ -135,7 +140,7 @@ struct CandidateSelectionTests {
         #expect(session.buffer == "pengyou")
         session.configure(languages: [.simplifiedChinese], now: now)
         let friend = try #require(session.candidates.first { $0.text == "朋友" && !$0.isPartial })
-        #expect(session.presentationScore(for: friend, now: now) == friend.rankingScore)
+        #expect(session.presentationScore(for: friend, now: now) == friend.rankingScore + 35)
     }
 
     private func candidates(_ count: Int) -> [InputCandidate] {
@@ -219,7 +224,7 @@ struct CandidateSelectionTests {
     }
 
     @Test(arguments: [false, true])
-    func largeResultSetsKeepRankedOrderLanguageIdentitiesAndExactLiteral(expanded: Bool) throws {
+    func largeResultSetsKeepRankedOrderWithoutLanguageReservationsAndPreserveExactLiteral(expanded: Bool) throws {
         let whole = candidates(900)
         let chinese = InputCandidate(text: "word0", language: .simplifiedChinese, score: 0)
         let mixed = InputCandidate(text: "你好world", language: .simplifiedChinese, score: 0, isMixed: true)
@@ -227,15 +232,15 @@ struct CandidateSelectionTests {
         let prefixes = (0..<12).map {
             InputCandidate(text: "前缀\($0)", language: .simplifiedChinese, score: $0, consumedInputCount: $0 + 1)
         }
-        let values = whole + [chinese, mixed] + prefixes + [literal]
+        let values = [whole[0], chinese] + Array(whole.dropFirst()) + [mixed] + prefixes + [literal]
         var selection = CandidateSelection()
         selection.setExpanded(expanded)
         selection.update(values)
         let shortlist = selection.candidates
         #expect(shortlist.count == 27)
         #expect(selection.pageCount == (expanded ? 2 : 5))
-        #expect(Array(shortlist.prefix(9)) == Array(whole.prefix(9)))
-        #expect(shortlist.contains(whole[0]) && shortlist.contains(chinese) && shortlist.contains(mixed))
+        #expect(shortlist == [whole[0], chinese] + Array(whole.dropFirst().prefix(24)) + [literal])
+        #expect(shortlist.contains(whole[0]) && shortlist.contains(chinese) && !shortlist.contains(mixed))
         #expect(shortlist.last == literal)
         #expect(Set(shortlist.map(\.id)).count == shortlist.count)
         // Same text in two languages remains distinguishable; paging and digits use the shortlist.

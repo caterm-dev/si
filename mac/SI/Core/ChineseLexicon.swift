@@ -6,16 +6,12 @@ struct ChineseLexicon: Sendable {
     private let database: LexiconDatabase?
     private let entries: [DictionaryLexeme]
     private let exact: [String: [DictionaryLexeme]]
-    let bigram: ChineseNgramTable?
-    let trigram: ChineseNgramTable?
     var isAvailable: Bool { database?.isAvailable ?? !entries.isEmpty }
 
     private init() {
         database = LexiconDatabase(url: ChineseResources.url("si-pinyin", extension: "sqlite"))
         entries = []
         exact = [:]
-        bigram = ChineseNgramTable(url: ChineseResources.url("msime-bigram", extension: "bin"))
-        trigram = ChineseNgramTable(url: ChineseResources.url("msime-trigram", extension: "bin"))
     }
 
     init(entries: [PinyinLexiconEntry]) {
@@ -30,8 +26,6 @@ struct ChineseLexicon: Sendable {
             return DictionaryLexeme(text: entry.text, reading: entry.syllables, weight: weight, ordinal: Int64(index))
         }
         exact = Dictionary(grouping: self.entries, by: \.key)
-        bigram = nil
-        trigram = nil
     }
 
     func exactMatches(_ segments: [String], limit: Int? = nil) -> [DictionaryLexeme] {

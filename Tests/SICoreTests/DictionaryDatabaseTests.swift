@@ -27,9 +27,12 @@ struct DictionaryDatabaseTests {
         let chinese = LexiconDatabase(url: chineseURL), english = LexiconDatabase(url: englishURL)
         #expect(chinese.isAvailable && english.isAvailable)
         #expect(chinese.referenceMass == english.referenceMass)
-        #expect(chinese.referenceMass == 7_694_577_936)
-        #expect(english.allEntries().count == 63_602)
-        #expect(english.rows(table: "tbl_1_g", condition: "key=?", values: ["gmail"], limit: nil).first?.text == "Gmail")
+        #expect(chinese.referenceMass == 1)
+        // Both bases retain raw Wanxiang weights; categories add independent entries.
+        #expect(english.allEntries().count >= 72_784)
+        #expect(english.rows(table: "tbl_1_g", condition: "key=?", values: ["gmail"], limit: nil).first?.text == "gmail")
+        #expect(english.rows(table: "tbl_1_b", condition: "key=?", values: ["but"], limit: nil).first?.weight == 347_086)
+        #expect(chinese.rows(table: "tbl_1_b", condition: "key=? AND value=?", values: ["bu", "不"], limit: nil).first?.weight == 510_341)
         #expect(!chinese.rows(table: "tbl_1_s", condition: "key=?", values: ["shi"], limit: nil).isEmpty)
     }
 
@@ -43,9 +46,10 @@ struct DictionaryDatabaseTests {
         #expect(!FileManager.default.fileExists(atPath: url.path))
         var connection: OpaquePointer?
         #expect(sqlite3_open(url.path, &connection) == SQLITE_OK)
+        let mass = unit == "si-relative-frequency-v1" ? "7694577936" : "1"
         #expect(sqlite3_exec(connection, "CREATE TABLE dictionary_metadata (key TEXT, value TEXT); "
             + "INSERT INTO dictionary_metadata VALUES ('schema_version','1'),('weight_unit','\(unit)'),"
-            + "('reference_mass','1000'),('unknown_weight','1')", nil, nil, nil) == SQLITE_OK)
+            + "('reference_mass','\(mass)'),('unknown_weight','1')", nil, nil, nil) == SQLITE_OK)
         sqlite3_close(connection)
         let before = try Data(contentsOf: url)
         let database = LexiconDatabase(url: url)

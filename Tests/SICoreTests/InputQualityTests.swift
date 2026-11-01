@@ -2,7 +2,7 @@ import Testing
 @testable import SICore
 
 struct InputQualityTests {
-    @Test func upstreamWeightedVocabularyRetainsEverydaySentenceRegressions() {
+    @Test func upstreamWeightedVocabularyRetainsEverydayCompleteSentenceRegressions() {
         let examples = [
             ("woxiangyaoyigehaoyongdeshurufa", "我想要一个好用的输入法"),
             ("mingtianwomenqubeijing", "明天我们去北京"),
@@ -19,11 +19,11 @@ struct InputQualityTests {
         var firstChoices = 0
         for (input, expected) in examples {
             let candidates = engine.candidates(for: input, languages: Set(InputLanguage.allCases))
-            if candidates.first?.text == expected { firstChoices += 1 }
-            #expect(candidates.prefix(5).contains { $0.text == expected && !$0.isPartial }, "Input: \(input)")
+            if candidates.first { !$0.isPartial }?.text == expected { firstChoices += 1 }
+            #expect(candidates.filter { !$0.isPartial }.prefix(5).contains { $0.text == expected && !$0.isPartial }, "Input: \(input)")
             #expect(candidates.last?.text == input && candidates.last?.isLiteral == true)
         }
-        // Preserve the existing quality gate while changing model units and search scoring.
+        // Keep the complete-sentence quality gate separate from consumed-only prefix ordering.
         #expect(firstChoices >= 9)
     }
 }

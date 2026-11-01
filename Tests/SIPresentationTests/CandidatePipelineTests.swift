@@ -37,7 +37,7 @@ struct CandidatePipelineTests {
         fullGate.release(latest.id)
         await fullGate.waitForReceipts(2)
         #expect(session.pendingCandidateRequest == nil && !session.hasCandidatePreview)
-        #expect(session.candidates.first?.text == "你好")
+        #expect(session.candidates.contains { $0.text == "你好" && !$0.isPartial })
     }
 
     @Test func rapidEditsRunOnlyTheInFlightAndLatestRequests() async throws {

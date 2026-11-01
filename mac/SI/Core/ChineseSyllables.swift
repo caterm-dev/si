@@ -1,5 +1,5 @@
 // Adapted from MSIME pinyin/syllables.rs and segment.rs, GPL-3.0-only.
-// Pinned upstream and local adaptations: Data/Chinese/MSIME/sources.lock.json.
+// Pinned upstream and local adaptations: Data/Vocabulary/meta.json.
 import Foundation
 
 enum ChineseSyllables {

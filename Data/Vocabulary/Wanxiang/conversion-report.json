@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/amzxyz/rime-wanxiang-data",
+  "revision": "adfa047c339627737f0a4c75674a8042c1ef7f72",
+  "category_overlap": "base",
+  "sources": [
+    {
+      "path": "dicts/zi.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/base.csv",
+      "accepted_rows": 51050,
+      "merged_duplicate": 1696,
+      "missing_weight": 0,
+      "numeric_weight_suffix": 0,
+      "source_rows": 51050,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/jichu.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/base.csv",
+      "accepted_rows": 1493714,
+      "merged_duplicate": 3,
+      "missing_weight": 12,
+      "numeric_weight_suffix": 15,
+      "source_rows": 1493714,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/duoyin.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/base.csv",
+      "accepted_rows": 4737,
+      "merged_duplicate": 248,
+      "missing_weight": 2,
+      "numeric_weight_suffix": 0,
+      "source_rows": 4737,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/en.dict.yaml",
+      "language": "english",
+      "destination": "english/base.csv",
+      "accepted_rows": 73140,
+      "converted_english_code": 921,
+      "excluded_unsupported_english": 19,
+      "merged_duplicate": 356,
+      "missing_weight": 226,
+      "numeric_weight_suffix": 0,
+      "source_rows": 73159,
+      "exclusions": [
+        {
+          "line": 4468,
+          "text": "attaché",
+          "code": "attaché",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 9468,
+          "text": "béchamel",
+          "code": "béchamel",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 12301,
+          "text": "cliché",
+          "code": "cliché",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 12302,
+          "text": "clichés",
+          "code": "clichés",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 12409,
+          "text": "cloisonné",
+          "code": "cloisonné",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 14155,
+          "text": "consommé",
+          "code": "consommé",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 16386,
+          "text": "DALL·E",
+          "code": "DALL·E",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 17288,
+          "text": "déjà vu",
+          "code": "dejavu",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 23995,
+          "text": "façade",
+          "code": "façade",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 24311,
+          "text": "fiancé",
+          "code": "fiancé",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 24312,
+          "text": "fiancée",
+          "code": "fiancée",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 42017,
+          "text": "ménage",
+          "code": "ménage",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 50196,
+          "text": "protégé",
+          "code": "protégé",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 50197,
+          "text": "protégée",
+          "code": "protégée",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 50215,
+          "text": "provençal",
+          "code": "provençal",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 53767,
+          "text": "resumé",
+          "code": "resumé",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 54851,
+          "text": "roué",
+          "code": "roué",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 59362,
+          "text": "soufflé",
+          "code": "soufflé",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 62819,
+          "text": "séance",
+          "code": "séance",
+          "reason": "outside SI printable-ASCII/full-key contract"
+        }
+      ]
+    },
+    {
+      "path": "dicts/diming.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/diming.csv",
+      "accepted_rows": 89420,
+      "missing_weight": 3,
+      "numeric_weight_suffix": 0,
+      "source_rows": 89420,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/fangyan.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/fangyan.csv",
+      "accepted_rows": 337,
+      "missing_weight": 335,
+      "numeric_weight_suffix": 0,
+      "source_rows": 337,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/huaxue.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/huaxue.csv",
+      "accepted_rows": 33102,
+      "missing_weight": 0,
+      "numeric_weight_suffix": 0,
+      "source_rows": 33102,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/mingren.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/mingren.csv",
+      "accepted_rows": 22125,
+      "missing_weight": 1,
+      "numeric_weight_suffix": 0,
+      "source_rows": 22125,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/shici.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/shici.csv",
+      "accepted_rows": 335208,
+      "missing_weight": 0,
+      "numeric_weight_suffix": 1,
+      "source_rows": 335208,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/taifeng.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/taifeng.csv",
+      "accepted_rows": 217,
+      "missing_weight": 0,
+      "numeric_weight_suffix": 0,
+      "source_rows": 217,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/wuzhong.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/wuzhong.csv",
+      "accepted_rows": 66333,
+      "merged_duplicate": 2,
+      "missing_weight": 2,
+      "numeric_weight_suffix": 0,
+      "source_rows": 66333,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/yaopin.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/yaopin.csv",
+      "accepted_rows": 19924,
+      "missing_weight": 0,
+      "numeric_weight_suffix": 57,
+      "source_rows": 19924,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/yiren.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/yiren.csv",
+      "accepted_rows": 14444,
+      "missing_weight": 0,
+      "numeric_weight_suffix": 0,
+      "source_rows": 14444,
+      "exclusions": []
+    },
+    {
+      "path": "dicts/yixue.dict.yaml",
+      "language": "chinese",
+      "destination": "chinese/yixue.csv",
+      "accepted_rows": 21408,
+      "missing_weight": 0,
+      "numeric_weight_suffix": 0,
+      "source_rows": 21408,
+      "exclusions": []
+    }
+  ],
+  "outputs": {
+    "chinese/base.csv": {
+      "entries": 1547554,
+      "sha256": "967952a5d9da2f87d502e270185a54b1a7bdefafef3eb7809427e790a13ecd85"
+    },
+    "english/base.csv": {
+      "entries": 72784,
+      "sha256": "4a2047b46987c721e537515ca9e4c26a555f96eef5250b1640a91304294dccf6"
+    },
+    "chinese/diming.csv": {
+      "entries": 89420,
+      "sha256": "88dd7f19a82d029ac12804c5814f7417397cba504d58ce7f4dc2dcc95e5417de"
+    },
+    "chinese/fangyan.csv": {
+      "entries": 337,
+      "sha256": "e816f892ef2a98556857ba9abe711041a4b1f5e7665aee7beae840a88b452119"
+    },
+    "chinese/huaxue.csv": {
+      "entries": 33102,
+      "sha256": "bb2914f005c5102d8905a9abc0cc02239f323c72c79ef30d2e74d46b9f9c6f49"
+    },
+    "chinese/mingren.csv": {
+      "entries": 22125,
+      "sha256": "c8236ec9cf45cd04985698a60a4e09e3553ed9e6c0a733f47d263a8cf84e6e26"
+    },
+    "chinese/shici.csv": {
+      "entries": 335208,
+      "sha256": "3621fb1a90dba49aa1fb515cfd12aa11165be84c1f402c92eea90212c48d14a1"
+    },
+    "chinese/taifeng.csv": {
+      "entries": 217,
+      "sha256": "6bc4b57c9e6bb36fd6b837186a77c826fee52b4445062670786dc6708b21999a"
+    },
+    "chinese/wuzhong.csv": {
+      "entries": 66331,
+      "sha256": "18f61ea64fe3c7652f39b84b6fe2e472cb1d22c994f64770515fd76544b7175e"
+    },
+    "chinese/yaopin.csv": {
+      "entries": 19924,
+      "sha256": "f7aabd5ff5616283084a4cb7fb5604c82d9929fbd5bb1875c3f57a9f032e4f04"
+    },
+    "chinese/yiren.csv": {
+      "entries": 14444,
+      "sha256": "45b7cec0218c9deb7798077e5d7056d4bff42aa13e0da14a0505712cb22acedb"
+    },
+    "chinese/yixue.csv": {
+      "entries": 21408,
+      "sha256": "371146bcc5030a6793675f452e92c1bf21a17bd685b4d93f3089a2c92d6b9e60"
+    }
+  },
+  "preserved_categories": {
+    "chinese/game.csv": "6d818563773304846a88f03a741648e4edfc9c8f25523497ab93fc3574d48368",
+    "chinese/geography.csv": "89f8d98a5a2c74917b360637b396a352c592a899b892f57fe51e709cb13e807b",
+    "chinese/medicine.csv": "799bb65e2aaf59988d1338506b251ec89638818bdf8a278e050fa81d07d8a57a",
+    "chinese/movie.csv": "1a9ba87aa52546c745df60dfe3730ece583b544cd5339a27616bde8785bc5f5c",
+    "chinese/organizations.csv": "8263a3eb8a194e947b7daa115cccf8cd4963efe7b4fbf22d34fe5aec0ed3cc55",
+    "chinese/science.csv": "b3b7306e3e2692287d92e8171725e30db52dea542399ef25074c4ffa5860c57e",
+    "chinese/technology.csv": "5bde2596176310376b6a77070617c19566834a242b4388e470f5f654f85615e1",
+    "english/domain.csv": "19e9164d63417d7f2172bfd12b8072eacdda9d775b46d44764af9c8a2e6689f2",
+    "english/movie.csv": "74855d54718672d696775c87638959bcec4e7cbbfd41535a67192d086dff9328"
+  }
+}

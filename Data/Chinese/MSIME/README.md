@@ -1,36 +1,34 @@
-# SI Chinese dictionary
+# SI Chinese decoder/context and historical dictionary sources
 
-SI maintains this dictionary from pinned MSIME Pinyin sources. The runtime decoder is implemented in Swift. It neither links Rust nor runs MSIME's application, session, learning archive or network services.
+The App uses dictionary, spelling and language-transition costs without corpus context.
+The two original MSNG binaries are preserved byte-for-byte under `artifacts/`,
+with the same lock and attribution; they are no longer App resources or runtime
+ranking inputs. The compatibility fetch/check commands below target that archive.
 
-`sources.lock.json` identifies the exact engine and dictionary commits, the compressed source snapshots, their original-byte hashes and the reading-correction table. `resources.lock.json` identifies the independently published word-context tables and their source corpus. The application contains no downloader.
+SI retains the pinned MSIME decoder adaptation and Chinese word-context artifacts. The current Chinese and English bases now come from [Wanxiang](../../Vocabulary/Wanxiang/README.md), with separate upstream categories; the preexisting SI categories retain their historical MSIME-derived entries. The runtime decoder is implemented in Swift. It neither links Rust nor runs MSIME's application, session, learning archive or network services.
+
+The Chinese source record in `Data/Vocabulary/meta.json` preserves the exact engine/dictionary commits, original source-byte hashes and the applied reading-correction hash. The old compressed wordlists and correction table have been deleted after migration. `resources.lock.json` identifies the independently published word-context tables and their source corpus. The application contains no downloader.
 
 `upstream-review.json` records the latest requested upstream review. The default develop branch's Chinese algorithm subtrees and runtime session files have the same Git objects as the retained engine snapshot, and dictionary main still matches the retained sources. This is upstream source identity evidence, not executable validation of SI.
 
-## Maintenance
+## Vocabulary maintenance
+
+The editable Chinese vocabulary now lives in [Data/Vocabulary/chinese](../../Vocabulary/chinese/README.md), grouped into base plus eight domain CSVs. Common and unclassified rows remain in base; further categories can be added in the same directory. The [CSV workflow](../../Vocabulary/README.md) replaces upstream snapshot adoption and the public JSON overlay. The historical October 27 migration preserved 953,625 entries after deduplication, reading corrections and private-use exclusions. The October 29 Wanxiang base replacement supersedes those base entries/weights, while preserving the nonbase CSVs. Ordinary Han extension characters remain available. CSV rows now have only text/reading/weight; the compiler merges overlaps using maximum weight and generates tie order from content.
+
+Bootstrap source metadata is now inline in [meta.json](../../Vocabulary/meta.json). This directory retains licenses, notices, the algorithm-review records and the independent context lock, without old lexical data. Ordinary builds compile only the maintained CSVs; explicit Wanxiang imports use the separate locked converter. The old JSON overlay is retired. No snapshot adoption command overwrites the CSV collection. Attribution remains applicable to the migrated data.
 
 ```sh
-# Explicitly adopt source checkouts after reviewing their revisions and notices.
-python3 scripts/msime_dictionary.py snapshot --dictionary <msime-dictionary> --engine <msime>
-
-# Rebuild SI's read-only SQLite dictionary from the retained snapshots and SI overlay.
-python3 scripts/msime_dictionary.py build
+python3 scripts/csv_dictionary.py build
+python3 scripts/csv_dictionary.py build --check
+# Compatibility command: Chinese CSV check plus pinned context verification.
 python3 scripts/msime_dictionary.py build --check
-
-# Explicit maintainer-only download of the checksum-pinned context tables.
+# Explicit maintainer-only download of pinned context tables.
 python3 scripts/msime_dictionary.py fetch-context
 ```
 
-`build --check` rebuilds offline into a temporary file, checks the packaged SQLite schema, row order, data, indexes and manifest/hash, and checks the pinned context hashes without replacing outputs. `audit --report <path>` reads public upstream commit metadata without adopting updates.
+`audit --report <path>` still compares the historical upstream commits without adopting changes. SQLite output remains shared by package and app. SI's two-nat character cost differs from upstream without rescaling stored weights; see [ranking](../../../docs/UNIFIED_RANKING.md).
 
-The commands generate files in `mac/SI/Core/Resources/Chinese/`, shared by the Swift package and Xcode app. Resource generation is separate from compiling or running SI.
-
-`si-entries.json` is SI's own maintained overlay. Each entry has `text`, apostrophe-separated `reading`, a documented `reason`, and either an integer `weight` or `exclude: true`. A correction excludes the wrong reading and adds the right one. Keep edits here rather than changing imported snapshots. The current overlay excludes 85 zero-weight readings of 70 private-use characters that require nonstandard font mappings. The generated dictionary contains 953,625 entries; ordinary Unicode Han characters, including extension-block characters, remain available. The pinned source snapshots remain unchanged. This public developer-maintained data is separate from each user's private personal phrases and learned preferences.
-
-SI's decoder intentionally lowers the single-character insertion cost relative to upstream; this changes scoring without editing these public dictionary weights or resources. See [current ranking](../../../docs/UNIFIED_RANKING.md).
-
-The importer keeps the larger weight for duplicate text/reading pairs, preserves insertion order for weight ties, applies the pinned reading corrections, then applies the SI overlay. It does not invent pronunciations, retain typed text or read user archives. The generated manifest records the source revisions, overlay hash and shared dictionary format. [English](../../English/SI/README.md) uses the identical SQLite schema, immutable reader and dictionary-relative weight unit from `Data/DictionaryFormat.json`. Empty ASCII-initial buckets and shared metadata do not change Chinese entries, weights or tie order. Character and word weights retain MSIME's Rime Ice / rime-wanxiang provenance; see `NOTICE.md` for the upstream account, including its documented historical provenance limitations.
-
-The word-context tables are MSNG v1 bigram/trigram increments derived by MSIME from the pinned Chinese Wikipedia dump. They are not the experimental KenLM files in `chinese-ime-lm`, and are not a neural model. Their absent entries contribute zero. New SI words can use unigram backoff until context tables are regenerated for the revised vocabulary.
+The word-context tables are MSNG v1 bigram/trigram increments derived by MSIME from the pinned Chinese Wikipedia dump. They are not a neural model and do not participate in runtime scoring. Absent entries contribute zero in historical format fixtures; changing the runtime vocabulary does not regenerate these archived tables.
 
 ## Attribution
 
@@ -38,4 +36,4 @@ The Swift algorithm adaptation derives from MSIME under GPL-3.0-only. The comple
 
 ## Migration state
 
-The default Chinese path now uses the Swift decoder and these resources. On October 22 the user authorized validation: Debug/Release builds, reproducible resource generation, SQLite integrity and pinned model checksums pass. Full regression checks still fail; no installation or live host check was performed. See `docs/VERIFICATION.md` for the actual scope. Quality parity with MSIME is not established. Fixed spelling aliases, initial splitting and sparse lookup fallbacks are written with source-boundary mapping. General optional typo paths, optional neural reranking, and an independent comparison remain tracked in `docs/IMPLEMENTATION_PLAN.md`. This is SI's sole maintained Chinese dictionary. Legacy Chinese data has been removed; English spellings and functionality are retained through the shared SI SQLite/weight contract and its own public overlay. Private personal phrases and learning archives are unchanged. Bounded complete-Pinyin/English lexical paths now use the same maintained dictionaries; mixed initials and incomplete Chinese-tail prediction remain limited. See [the algorithm study](../../../docs/MSIME_ALGORITHM.md) for the pinned source references and the distinction between dictionary weights and sentence scoring.
+The default Chinese path now uses the Swift decoder and these resources. On October 22 the user authorized validation: Debug/Release builds, reproducible resource generation, SQLite integrity and pinned model checksums pass. Full regression checks still fail; no installation or live host check was performed. See `docs/VERIFICATION.md` for the actual scope. Quality parity with MSIME is not established. Fixed spelling aliases, initial splitting and sparse lookup fallbacks are written with source-boundary mapping. General optional typo paths, optional neural reranking, and an independent comparison remain tracked in `docs/IMPLEMENTATION_PLAN.md`. Both sources compile into SI's single shared Chinese runtime dictionary. Legacy Chinese data has been removed; English spellings and functionality are retained through the shared SI SQLite/weight contract and its own maintained CSV categories. Private personal phrases and learning archives are unchanged. Bounded complete-Pinyin/English lexical paths now use the same maintained dictionaries; mixed initials and incomplete Chinese-tail prediction remain limited. See [the algorithm study](../../../docs/MSIME_ALGORITHM.md) for the pinned source references and the distinction between dictionary weights and sentence scoring.

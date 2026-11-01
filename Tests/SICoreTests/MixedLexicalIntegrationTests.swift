@@ -6,13 +6,13 @@ struct MixedLexicalIntegrationTests {
     private let languages = Set(InputLanguage.allCases)
 
     @Test(arguments: ["woxiangyaodeploy", "wo'xiang'yao'deploy"])
-    func reportedInputProducesTheMixedLeaderInPreviewAndFullSearch(input: String) {
+    func reportedInputProducesTheLeadingMixedWholeCandidateInBothSearchStages(input: String) {
         let engine = CandidateEngine()
         for values in [engine.candidates(for: input, languages: languages),
                        engine.previewCandidates(for: input, languages: languages, learning: LearningProfile(),
                            dictionary: UserDictionary(), now: .now, context: nil)] {
-            #expect(values.first?.text == "我想要deploy")
-            #expect(values.first?.isMixed == true && values.first?.hasLiteralSegments == false)
+            #expect(values.first { !$0.isPartial }?.text == "我想要 deploy")
+            #expect(values.first { !$0.isPartial }?.isMixed == true && values.first { !$0.isPartial }?.hasLiteralSegments == false)
             #expect(values.last?.text == input && values.last?.isLiteral == true)
             #expect(Set(values.map(\.id)).count == values.count)
         }
@@ -25,22 +25,22 @@ struct MixedLexicalIntegrationTests {
         }
         for word in ["deploy", "DEPLOY", "world", "title", "build"] {
             let values = engine.candidates(for: word, languages: languages)
-            #expect(values.first?.text == word && values.first?.language == .english && values.first?.isMixed == false)
+            #expect(values.first { !$0.isPartial }?.text == word && values.first { !$0.isPartial }?.language == .english && values.first { !$0.isPartial }?.isMixed == false)
             #expect(values.last?.text == word && values.last?.isLiteral == true)
         }
-        #expect(engine.candidates(for: "woxianganzhao", languages: languages).first?.text == "我想按照")
+        #expect(engine.candidates(for: "woxianganzhao", languages: languages).first { !$0.isPartial }?.text == "我想按照")
     }
 
     @Test func caseInterleavingAndFinalEnglishCompletionRemainAvailable() {
         let engine = CandidateEngine()
-        for (input, expected) in [("woxiangyaoDEPLOY", "我想要DEPLOY"), ("deployzhongwen", "deploy中文"),
-                                  ("woaiSwiftshurufa", "我爱Swift输入法"), ("nihaogmail", "你好Gmail")] {
+        for (input, expected) in [("woxiangyaoDEPLOY", "我想要 DEPLOY"), ("deployzhongwen", "deploy 中文"),
+                                  ("woaiSwiftshurufa", "我爱 Swift 输入法"), ("nihaogmail", "你好 gmail")] {
             #expect(engine.candidates(for: input, languages: languages).contains {
                 $0.text == expected && $0.isMixed && !$0.isPartial && !$0.hasLiteralSegments
             })
         }
         #expect(engine.candidates(for: "woxiangyaodeplo", languages: languages).contains {
-            $0.text == "我想要deploy" && $0.isMixed && $0.hasCompletion && !$0.isPartial
+            $0.text == "我想要 deploy" && $0.isMixed && $0.hasCompletion && !$0.isPartial
         })
     }
 
@@ -49,11 +49,11 @@ struct MixedLexicalIntegrationTests {
         session.append("woxiangyaodeploy")
         let request = try #require(session.pendingCandidateRequest)
         #expect(session.accept(request.generatePreview()) == true)
-        #expect(session.candidates.first?.text == "我想要deploy")
+        #expect(session.candidates.first { !$0.isPartial }?.text == "我想要 deploy")
         session.resolveCandidates()
-        let candidate = try #require(session.candidates.first { $0.text == "我想要deploy" })
+        let candidate = try #require(session.candidates.first { $0.text == "我想要 deploy" })
         let result = session.commitResult(candidate, reason: .explicitSelection)
-        #expect(result.text == "我想要deploy" && result.input == "woxiangyaodeploy")
+        #expect(result.text == "我想要 deploy" && result.input == "woxiangyaodeploy")
         #expect(session.buffer.isEmpty)
         session.append("woxiangyaodeploy")
         #expect(session.commit() == "woxiangyaodeploy")
@@ -64,10 +64,10 @@ struct MixedLexicalIntegrationTests {
             var session = InputSession()
             session.append(input)
             let prefix = try #require(session.candidates.first {
-                $0.text == "绿色deploy" && $0.isMixed && $0.consumedInputCount == consumed
+                $0.text == "绿色 deploy" && $0.isMixed && $0.consumedInputCount == consumed
             })
             let result = session.commitResult(prefix, reason: .explicitSelection)
-            #expect(result.text == "绿色deploy" && result.remainingInput == "zhongwen")
+            #expect(result.text == "绿色 deploy" && result.remainingInput == "zhongwen")
             #expect(session.buffer == "zhongwen")
         }
         let values = CandidateEngine().candidates(for: "woxiangyaodeploy", languages: languages,

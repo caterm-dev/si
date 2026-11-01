@@ -1,4 +1,4 @@
-"""Shared SI dictionary schema, weight contract and public overlay validation."""
+"""Shared SI dictionary schema, weight contract and semantic comparison."""
 
 from itertools import zip_longest
 import json
@@ -14,7 +14,22 @@ INITIALS = string.ascii_lowercase
 TABLES = [f"tbl_{bucket}_{initial}" for bucket in [*map(str, range(1, 8)), "others"] for initial in INITIALS]
 
 
-def table_for(reading):
+def domain_reading(text):
+    """Return a literal ASCII domain key, without accepting standalone suffixes."""
+    if not isinstance(text, str) or not text.isascii():
+        return None
+    key = text.lower()
+    label = r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?'
+    if len(key) <= 253 and re.fullmatch(label + r'(?:\.' + label + r')*\.[a-z]{2,63}', key):
+        return key
+    return None
+
+
+def table_for(reading, allow_domain=False):
+    if allow_domain and domain_reading(reading) == reading:
+        # Keep the shared schema's alphabetic buckets, including numeric host labels.
+        initial = next(c for c in reading if c in string.ascii_lowercase)
+        return f'tbl_1_{initial}'
     if not isinstance(reading, str) or not re.fullmatch(r"[a-z]+(?:'[a-z]+)*", reading):
         raise ValueError("Invalid explicit dictionary reading")
     units = reading.split("'")
@@ -44,43 +59,6 @@ def finish_schema(connection):
     connection.execute("ANALYZE")
     connection.commit()
     return count
-
-
-def overlay_entries(path, validate_reading):
-    entries = json.loads(path.read_text())
-    if not isinstance(entries, list):
-        raise ValueError("SI entries must be a list")
-    identities = set()
-    for entry in entries:
-        if not isinstance(entry, dict) or set(entry) - {"text", "reading", "weight", "exclude", "reason"}:
-            raise ValueError("Unsupported SI entry fields")
-        for field in ("text", "reading", "reason"):
-            if not isinstance(entry.get(field), str) or not entry[field].strip():
-                raise ValueError("SI entries require nonempty text, reading and reason")
-        if any(ord(c) < 32 or ord(c) == 127 for c in entry["text"]) or len(entry["text"].encode()) > 4096:
-            raise ValueError("Invalid SI text")
-        validate_reading(entry["text"], entry["reading"])
-        identity = (entry["text"], entry["reading"])
-        if identity in identities:
-            raise ValueError("Duplicate SI text/reading pair")
-        identities.add(identity)
-        if type(entry.get("exclude", False)) is not bool:
-            raise ValueError("SI exclusion must be Boolean")
-        if entry.get("exclude", False):
-            if "weight" in entry:
-                raise ValueError("Excluded SI entries must not specify a weight")
-        elif type(entry.get("weight")) is not int or not 0 <= entry["weight"] <= 2**63 - 1:
-            raise ValueError("Invalid SI weight")
-    return entries
-
-
-def apply_overlay(connection, entries):
-    for entry in entries:
-        table = table_for(entry["reading"])
-        connection.execute(f"DELETE FROM {table} WHERE key=? AND value=?", (entry["reading"], entry["text"]))
-        if not entry.get("exclude", False):
-            connection.execute(f"INSERT INTO {table} VALUES (?,?,?,?)", (
-                entry["reading"], "".join(s[0] for s in entry["reading"].split("'")), entry["text"], entry["weight"]))
 
 
 def same_dictionary(expected, actual, tables=TABLES):

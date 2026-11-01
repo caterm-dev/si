@@ -81,22 +81,22 @@
   },
   {
     "input": "shiyongGitHub",
-    "expected": "使用GitHub",
+    "expected": "使用 GitHub",
     "category": "holdout-mixed"
   },
   {
     "input": "baocunJSON",
-    "expected": "保存JSON",
+    "expected": "保存 JSON",
     "category": "holdout-mixed"
   },
   {
     "input": "wozaiOpenAI",
-    "expected": "我在OpenAI",
+    "expected": "我在 OpenAI",
     "category": "holdout-mixed"
   },
   {
     "input": "woaiPython",
-    "expected": "我爱Python",
+    "expected": "我爱 Python",
     "category": "holdout-mixed"
   }
 ]

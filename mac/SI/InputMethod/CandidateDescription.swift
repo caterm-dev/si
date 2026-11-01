@@ -16,9 +16,7 @@ enum CandidateDescription {
             language = L10n.text(candidate.language?.displayName ?? "As Typed", bundle: bundle)
         }
         let source: String
-        if candidate.isHistory {
-            source = L10n.text("App History", bundle: bundle)
-        } else if candidate.isApplicationVocabulary {
+        if candidate.isApplicationVocabulary {
             source = L10n.format("App Vocabulary · %@", language, bundle: bundle)
         } else if candidate.isUserPhrase {
             source = L10n.format("Personal · %@", language, bundle: bundle)

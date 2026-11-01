@@ -8,6 +8,7 @@ let package = Package(
     products: [
         .library(name: "SICore", targets: ["SICore"]),
         .executable(name: "SIBenchmark", targets: ["SIBenchmark"]),
+        .executable(name: "SICandidateExport", targets: ["SICandidateExport"]),
     ],
     targets: [
         .target(name: "SILocalization", path: "mac/SI/Localization", resources: [.process("Resources")]),
@@ -28,5 +29,6 @@ let package = Package(
         .testTarget(name: "SISettingsTests", dependencies: ["SISettings", "SIStorage", "SICore"], path: "Tests/SISettingsTests"),
         .testTarget(name: "SIPresentationTests", dependencies: ["SIPresentation", "SICore"], path: "Tests/SIPresentationTests"),
         .executableTarget(name: "SIBenchmark", dependencies: ["SICore"], path: "Tools/SIBenchmark"),
+        .executableTarget(name: "SICandidateExport", dependencies: ["SICore"], path: "Tools/SICandidateExport"),
     ]
 )

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "source_lock_sha256": "a4a99cb29bad1decb393f0f506e1d1206344c42855b657924443db4aa158b74d",
+  "bundle_manifest_sha256": "320e7a32ed283bf1e01eb97ae74d60d8ac5cd1befd74507401e983f8ea35cd57",
+  "sources": [
+    {
+      "id": "lccc",
+      "lines": 1160555,
+      "characters": 9999997,
+      "text_sha256": "b1e4823728221ac138b6b04ec4da5b608499bad3cd0fe68ff726d60d4548702a",
+      "origins_sha256": "b478eed066b51e290b8e4a55656598260ab0c59911d14adbc1cd7fe4d95f9440",
+      "stopped_at_limit": true,
+      "license": "MIT"
+    },
+    {
+      "id": "mc4",
+      "lines": 1010816,
+      "characters": 9999980,
+      "text_sha256": "735cc9b862a5aac898f1951aa8af1e83c21ddfc5ac1e1231dca916c61c3e3e5c",
+      "origins_sha256": "ce55c03778dac81149e833f5613392cb94029559aaaa47e18f777bfe11de8440",
+      "stopped_at_limit": true,
+      "license": "ODC-BY-1.0"
+    },
+    {
+      "id": "kubernetes",
+      "lines": 136685,
+      "characters": 1369839,
+      "text_sha256": "fdc5b40b0d55313350e8f76b523c62d6ea08cde84b595f30d6fea5fbcf03ce1c",
+      "origins_sha256": "f14387377a30f5de6a73b7508fbd4d0e5b093e10b781fd9e0f101f6b8668dc70",
+      "stopped_at_limit": false,
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "tensorflow",
+      "lines": 25777,
+      "characters": 263275,
+      "text_sha256": "f8d4439dcf07d20153f884270aec3c4b1dd46566ca2064bc6bd9e22b2ebc4277",
+      "origins_sha256": "ae63ad6e0ab625e7f9fc952c07a8ed95c98217d18aee7802098c9699e9452970",
+      "stopped_at_limit": false,
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "mdn",
+      "lines": 264582,
+      "characters": 2811965,
+      "text_sha256": "67ce7a17b755e67ba4dbc732457223dea6de3e2666fb0dc93ce87ec2d783f00f",
+      "origins_sha256": "cb46d5de35ca02d5511d71209e594a9a333594a5ddcde9df1bcd0a9fd3c9e299",
+      "stopped_at_limit": false,
+      "license": "CC-BY-SA-2.5"
+    }
+  ],
+  "total_lines": 2598415,
+  "total_characters": 24445056
+}

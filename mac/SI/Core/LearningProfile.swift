@@ -35,7 +35,7 @@ public struct LearningProfile: Sendable, Equatable {
             let values = hasWholePreferences
                 ? profile.bonuses(for: candidate, normalizedInput: language == .english ? english : chinese,
                                   language: language, now: now, context: context) : (frequency: 0.0, contextual: 0.0)
-            return candidate.inputScore + max(candidate.tokenLearningBonus, values.frequency) + values.contextual
+            return LearningProfile.comparisonScore(candidate, frequency: values.frequency, contextual: values.contextual)
         }
     }
 
@@ -112,12 +112,16 @@ public struct LearningProfile: Sendable, Equatable {
     func rankingScore(for candidate: InputCandidate, input: String, now: Date, context: CandidateContext?) -> Double {
         guard !records.isEmpty, candidate.canLearn else { return candidate.inputScore }
         let values = bonuses(for: candidate, input: input, now: now, context: context)
-        return candidate.inputScore + max(candidate.tokenLearningBonus, values.frequency) + values.contextual
+        return Self.comparisonScore(candidate, frequency: values.frequency, contextual: values.contextual)
     }
 
     /// One source spelling is shared by a group of full/prefix candidates; normalize it once.
     func ranking(for input: String, now: Date, context: CandidateContext?) -> Ranking {
         Ranking(profile: self, input: input, now: now, context: context)
+    }
+
+    private static func comparisonScore(_ candidate: InputCandidate, frequency: Double, contextual: Double) -> Double {
+        candidate.rankingScore + max(candidate.tokenLearningBonus, frequency) + contextual
     }
 
     var hasTokenPreferences: Bool { !tokenInputs.isEmpty }
@@ -153,6 +157,16 @@ public struct LearningProfile: Sendable, Equatable {
         if tokenInputs[entry.input] == 1 { tokenInputs.removeValue(forKey: entry.input) }
         else { tokenInputs[entry.input, default: 0] -= 1 }
     }
+
+    /// Replace app-scoped ranking evidence without interpreting an ordinary use as a correction.
+    mutating func setPreference(_ entry: LearnedPreference, now: Date) {
+        guard Self.isValid(entry, now: now) else { remove(id: entry.id); return }
+        let previous = records.updateValue(entry, forKey: entry.id)
+        if previous == nil {
+            rankingInputs[entry.input, default: 0] += 1
+            if Self.isTokenPreference(entry) { tokenInputs[entry.input, default: 0] += 1 }
+        }
+    }
     public mutating func removeAll() {
         records.removeAll()
         tokenInputs.removeAll()
@@ -180,16 +194,17 @@ public struct LearningProfile: Sendable, Equatable {
         return lower.replacing("u:", with: "v").replacing("ü", with: "v")
     }
 
-    private static func decayedStrength(_ entry: LearnedPreference, now: Date) -> Double {
+    static func decayedStrength(_ entry: LearnedPreference, now: Date) -> Double {
         entry.strength * pow(0.5, max(0, now.timeIntervalSince(entry.lastUsed)) / halfLife)
     }
 
-    private static func isValid(_ entry: LearnedPreference, now: Date) -> Bool {
+    static func isValid(_ entry: LearnedPreference, now: Date, allowsZeroStrength: Bool = false) -> Bool {
         !entry.input.isEmpty && entry.input.utf8.count <= 128
             && entry.input.unicodeScalars.allSatisfy { $0.isASCII && (CharacterSet.letters.contains($0) || $0 == "'") }
             && !entry.text.isEmpty && entry.text.utf8.count <= 512
             && !entry.text.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
-            && entry.strength.isFinite && entry.strength > 0 && entry.strength <= maximumStrength
+            && entry.strength.isFinite && (entry.strength > 0 || (allowsZeroStrength && entry.strength == 0))
+            && entry.strength <= maximumStrength
             && (entry.context?.isValid ?? true)
             && (entry.mixed != true || entry.language == .simplifiedChinese)
             && entry.lastUsed.timeIntervalSince1970.isFinite

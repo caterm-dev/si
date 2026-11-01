@@ -176,37 +176,37 @@
   },
   {
     "input": "woaiSwiftshurufa",
-    "expected": "我爱Swift输入法",
+    "expected": "我爱 Swift 输入法",
     "category": "evaluation-mixed"
   },
   {
     "input": "nihaoworld",
-    "expected": "你好world",
+    "expected": "你好 world",
     "category": "evaluation-mixed"
   },
   {
     "input": "qingyongPython",
-    "expected": "请用Python",
+    "expected": "请用 Python",
     "category": "evaluation-mixed"
   },
   {
     "input": "womenxuexiEnglish",
-    "expected": "我们学习English",
+    "expected": "我们学习 English",
     "category": "evaluation-mixed"
   },
   {
     "input": "wozaiGitHub",
-    "expected": "我在GitHub",
+    "expected": "我在 GitHub",
     "category": "evaluation-mixed"
   },
   {
     "input": "nihaotitle",
-    "expected": "你好title",
+    "expected": "你好 title",
     "category": "evaluation-mixed"
   },
   {
     "input": "nihaoabilit",
-    "expected": "你好ability",
+    "expected": "你好 ability",
     "category": "evaluation-mixed"
   },
   {

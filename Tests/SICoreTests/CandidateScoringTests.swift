@@ -29,7 +29,7 @@ struct CandidateScoringTests {
                        engine.previewCandidates(for: "ling", languages: languages, learning: profile,
                                                 dictionary: UserDictionary(), now: .now, context: nil)] {
             let zero = try #require(values.firstIndex { $0.text == "零" && !$0.isPartial })
-            let split = try #require(values.firstIndex { $0.text == "里NG" && $0.isMixed && !$0.isPartial })
+            let split = try #require(values.firstIndex { $0.text == "里 NG" && $0.isMixed && !$0.isPartial })
             #expect(zero < split)
             #expect(values[zero].rankingScore > values[split].rankingScore)
             #expect(zero < 27)
@@ -55,7 +55,7 @@ struct CandidateScoringTests {
         let alone = try #require(decoder.candidates(for: "ling").first { $0.text == "零" })
         let values = decoder.compositionCandidates(for: "lingworld", languages: languages)
         let prefix = try #require(values.first { $0.text == "零" && $0.consumedInputCount == 4 })
-        let joined = try #require(values.first { $0.text == "零world" && !$0.isPartial })
+        let joined = try #require(values.first { $0.text == "零 world" && !$0.isPartial })
         let word = try #require(EnglishLexicon.matches(for: "world").first { $0.text == "world" })
         #expect(abs(alone.rankingScore - prefix.rankingScore) < 1e-12)
         // The joined path pays for world and a language transition, with no second BOS prior.
@@ -63,10 +63,10 @@ struct CandidateScoringTests {
         #expect(abs(joined.rankingScore - expected) < 1e-12)
     }
 
-    @Test func englishWordsUseTheSameCostInEnglishAndMixedSentences() throws {
+    @Test func englishWordsShareLexicalCostAcrossLanguages() throws {
         let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ling"], text: "零", upstreamWeight: 25_133)])
         let mixed = try #require(decoder.compositionCandidates(for: "lingworld", languages: languages)
-            .first { $0.text == "零world" && !$0.isPartial })
+            .first { $0.text == "零 world" && !$0.isPartial })
         let chinese = try #require(decoder.candidates(for: "ling").first { $0.text == "零" })
         let english = try #require(CandidateEngine().candidates(for: "deployworld", languages: [.english])
             .first { $0.text == "deploy world" && !$0.isPartial })
@@ -76,7 +76,7 @@ struct CandidateScoringTests {
         #expect(abs(mixedWorld - englishWorld) < 1e-12)
     }
 
-    @Test func packagedChineseContextHasTheSameScoreInBothDecoders() throws {
+    @Test func packagedChineseWordsHaveTheSameScoreInBothDecoders() throws {
         let alone = try #require(PinyinDecoder.standard.candidates(for: "nihao").first { $0.text == "你好" })
         let prefixes = LexicalCompositionDecoder.mixed.compositionCandidates(for: "nihaoworld", languages: languages)
         let prefix = try #require(prefixes.first { $0.text == "你好" && $0.consumedInputCount == 5 })

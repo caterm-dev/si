@@ -8,7 +8,6 @@ public actor ApplicationMemoryStore {
     private struct Archive: Codable {
         let version: Int
         let vocabulary: [ApplicationVocabularyEntry]
-        let history: [ApplicationHistoryEntry]
     }
 
     public static let maximumFileBytes = 64 * 1_024 * 1_024
@@ -33,9 +32,21 @@ public actor ApplicationMemoryStore {
     public func load(now: Date = .now) throws -> ApplicationMemory {
         guard let data = try PrivateArchiveFile.read(url, maximumBytes: Self.maximumFileBytes) else { return ApplicationMemory() }
         let archive = try JSONDecoder().decode(Archive.self, from: data)
-        guard archive.version == 1 else { throw StoreError.unsupportedVersion }
-        let memory = ApplicationMemory(vocabulary: archive.vocabulary, history: archive.history, now: now)
-        if memory.vocabulary != archive.vocabulary || memory.history != archive.history { try write(memory) }
+        guard (1...3).contains(archive.version) else { throw StoreError.unsupportedVersion }
+        var memory = ApplicationMemory(vocabulary: archive.vocabulary, now: now)
+        if archive.version < 3 {
+            // Old strengths mixed defaults and corrections, so they cannot be reused as preference evidence.
+            memory = ApplicationMemory(vocabulary: memory.vocabulary.map { entry in
+                let old = entry.preference
+                let neutral = LearnedPreference(input: old.input, text: old.text, language: old.language,
+                                                strength: 0, lastUsed: old.lastUsed, isMixed: old.mixed == true)
+                return ApplicationVocabularyEntry(applicationID: entry.applicationID, preference: neutral, count: entry.count,
+                    baseScore: entry.baseScore, lexicalTokenCount: entry.lexicalTokenCount)
+            }, now: now)
+        }
+        // New writes also remove the retired history field from v1 archives.
+        // Decoding errors propagate without rewriting; migration write errors pause loading.
+        if archive.version < 3 || memory.vocabulary != archive.vocabulary { try write(memory) }
         return memory
     }
 
@@ -52,7 +63,7 @@ public actor ApplicationMemoryStore {
     }
 
     private func write(_ memory: ApplicationMemory) throws {
-        let data = try JSONEncoder().encode(Archive(version: 1, vocabulary: memory.vocabulary, history: memory.history))
+        let data = try JSONEncoder().encode(Archive(version: 3, vocabulary: memory.vocabulary))
         try PrivateArchiveFile.write(data, to: url, maximumBytes: Self.maximumFileBytes)
     }
 }

@@ -115,9 +115,6 @@ struct PunctuationCandidateTests {
             var profile = LearningProfile()
             let learned = profile.record(commit, learnContext: true)
             #expect(!learned)
-            var history = InputHistoryDraft()
-            history.append(commit)
-            #expect(history.isInvalid)
         }
         let oversized = InputCandidate(text: String(repeating: "x", count: 4_096), language: .english, score: 100)
         #expect(PunctuationCandidates.candidates(symbol: ",", prefixes: [oversized], languages: languages).isEmpty)

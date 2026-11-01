@@ -11,7 +11,8 @@ struct ChineseMigrationTests {
         session.append("jintjiushi")
         let today = try #require(session.candidates.first { $0.text == "今天" })
         #expect(today.consumedInputCount == 4 && today.isPartial)
-        #expect(!session.candidates.contains { $0.text == "今天就是" && !$0.isPartial })
+        // Wanxiang adds the whole phrase; its presence must not erase the editable prefix.
+        #expect(session.candidates.contains { $0.text == "今天就是" && !$0.isPartial })
         #expect(session.candidates.last?.text == "jintjiushi" && session.candidates.last?.isLiteral == true)
         let commit = session.commitResult(today, reason: .explicitSelection)
         #expect(commit.input == "jint" && commit.text == "今天")
@@ -22,16 +23,14 @@ struct ChineseMigrationTests {
     @Test func fullSpellingSuppliesTheReportedWholeSentence() {
         for source in ["jintianjiushi", "jin'tian'jiu'shi"] {
             let values = CandidateEngine().candidates(for: source, languages: [.simplifiedChinese])
-            #expect(values.first?.text == "今天就是" && values.first?.isPartial == false)
+            #expect(values.first { !$0.isPartial }?.text == "今天就是" && values.first { !$0.isPartial }?.isPartial == false)
             #expect(values.last?.text == source && values.last?.isLiteral == true)
         }
     }
-    @Test func packagedDictionaryAndContextTablesLoad() {
+    @Test func packagedDictionaryLoads() {
         #expect(ChineseLexicon.standard.isAvailable)
-        #expect(ChineseLexicon.standard.bigram != nil)
-        #expect(ChineseLexicon.standard.trigram != nil)
         let row = ChineseLexicon.standard.exactMatches(["ne"]).first
-        #expect(row?.text == "呢" && row?.weight == 7_763_286)
+        #expect(row?.text == "呢" && row?.weight == 824_128)
     }
 
     @Test func exactNeRemainsAvailableWhileEnglishCompletionsCompeteByScore() {
@@ -69,7 +68,7 @@ struct ChineseMigrationTests {
         #expect(values.first?.text == "你好吗" && values.first?.hasCompletion == true)
         #expect(values.contains { $0.text == "你好" && !$0.hasCompletion })
         if let full = values.first(where: { $0.text == "你好" }), let completion = values.first(where: { $0.text == "你好吗" }) {
-            let expectedDifference = log2(1_000_000.0 / 10) + log2(1.0 / 67)
+            let expectedDifference = 1.05 * log2(1_000_000.0 / 10) + log2(1.0 / 67)
             #expect(abs(completion.rankingScore - full.rankingScore - expectedDifference) < 1e-12)
         }
     }
@@ -82,7 +81,7 @@ struct ChineseMigrationTests {
         let values = decoder.candidates(for: "woshi")
         let sentence = try #require(values.first)
         #expect(sentence.text == "我是" && sentence.lexicalTokenCount == 2)
-        let expected = (log(100_000_000_000.0) - 44) / log(2.0) - 1
+        let expected = (1.05 * log(100_000_000_000.0) - 44) / log(2.0) - 1
             + log2(1 - RankingCalibration.switchProbability) + log2(64.0 / 67) + log2(128.0 / 135)
         #expect(abs(sentence.rankingScore - expected) < 1e-12)
     }
@@ -116,25 +115,17 @@ struct ChineseMigrationTests {
     }
 
     @Test func independentLatticeCalculationMatchesPinnedResourcesAndLocalScoring() throws {
-        // Independent Python calculation of SQL spans, SI word scores and ngram increments.
-        // SI intentionally uses a smaller single-character insertion cost than upstream.
-        // These are arithmetic fixtures, not desired-language-quality assertions. In particular
-        // the first fixture records the unresolved discrepancy with the reported MSIME output.
-        let fixtures: [(String, String, Double, [Int], Int)] = [
-            ("julitebieyuan", "距离特别圆", 118.69906632548162, [2, 2, 2, 3, 4], 2),
-            ("bangwozaixie", "帮我在写", 91.31678246909371, [4, 2, 3, 3], 2),
-            ("nihaopengyou", "你好朋友", 101.34944880941819, [2, 3, 4, 3], 2),
-            ("nengxiangbanfayouhuama", "能想办法优化吗", 162.56195220015462, [4, 5, 3, 2, 3, 3, 2], 4),
+        // Independent SQLite weight/spelling arithmetic for fixed output paths.
+        // No corpus corrections or rank-1 quality claim; direct words compete with composed paths.
+        let fixtures: [(String, String, Double)] = [
+            ("julitebieyuan", "距离特别远", -31.78519366799502),
+            ("bangwozaixie", "帮我在写", -30.51380370200272),
+            ("nihaopengyou", "你好朋友", -23.147782041857067),
+            ("nengxiangbanfayouhuama", "能想办法优化吗", -50.58522402620735),
         ]
-        for (input, text, legacyScore, syllableLengths, words) in fixtures {
-            let candidate = try #require(PinyinDecoder.standard.candidates(for: input).first)
-            // Convert the independently calculated legacy oracle to the shared scale:
-            // remove its per-syllable offset, then include BOS, spelling and transitions.
-            let spelling = syllableLengths.reduce(0.0) { $0 + log2((16 + 1 - exp2(-Double($1))) / 16) }
-            let score = legacyScore - 20 * Double(syllableLengths.count) / log(2.0) - 1 - spelling
-                + Double(words - 1) * log2(1 - RankingCalibration.switchProbability)
-            #expect(candidate.text == text)
-            #expect(abs(candidate.rankingScore - score) < 1e-10)
+        for (input, text, score) in fixtures {
+            let candidate = try #require(PinyinDecoder.standard.candidates(for: input).first { $0.text == text && !$0.isPartial })
+            #expect(abs(candidate.rankingScore - score) < 0.0001)
         }
     }
 

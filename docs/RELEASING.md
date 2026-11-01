@@ -21,6 +21,14 @@ The preinstall script refuses root/system-wide installation, symbolic-link desti
 
 Packaging itself never installs or launches SI or logs out. No logout/restart command runs in package scripts; the user initiates logout through macOS Installer, with the system's ordinary application save/cancel handling. Cancelling logout leaves installed files in place; log out later to finish registration. There is no `/Applications` shortcut or input-method executable launched from the DMG.
 
+## DMG creation reports no space
+
+The compressed UDZO image explicitly uses HFS+ for its internal filesystem, which is supported by SI's macOS 14+ requirement. Without `-fs HFS+`, `hdiutil create -srcfolder` can select APFS from the source volume and underestimate the space needed inside the new image. On macOS 27.0.1, copying an approximately 89 MiB `Install SI.pkg` reproduced `could not access /Volumes/SI/Install SI.pkg - No space left on device` with 132 GiB free on the host. The same contents succeeded with HFS+ and with a larger explicit APFS image.
+
+If this error occurs, check free space on both the output and temporary-file volumes with `df -h`. If those have ample room, use the updated packaging script; deleting build caches is unnecessary for the reproduced image-sizing failure. The `hdiutil create` deprecation warning is separate from the failure. Keep `hdiutil` for compatibility with older supported macOS versions.
+
+After committing a packaging fix, retry the existing unpublished version with `./scripts/release.sh --arch arm64 --no-bump` (substitute the original architecture). A changed commit does not automatically reuse the old pending-release marker. Publication still requires a clean committed checkout, and an already published version must never be replaced with different bytes.
+
 ## Signing and notarization
 
 Use Developer ID Application and Developer ID Installer certificates from the same team, already installed in Keychain, plus an existing `notarytool` Keychain profile. Configure these outside the repository; do not put passwords, private keys, certificates, or personal signing settings into tracked files.

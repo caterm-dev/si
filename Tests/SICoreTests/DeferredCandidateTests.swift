@@ -93,7 +93,7 @@ struct DeferredCandidateTests {
         #expect(session.buffer == "nihao")
         #expect(session.accept(latest) == true)
         #expect(session.accept(latest) == false)
-        #expect(session.candidates.first?.text == "你好")
+        #expect(session.candidates.contains { $0.text == "你好" && !$0.isPartial })
     }
 
     @Test func resetLiteralCommitAndAnotherClientCannotAcceptOldResults() throws {

@@ -3,11 +3,8 @@ import Foundation
 /// Bounded local archives. Application identity is supplied by the host adapter, never inferred here.
 public struct ApplicationMemory: Equatable, Sendable {
     public static let maximumVocabularyEntries = 5_000
-    public static let maximumHistoryEntries = 1_000
     public static let vocabularyRetentionDays = 90
-    public static let historyRetentionDays = 30
     private var words: [String: ApplicationVocabularyEntry] = [:]
-    private var histories: [String: ApplicationHistoryEntry] = [:]
     private var profiles: [String: LearningProfile] = [:]
 
     public var vocabulary: [ApplicationVocabularyEntry] {
@@ -15,19 +12,12 @@ public struct ApplicationMemory: Equatable, Sendable {
             $0.preference.lastUsed == $1.preference.lastUsed ? $0.id < $1.id : $0.preference.lastUsed > $1.preference.lastUsed
         }
     }
-    public var history: [ApplicationHistoryEntry] {
-        histories.values.sorted { $0.lastUsed == $1.lastUsed ? $0.id < $1.id : $0.lastUsed > $1.lastUsed }
-    }
-    public var applicationIDs: [String] { Set(words.values.map(\.applicationID) + histories.values.map(\.applicationID)).sorted() }
+    public var applicationIDs: [String] { Set(words.values.map(\.applicationID)).sorted() }
 
-    public init(vocabulary: [ApplicationVocabularyEntry] = [], history: [ApplicationHistoryEntry] = [], now: Date = .now) {
+    public init(vocabulary: [ApplicationVocabularyEntry] = [], now: Date = .now) {
         for entry in vocabulary where Self.valid(entry, now: now) {
             if let previous = words[entry.id], previous.preference.lastUsed >= entry.preference.lastUsed { continue }
             words[entry.id] = entry
-        }
-        for entry in history where Self.valid(entry, now: now) {
-            if let previous = histories[entry.id], previous.lastUsed >= entry.lastUsed { continue }
-            histories[entry.id] = entry
         }
         prune(now: now)
     }
@@ -36,72 +26,58 @@ public struct ApplicationMemory: Equatable, Sendable {
     public mutating func recordVocabulary(_ commit: InputCommit, applicationID: String, now: Date = .now) -> Bool {
         guard Self.validApplicationID(applicationID), let candidate = commit.candidate, candidate.canLearn,
               commit.reason == .explicitSelection || commit.reason == .defaultAcceptance else { return false }
-        // Per-app usage counts default acceptance too, under its own explicit opt-in.
-        let choice = InputCommit(input: commit.input, candidate: candidate, reason: .explicitSelection)
+        // Usage includes first choices; only explicit nonfirst choices can adjust ranking.
         let input = LearningProfile.normalizedInput(commit.input, language: candidate.language ?? .english)
         let identity = LearnedPreference.identity(input: input, language: candidate.language ?? .english,
                                                   text: candidate.text, isMixed: candidate.isMixed)
         let previous = words["\(applicationID.utf8.count):\(applicationID)\(identity)"].flatMap {
             now.timeIntervalSince($0.preference.lastUsed) < Double(Self.vocabularyRetentionDays) * 86_400 ? $0 : nil
         }
-        var profile = LearningProfile(entries: previous.map { [$0.preference] } ?? [], now: now)
-        guard profile.record(choice, now: now), let preference = profile.entries.first else { return false }
+        var strength = previous.map { LearningProfile.decayedStrength($0.preference, now: now) } ?? 0
+        var corrections = previous?.correctionCount ?? 0
+        if commit.reason == .explicitSelection {
+            corrections = min(1_000_000, corrections + 1)
+            if corrections % 3 == 0 {
+                // Store the inverse of the shared logarithmic score: one point per three corrections.
+                let bonus = min(32, 12 * log2(1 + strength) + 1)
+                strength = exp2(bonus / 12) - 1
+            }
+        }
+        let preference = LearnedPreference(input: input, text: candidate.text, language: candidate.language ?? .english,
+                                           strength: strength, lastUsed: now, isMixed: candidate.isMixed)
         let entry = ApplicationVocabularyEntry(applicationID: applicationID, preference: preference,
                                                count: min(1_000_000, (previous?.count ?? 0) + 1),
-                                               baseScore: candidate.rankingScore, lexicalTokenCount: candidate.lexicalTokenCount)
+                                               baseScore: candidate.rankingScore, lexicalTokenCount: candidate.lexicalTokenCount,
+                                               correctionCount: corrections)
         guard Self.valid(entry, now: now) else { return false }
         words[entry.id] = entry
         var applicationProfile = profiles[applicationID] ?? LearningProfile()
-        _ = applicationProfile.record(choice, now: now)
+        applicationProfile.setPreference(preference, now: now)
         profiles[applicationID] = applicationProfile
         if words.count > Self.maximumVocabularyEntries { prune(now: now) }
         return true
     }
 
-    @discardableResult
-    public mutating func recordHistory(_ entry: ApplicationHistoryEntry, now: Date = .now) -> Bool {
-        guard Self.valid(entry, now: now) else { return false }
-        let previous = histories[entry.id].flatMap {
-            now.timeIntervalSince($0.lastUsed) < Double(Self.historyRetentionDays) * 86_400 ? $0 : nil
-        }
-        let saved = ApplicationHistoryEntry(applicationID: entry.applicationID, input: entry.input, text: entry.text,
-                                            languages: entry.languages, count: min(1_000_000, (previous?.count ?? 0) + 1),
-                                            lastUsed: now)
-        histories[saved.id] = saved
-        if histories.count > Self.maximumHistoryEntries { prune(now: now) }
-        return true
-    }
-
-    public func snapshot(applicationID: String, vocabularyEnabled: Bool, historyEnabled: Bool,
+    public func snapshot(applicationID: String, vocabularyEnabled: Bool,
                          now: Date = .now) -> ApplicationMemorySnapshot {
         ApplicationMemorySnapshot(vocabulary: vocabularyEnabled ? words.values.filter { $0.applicationID == applicationID } : [],
-                                  history: historyEnabled ? histories.values.filter { $0.applicationID == applicationID } : [], now: now,
+                                  now: now,
                                   learning: vocabularyEnabled ? profiles[applicationID] ?? LearningProfile() : LearningProfile())
     }
 
     public mutating func removeVocabulary(id: String) {
         if let removed = words.removeValue(forKey: id) { profiles[removed.applicationID]?.remove(id: removed.preference.id) }
     }
-    public mutating func removeHistory(id: String) { histories.removeValue(forKey: id) }
     public mutating func clearVocabulary(applicationID: String? = nil) {
         if let applicationID {
             words = words.filter { $0.value.applicationID != applicationID }
             profiles.removeValue(forKey: applicationID)
         } else { words.removeAll(); profiles.removeAll() }
     }
-    public mutating func clearHistory(applicationID: String? = nil) {
-        if let applicationID { histories = histories.filter { $0.value.applicationID != applicationID } }
-        else { histories.removeAll() }
-    }
-
     public mutating func prune(now: Date = .now) {
         words = words.filter { Self.valid($0.value, now: now) }
-        histories = histories.filter { Self.valid($0.value, now: now) }
         if words.count > Self.maximumVocabularyEntries {
             words = Dictionary(uniqueKeysWithValues: vocabulary.prefix(Self.maximumVocabularyEntries).map { ($0.id, $0) })
-        }
-        if histories.count > Self.maximumHistoryEntries {
-            histories = Dictionary(uniqueKeysWithValues: history.prefix(Self.maximumHistoryEntries).map { ($0.id, $0) })
         }
         profiles = Dictionary(grouping: words.values, by: \.applicationID).mapValues {
             LearningProfile(entries: $0.map(\.preference), now: now)
@@ -115,19 +91,10 @@ public struct ApplicationMemory: Equatable, Sendable {
 
     private static func valid(_ entry: ApplicationVocabularyEntry, now: Date) -> Bool {
         validApplicationID(entry.applicationID) && (1...1_000_000).contains(entry.count)
+            && (0...entry.count).contains(entry.correctionCount)
             && entry.baseScore.isFinite && abs(entry.baseScore) <= 1_000_000
             && entry.preference.context == nil && (entry.lexicalTokenCount.map { (1...512).contains($0) } ?? true)
-            && !LearningProfile(entries: [entry.preference], now: now).entries.isEmpty
+            && LearningProfile.isValid(entry.preference, now: now, allowsZeroStrength: true)
     }
 
-    private static func valid(_ entry: ApplicationHistoryEntry, now: Date) -> Bool {
-        validApplicationID(entry.applicationID) && (1...1_000_000).contains(entry.count)
-            && !entry.input.trimmingCharacters(in: .whitespaces).isEmpty
-            && !entry.text.trimmingCharacters(in: .whitespaces).isEmpty
-            && entry.input.utf8.count <= InputHistoryDraft.maximumBytes && entry.text.utf8.count <= InputHistoryDraft.maximumBytes
-            && !entry.input.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
-            && !entry.text.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
-            && entry.lastUsed.timeIntervalSince1970.isFinite && entry.lastUsed <= now.addingTimeInterval(300)
-            && now.timeIntervalSince(entry.lastUsed) < Double(historyRetentionDays) * 86_400
-    }
 }

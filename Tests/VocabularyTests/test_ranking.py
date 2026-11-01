@@ -1,5 +1,4 @@
-"""Offline model provenance and serializer validation; no third-party Python packages."""
-import gzip
+"""Offline calibration and attribution checks; no retired word/frequency sources required."""
 import importlib.util
 import json
 from pathlib import Path
@@ -16,17 +15,7 @@ class RankingDataTests(unittest.TestCase):
         self.assertEqual((ROOT / 'mac/SI/Core/RankingCalibration.swift').read_text(), RANKING.calibration())
         self.assertEqual((ROOT / 'mac/SI/Resources/RankingNotices.txt').read_text(), RANKING.notices())
 
-    def test_rejects_unsupported_truncated_and_invalid_envelopes(self):
-        for data in [b'', b'\x91', b'\x91\xc0', b'\x91\x80', b'\x91\xa9truncated']:
-            with self.subTest(data=data), self.assertRaises(ValueError):
-                RANKING.unpack(data)
-
-    def test_known_source_frequencies_and_complete_attribution_are_retained(self):
-        buckets = RANKING.unpack(gzip.decompress((RANKING.SOURCE / 'large_en.msgpack.gz').read_bytes()))
-        bins = {word: index for index, bucket in enumerate(buckets) for word in bucket}
-        self.assertEqual(RANKING.frequency_bins(['ability', 'the', 'zzzzqxz']), [bins['ability'], bins['the'], 900])
-        self.assertLess(bins['ability'], bins['abilities'])
-        self.assertLess(bins['the'], bins['ability'])
+    def test_complete_frequency_attribution_is_retained_without_source_wordlists(self):
         notices = (ROOT / 'mac/SI/Resources/RankingNotices.txt').read_text()
         for text in ['Robyn Speer', 'creativecommons.org/licenses/by-sa/4.0/', 'SUBTLEX', 'Brysbaert', 'Google Books', 'OpenSubtitles']:
             self.assertIn(text, notices)

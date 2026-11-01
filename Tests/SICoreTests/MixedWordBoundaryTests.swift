@@ -16,10 +16,10 @@ struct MixedWordBoundaryTests {
         }
         let profile = LearningProfile(entries: entries, now: now)
         let candidates = CandidateEngine().candidates(for: "nihaotitle", languages: languages, learning: profile, now: now)
-        let intact = try #require(candidates.firstIndex { $0.text == "你好title" && !$0.isPartial })
-        let split = try #require(candidates.firstIndex { $0.text == "你好tit了" && !$0.isPartial })
+        let intact = try #require(candidates.firstIndex { $0.text == "你好 title" && !$0.isPartial })
+        let split = try #require(candidates.firstIndex { $0.text == "你好 tit 了" && !$0.isPartial })
         #expect(intact < split)
-        #expect(candidates.first?.text == "你好title")
+        #expect(candidates.first { !$0.isPartial }?.text == "你好 title")
         #expect(candidates[split].tokenLearningBonus == 0)
         #expect(candidates.last?.text == "nihaotitle" && candidates.last?.isLiteral == true)
         #expect(candidates == CandidateEngine().candidates(for: "nihaotitle", languages: languages, learning: profile, now: now))
@@ -27,20 +27,20 @@ struct MixedWordBoundaryTests {
 
     @Test func explicitWholeChoiceCanStillPreferTheAlternativeSegmentation() throws {
         let profile = LearningProfile(entries: [
-            LearnedPreference(input: "nihaotitle", text: "你好tit了", language: .simplifiedChinese,
+            LearnedPreference(input: "nihaotitle", text: "你好 tit 了", language: .simplifiedChinese,
                               strength: 8, lastUsed: now, isMixed: true),
         ], now: now)
         let candidates = CandidateEngine().candidates(for: "nihaotitle", languages: languages, learning: profile, now: now)
-        #expect(candidates.first?.text == "你好tit了")
-        #expect(candidates.contains { $0.text == "你好title" && !$0.isPartial })
-        #expect(candidates.first?.canLearn == true)
+        #expect(candidates.first { !$0.isPartial }?.text == "你好 tit 了")
+        #expect(candidates.contains { $0.text == "你好 title" && !$0.isPartial })
+        #expect(candidates.first { !$0.isPartial }?.canLearn == true)
     }
 
     @Test(arguments: [
-        ("nihaoTITLE", "你好TITLE", "你好TIT了"),
-        ("nihaotable", "你好table", "你好tab了"),
-        ("nihaomaple", "你好maple", "你好map了"),
-        ("nihaotitlezhongwen", "你好title中文", "你好tit了中文"),
+        ("nihaoTITLE", "你好 TITLE", "你好 TIT 了"),
+        ("nihaotable", "你好 table", "你好 tab 了"),
+        ("nihaomaple", "你好 maple", "你好 map 了"),
+        ("nihaotitlezhongwen", "你好 title 中文", "你好 tit 了中文"),
     ])
     func safeguardAppliesBeyondOneWordAndSurvivesContinuation(input: String, intact: String, split: String) throws {
         let profile = LearningProfile(entries: [
@@ -59,19 +59,19 @@ struct MixedWordBoundaryTests {
 
     @Test func aLearnedWholePrefixUsesOnlyItsConsumedSpelling() throws {
         let profile = LearningProfile(entries: [
-            LearnedPreference(input: "nihaotitle", text: "你好tit了", language: .simplifiedChinese,
+            LearnedPreference(input: "nihaotitle", text: "你好 tit 了", language: .simplifiedChinese,
                               strength: 8, lastUsed: now, isMixed: true),
         ], now: now)
         let candidates = CandidateEngine().candidates(for: "nihaotitleshurufa", languages: languages, learning: profile, now: now)
-        let prefix = try #require(candidates.first { $0.text == "你好tit了" && $0.consumedInputCount == 10 })
+        let prefix = try #require(candidates.first { $0.text == "你好 tit 了" && $0.consumedInputCount == 10 })
         #expect(profile.rankingScore(for: prefix, input: "nihaotitle", now: now, context: nil) > prefix.inputScore)
         #expect(profile.rankingScore(for: prefix, input: "nihaotitleshurufa", now: now, context: nil) == prefix.inputScore)
     }
 
     @Test(arguments: [
-        ("nibuxiangyaotitle", "你不想要title", "你不想要tit了"),
-        ("nixiangyaotitle", "你想要title", "你想要tit了"),
-        ("woaizhegetitle", "我爱这个title", "我爱这个tit了"),
+        ("nibuxiangyaotitle", "你不想要 title", "你不想要 tit 了"),
+        ("nixiangyaotitle", "你想要 title", "你想要 tit 了"),
+        ("woaizhegetitle", "我爱这个 title", "我爱这个 tit 了"),
     ])
     func longerChinesePrefixesKeepCompleteEnglishWordAhead(input: String, intact: String, split: String) throws {
         let candidates = CandidateEngine().candidates(for: input, languages: Set(InputLanguage.allCases))
@@ -83,8 +83,8 @@ struct MixedWordBoundaryTests {
 
     @Test func completeEnglishWordOutranksItsSplitChineseEnding() throws {
         let candidates = CandidateEngine().candidates(for: "nihaotitle", languages: Set(InputLanguage.allCases))
-        let intact = try #require(candidates.firstIndex { $0.text == "你好title" && !$0.isPartial })
-        let split = try #require(candidates.firstIndex { $0.text == "你好tit了" && !$0.isPartial })
+        let intact = try #require(candidates.firstIndex { $0.text == "你好 title" && !$0.isPartial })
+        let split = try #require(candidates.firstIndex { $0.text == "你好 tit 了" && !$0.isPartial })
         #expect(intact < split)
     }
 }

@@ -26,7 +26,7 @@ final class CandidateRowButton: NSButton {
         isBordered = false
         setButtonType(.momentaryChange)
         numberLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .medium)
-        candidateLabel.font = .systemFont(ofSize: 15)
+        candidateLabel.font = CandidateTextSupport.font
         detailLabel.font = .systemFont(ofSize: 9)
         for label in [numberLabel, candidateLabel, detailLabel] {
             label.lineBreakMode = .byTruncatingTail
@@ -64,7 +64,6 @@ final class CandidateRowButton: NSButton {
         usesBadge = showsPunctuation
         var details: [String] = []
         if let language = candidate.punctuationLanguage { details.append(language == .english ? "E" : "C") }
-        else if candidate.isHistory { details.append(L10n.text("App History")) }
         else if candidate.isApplicationVocabulary { details.append(L10n.text("App Vocabulary")) }
         else if candidate.isLiteral { details.append(usesBadge ? "A" : L10n.text("As Typed")) }
         else if candidate.isUserPhrase { details.append(L10n.text("Personal")) }
@@ -76,8 +75,7 @@ final class CandidateRowButton: NSButton {
         candidateLabel.alignment = .left
         detailLabel.alignment = usesBadge ? .center : .left
         let symbol: String?
-        if candidate.isHistory { symbol = "clock.arrow.circlepath" }
-        else if candidate.isApplicationVocabulary { symbol = "app.badge" }
+        if candidate.isApplicationVocabulary { symbol = "app.badge" }
         else if candidate.isPartial { symbol = "arrow.right" }
         else if candidate.isLiteral { symbol = "textformat" }
         else if candidate.isUserPhrase { symbol = "pin.fill" }

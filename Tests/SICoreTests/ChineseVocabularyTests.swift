@@ -3,6 +3,28 @@ import Testing
 @testable import SICore
 
 struct ChineseVocabularyTests {
+    @Test func requestedAlchemyPhraseIsACompleteDictionaryCandidate() throws {
+        let engine = CandidateEngine()
+        for input in ["lianxiandan", "lian'xian'dan"] {
+            for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
+                for values in [engine.candidates(for: input, languages: languages),
+                               engine.previewCandidates(for: input, languages: languages, learning: LearningProfile(),
+                                   dictionary: UserDictionary(), now: .now, context: nil)] {
+                    let phrase = try #require(values.first { $0.text == "炼仙丹" && !$0.isPartial })
+                    #expect(phrase.language == .simplifiedChinese && !phrase.isMixed && !phrase.hasCompletion)
+                    #expect(phrase.lexicalTokenCount == 1 && !phrase.isUserPhrase && !phrase.hasLiteralSegments)
+                    #expect(values.last?.text == input && values.last?.isLiteral == true)
+                }
+            }
+            var session = InputSession()
+            session.append(input)
+            let phrase = try #require(session.candidates.first { $0.text == "炼仙丹" && !$0.isPartial })
+            let commit = session.commitResult(phrase, reason: .explicitSelection)
+            #expect(commit.text == "炼仙丹" && commit.input == input && session.buffer.isEmpty)
+            #expect(!engine.candidates(for: input, languages: [.english]).contains { $0.text == "炼仙丹" })
+        }
+    }
+
     @Test func wholeSpellingUsesHomophoneFrequenciesWithoutOverridingExplicitLearning() throws {
         let decoder = PinyinDecoder(entries: [
             PinyinLexiconEntry(syllables: ["de"], text: "的", upstreamWeight: 1 << 40),
@@ -18,7 +40,7 @@ struct ChineseVocabularyTests {
             let word = try #require(values.first { $0.text == "单词" })
             let once = try #require(values.first { $0.text == "单次" })
             #expect(values.first?.text == "单词")
-            #expect(abs(word.rankingScore - once.rankingScore - log2(225_415.0 / 25_195.0)) < 1e-12)
+            #expect(abs(word.rankingScore - once.rankingScore - 1.05 * log2(225_415.0 / 25_195.0)) < 1e-12)
             let ambiguous = decoder.compositionCandidates(for: "xian", languages: [.simplifiedChinese], preview: preview)
             // The two complete readings compete by frequency, spelling and character cost.
             #expect(ambiguous.first?.text == "西安")
@@ -39,26 +61,26 @@ struct ChineseVocabularyTests {
         let input = "nengxiangbanfayouhuama"
         for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             let values = engine.candidates(for: input, languages: languages)
-            let first = try #require(values.first)
+            let first = try #require(values.first { !$0.isPartial })
             #expect(first.text.hasSuffix("吗"))
-            #expect(values.prefix(3).contains { $0.text == "能想办法优化吗" })
+            #expect(values.filter { !$0.isPartial }.prefix(3).contains { $0.text == "能想办法优化吗" })
             #expect(!first.isPartial && !first.isMixed && !first.hasCompletion && !first.hasLiteralSegments)
             #expect(values.last?.text == input && values.last?.isLiteral == true)
             #expect(values == engine.candidates(for: input, languages: languages))
             if languages.contains(.english) {
-                #expect(values.contains { $0.text == "能想办法优化ma" && $0.isMixed && !$0.isPartial })
+                #expect(values.contains { $0.text == "能想办法优化 may" && $0.isMixed && !$0.isPartial && $0.hasCompletion })
             }
         }
 
         // A saved English token choice may reorder results, but must keep the Chinese ending available.
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         let profile = LearningProfile(entries: [
-            LearnedPreference(input: "ma", text: "ma", language: .english, strength: 8, lastUsed: now),
+            LearnedPreference(input: "ma", text: "may", language: .english, strength: 8, lastUsed: now),
         ], now: now)
         let personalized = engine.candidates(for: input, languages: Set(InputLanguage.allCases),
                                              learning: profile, now: now)
         #expect(personalized.contains { $0.text == "能想办法优化吗" && !$0.isPartial })
-        #expect(personalized.contains { $0.text == "能想办法优化ma" && $0.isMixed && !$0.isPartial })
+        #expect(personalized.contains { $0.text == "能想办法优化 may" && $0.isMixed && !$0.isPartial && $0.hasCompletion })
         #expect(personalized.last?.text == input && personalized.last?.isLiteral == true)
     }
 
@@ -73,7 +95,7 @@ struct ChineseVocabularyTests {
             #expect(!engine.candidates(for: input, languages: [.english]).contains { $0.text == expected })
         }
         #expect(engine.candidates(for: "zimusubtitle", languages: Set(InputLanguage.allCases))
-            .contains { $0.text == "字幕subtitle" && $0.isMixed && !$0.hasLiteralSegments })
+            .contains { $0.text == "字幕 subtitle" && $0.isMixed && !$0.hasLiteralSegments })
         #expect(engine.candidates(for: "xing", languages: [.simplifiedChinese]).contains { $0.text == "行" })
         #expect(engine.candidates(for: "hang", languages: [.simplifiedChinese]).contains { $0.text == "行" })
     }
@@ -85,8 +107,8 @@ struct ChineseVocabularyTests {
         let country = try #require(values.first { $0.text == "国" })
         let pastEntry = try #require(ChineseLexicon.standard.exactMatches(["guo"]).first { $0.text == "过" })
         let countryEntry = try #require(ChineseLexicon.standard.exactMatches(["guo"]).first { $0.text == "国" })
-        #expect(pastEntry.weight == 3_229_619 && countryEntry.weight == 188_165)
-        #expect(abs(past.rankingScore - country.rankingScore - log2(Double(pastEntry.weight) / Double(countryEntry.weight))) < 1e-12)
+        #expect(pastEntry.weight == 342_847 && countryEntry.weight == 19_975)
+        #expect(abs(past.rankingScore - country.rankingScore - 1.05 * log2(Double(pastEntry.weight) / Double(countryEntry.weight))) < 1e-12)
         #expect(values.first?.text == "过")
         for preview in [false, true] {
             let sentence = PinyinDecoder.standard.compositionCandidates(for: "tianjiaguonameduo",
@@ -106,7 +128,7 @@ struct ChineseVocabularyTests {
         ])
         let values = decoder.candidates(for: "guo")
         let country = try #require(values.first { $0.text == "国" })
-        let expected = (log(3_063_867.0) - 22) / log(2.0) - 1 + log2(128.0 / 135)
+        let expected = (1.05 * log(3_063_867.0) - 22) / log(2.0) - 1 + log2(128.0 / 135)
         #expect(abs(country.rankingScore - expected) < 1e-12)
         #expect(values.first?.text == "过")
         #expect(values.contains { $0.text == "果" && $0.rankingScore < country.rankingScore })
@@ -142,7 +164,7 @@ struct ChineseVocabularyTests {
         for first in entries {
             for second in entries {
                 let weights = [first, second].map { Double(Int64(exp2(Double($0.score) / 10))) }
-                let cost = (44 - log(weights[0]) - log(weights[1])) / log(2.0)
+                let cost = (44 - 1.05 * (log(weights[0]) + log(weights[1]))) / log(2.0)
                     + 1 - log2(1 - RankingCalibration.switchProbability) + 2 * log2(16.5 / 16)
                 combinations.append((first.text + second.text, cost))
             }

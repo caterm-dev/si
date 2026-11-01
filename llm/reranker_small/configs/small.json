@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "model": {
+    "vocab_size": 16384,
+    "layers": 4,
+    "width": 256,
+    "heads": 4,
+    "feedforward": 1024,
+    "context": 256,
+    "dropout": 0.1
+  },
+  "data": {
+    "sources": ["lccc", "mc4", "kubernetes", "tensorflow", "mdn", "wikipedia"],
+    "validation_fraction": 0.02,
+    "test_fraction": 0.01,
+    "max_characters_per_source": 20000000,
+    "max_document_characters": 2000000,
+    "minimum_han_characters": 4
+  },
+  "training": {
+    "batch_size": 8,
+    "gradient_accumulation": 16,
+    "max_steps": 10000,
+    "schedule_steps": 10000,
+    "max_tokens": 200000000,
+    "warmup_steps": 300,
+    "learning_rate": 0.0003,
+    "weight_decay": 0.1,
+    "gradient_clip": 1.0,
+    "validate_every": 500,
+    "save_every": 500,
+    "validation_tokens": 262144
+  },
+  "scoring": {
+    "batch_size": 4,
+    "max_candidates": 32,
+    "length_penalty": 0.0
+  }
+}

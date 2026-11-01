@@ -1,8 +1,388 @@
 # Testing SI
 
+## Matched-input coverage ranking
+
+On October 31, 2026, the user authorized a soft coverage reward after comparing
+Rime, libime and libpinyin candidate presentation. The shared merge now adds five
+points per consumed source letter/digit to the lexical/preferences score. It does
+not estimate a suffix conversion, add a confirmation cost, discount prefix
+learning or make length an absolute priority. The existing 20/2 insertion costs
+and 1.05 frequency coefficient remain unchanged. Separators and punctuation earn
+nothing; ü/v/u: aliases count equally. Output length and lexical-unit count earn
+nothing. Candidates containing verbatim spans receive no coverage reward.
+
+The user then requested restoring the presentation limit: only the first four
+ranked choices may include constructed hypotheses, followed by single-character/
+word choices within the ordinary 27-choice budget. Extra dictionary-character
+paging and exact literal retention remain. The five-point coverage reward is
+unchanged, so continuous sentences can still lead while their extra alternatives
+stay out of later word-selection pages. Languages share this same restriction.
+
+`InputCoverageRankingTests` covers continuous Chinese/English first choices,
+preview/full agreement on those examples, whole-input default commits, selectable
+mixed sentences, equal reward across lexical splits/completions, spelling aliases,
+separators, punctuation and verbatim/literal exclusions. Existing prefix tests
+also inspect coverage-adjusted scores across changed whole paths and unknown or
+long tails without querying suffix providers; consumed-only learning, exact
+Unicode boundaries and editable remainders remain covered. The presentation tests
+render continuous sentences in compact/expanded light/dark views, inspect their
+accessibility labels and verify first-cell number/mouse identities and commits.
+The long-composition regression keeps at least six full hypotheses in the engine,
+shows only its leading four, checks that all later nonliteral choices are single
+lexical units, and confirms a later word by number/mouse identity while leaving
+its exact remaining spelling editable.
+
+Run `./scripts/test.sh`, `./scripts/build.sh` and
+`./scripts/benchmark.sh --quality`. The coverage coefficient is a heuristic tuned
+on authored development/regression fixtures, including the previously inspected
+historical holdout; these results are not independent accuracy estimates.
+
+The previous unrestricted-window run passed 409 tests and retained all 86
+authored quality targets in the window, with 78 first and 85 within five. Its
+`.build/coverage-*` report predates the restored four-hypothesis limit and is
+historical. The coefficient and engine ranking are unchanged.
+
+After restoring the four-hypothesis policy, all 410 Swift tests passed (295 core,
+90 presentation, 15 settings, seven storage and three localization) with
+`./scripts/test.sh --disable-sandbox`; the Debug app built successfully. SwiftPM
+uses the flag for the execution environment's manifest sandbox limitation, and
+Xcode requires normal compiler/package-cache access. The new long-composition
+regression verifies both search stages and compact/expanded number/mouse word
+selection after the four leading full sentences. Logs are under
+`.build/four-hypotheses-*`. The updated Release quality report has 78/86
+authored targets first, 86/86 within five, 86/86 retained in the window and
+86/86 retained in the engine. Preview/full first choices agree on all
+86 examples. These are inspected development/regression fixtures, not an
+independent accuracy estimate. No installation or live host verification was performed.
+
+On an intentionally installed build, use synthetic `mingtianwomenqubeijing`,
+`ming'tian'wo'men'qu'bei'jing`, `iwanttobuild`, `woxiangyaodeploy`,
+`ci'chuxian'de` and `lu:'se'world` in TextEdit and a browser. Check continuous
+composition and Space, first/nonfirst number and mouse confirmation, four leading
+hypotheses followed by word/character choices, editable prefix remainders, Return,
+Escape, shortcuts, focus changes and disabled languages. Repeat compact/expanded and light/dark
+checks with VoiceOver. No installation or live host verification is implied by
+the automated checks.
+
+## DMG filesystem sizing
+
+On October 31, 2026, macOS 27.0.1 reproduced the release failure with an approximately 89 MiB SI installer and 132 GiB available on the host: default `hdiutil create -srcfolder` failed copying `Install SI.pkg` into the image with `No space left on device`. The identical contents succeeded with explicit HFS+ and with an explicitly enlarged 256 MiB APFS image. Packaging now selects HFS+ while retaining compressed UDZO output and compatibility with older supported macOS releases.
+
+All 54 script tests and 289 shared-core tests passed, as did Debug/Release app builds and the arm64 packaging dry run. A complete local ad hoc arm64 package succeeded; `hdiutil verify` and SHA-256 passed. Read-only mounting confirmed HFS+, the expected package/instructions/license and matching license bytes. Installer queries returned `RequireLogout` and only `CurrentUserHomeDirectory`; expanding the package confirmed an arm64 payload and strict nested app signature. The image was detached afterward. No SI installation, launch, version increment, commit, notarization or publication occurred. Developer ID signing/notarization and host compatibility were not reverified for this packaging-only change.
+
+## Editorial weight for 上次
+
+On October 31, the user requested a higher dictionary weight for `上次`
+(`shang'ci`). Its base CSV weight changes from 21,766 to 40,000, adding
+`1.05 * log2(40000 / 21766)`, about 0.922 bits, to a lexical use of this word.
+The 20/2 insertion costs and 1.05 frequency coefficient are unchanged.
+
+The Chinese dictionary was regenerated with `csv_dictionary.py build --language
+chinese`. A complete comparison of all 2,141,202 runtime rows confirms that only
+this weight changes; text, reading, row ID and every other row remain identical.
+The focused regression checks the packaged weight, score gain relative to the
+former weight, direct/prefix consistency, explicit separators, bilingual and
+Chinese-only settings, preview/full search and literal retention. Existing
+`heshangcibi` complete-conversion and commit coverage passes.
+
+All 402 Swift tests passed (289 core, 88 presentation, 15 settings, seven storage
+and three localization), and the Debug app built. The Chinese dictionary and
+pinned context checks pass. Of 42 Python vocabulary tests, 41 pass; the existing
+English domain edit leaves 1,199 rows while metadata still records 1,209. The
+two-language dictionary check likewise reports that the English resource is stale;
+this task does not regenerate or change those unrelated English files. Logs and
+the exact database comparison are under `.build/shangci-weight-*`.
+
+The [editorial adjustment record](../Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments)
+distinguishes this value from the pinned upstream import and explains reimport
+behavior. No input method was installed or launched. Native TextEdit/browser,
+selection, prefix remainders, Return, Escape, shortcut and focus checks remain
+unverified; repeat them with synthetic `shangci`, `shang'cibi` and `heshangcibi`
+on an intentionally installed build.
+
+## Restored insertion costs
+
+On October 31, the user requested restoring the per-word insertion cost to 20
+nats and the extra Chinese single-character cost to two nats after the 19.5/1.75
+and temporary 10/1 experiments. The frequency coefficient remains 1.05. The
+earlier experimental reports below retain their historical parameters and are
+not measurements of the restored configuration or the current prefix policy.
+
+Independent lexical/exhaustive-search score fixtures use the restored constants.
+The synthetic frequency-boundary regression checks that increasing the middle
+word's weight can overcome one additional word and two single-character costs,
+while both alternatives remain available in preview/full search and in either
+dictionary insertion order. The reported `heshangcibi` regression still retains
+`和上次比` as the leading complete conversion with the 1.05 coefficient;
+consumed-only prefixes keep their independent ordering contract.
+
+`./scripts/test.sh` passed all 401 tests (288 core, 88 presentation, 15 settings,
+seven storage and three localization), and `./scripts/build.sh` built the Debug
+app. Logs are `.build/restore-20-2-tests.log` and
+`.build/restore-20-2-debug-build.log`. No input method was installed or launched;
+native host behavior remains unverified. On an intentionally installed build,
+repeat the synthetic host checks below with `heshangcibi`, `danci`, `nihao` and
+`mingtianwomenqubeijing`, including explicit candidate/prefix selection, default
+Space, Return, Escape, shortcuts and focus changes.
+
+## Consumed-only prefix ranking
+
+Prefix scores now depend only on the spelling actually consumed. Suffix
+conversions, whole-path support, unknown-remainder byte costs, additional
+confirmation costs and total-input learning discounts have been removed.
+Short prefixes may lead complete sentences. Historical first-choice/window
+counts below predate this policy; complete-sentence quality fixtures now compare
+complete candidates separately and do not promise those candidates a window slot.
+
+Run `./scripts/test.sh --filter 'CompositionCoverageTests|PrefixLearningTests|PrefixConfirmationTests|HomophonePrefixSelectionTests|WholeWordCandidateTests'`,
+then the full tests and `./scripts/build.sh`.
+`CompositionCoverageTests` verifies unchanged prefix scores with weak/strong
+whole candidates, unknown and long tails, no suffix provider queries, exact
+Unicode bytes, aliases/separators, raw fractional scores and consumed-only
+learning. `PrefixLearningTests` checks full capped prefix bonuses across different
+remaining spellings and lengths. `HomophonePrefixSelectionTests` covers both
+languages, provisional/final results and the font-filtered expanded window:
+`词` remains before `慈`; selecting `词` then `出现的` commits exactly `词出现的`.
+Default-acceptance fixtures commit whichever candidate leads, consuming only its
+source span and preserving any remainder. Whole candidates have no priority.
+
+For native verification on an intentionally installed build, use TextEdit and a
+browser with Chinese alone and both languages. Type `cichuxiande`,
+`ci'chuxian'de`, `ci'nihao`, `ci'hello`, `dayin`, `nihaopengyou` and
+`iwanttobuild`. Compare the `词` prefix score/order under different tails; choose
+prefixes by number and mouse, then confirm the remainder. Check default Space,
+Return, Escape, shortcuts, focus changes and VoiceOver. This change does not
+install or launch SI; live host routing remains unverified.
+
+On October 31, 2026, all 401 Swift tests passed (288 core, 88 presentation,
+15 settings, seven storage and three localization) with
+`./scripts/test.sh --disable-sandbox`; the Debug build passed. The flag avoids
+the execution environment's SwiftPM manifest sandbox restriction, and Xcode used
+its normal compiler/package caches. No installation or native host/VoiceOver
+verification was performed.
+
+The synthetic Release quality report retains all 86 complete targets in the
+engine; 80 rank first and all 86 rank within five when comparing complete
+candidates only. With prefixes included, three targets rank first, 26 rank within
+five and 39 remain in the window shortlist. Preview/full first choices agree on
+all 86 cases. This is a substantial change in presentation: short prefixes can
+push complete targets out of the window under the unchanged four-leading-choice
+rule. These fixed fixtures are not independent accuracy data. Logs and the
+report are in `.build/prefix-consumed-only-*`.
+
+## Category filenames and local weight defaults
+
+The ten imported Chinese categories now use their upstream stems directly
+(`diming.csv`, `shici.csv`, etc.). Metadata tracks ownership and precedence;
+conversion retires the former prefixed paths only when their recorded bytes
+match, protecting local edits. Base and imported CSV contents/weights are
+unchanged by this rename.
+
+All nine currently present local categories (seven Chinese, two English) retain
+their exact text/reading sequence with every stored weight set to 10. The prior
+independent deletion of `culture_sports.csv` is preserved. The compiler uses 10
+for a blank local weight, while base/imported weights remain mandatory and an
+explicit zero remains zero. New Radar domains use that same default. The tests
+cover both languages, protected upstream weights, rename/retirement behavior,
+all checked-in local rows and new-domain defaults.
+
+Run `python3 -m unittest discover -s Tests/VocabularyTests -v`, the locked
+conversion check, CSV/context resource checks, `./scripts/test.sh` and
+`./scripts/build.sh`. Local category weights can change ranking; this does not
+retune the engine or the independently pinned language models. No input method
+installation or live host verification is part of this maintenance change.
+
+On October 29, 2026, all 42 vocabulary-maintenance tests, all 405 Swift tests,
+the Debug build, locked conversion reproduction, both dictionary checks and the
+pinned Chinese context check passed. Source/base CSV hashes matched their
+pre-rename contents; all nine local text/reading sequences matched their
+pre-normalization sequences. Documentation links and `git diff --check` passed.
+
+## Wanxiang base and category replacement
+
+`scripts/wanxiang_dictionary.py` imports pinned `rime-wanxiang-data` revision
+`adfa047c339627737f0a4c75674a8042c1ef7f72`. Chinese `zi`/`jichu`/`duoyin`
+share base; ten other normal dictionaries retain separate `wanxiang_*.csv`
+categories. English `en` supplies its base. The ten preexisting category CSVs
+remain byte-for-byte unchanged. Base weights take precedence, followed by
+imported category weights and preserved local supplements. Both packaged
+resources reject the retired relative-frequency unit.
+
+Run the import reproduction and resource checks documented in
+[the conversion guide](../Data/Vocabulary/Wanxiang/README.md), followed by the
+full vocabulary tests, `./scripts/test.sh` and `./scripts/build.sh`.
+`test_wanxiang_dictionary.py` covers source checksums, exact weights, tone/ü
+conversion, missing/malformed weights, casing collisions, classified imports,
+unchanged local categories, retirement with local-edit protection, offline
+conversion, read-only checks and publication rollback. `DictionaryDatabaseTests`
+checks the new unit and exact `but`/`不` weights, plus rejection of old resources.
+
+Dataset-specific fixtures now use Wanxiang weights/casing. The independent
+Chinese arithmetic cases are `距离/特别远`, `帮我/在写`, `你好朋友` and
+`能/想办法/优化/吗`, computed separately from the SQL rows and MSNG binaries.
+The one-letter rendering fixture injects its own candidate, since source English
+does not include `a`. Mixed spacing still checks multiple English words, exact
+prefix boundaries and commits. Automatic-confirmation positives use explicit
+boundaries where the newly imported English word `peng` would conservatively
+block an unseparated tail; a separate regression checks that protection.
+No scoring, language-transition, beam or automatic-confirmation rules were
+retuned for the dictionary update.
+
+On October 29, 2026, all 405 Swift tests, 39 vocabulary-maintenance tests,
+conversion/resource/context checks and the final Debug build passed. Full scope
+and limits are in the [conversion verification record](../Data/Vocabulary/Wanxiang/VERIFICATION.md). No input method was
+installed or restarted. Live host positioning, focus changes, shortcuts,
+selection and spoken VoiceOver remain unverified. On an intentionally installed
+build, exercise synthetic Chinese/English/mixed input in TextEdit and a browser,
+including `but`, `bu`, `gmail`, `ma`, apostrophe/ü aliases, numbered/mouse choices,
+prefix remainders, Return/Escape, focus changes and automatic-confirmation
+English-tail protection. Do not treat source equality as Wanxiang/Rime runtime
+parity or a ranking-quality improvement.
+
+## Candidate widths follow visible text
+
+`CandidateViewTests.expandedColumnsGrowForLowerRowWordsAndPrefixIndicators`
+checks that a longer word or prefix in a lower row widens its shared column and
+the expanded window. Full candidate text, numbers and source hints fit at the
+natural size, including words wider than the former 280-point cell cap. Compact
+cells also use their full measured width. Collapse restores the compact size;
+mouse identity, active-row numbering and complete accessibility text stay intact.
+At a 340-point screen constraint, columns remain aligned and within the card;
+clipped text stays complete in tooltips and accessibility labels.
+
+`CandidateViewTests.bufenciExpandedCandidatesHaveRoomForTextAndSourceIndicators`
+checks every visible candidate in the reported composition, including `卟吩`,
+which previously appeared as an ellipsis under the first row's narrower column.
+Set `SI_WIDTH_SNAPSHOT_PATH=/tmp/si-candidate-width` while running
+`./scripts/test.sh --filter CandidateViewTests` to save light/dark regular,
+narrow and `bufenci` previews. On an intentionally installed build, repeat the
+composition in TextEdit and a browser field, expand/collapse and page candidates,
+then check Space, digits, mouse, shortcuts, focus changes, narrow screens and
+VoiceOver. Offscreen renders and accessibility-label checks do not establish
+live host positioning or spoken VoiceOver behavior.
+
+On October 29, 2026, all 404 Swift tests and the Debug app build passed. The
+`bufenci`, long-word and narrow-screen light/dark renders were inspected. No input
+method was installed; live host and spoken VoiceOver checks remain unverified.
+
+## Mixed candidates without a display reservation
+
+`ChineseSentenceAlternativesTests.mixedChoicesCompeteForTheRankedHeadWithoutAReservation`
+checks that both exact mixed results and mixed completions need a position in the
+first four ranked choices; a lower-scoring mixed result cannot displace a higher
+Chinese sentence. Single-language reachability and exact literal input remain
+protected. The Chinese decoder still emits six base terminal sentences; the
+window does not add lower-ranked sentences to fill unused hypothesis slots.
+
+`UnifiedRankingPresentationTests.bufenciMixedCompletionNeedsItsScoreToReachTheRankedHead`
+checks provisional/full delivery and compact/expanded selection. With both
+languages enabled and no learned preferences, `bufenci` retains `部分 city` in
+the engine but omits it from the window; the first four visible choices are
+`部分次`, `部分此`, `部分词`, `部分刺`. With `bufencity`, the exact mixed result
+qualifies by score and commits its exact source/text. Run these two suites plus
+`FirstWordPrefixTests`, `CandidateSelectionTests` and `SequentialWordSelectionTests`.
+On an intentionally installed build, repeat both inputs in TextEdit and a browser
+field, checking Space, numbered/mouse selection, editing, shortcuts, focus changes
+and VoiceOver. These live host checks remain unverified.
+
+On October 29, 2026, all 402 Swift tests and the Debug app build passed after
+removing the mixed display reservation. No input method was installed.
+
+## Requested Chinese vocabulary addition
+
+`ChineseVocabularyTests.requestedAlchemyPhraseIsACompleteDictionaryCandidate`
+checks `lianxiandan` and `lian'xian'dan` → `炼仙丹` in provisional/full results,
+with Chinese alone and both languages enabled, plus exact candidate commits,
+literal preservation and English-only filtering. On October 28, 2026, all 400
+Swift tests and 22 vocabulary-maintenance tests passed; both CSV dictionaries,
+the pinned Chinese context resources and the Debug app build passed validation.
+A before/after SQLite comparison found exactly this one added text/reading/weight
+row and no changes to existing entries. No input method was installed. On an
+intentionally installed build, verify selection in TextEdit and a browser field;
+native host compatibility remains unverified.
+
+## Prefix confirmation ranking
+
+`./scripts/test.sh --filter 'PrefixConfirmationTests|CompositionCoverageTests|PrefixLearningTests|CandidateScoringTests'`
+checks that whole choices and prefixes compete using their own consumed-spelling
+scores in provisional/full results and the shortlist. For `dayin`, `打印`, the
+English `day in` conversion and the `day`/`day I` prefix choices remain engine
+alternatives. Prefixes have no extra confirmation charge and can rank first.
+Selecting a prefix must consume only its exact source span and keep the rest
+editable. Return and shortcuts preserve the exact pending spelling.
+
+The October 28 eight-bit confirmation-cost calibration is superseded by the
+October 31 consumed-only policy; its former first-choice counts do not validate
+current window ordering. See [current verification](#consumed-only-prefix-ranking)
+for the test scope and native checks.
+
+## Chinese context with unknown sentence position
+
+Run `./scripts/test.sh --disable-sandbox --filter ChineseCompositionContextTests`.
+The regressions check `shihou` and `shi'hou` in Chinese-only and bilingual
+provisional/full requests: with empty learning, `时候` leads `事后` by dictionary
+frequency. Prefix confirmation and English-to-Chinese boundaries must not add
+sentence-opening evidence. Constructed candidates retain word spacing and language-transition costs without corpus evidence.
+The existing independent arithmetic fixtures exclude corpus sentence-opening
+increments while retaining word, spelling and language-transition costs.
+
+On October 28, 2026, `./scripts/test.sh --disable-sandbox` passed all 387 Swift
+tests (279 core, 83 presentation, 15 settings, 7 storage and 3 localization), and
+`./scripts/build.sh` completed the Debug app build. No input method was installed.
+Native host behavior remains unverified for this change.
+
+On an intentionally installed build, use synthetic text in TextEdit and a
+browser. Enter `shihou` at the start and middle of a sentence with app vocabulary
+disabled; verify `时候` leads in both cases. Repeat after choosing a prefix and
+after an English word, check provisional/final refresh, exact spelling via Return,
+candidate confirmation, shortcuts and focus changes. The engine does not inspect
+surrounding host text or claim to detect actual sentence boundaries.
+
+## Dictionary-only runtime ranking
+
+Run `./scripts/test.sh` and `./scripts/build.sh`. `CandidateScoringTests` checks
+shared lexical costs across languages. `ChineseCompositionContextTests` checks
+dictionary frequency, independent prefix remainders and sentence arithmetic.
+`CompositionCoverageTests` and `MixedEnglishSpacingTests` check exact continuation
+boundaries, language transitions and word spacing. Builds need no model staging.
+
+On an intentionally installed build, use synthetic text in TextEdit and a browser:
+check `shihou`, `iwanttobuild`, `heishere`, `nihaoworld` and `woxiangyaodeploy` with
+Chinese-only, English-only and bilingual settings. Check provisional/full refresh,
+Space, numbers, mouse selection, prefix remainders, Return, Escape, caret edits,
+shortcuts, focus changes and app-vocabulary pause/clear. Context-sensitive ordering
+can differ from earlier builds. Verify automatic confirmation on ambiguous input.
+Live host behavior and VoiceOver require manual verification.
+
+## Offline Chinese corpus preparation
+
+The subsequent October 30 Wikipedia addition resolved the latest complete official Chinese article dump to `20261001`, requiring both article generation and combined-file jobs to be done and agreement between completion metadata, SHA-1 list and HTTP file size. The full 3,430,912,430-byte raw archive passed official SHA-1 `04d5eec3c249fdf8604b97f4435e019c60a4ec94` and local SHA-256 `5db9052efe9ca97aa3da05ffe5b2f12c8ffe5e040f0a9d1ced82ec2fda5d7e2f`. Slow official/Your.org transfers resumed from retained ranges through the Wikimedia-listed Umeå University mirror, with at most three concurrent connections. Initial text preparation produced 942,413 fragments and 9,999,995 Han characters; this is a character-limited subset of the full raw dump. The [Wikipedia snapshot](../corpus/chinese/wikipedia-20261001.snapshot.json) records exact hashes/counts. The new bundle passed text/length/hash/origin/license/metadata checks, all six pinned raw archives passed verification, and the original five-source bundle still passed against its frozen source lock after Wikipedia was added. All 19 corpus tests, 287 Swift tests and the Debug build passed. Corpus tests cover completed-date selection, combined-file readiness, unchanged other pins, mirror provenance, safe range resumption/assembly, corruption rejection, namespace/redirect filtering, nested wikitext and exact page/revision origins. No training or app installation was performed.
+
+On October 30, 2026, the new [corpus workspace](../corpus/README.md) downloaded and SHA-256-verified five pinned archives: LCCC-base training, Chinese mC4 shard 0, and Kubernetes/TensorFlow/MDN documentation. The bounded initial preparation produced 2,598,415 within-source-unique fragments containing 24,445,056 Han characters. LCCC/mC4 each stop just below ten million unique output characters; the three documentation selections are complete. Two preparation runs produced byte-identical text and aligned origin files for all five sources. `corpus/check.py` passed source/output/license hashes, Han/length validation and text/origin/count alignment; the retained [snapshot](../corpus/chinese/snapshot.json) records exact results. The lexical export passed every source/output hash, deterministic ordering, syllable/character alignment, count and copied-attribution check: 49,354 character/readings, 2,091,723 word/readings and 125 excluded entries.
+
+All ten synthetic corpus regressions, all 287 current Swift tests and the Debug app build passed. Initial restricted Swift/Xcode attempts could not access compiler sandbox/cache/network services; normal-permission reruns passed. No app behavior changed, so no native host, input-source installation, VoiceOver or model-quality check was performed. Data preparation assigns no training splits, labels no sentence Pinyin and starts no model training. Raw/prepared corpora and the isolated OpenCC environment are ignored by Git; pinned source notices, scripts and measured snapshots are retained.
+
+To repeat the corpus checks, use `corpus/.venv/bin/python -m unittest discover -s corpus/tests -v`, `python3 corpus/fetch.py all --check`, and `corpus/.venv/bin/python corpus/check.py --bundle corpus/chinese/prepared/chinese-v1`. Use a new output path for another preparation run. The corpus guide documents environment setup, acquisition, limits and complete-pinned-subset preparation.
+
 ## Offline model training framework
 
-Run `./llm/scripts/setup.sh --offline` for an already installed environment, `./llm/scripts/check.sh` for regression coverage, and `./llm/scripts/smoke.sh --output NEW_DIRECTORY` for a small CPU workflow check. The source is maintained CSV data; no dynamic-generation/JSONL-source tests or dependencies remain. Shell workflow checks need normal OpenMP shared-memory access if a restricted execution sandbox aborts a PyTorch subprocess.
+On October 31, 2026, the constructed Chinese ranking challenge froze 1,230 cases from 337 anchors and 171 connected spelling/contrast families, split into 299 development and 931 test cases. All 197 candidate snapshots reproduced exactly through the new offline `SICandidateExport` target, which uses the app's shared core and preserves eligible engine order and language-aware identities. The exact normalized context-plus-reference audit found no matches in 1,438,402 prepared public documents across train/validation/test; this does not rule out semantic overlap or imply independent human annotation. All 24 small-framework tests, 287 Swift tests and the Debug app build passed. Coverage includes shared-contrast family isolation, maintained Pinyin alignment, document-local overlap matching, missing/empty pools, real-checkpoint scoring, abstention, file corruption and audit/model dataset mismatches. The exporter also built in Release. Trained model root-module hashes/code identity stayed unchanged, and no weights were modified.
+
+The frozen development split completed with the user's existing step-10,000 checkpoint on MPS. On its 83 real-decoder cases, top-1 changed from 33/83 in the first eligible engine order to 44/83 after LM scoring; 15 baseline errors became correct and four correct choices became wrong, with gold available for 81/83 pools. On 83 controlled cases, top-1 changed from 50/83 in synthetic pool order to 57/83. These are initial development results on authored labels, not production quality estimates. No test-split model evaluation or input-method installation was performed. Reports are ignored; verification logs are under `/private/tmp/si-challenge-*`. See the [challenge guide](../llm/reranker_small/benchmarks/README.md) for commands, protocols, limitations and test use.
+
+The [small reranker guide](../llm/reranker_small/README.md) documents independent setup, preparation, training, resume, evaluation, scoring and export commands. On October 30, 2026, all 19 small-framework tests, 19 corpus tests, 41 converter tests, 287 Swift tests and the Debug app build passed. Coverage includes whole-document retention, conversation/page grouping, train-only vocabulary, paragraph-overlap rejection, corruption checks, token-weighted accumulation, CPU bitwise resume through epoch rollover, candidate first-token scoring, Unicode boundaries, stable ties, missing-gold recall and inference-only export. Tiny synthetic CPU workflows exercised preparation through export; MPS checks covered a full 7,419,392-parameter 256-token backward pass and tiny-model learning/resume. MPS repeat/resume weights satisfy `atol=1e-6, rtol=1e-5` with exact RNG/cursor checks; repeated fresh MPS runs also showed sub-micro floating-point variation. These checks do not establish candidate quality or host latency.
+
+A separate preparation-only check read all six pinned public raw sources with a 50,000-character soft budget per source. Its 3,748 retained documents included 98 with paragraph breaks and a longest document of 22,694 characters. Formal dataset/run directories were not created, and no formal small-baseline training, input-method installation or native integration was performed. Run `./llm/reranker_small/scripts/check.sh` and `./llm/reranker_small/scripts/smoke.sh --output NEW_DIRECTORY` to repeat the synthetic checks. Temporary verification logs are under `/private/tmp/si-small-reranker-*` and `/private/tmp/si-reranker-*`.
+
+On October 30, 2026, the model workspace was organized into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. At that initial organization step only the converter had an implementation and weights. All 12 original converter Python modules remained byte-identical, preserving the code-identity calculation; 126 source/config/prepared/checkpoint/report files passed before/after SHA-256 checks. Existing prepared bundles, checkpoints and historical report metadata were relocated without rewriting their contents. The shared virtual environment stayed at `llm/.venv`. Both model-specific and legacy script paths, the workspace Make delegate and direct model Make target resolved the existing 19,711,488-parameter config. All 41 converter-framework tests passed, including a checkpoint created via the legacy namespace and resumed via the model-specific namespace, plus old script execution from another working directory. An existing relocated checkpoint loaded successfully for the synthetic input `nihao`. All 287 Swift tests and the Debug app build passed. No formal training, model download, input-method installation or native host verification was performed.
+
+On October 28, 2026, the default changed to the 19,711,488-parameter Pinyin-only model and six maintained character/word CSVs (2,021 train, 73 validation, 69 test pairs). Tests freeze the full focused collection with the real small-model limits, check lossless encodings/no truncation, retain homophones and verify Chinese lexical-only sources and matching independent shell presets. The old 0.403B parameter-count regression remains. All 39 framework tests, the focused full-source four-step tiny CPU smoke, 383 Swift tests and the Debug build passed. A bounded MPS probe used the actual 19.7M config and full training vocabulary, repeating eight authored training pairs: top-1 memorization was 8/8 at both 40 and 120 updates. It saved no checkpoint and did not train the full corpus. This dataset's held-out coverage includes unseen output characters (22/73 validation and 19/69 test rows initially), so preparation and tiny memorization success do not establish held-out conversion quality. No formal default run was started.
+
+On October 27, 2026, a nonzero-dropout gradient comparison exposed an MPS activation-checkpoint RNG defect in the pinned PyTorch 2.6 path. With dropout 0.1, ordinary/checkpointed forward logits and loss matched exactly, but the maximum gradient difference was 0.134271 and backward advanced MPS RNG. The new MPS regression failed before the fix. Explicit per-layer RNG replay reduced the same probe's maximum gradient difference to 7.45e-9; CPU gradients matched exactly. Both CPU/MPS regressions pass with retained-graph repeated backward and assert unchanged RNG through recomputation. All 36 framework tests pass. Separate structural probes verified shifted labels, causal masking, padded-source invariance and full-prefix versus incremental decoding; the production model's encoder/cross-attention gradients were finite and nonzero. These checks identify a real update error, not a guarantee that it explains all observed quality degradation or that old weights are repaired. See [the correction and checkpoint compatibility](../llm/pinyin_to_text/README.md#mps-checkpointdropout-correction).
+
+A controlled 0.403B probe started from the same existing step-9,900 weights before/after the fix, using fresh AdamW, dropout 0.1, batch 2/accumulation 4 and the same eight authored training pairs repeated for 30 updates. Beam-2 top-1 memorization went from 0/8 to 5/8 before the fix and from 0/8 to 8/8 after it. Both in-memory models were discarded without saving weights; the original checkpoint SHA-256 still matches its earlier evaluation report. This is a tiny memorization experiment, not restored validation/test quality. The same real pipeline on a separate tiny model learned 7/8 at 40 exposures and 8/8 at 160 on both CPU/MPS. All 381 Swift tests and the Debug build also passed. Local aggregate evidence is in ignored `llm/pinyin_to_text/reports/training-audit-20261027.json`; no new formal run was started.
+
+Run `./llm/pinyin_to_text/scripts/setup.sh --offline` for an already installed environment, `./llm/pinyin_to_text/scripts/check.sh` for regression coverage, and `./llm/pinyin_to_text/scripts/smoke.sh --output NEW_DIRECTORY` for a small CPU workflow check. The source is maintained CSV data; no dynamic-generation/JSONL-source tests or dependencies remain. Shell workflow checks need normal OpenMP shared-memory access if a restricted execution sandbox aborts a PyTorch subprocess.
 
 Coverage includes explicit train/validation/test assignment, category discovery, BOM/quoting, optional language, exact text preservation, static typo pairs, duplicate memberships, source declarations, cross-split rejection, immutable snapshots, train-only vocabulary, lossless Unicode fallback, malformed config/data rejection, actual learning on a synthetic pair, causal decoding, 0.4B parameter counting, exact resume with dropout/checkpointing/epoch rollover, no test reads during training, report comparison, external CSV benchmark separation, inference export and loading preserved model configs without their original source files. An MPS regression compares varied padded attention shapes against CPU at `atol=rtol=1e-4`.
 
@@ -12,7 +392,7 @@ After the chat consolidation on October 26, 2026, full preparation into a tempor
 
 The subsequent validation/test vocabulary consolidation passed full preparation into a temporary directory, exact row-multiset comparison for all 149 vocabulary pairs, sample-identity comparison across all splits and hash checks for the 22 unrelated CSV files. No runtime code changed; the framework suite was not repeated for this additional data-only consolidation.
 
-The [50,000-sample expansion](../llm/data/csv/EXPANSION_50K.md) on October 26, 2026 added 31,027 distinct training pairs: 22,000 Chinese, 5,000 English, 3,000 mixed and 1,027 synthetic typos. All original sample identities, original byte prefixes of the four edited files and hashes of the other 20 CSVs passed preservation checks. All 25,000 clean Chinese/mixed pairs passed character-reading/literal-byte alignment; source/target normalized cross-split checks passed. Full preparation with the production config created `llm/data/prepared/static-csv-50k-v1`; maximum training input/target token lengths are 71/71 within 256/128 limits. All 34 framework tests passed, including the MPS comparison. The expanded CSV root also passed the four-step CPU train/resume smoke, three-case validation/test evaluations and literal-fallback checks. An independent CSV recount, every frozen bundle file hash, every prepared sample identity, all 2,500 English variant pairs and all 1,027 adjacent swaps were checked. This is synthetic data validation, not a full training or representative quality result.
+The [50,000-sample expansion](../llm/pinyin_to_text/data/csv/EXPANSION_50K.md) on October 26, 2026 added 31,027 distinct training pairs: 22,000 Chinese, 5,000 English, 3,000 mixed and 1,027 synthetic typos. All original sample identities, original byte prefixes of the four edited files and hashes of the other 20 CSVs passed preservation checks. All 25,000 clean Chinese/mixed pairs passed character-reading/literal-byte alignment; source/target normalized cross-split checks passed. Full preparation with the production config created `llm/pinyin_to_text/data/prepared/static-csv-50k-v1`; maximum training input/target token lengths are 71/71 within 256/128 limits. All 34 framework tests passed, including the MPS comparison. The expanded CSV root also passed the four-step CPU train/resume smoke, three-case validation/test evaluations and literal-fallback checks. An independent CSV recount, every frozen bundle file hash, every prepared sample identity, all 2,500 English variant pairs and all 1,027 adjacent swaps were checked. This is synthetic data validation, not a full training or representative quality result.
 
 On October 26, 2026, all 34 current framework tests passed after replacing the combined training/evaluation entry point with separate preset scripts. Tiny CPU fixtures exercise no-argument data preparation, training, full validation/test and export as separate invocations: preparation creates no training run, training creates no candidate reports/export, and validation creates no test report. Regression checks preserve existing data/runs and literal-baseline argument overrides. A recording interpreter verifies each default entry point dispatches exactly one module with the MPS/versioned-path presets without running the formal model. Offline setup after removing the unused pronunciation package, the CSV-only CPU smoke, the repository Swift tests and the Debug build also passed during cleanup. Useful Unicode/tokenizer and resume checks were retained while generation-only tests were removed. A regression confirms that preserved older model configurations still load for inference without their deleted source data. No formal 0.4B training was restarted.
 
@@ -30,7 +410,7 @@ Settings no longer includes the Try the candidate engine section or its applicat
 
 On October 26, 2026, all 342 remaining Swift tests passed (258 core, 67 presentation, 14 settings and 3 storage), and the Debug app built successfully. The four removed tests covered only the deleted Settings preview model.
 
-On an intentionally installed build, open Settings and confirm Languages, Typing, Direct Input by Application, App Vocabulary and History, Personal Phrases and update controls remain accessible by keyboard and VoiceOver in light/dark appearance. Confirm there is no candidate-engine trial section. These native UI checks remain unverified for this cleanup.
+On an intentionally installed build, open Settings and confirm Languages, Typing, Direct Input by Application, App Vocabulary, Personal Phrases and update controls remain accessible by keyboard and VoiceOver in light/dark appearance. Confirm there is no candidate-engine trial section. These native UI checks remain unverified for this cleanup.
 
 ## Direct input by application
 
@@ -48,7 +428,41 @@ Toggle direct input across a pending composition/search or pause timer, then ret
 
 ## Mixed English lookup
 
-Run `./scripts/test.sh --filter 'MixedLexicalIntegrationTests|MixedInputTests|MixedWordBoundaryTests|EnglishSentenceTests|EnglishVocabularyTests|ChineseSegmentationTests|ChineseMigrationTests|SequentialWordSelectionTests'` and `./scripts/benchmark.sh`. The new synthetic regressions cover `woxiangyaodeploy` and `wo'xiang'yao'deploy` → `我想要deploy` as the preview/full leader, disabled languages, exact English words, preserved English case, interleaving, final English completion, literal commits, normalized umlaut prefix consumption, stale delivery, personal/verbatim learning exclusion and absence of mixed automatic-confirmation evidence. Existing suites continue to expose unimplemented initial/fuzzy/Chinese-tail and migration quality cases.
+`MixedEnglishSpacingTests` checks one space at Chinese/English boundaries and
+between adjacent English words in mixed
+provisional/full candidates, including `lianxiandan` → `联系 and an` and the
+`联系 and a` prefix. It covers English runs before/after Chinese, interleaving,
+casing, final-word completion, exact literal Return, whole/prefix commits,
+apostrophe and `ü/u:` source boundaries, continuation joins/projections and
+compatible-prefix UTF-8 alignment. These spacing checks do not establish that
+the mixed hypotheses are appropriate Chinese conversions or fix their ranking.
+Run `./scripts/test.sh --disable-sandbox --filter MixedEnglishSpacingTests`.
+
+Before Chinese/English boundary spacing was added, on October 28, 2026, the seven related spacing, English/mixed and continuation
+suites passed all 46 tests, and `./scripts/build.sh` completed the Debug build.
+`./scripts/test.sh --disable-sandbox` ran 392 tests with one failure in
+`CandidateEngineTests.prefixLearningUsesConsumedSpellingWithoutAReservedPosition`;
+that fixed-provider ranking fixture does not exercise lexical spacing or source
+traces. The working tree's separate prefix-ranking edits were left intact. No
+input method was installed and no native host check was performed for spacing.
+
+After adding Chinese/English boundary spaces on October 28, 2026,
+`./scripts/test.sh --disable-sandbox` passed all 396 tests (288 core, 83
+presentation, 15 settings, 7 storage and 3 localization), including the previously
+failing prefix-learning fixture in the current working tree.
+`./scripts/build.sh` completed the Debug build. Preview/full output, whole/prefix
+commits, continuation text and exact UTF-8/source alignment have automated
+coverage. Personal/verbatim output retains its existing exact-byte behavior.
+No input method was installed; native host checks remain unverified.
+
+On an intentionally installed build, enter `lianxiandan`, `nihaohelloworld` and
+`helloworldzhongwen` in TextEdit and a browser field. Compare initial/full
+candidates and confirm spaced choices with Space, digits and mouse. The
+`联系 and a` prefix must leave exactly `n` editable, with no trailing acceptance
+space. Check Return, Escape, edits, shortcuts and focus changes. Native host
+verification remains separate from the core tests.
+
+Run `./scripts/test.sh --filter 'MixedLexicalIntegrationTests|MixedInputTests|MixedWordBoundaryTests|EnglishSentenceTests|EnglishVocabularyTests|ChineseSegmentationTests|ChineseMigrationTests|SequentialWordSelectionTests'` and `./scripts/benchmark.sh`. The new synthetic regressions cover `woxiangyaodeploy` and `wo'xiang'yao'deploy` → `我想要 deploy` as the preview/full leader, disabled languages, exact English words, preserved English case, interleaving, final English completion, literal commits, normalized umlaut prefix consumption, stale delivery, personal/verbatim learning exclusion and absence of mixed automatic-confirmation evidence. Existing suites continue to expose unimplemented initial/fuzzy/Chinese-tail and migration quality cases.
 
 On an intentionally installed build with both languages enabled, type `woxiangyaodeploy`, `woxiangyaoDEPLOY`, `deployzhongwen`, `woaiSwiftshurufa` and `woxiangyaodeplo` in TextEdit, a browser text field, an editor and Terminal. Compare hints/full results, then use Space, numbers and mouse confirmation in both layouts. Confirm an English-ending prefix leaves the exact Chinese remainder marked without inserting a space; test Left/Right edits, Escape, literal Return, shortcuts and focus changes while work is pending. Disable English and check mixed candidates disappear. English words such as `deploy`/`title` and continuous `iwanttobuild` must retain their English identities/spacing; pure Chinese `woxianganzhao` must retain its leader. These native checks remain separate from core tests and synthetic timings.
 
@@ -56,7 +470,9 @@ On an intentionally installed build with both languages enabled, type `woxiangya
 
 `BundledChineseDictionaryTests` scans the packaged Chinese SQLite rows for Unicode private-use characters and checks that a normal extension-block Han entry remains available. On October 26, 2026, the SI overlay removed all 85 private-use readings (70 characters), leaving 953,625 entries. A direct comparison with the preceding database confirmed that every retained row, weight, row ID and relative order was unchanged. SQLite integrity, offline Chinese/English dictionary checks, vocabulary/ranking checks, all 36 Python maintenance tests, the full Swift test command and the Debug build passed. The Debug app's Chinese database matches the rebuilt resource. No installation or live host check was performed for this data cleanup.
 
-Run `python3 scripts/msime_dictionary.py build --check`, `python3 scripts/english_dictionary.py build --check`, `./scripts/vocabulary.sh build --check`, `python3 scripts/ranking.py --check`, and `python3 -m unittest discover -s Tests/VocabularyTests -v`. The builders reproduce both SQLite resources offline; schema, metadata, row order, indexes, provenance and checksums are checked. Synthetic fixtures exercise public additions/exclusions/weight edits, casing replacement, invalid-input preservation and the common weight conversion. `DictionaryDatabaseTests` verifies identical bundled schemas/units, concurrent lookups, and read-only failure for missing/incompatible resources. English lookup/trie/completion tests use the bundled SQLite rows as their reference.
+Run `python3 scripts/csv_dictionary.py build --check`, `python3 scripts/msime_dictionary.py build --check` (including context hashes), and `python3 -m unittest discover -s Tests/VocabularyTests -v`. The CSV compiler reproduces both SQLite resources offline, checking schema, metadata, exact generated row IDs/data, indexes, category file hashes, provenance and retained database checksums. Synthetic fixtures exercise automatic category discovery, moving/reordering rows and renaming categories without changing ties, maximum-weight duplicate merging, distinct reading/Unicode preservation, additions/deletions/weight edits, quoted CSV/BOM/CRLF, exact Unicode bytes, casing uniqueness, invalid-input preservation across both languages, stale resources and cross-SQLite-version checks. Retired source-import/snapshot tests have been removed with their old word/frequency files. Attribution/calibration tests and inline metadata validation remain independent of editable CSV content. `DictionaryDatabaseTests` verifies bundled schemas/units, concurrent lookups and read-only failure for missing/incompatible resources. English lookup/trie/completion tests use bundled SQLite rows as reference.
+
+For the initial Chinese category split, compare the exact `(text, reading, weight)` row multiset against the preceding base file, reject duplicate identities and require all readings of each output to share a category. Rebuild/check the full collection and compare both SQLite dictionary hashes and pinned context hashes with their pre-split values. Category membership is maintenance data: no score, lookup, candidate order or commit change should result. The category guide documents conservative first-pass boundaries; automated data equality does not establish exhaustive semantic classification.
 
 Run `./scripts/test.sh` and `./scripts/build.sh`. On an intentionally installed build, check English-only and combined-language `he`, `shi`, `abilit`, `Gmail`, `GMAIL`, `iwanttobuild` and an unknown synthetic identifier in TextEdit and a browser field. Exercise selection, exact literal Return, cancellation, shortcuts and focus changes; compare initial hints with full candidates and verify capitalization. No installation is required for ordinary code validation. Database parity and core tests do not establish host compatibility, cross-language sentence-score calibration or restoration of mixed lexical paths.
 
@@ -74,27 +490,138 @@ Chinese maintenance is consolidated to MSIME. English spellings and functionalit
 
 ## Shared candidate scoring
 
-`CandidateScoringTests` verifies score-ordered Chinese/English/mixed whole candidates, the reported `ling` → `零` versus `里NG` comparison in provisional/full results, the same lexical costs across decoders, spelling completion costs, language filtering, deterministic identities, literal fallback and pinned-personal overrides. `CandidateSelectionTests.lingKeepsHigherScoringHomophonesAheadOfItsProtectedMixedAlternative` verifies shortlist survival, expanded numbering and committing `零`. Run `./scripts/test.sh --filter CandidateScoringTests` for the focused core checks. The shared cost formula and remaining quality limits are in [candidate ranking](UNIFIED_RANKING.md).
+`CandidateScoringTests` verifies score-ordered Chinese/English/mixed whole candidates, the reported `ling` → `零` versus `里 NG` comparison in provisional/full results, the same lexical costs across decoders, spelling completion costs, language filtering, deterministic identities, literal fallback and pinned-personal overrides. `CandidateSelectionTests.lingKeepsHigherScoringHomophonesWithoutReservingItsMixedAlternative` verifies shortlist survival, expanded numbering and committing `零`. Run `./scripts/test.sh --filter CandidateScoringTests` for the focused core checks. The shared cost formula and remaining quality limits are in [candidate ranking](UNIFIED_RANKING.md).
 
-In two host apps, enter `ling`, expand the list and verify `零` appears before `里NG`, English choices and exact `ling` remain available, and Space/digits/mouse commit the selected text exactly once. Compare Chinese-only and bilingual settings, initial hints and final results, then check focus changes, Return, shortcuts and prefix remainders. Candidate placement follows scores: this does not promise five Chinese entries in the compact strip. Unpinned personal phrases remain available by score; exact pinned phrases retain their explicit override. No native host check has been performed for this formula change.
+In two host apps, enter `ling`, expand the list and verify `零` appears before `里 NG`, English choices and exact `ling` remain available, and Space/digits/mouse commit the selected text exactly once. Compare Chinese-only and bilingual settings, initial hints and final results, then check focus changes, Return, shortcuts and prefix remainders. Candidate placement follows scores: this does not promise five Chinese entries in the compact strip. Unpinned personal phrases remain available by score; exact pinned phrases retain their explicit override. No native host check has been performed for this formula change.
 
-## Full-input prefix scoring
+## Reduced word and character penalties
 
-Run `./scripts/test.sh --filter 'CompositionCoverageTests|CandidateEngineTests|WholeWordCandidateTests|PartialCommitTests|ChineseSegmentationTests|AutomaticConfirmationTests'`. Coverage includes continuous English/Chinese typed one character at a time, provisional/full results, compact/expanded first-choice numbering, default whole-input confirmation, explicit prefix remainders, raw word-score preservation, exact UTF-8/source alignment, umlaut/separator spellings, bridge associativity, unknown tails and consumed-only learning. Stale client/result, cancellation, focus-related state and secure/profile checks remain covered by their existing session suites. Automatic-confirmation evidence must leave both raw and full-input scores unchanged.
+The October 31 synthetic comparison reduces the shared per-word insertion cost
+from 20 to 19.5 nats and the additional Chinese-character cost from two to 1.75
+nats. Dictionary weights, spelling channels, language transitions and confirmation
+costs retain their existing definitions. English, Chinese, mixed and personal
+lexical paths use the same shared word cost; no phrase-specific rule is added.
 
-`./scripts/benchmark.sh --quality` now evaluates the actual `CandidateShortlist`, including prefixes, and counts only complete nonliteral matches to a target. `rank` and top-five results reflect the window; `engineRank`, `wholeRank` and `wholeTopFive` distinguish shortlist/search/whole-decoding failures. Engine recall still uses full results. The previous evaluator filtered prefixes before reporting quality and could not observe a short prefix hiding the desired whole candidate. These fixed development/historical fixtures are not independent quality estimates.
+| Word cost / character cost, nats | Existing first-choice hits / 86 | Existing top-five hits / 86 |
+| --- | --- | --- |
+| 20 / 2, baseline | 82 | 86 |
+| 20 / 1 | 81 | 86 |
+| 19 / 1.5 | 80 | 86 |
+| 19.5 / 1.75, selected | 81 | 86 |
 
-For an intentionally installed build, type `iwanttobuild`, `nihaopengyou`, `biruzhege`, `danci`, `xianshi` and `zhegeshurufakeyishuruzhongwenheyingwen` in TextEdit and a browser field. Check the complete default choice in hints/final results, Space, number and mouse commits, retained prefix selection and exact remainders, Return/Escape, focus changes, shortcuts and VoiceOver. Repeat single-language/bilingual settings and deliberate app vocabulary preferences. No native-host claim follows from core or offscreen tests.
+These are known development/regression fixtures, not independent accuracy data.
+With the selected costs, `diqiye` changes from `第七页` to `地企业`; `第七页`
+remains second in both preview and full search. `dijiuye` retains `第九页` first.
+The reported `heshangcibi` case is additional to these 86 examples: `和上次比`
+scores -34.790479 versus -34.954909 for `和尚刺鼻`. The formula does not judge
+semantic compatibility, and lowering both costs cannot preserve every homophone
+or segmentation ranking.
+
+Run `./scripts/test.sh --filter ChineseFrequencyRankingTests`, the full
+`./scripts/test.sh`, `./scripts/benchmark.sh --quality`, and
+`./scripts/build.sh`. The new regressions cover Chinese-only/bilingual settings,
+preview/full ranking, explicit apostrophes, shortlist order, retained alternatives,
+literal preservation, exact default commits and an unrelated-text injected
+three-word/two-word comparison in both dictionary insertion orders. Existing
+independent arithmetic/exhaustive-search fixtures use the new constants.
+
+On October 31, all 401 Swift tests passed (289 core, 87 presentation, 15 settings,
+seven storage and three localization), and the Debug app built successfully.
+Independent read-only SQLite calculations matched the six recorded sentence
+scores, including both reported homophones. Final quality results retain all 86
+targets in the engine and top five, with preview/full first-choice agreement on
+all 86. Logs and reports are under `.build/heshangcibi-*`. No input method was
+installed, no personal archive was read and no native host check was performed.
+
+On an intentionally installed build, type synthetic `heshangcibi`,
+`he'shang'ci'bi`, `diqiye`, `dijiuye`, `xian` and `haodewozhidaole` in TextEdit
+and a browser with app vocabulary disabled. Check preview/full refresh, Space,
+numbers, mouse selection, prefix remainders, Return, Escape, shortcuts and focus
+changes. This change does not install or launch the input method; native host
+behavior remains unverified.
+
+## Stronger dictionary-frequency weighting
+
+After the penalty comparison above, the same October 31 checkout compared
+log-frequency coefficients with the 19.5/1.75-nat insertion costs fixed:
+
+| Log-frequency coefficient | Existing first-choice hits / 86 | Existing top-five hits / 86 |
+| --- | --- | --- |
+| 1, prior step | 81 | 86 |
+| 1.05, selected | 80 | 86 |
+| 1.10 | 74 | 86 |
+
+The selected formula is
+`(19.5 - 1.05 * ln(max(1, weight)) + (single Chinese character ? 1.75 : 0)) / ln(2)`.
+It increases dictionary-frequency influence rather than changing stored weights,
+spelling channels, language transitions, prefix confirmation costs or preference
+bonuses. All decoders and direct/prefix/personal lexical paths share this formula.
+Unknown weight one retains its old cost. The upstream ranking weights are not
+calibrated occurrence probabilities, and this coefficient is a heuristic.
+
+`和上次比` now scores -31.986482 and `和尚刺鼻` -33.821739, increasing the
+reported comparison's margin from 0.164430 to 1.835257 bits. On the existing
+fixtures, `dijiuye` additionally changes from `第九页` to `地就业`; the target
+remains second in preview/full search. The 1.10 experiment also favors `第二也`,
+`第三也`, `第四也`, `第五也` and `而也` over the corresponding supplied targets.
+The 1.05 results retain all 86 targets in the engine and top five, with preview/full
+first-choice agreement on all 86. These are known development/regression examples,
+not independent accuracy evidence or semantic-quality improvement claims.
+
+The final same-checkout control comparison, including the independent continuation
+fix, reproduces 81 versus 80 first choices for coefficients one versus 1.05. Only
+`dijiuye` changes first choice in that comparison. The new injected regression
+fails all four preview/full/insertion-order cases with coefficient one and passes
+with 1.05; it tests a score-ordering change rather than a formula identity.
+
+On October 31, the final `./scripts/test.sh` passed all 404 Swift tests (291
+core, 88 presentation, 15 settings, seven storage and three localization), and
+`./scripts/build.sh` built the Debug app, including the independently modified
+continuation scoring present in the shared worktree. The new injected regression
+requires a frequency advantage to overcome one additional word and two single-character
+costs, checks preview/full output in both dictionary insertion orders, and keeps
+the rarer alternative. Existing shared-cost, exhaustive-search, cross-decoder,
+learning, literal, shortlist and exact-commit checks pass with the new coefficient.
+Independent read-only SQLite arithmetic supplies the updated fixed-path scores.
+Quality reports and build/test logs are under `.build/frequency-weight-*`.
+
+For focused checks, run `./scripts/test.sh --filter ChineseFrequencyRankingTests`
+and `./scripts/benchmark.sh --quality`. Repeat the synthetic native host checks
+in the preceding section, including ordinal alternatives and app-vocabulary
+pause/clear. No input method was installed or launched and native host behavior
+remains unverified.
+
+## Prefix scoring and quality reports
+
+Run `./scripts/test.sh --filter 'CompositionCoverageTests|CandidateEngineTests|WholeWordCandidateTests|PartialCommitTests|ChineseSegmentationTests|AutomaticConfirmationTests'`.
+Candidate comparison uses only consumed spelling. Tests retain continuous input,
+preview/final delivery, default selection of the actual leading candidate,
+explicit remainders, exact bytes/aliases, caps, stale results and automatic
+confirmation. Prefix scores do not include the pending remainder's costs or
+preferences. The earlier full-input projection policy has been removed.
+
+`./scripts/benchmark.sh --quality` evaluates the actual `CandidateShortlist`,
+including prefixes, and counts only complete nonliteral target matches. `rank`
+and top-five reflect window policy before machine-specific font filtering;
+`engineRank`, `wholeRank` and `wholeTopFive` distinguish search, whole-decoding
+and shortlist failures. Short-prefix dominance can reduce visible full-sentence
+recall. Sentence-only regression tests do not measure window quality. These
+fixed development/historical fixtures are not independent quality evidence.
+
+For native checks, repeat the [consumed-only prefix cases](#consumed-only-prefix-ranking)
+in two host apps. Verify default Space commits the displayed choice, including
+an editable remainder when it is a prefix; whole-input conversion has no reserved
+position. No native-host claim follows from core or offscreen tests.
 
 ## Four leading hypotheses and word selection
 
-Run `./scripts/test.sh --filter 'ChineseSentenceAlternativesTests|FirstWordPrefixTests|SequentialWordSelectionTests|leadingSentenceCanBeClickedAndCommittedInBothLayouts'`. Sentence search still emits six distinct base terminal readings and a separate bounded personalized lane. The window now retains at most four constructed hypotheses, including required language/mixed choices, and fills its remaining capacity with words rather than additional sentences or multiword fragments. With a constructed leader, hypotheses precede the word tail. Word-led queries retain engine order; explicit pins, history placement, language identity and the exact literal remain covered. Fewer than four hypotheses must not be duplicated or backfilled with lower sentences after the word tail. Engine recall of `erbeizuoduo` → `二倍做多` remains tested; its survival in the four-hypothesis window is no longer promised.
+Run `./scripts/test.sh --filter 'ChineseSentenceAlternativesTests|FirstWordPrefixTests|SequentialWordSelectionTests|leadingSentenceCanBeClickedAndCommittedInBothLayouts'`. Sentence search still emits six distinct base terminal readings and a separate bounded personalized lane. The window retains constructed hypotheses only from the first four ranked choices and fills its remaining capacity with words rather than additional sentences or multiword fragments. First results and complete words have no per-language reservation. The first four ranked choices may mix hypotheses and words; lower-ranked fragments must not displace words or move ahead of them. Every retained nonliteral choice preserves engine order; explicit pins, language identity and the exact literal remain covered. Fewer than four hypotheses must not be duplicated or backfilled with lower sentences after the word tail. Engine recall of `erbeizuoduo` → `二倍做多` remains tested; its survival in the four-hypothesis window is no longer promised.
 
 `SequentialWordSelectionTests.reportedTitleKeepsItsFirstCharacterSelectableWithExactRemainder` covers `sheguofennudehai` and apostrophe-separated input, Chinese-only/bilingual settings, provisional/full results, both layouts, four leading constructed choices and a word-only tail. Choosing `涉` consumes only `she` (including a following separator when present), keeping the exact remainder editable. `reportedTitleCanBeChosenWordByWordFromTheRenderedPages` completes `涉` → `过` → `愤怒` → `的` → `海`, checking numbered selection, mouse identities and accessibility labels in light/dark compact/expanded views. Set `SI_TITLE_PREFIX_SNAPSHOT_PATH=/tmp/si-title-prefix` to retain its actual first pages. This does not establish title-level semantic accuracy or live host routing.
 
 On October 26, 2026, all 350 Swift tests passed (259 core, 71 presentation, 14 settings, 3 storage and 3 localization), and the Debug app built successfully. The focused title/prefix/alternative checks passed, and light/dark compact/expanded first-page renders were inspected.
 
-On an intentionally installed build, repeat these spellings in TextEdit and a browser field. Check four leading sentence/fragment choices followed by words, without extra sentences on later pages. Select words with digits, Space and the mouse, checking exact remainders, Return, Escape, edits, shortcuts, focus changes and VoiceOver. Compare both language configurations, provisional/full results, ordinary `ling`/`xianshi`, pinned phrases, punctuation options and opted-in App History. No input method was installed or live host/VoiceOver check performed for this change.
+On an intentionally installed build, repeat these spellings in TextEdit and a browser field. Check four leading sentence/fragment choices followed by words, without extra sentences on later pages. Select words with digits, Space and the mouse, checking exact remainders, Return, Escape, edits, shortcuts, focus changes and VoiceOver. Compare both language configurations, provisional/full results, ordinary `ling`/`xianshi`, pinned phrases, punctuation options and opted-in app vocabulary. No input method was installed or live host/VoiceOver check performed for this change.
 
 ## Down Arrow expansion and candidate grid
 
@@ -102,7 +629,7 @@ Run `./scripts/test.sh --filter 'CandidateSelectionTests|CandidateViewTests|Char
 
 `CharacterPagingTests` traverses more than three whole grid pages of 80 injected homophones, including candidates beyond the former 27-choice cap. Row/column navigation, displayed mouse identity and active-row digit selection must choose the same character; committing it consumes only its exact spelling and leaves the remainder editable. Core fixtures verify all complete-syllable dictionary characters in preview/full lookup and prefix pools, including the bundled `she` readings and apostrophe-separated source boundaries. Ordinary word slots remain bounded, and non-character word learning still exercises the 24-word pool. These are exact dictionary-recall checks, not general typo/initial/sentence coverage claims.
 
-`expandedGridShowsFourSixCandidateRowsWithTheCompactFirstLine` compares the first row's identities/positions/widths against the compact strip, checks four rows of six, and constrains the grid to 340 points. Every row must share the first row's column origins/widths and number/text insets in both appearances. Rows must remain above the footer and within the card. Tight cells reserve space for a number and glyph and hide source icons; text clipped on narrow screens remains exact in tooltips and accessibility labels. Set `SI_GRID_SNAPSHOT_PATH=/tmp/si-grid-six` to retain light/dark regular and narrow renders. Expanded rows use compact source icons and punctuation badges.
+`expandedGridSharesContentSizedColumnsAcrossFourRows` preserves first-row identities while allowing expanded columns to grow for lower rows, checks four rows of six, and constrains the grid to 340 points. Every row must share the column origins/widths and number/text insets in both appearances. Rows must remain above the footer and within the card. Tight cells reserve space for a number and glyph and hide source icons; text clipped on narrow screens remains exact in tooltips and accessibility labels. Set `SI_GRID_SNAPSHOT_PATH=/tmp/si-grid-six` to retain light/dark regular and narrow renders. Expanded rows use compact source icons and punctuation badges.
 
 On October 26, 2026, all 356 Swift tests passed (261 core, 75 presentation, 14 settings, 3 storage and 3 localization), and the Debug app built. Both localization tables passed `plutil -lint`. Light/dark regular/narrow grids and distant final-page selected-cell renders were inspected. Set `SI_SPATIAL_PAGING_SNAPSHOT_PATH=/tmp/si-spatial-paging` for the latter. No input method was installed.
 
@@ -115,9 +642,8 @@ For exact-spelling ranking, run `./scripts/test.sh --filter 'CandidateScoringTes
 On an intentionally installed build, repeat `ma`, `ne`, `man`, `togethe` and `performa` in TextEdit and a browser field, with Chinese-only, English-only and bilingual settings as relevant. Check compact/expanded selection with Space, digits and mouse, then Return, Escape, shortcuts and focus changes. Verify normalized umlaut prefix commits still leave the exact remainder editable. Core/offscreen checks do not establish native host routing, VoiceOver or candidate positioning.
 
 ```sh
+python3 scripts/csv_dictionary.py build --check
 python3 scripts/msime_dictionary.py build --check
-python3 scripts/english_dictionary.py build --check
-./scripts/vocabulary.sh build --check
 python3 scripts/ranking.py --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 python3 -m unittest discover -s Tests/ScriptTests -v
@@ -129,9 +655,9 @@ python3 -m unittest discover -s Tests/ScriptTests -v
 ./scripts/benchmark.sh --resources > .build/candidate-benchmark.json 2> .build/resource-usage.log
 ```
 
-`UnifiedRankingTests` independently checks probability/unknown normalization, conditional pronunciation, Witten–Bell boundary interpolation, finite spelling-channel mass, exact/composed unit consistency, deterministic initialization and cached versus unbounded English preview ranking. Exhaustive small-lexicon regressions compare optimal costs with floating-point tolerance and require identical output bytes across insertion orders. `UnifiedRankingPresentationTests` checks bilingual `abilit` → `ability` through both generation stages/layouts, literal retention, exact commit spelling and complete-language reservations. `--quality` reads only fixed synthetic JSON fixtures and reports development/regression and later holdout partitions separately; it never reads a user's archive or host text. See [model/provenance](UNIFIED_RANKING.md).
+`UnifiedRankingTests` independently checks probability/unknown normalization, conditional pronunciation, Witten–Bell boundary interpolation, finite spelling-channel mass, exact/composed unit consistency, deterministic initialization and cached versus unbounded English preview ranking. Exhaustive small-lexicon regressions compare optimal costs with floating-point tolerance and require identical output bytes across insertion orders. `UnifiedRankingPresentationTests` checks bilingual `abilit` → `ability` through both generation stages/layouts, literal retention, exact commit spelling and the absence of per-language reservations. `--quality` reads only fixed synthetic JSON fixtures and reports development/regression and later holdout partitions separately; it never reads a user's archive or host text. See [model/provenance](UNIFIED_RANKING.md).
 
-The vocabulary checks run offline and verify deterministic generation, source precedence, durable exclusions/corrections, checksums, rejected imports, and failure preservation. Network refresh/audit checks are separate manual maintainer actions and do not install SI. See [English vocabulary maintenance](ENGLISH_VOCABULARY.md) and [Chinese vocabulary maintenance](CHINESE_VOCABULARY.md).
+CSV vocabulary checks run offline and verify deterministic generation, category discovery, explicit corrections/deletions, checksums, duplicate merging and failure preservation. Inline source metadata and retained license/attribution text are checked without old source wordlists or frequency archives. Network refresh/audit checks are separate manual maintainer actions and do not install SI. See [English vocabulary maintenance](ENGLISH_VOCABULARY.md) and [Chinese vocabulary maintenance](CHINESE_VOCABULARY.md).
 
 The reinstall script checks use isolated process-command and installer fixtures. They verify current-user/exact-name matching, graceful exit, forced-stop fallback, failure handling, argument validation, and installer status propagation without stopping SI or installing an app.
 
@@ -147,7 +673,7 @@ The package uses Swift Testing for ambiguity, language filtering, deterministic 
 
 `PinyinPreviewQualityTests` checks `nishuodezhege` in both provisional and final results with Chinese alone and both languages enabled. An isolated lexicon places a high-scored `说` after more than 16 weaker homophones and verifies that preview narrowing does not replace it with `书` + `哦`; reversing source order must retain the same preferred sentence. Run `./scripts/test.sh --filter PinyinPreviewQualityTests` for these regressions.
 
-Chinese vocabulary maintenance tests now require exact raw upstream weights, reject local weight columns and manual score overrides, preserve unweighted spelling coverage and validate correction/refresh atomicity. Swift regressions check the exact `过`/`国` weight ratio, continuous fractional score differences, `添加过那么多` ranking, fallback entries and preview/final consistency. The ten everyday sentence fixtures retain their gate of at least nine first choices and every target within five; writing-request fixtures preserve intended candidates within four. Legacy single-character learning tests compare against the unlearned baseline directly. These checks do not establish broad sentence quality; see the latest [verification record](VERIFICATION.md).
+Chinese dictionary maintenance now uses SI category CSVs with editable integer weights in the fixed shared unit. CSV tests preserve exact text/readings, content-derived tie order and existing exclusions, and validate edits before replacing either runtime dictionary. Historical raw-upstream and sentence-quality records below describe their original implementations; scoring formulas remain unchanged, while equal-weight dictionary ties now use content-derived order. Swift regressions retain coverage for frequency ratios, fractional scores, fallback entries and preview/final consistency. See the latest [verification record](VERIFICATION.md) for checks actually run and remaining quality limits.
 
 `CandidateViewTests.singleLetterCandidateRemainsVisibleAndSelectable` renders the default engine’s `a` candidate in compact and expanded layouts under light/dark appearances, checks that its label is visible and fits, and verifies mouse/number identity. Set `SI_SHORT_CANDIDATE_SNAPSHOT_PATH=/tmp/si-short-candidate` to export light/dark compact images. In a host app, type `a` and `i`, check that choice 1 shows its letter, and confirm it with Space, a digit and a mouse click; repeat after expanding and in both appearances. Automated rendering does not establish live host-event delivery or VoiceOver behavior.
 
@@ -159,9 +685,9 @@ The `SIPresentationTests` target checks the production selection model and AppKi
 ./scripts/test.sh --filter 'CandidateSelectionTests|CandidateViewTests|CandidatePlacementTests|PartialCommitTests|CompositionEditingTests|CompositionBoundaryTests'
 ```
 
-Set `SI_CANDIDATE_SNAPSHOT_PATH` to an output PNG path to retain the synthetic offscreen expanded view render, with sibling `.dark.png`, `.compact.png`, `.compact.dark.png`, and `.narrow.png` previews. The view fixture uses curated synthetic candidate text to inspect styling independently of decoder ranking. Increased Contrast needs a live system-setting check: on this SDK, constructing a named high-contrast appearance normalizes back to Aqua and does not simulate that preference. This checks view drawing and state, not host key routing, live VoiceOver behavior, automatic system-appearance changes, or candidate positioning. Selection/view regressions cover six-item pages and four-row expanded grids, preserving selection through expansion, reset between compositions, narrow-screen layout, disabled pending expansion, ordinary-budget shortlisting plus all generated dictionary characters with language/literal reachability and ignored wheel/trackpad events, engine-relative order within the leading hypothesis group and word tail, consumed-spelling learning scores, and prefix remainder commits. The window applies its four-hypothesis/word-tail policy; scores themselves remain unchanged.
+Set `SI_CANDIDATE_SNAPSHOT_PATH` to an output PNG path to retain the synthetic offscreen expanded view render, with sibling `.dark.png`, `.compact.png`, `.compact.dark.png`, and `.narrow.png` previews. The view fixture uses curated synthetic candidate text to inspect styling independently of decoder ranking. Increased Contrast needs a live system-setting check: on this SDK, constructing a named high-contrast appearance normalizes back to Aqua and does not simulate that preference. This checks view drawing and state, not host key routing, live VoiceOver behavior, automatic system-appearance changes, or candidate positioning. Selection/view regressions cover six-item pages and four-row expanded grids, preserving selection through expansion, reset between compositions, narrow-screen layout, disabled pending expansion, ordinary-budget shortlisting plus all displayable generated dictionary characters with language/literal reachability and ignored wheel/trackpad events, engine-relative order across constructed hypotheses and words, consumed-spelling learning scores, and prefix remainder commits. The window applies its four-hypothesis/word-tail policy; scores themselves remain unchanged.
 
-`SequentialWordSelectionTests` verifies `biruzhege` in Chinese-only/bilingual searches, provisional/full results and both layouts: retained word choices preserve engine-relative order, constructed choices share the four-hypothesis limit, every page number matches its candidate, and choosing `比如` consumes only `biru` (including apostrophe-aware boundaries). `FirstWordPrefixTests` covers crowding, the ordinary 27-choice budget with additional character retention, retained language identities/history/literal, the decoder's independent 24-word pool, consumed-spelling learning and lexical evidence. Offscreen view tests render actual pages in light and dark appearances; set `SI_WORD_SELECTION_SNAPSHOT_PATH=/tmp/si-word-selection` to retain the first/second `biruzhege` pages. These checks do not establish live host routing, VoiceOver or positioning.
+`SequentialWordSelectionTests` verifies `biruzhege` in Chinese-only/bilingual searches, provisional/full results and both layouts: all retained choices preserve engine-relative order, constructed choices share the four-hypothesis limit, every page number matches its candidate, and choosing `比如` consumes only `biru` (including apostrophe-aware boundaries). The synthetic interleaved head and bilingual `hei` regressions verify that lower-ranked mixed fragments never move ahead of `黑`, and fragments outside the ranked head do not backfill word positions. `FirstWordPrefixTests` covers crowding, the ordinary 27-choice budget with additional character retention, retained language identities/literal, the decoder's independent 24-word pool, consumed-spelling learning and lexical evidence. Offscreen view tests render actual pages in light and dark appearances; set `SI_WORD_SELECTION_SNAPSHOT_PATH=/tmp/si-word-selection` to retain the first/second `biruzhege` pages. These checks do not establish live host routing, VoiceOver or positioning.
 
 `CandidatePlacementTests` checks synthetic host geometry separately: inline-session coordinates taking priority over displaced document geometry, recovery from a cached document fallback, actual-range validation and ambiguous-origin corroboration, UTF-16 offsets after supplementary characters, invalid/unavailable marked ranges and rectangle fallback, fresh geometry after reflow, composition-start queries, caret fallback, composition-local cached coordinates, invalid/missing coordinates, edge clamping, left/above displays, and display removal. It does not exercise InputMethodKit's actual coordinate delivery.
 
@@ -222,7 +748,7 @@ Install with `./scripts/install.sh`, log out and back in if needed, add SI in Ke
 - Open SI Settings from the input menu. Both languages should initially be enabled.
 - Type `gm`, `gmail`, `GMAIL`, `github`, `openai`, `chatgpt`, and `nihaogmail`. Verify canonical names, uppercase input, mixed output, literal preservation, paging and enabled-language filtering. Check `may` remains lowercase and Return preserves the exact spelling. Try a synthetic unknown tail such as `nihaogmailQzXvJk`; any path retaining unrecognized text must stay excluded from learning/context.
 - Type `subtitle`, `SUBTITLE`, `subtit`, and `nihaosubtitle`. Verify exact/completed English candidates, preserved capitalization, mixed output and the exact literal candidate. Try a broad prefix such as `a` and confirm native paging can reach the original text. Check Return, punctuation and application shortcuts with the expanded vocabulary.
-- Type `zimu`, `shujuku`, `rengongzhineng`, and `zimusubtitle`; verify imported Chinese words, mixed output, exact spelling, disabled-language filtering and numbered paging. Compare `xing` and `hang` for `行`, and `lü`, `lv`, `lu:` in core tests. With synthetic `le` → `了` learning, `nihaotitle` must still prefer `你好title` over both English and Chinese-abbreviation splits. Check the broad prefixes `a`, `y`, and `sh` for paging and responsiveness.
+- Type `zimu`, `shujuku`, `rengongzhineng`, and `zimusubtitle`; verify imported Chinese words, mixed output, exact spelling, disabled-language filtering and numbered paging. Compare `xing` and `hang` for `行`, and `lü`, `lv`, `lu:` in core tests. With synthetic `le` → `了` learning, `nihaotitle` must still prefer `你好 title` over both English and Chinese-abbreviation splits. Check the broad prefixes `a`, `y`, and `sh` for paging and responsiveness.
 - Type `nishuodezhege`, pause, and verify `你说的这个` is among the first two whole candidates with learning paused, both during initial hints and after final delivery. Repeat with Chinese alone and both languages enabled, then check prefix selection, exact Return spelling, focus changes, and shortcuts. This is a spelling/segmentation check, not proof of grammatical ranking or support for the transposed spelling `zehge`.
 - Type `iwanttobuild`, `openthefile`, `helloworld`, `IWANTTOBUILD`, and `iwanttobuil` continuously. Check English word spaces, casing and the explicit incomplete-ending status, both in initial hints and after final delivery. Repeat with English alone and both languages enabled. Space/mouse/digits must commit the exact spaced candidate; Return must retain exact unspaced input. Confirm the prefix `I want to build` in `i'want'to'buildnihao`: only the source prefix commits, without a trailing space, and `nihao` remains editable. Check mixed `helloworldzhongwen`, shortcuts, punctuation and focus changes. The spelling `iwantobuild` must retain its original literal and is not automatically repaired by this lexical segmentation.
 - Type `shi`. Verify Chinese candidates, English completions, and original input coexist. Page to the original input if needed; each expanded page must contain at most four rows of six choices, with further pages for retained dictionary characters.
@@ -253,28 +779,39 @@ Install with `./scripts/install.sh`, log out and back in if needed, add SI in Ke
 - In a browser address field and a plain text field, enter a long synthetic composition such as `nixiangyaoworld`. Verify the panel tracks its beginning rather than jumping to the screen center as input grows. Check Left/Right editing, prefix confirmation, cancellation, and focus changes; a new composition must not reuse another composition's position. Test standard/Retina displays, including a display arranged to the left or above the primary display and insufficient space below the input.
 - Check that normal rows show numbers and candidate text without language descriptions. In the single line, check small arrow/pin/text symbols instead of long metadata labels; expanded prefix rows omit `First N` labels. Tooltips and VoiceOver must still identify exact prefix consumption, candidate language and source. Check that the peach selection pill stays close to its text even when a pending window retains extra width, the selected number is orange, and light/dark/high-contrast text stays readable. Start a composition and verify one horizontal line, numbers 1–6, and an accessible expansion chevron. Press Down Arrow or the chevron to expand to four rows of six choices, navigate to a later candidate, then collapse; the highlighted candidate and Space/mouse/digit confirmation must agree with its new visible number. Page keys must change six-choice collapsed pages or whole 24-choice expanded pages, with digits 1–6 applying to the highlighted row. Expanded page buttons must agree. Check mouse-wheel and horizontal/vertical trackpad gestures, including momentum: the highlighted choice and page must remain unchanged. Expanded multiple pages expose page count/previous/next controls; a single expanded page keeps the collapse control. Check clipped long mixed labels, narrow screens and both system appearances. Finish/cancel or switch focus and verify the next composition starts collapsed. Pending searches must keep the old layout/size and disable expansion/actions.
 - With learning paused, enter `abilit`; confirm complete `ability` remains among the first five through hints/full results and both layouts. Verify Space, digits and mouse commit the word, while exact `abilit` remains reachable.
-- With learning paused, enter `danci` and `dan'ci` in Chinese-only and combined-language settings. `单词` should remain first through initial hints and full results in both panel layouts; Space/1/mouse confirmation should insert exactly `单词`. Confirm `单次`, other enabled-language candidates and the original spelling remain available within the panel shortlist.
-- Enter synthetic `biruzhege`, `nengxiangbanfayouhuama`, `nihaopengyou` and `sheguofennudehai`. When a constructed sentence/fragment leads, verify up to four such hypotheses appear first and subsequent ordinary choices are single characters/words. Extra sentences and multiword fragments must not fill later pages. Required language/mixed hypotheses share the four slots. Check Space, digit and mouse word selection in both layouts: only consumed spelling commits, the exact remainder stays editable and no space is appended. Check apostrophe boundaries, disabled languages, optional learning/history, literal Return, Escape, editing, focus changes, preview/full delivery and VoiceOver. Word-led `ling`, `xianshi`, `danci`, `abilit` and exact English lookup retain their ranked word alternatives. The engine retains its full results; the display policy does not validate sentence meaning.
+- With learning paused, enter `danci` and `dan'ci` in Chinese-only and combined-language settings. `单词` should remain first through initial hints and full results in both panel layouts; Space/1/mouse confirmation should insert exactly `单词`. Confirm `单次` and the original spelling remain available within the panel shortlist; other enabled-language choices qualify by score.
+- With Chinese and English enabled, type `bufenci` in TextEdit and a browser field. In provisional/full results and compact/expanded layouts, the first four choices should be `部分词`, `部分次`, `部分此`, `不分词`; a low-ranked English leader must not displace the fourth choice. Verify number 4 and mouse selection commit exactly `不分词`, then check prefix remainders, Return, Escape, shortcuts, focus changes and VoiceOver. Original spelling remains selectable. Automated session/offscreen checks do not establish live host behavior.
+- Enter synthetic `biruzhege`, `nengxiangbanfayouhuama`, `nihaopengyou` and `sheguofennudehai`. Verify the first four ranked choices may contain both constructed hypotheses and words; subsequent ordinary choices are single characters/words. Single-language and mixed hypotheses share the same ranked-head eligibility without language reservations. Mixed candidates have no display reservation and must qualify through their effective score in the first four ranked choices. Extra sentences and multiword fragments must not fill later pages. Low-ranked language leaders must not displace any of the first four ranked hypotheses. Check Space, digit and mouse word selection in both layouts: only consumed spelling commits, the exact remainder stays editable and no space is appended. Check apostrophe boundaries, disabled languages, optional vocabulary learning, literal Return, Escape, editing, focus changes, preview/full delivery and VoiceOver. Word-led `ling`, `xianshi`, `danci`, `abilit` and exact English lookup retain their ranked word alternatives. The engine retains its full results; the display policy does not validate sentence meaning.
 
 Run relevant cases in TextEdit (plain text), Safari or Chrome text fields, a code editor, Terminal, and office apps. Check secure text fields using dummy data only; macOS may choose a different input source for those fields.
 
 Record the macOS version, host application/version, enabled languages, synthetic input, expected behavior, and actual output. System registration, key routing, actor-boundary assumptions, and host-app compatibility require this manual verification before release.
 
-## App vocabulary and history
+## App vocabulary
 
-Implementation handoff on October 23, 2026: compile checks only. At the user's request, no automated or host tests for this feature were run. The checks below are for manual verification on an intentionally installed copy; do not run built and installed copies together or clear real personal data as preparation.
+Use a dedicated synthetic profile on an intentionally installed copy; do not run built and installed input methods together or clear real personal data as preparation.
 
-1. With a synthetic profile, confirm both app options start off. Enable vocabulary only. In TextEdit explicitly select a nondefault candidate, then accept a default with Space: each creates/increments a use in that application's scope. Confirm the consumed spelling for prefix choices excludes the pending remainder. Repeat in another app (such as a browser or WeChat); entries and ranking must remain separate. No Personal learning section or previous-word toggle should remain. Turning app vocabulary off must use base ranking even when old shared-consent flags are still set; explicit legacy deletion must leave app data untouched. Explicit personal phrases remain available and do not train app vocabulary.
-2. Enable history independently. Confirm synthetic `nihao` → `你好`, then press unmodified Return after composition is empty. The application should receive Return exactly once and the manager should show a history entry for that app. Type `nih` again; find the clock-marked App History candidate and select it with a number, mouse, and navigation/Space in separate trials. Only `你好` should be inserted, with no label or automatic space. Repeat to confirm the existing history entry's use count increases.
-3. Save a synthetic longer Chinese expression by selecting several word prefixes before host Return. On reuse, confirm the first word, then type the next spelling prefix: the suggested completion must insert only the remaining output. Empty composition must show no candidates. English/mixed text, punctuation replacements, exact casing and Unicode output must remain intact. A history choice must not create vocabulary/context entries. Browser tabs share one application scope.
-4. With active composition, Return must still commit exact remaining spelling and consume the key; it must not save/send the history unit. A second unmodified Return outside composition may save and reach the app. Shift/Command/Control/Option Return, clicking Send and an application's custom sending shortcut must not be treated as proof of a sent message. Check no duplicate punctuation/Space/Return, dropped key or control-character insertion.
-5. Build a draft, then delete committed text, move the host caret, Escape, paste/use a shortcut, change focus/client/languages/consent, or wait five minutes. The discarded unit must not reappear as a saved suffix when Return arrives. Check secure input suppresses recording, ranking and history suggestions. Personal/verbatim paths and automatic prefix confirmation must discard history. Hosts without reliable ranges/focus notifications remain explicitly unverified; inspect behavior in WeChat, Terminal, a browser and an editor.
-6. In the manager, filter apps and search text/spelling/app identifiers. Pause vocabulary and history independently for an app; both recording and suggestions for that feature must stop. Resume without losing saved records. Forget an entry, clear one app/type and clear all app data; verify persistence across a normal restart and that explicit phrases remain. If a retired shared archive exists, check the separate Delete Old Shared Learning Data confirmation, cancellation, progress/error feedback and successful deletion; its old consent flags must never activate learning. While full results are pending, pause or clear; old results and mouse clicks on old history candidates must not restore deleted content. Use a synthetic profile to exercise 30-day history/90-day vocabulary expiry and global capacity limits; do not alter an actual user's clock/data.
-7. Check compact/expanded candidate numbering, ordinary 27-choice budget plus retained dictionary characters, first complete choices for enabled language identities, clock labels, mouse focus, keyboard-only Settings use, VoiceOver, light/dark and Increased Contrast. Save failures must be visible with retry; unreadable archives must pause recording/suggestions and offer full clear without silent replacement.
+1. Confirm vocabulary learning starts off and Settings exposes no history toggle, data tab, pause control or history candidate label. In TextEdit enable vocabulary, explicitly select a nondefault candidate and accept a default with Space: each must increment the app-scoped use count. Prefix confirmations save only consumed spelling. Repeat in a browser/editor and verify independent scopes.
+2. With the same synthetic profile, press Return during composition: only exact remaining spelling commits. Press Return/keypad Enter outside composition: the key passes through without saving an input unit. Check Shift-Return, Tab, punctuation, shortcuts, editing, focus changes and automatic confirmation for dropped keys, duplicate commits or changed vocabulary exclusions. No clock-marked history completions should appear.
+3. Filter/search apps and words in Manage App Data. Pause/resume vocabulary, Forget an entry, clear one app and clear all vocabulary; check restart persistence and that explicit phrases remain. Paused, secure-input and disabled-language paths must not use or record excluded vocabulary. Changes while candidate results are pending must invalidate stale results and mouse actions.
+4. Test upgrades only with synthetic archive files. A schema-1/2 archive must retain vocabulary/usage and atomically become schema 3 with no history field; old ranking strength/correction counts must reset to zero. Malformed retired history fields must not block valid vocabulary. Corrupt vocabulary/JSON and unsupported schemas must preserve the original file and show an error. Check retry/clear recovery and that queued older writes cannot undo deletion. The retired shared-learning archive and explicit phrase store must stay untouched.
+5. Check both interface languages, keyboard-only navigation, VoiceOver, empty/filtered lists and light/dark appearances. Old history consent/exclusion keys must not enable vocabulary or suppress an app's vocabulary; startup removes these keys. No document, clipboard or passthrough text is collected.
+
+`ApplicationMemoryStoreTests` covers schema-1 migration, retired-field removal, vocabulary preservation, restart/permissions, corrupt/unsupported-file preservation, vocabulary-only saves and revision-ordered deletion. `ApplicationMemorySettingsTests` covers retired consent cleanup and vocabulary consent, app isolation, pause and persistence. Native host, keyboard and VoiceOver behavior remains a separate manual check.
+
+On October 27, 2026, all 366 Swift tests passed with `./scripts/test.sh --disable-sandbox` and the Debug app built successfully with `./scripts/build.sh` after history removal. Both localization tables passed `plutil -lint`; the static website build and six-page link/locale checks passed. No input method was installed or personal archive changed. Native host and VoiceOver checks remain unverified.
 
 ## App vocabulary ranking checks
 
-Use a dedicated synthetic profile with app vocabulary enabled and the correct application selected in preview. Defaults and explicit candidate choices both train this scope; delimiter, history, literal, personal/verbatim and automatic-confirmation commits do not. Preview never trains. Verify that repeated `shike` → `食客` selections affect matching word tokens in longer compositions, while Chinese single-character preferences remain limited to their own spelling. Prefix records must use only consumed source spelling. Pause, secure input, per-entry deletion, scoped clear, expiry and restart must affect both whole and token ranking. Existing core `LearningProfile`/token/context fixtures exercise reusable library ranking primitives; contextual fixtures do not imply a previous-word product option.
+Use a dedicated synthetic profile. Accept the first choice repeatedly using Space, number 1 and mouse; navigate away and back before confirming it too. Usage must rise without increasing ranking strength or correction count. Choose a later candidate twice: usage/correction count rises but ranking reward remains zero. The third correction earns one point; further groups of three add one point, with ordinary decay and the 32-point cap. Once it becomes the displayed first choice, further acceptance must stop strengthening it. First cells on later pages remain nonfirst. Check compact/expanded lists, unsupported-glyph filtering, prefixes with exact remainders, app isolation, pause, deletion, secure input, pending-result invalidation and normal restart. Version-1/2 fixtures retain usage while resetting old strength; schema-3 pending counts and strength survive restart.
+
+`ApplicationVocabularyLearningTests` covers neutral first uses, three-pick steps, nonrejuvenating decay, token/deletion/app isolation and caps. `CandidateLearningTests` covers visible-first identity for number/mouse/navigation/page paths. `ApplicationMemoryStoreTests` covers migration and correction-count persistence across restart. These synthetic checks do not establish native InputMethodKit host behavior. On October 27, 2026, all 373 Swift tests passed with `./scripts/test.sh --disable-sandbox`, and the Debug build passed with `./scripts/build.sh`. No input method was installed or personal archive changed.
+
+Use a dedicated synthetic profile with app vocabulary enabled in the test host application. First/nonfirst confirmations both count uses in this scope; first choices do not increase ranking strength, while every three explicit nonfirst choices add one ranking point; delimiter, literal, personal/verbatim and automatic-confirmation commits do not. Preview never trains. Verify that repeated `shike` → `食客` selections affect matching word tokens in longer compositions, while Chinese single-character preferences remain limited to their own spelling. Prefix records must use only consumed source spelling. Pause, secure input, per-entry deletion, scoped clear, expiry and restart must affect both whole and token ranking. Existing core `LearningProfile`/token/context fixtures exercise reusable library ranking primitives; contextual fixtures do not imply a previous-word product option.
+
+For prefix learning coverage, use a dedicated synthetic app scope with five first-choice `shi` → `是` confirmations and one first-choice `shizenme` → `是怎么` confirmation at comparable times. In Chinese-only and bilingual configurations, verify `shizenme` leads with `是怎么` in provisional and full results, while `是` remains selectable and commits only `shi`, leaving `zenme` editable. Repeat in TextEdit and another host, check Space/number/mouse selection, shortcuts and focus changes, and verify app isolation, pause and deletion. Standalone `shi` keeps its full learning bonus. Repeated deliberate selections of the nonfirst prefix can still let it lead again; no whole-input position is reserved. `PrefixLearningTests` covers this synthetic app profile, preview/full order, session scores, unchanged records and exact-source alias/separator coverage after the preference caps. Native host behavior still requires manual verification.
+
+On October 27, 2026, `./scripts/test.sh --disable-sandbox` passed all 362 Swift tests (263 core, 79 presentation, 14 settings, 3 storage and 3 localization), and `./scripts/build.sh` completed the Debug app build. The new app-profile regression failed against the prior ranking and passed after the coverage adjustment. No input method was installed or personal archive changed; native host and VoiceOver checks remain unverified.
 
 At the user's request, no tests were run for removal of shared Personal learning. Compilation and source-reference checks are recorded separately from native host, Settings keyboard and VoiceOver verification, which remain manual.
 
@@ -313,3 +850,114 @@ For the independent static landing page, use the build, browser, localization, a
 Run `./scripts/test.sh --filter 'UnifiedRankingTests|SpellingEvidenceTests|UnifiedRankingPresentationTests'` and `./scripts/benchmark.sh --quality`. Fixed regressions cover normalized probabilities, character relabeling invariance, segmentation-independent Chinese spelling costs, English completion and exact literal/commit preservation. The 21 phonetic fixtures report unresolved ordinal/date ambiguities as well as initial and mixed spellings; their expected outputs do not authorize phrase-specific score rules. The historical holdout has been inspected during development and is no longer an independent estimate.
 
 On an intentionally installed build, type synthetic `danci`, `dan'ci`, `dierye`, `nhao` and `abilit` in TextEdit and a browser field. Check actual candidate ranking, select visible alternatives from compact/expanded panels with Space and a number, then exercise Escape, focus changes and a shortcut. Check that learned overrides remain deliberate, paused/secure input disables them, and no previously pending candidate returns after cancellation. A core test/build does not establish these native host checks.
+
+## Candidate font coverage
+
+Run `./scripts/test.sh --filter 'CandidateTextSupportTests|CandidateSelectionTests|CandidateViewTests'`. Coverage checks system fallback for ordinary/extension Han, combining marks and emoji, rejects a guaranteed-missing noncharacter alone or inside a word, preserves exact literal bytes and language identities, and verifies that missing candidates do not consume shortlist slots. The synthetic `heihe` regression checks provisional/full results, compact/expanded numbering, mouse identities and exact prefix commits against the filtered list. Engine results and public dictionary entries remain unchanged.
+
+On an intentionally installed build, type `heihe` in TextEdit and a browser field, expand and page through candidates, and confirm that missing-glyph boxes are absent while supported rare characters remain selectable. Check Space, numbers, mouse selection, prefix remainders, Return, cancellation and focus changes in light/dark appearances and with VoiceOver. Coverage depends on installed system fallback fonts; no extension block is excluded wholesale. Original literal input remains available even if it contains an unsupported character. Automated Core Text and offscreen view checks do not establish live host or VoiceOver behavior.
+
+On October 26, 2026, all 360 Swift tests passed (261 core, 79 presentation, 14 settings, 3 storage and 3 localization), and the Debug app built successfully after adding the font coverage filter. The presentation checks include Core Text shaping and offscreen candidate selection/view behavior. No input method was installed, and live host, VoiceOver and system appearance checks remain unverified for this change.
+
+## Movie vocabulary update, 2007–2026
+
+The [movie maintenance guide](../Data/Vocabulary/MOVIES.md) records the 400-film
+selection, language-specific categories, weights, provenance and typing limits.
+Run `python3 -m unittest discover -s Tests/VocabularyTests -v` for catalog coverage,
+reviewed Pinyin and compiler failure-safety checks, and
+`./scripts/test.sh --filter MovieVocabularyTests` for exact title output,
+capitalization, numeric spelling, shared title/ordinary-word keys, deterministic
+ordering, enabled-language filtering and literal fallback. The existing exhaustive
+English trie test now walks stored typing keys, including every title and every
+prefix range, rather than inferring keys from displayed text.
+
+On October 28, 2026, all 19 vocabulary Python tests and all 396 Swift tests passed
+(288 core, 83 presentation, 15 settings, 7 storage and 3 localization). The Swift
+suite used `./scripts/test.sh --disable-sandbox`: the ordinary invocation could
+not initialize SwiftPM's manifest sandbox inside the execution sandbox. The Debug
+app built successfully with `./scripts/build.sh` using normal Xcode cache access.
+The regenerated dictionaries passed `csv_dictionary.py build --check`,
+`msime_dictionary.py build --check` (including pinned context) and
+`ranking.py --check`. All 429 previous movie rows and reused weights were checked
+for preservation; only 212 Chinese and 350 English effective identities are new.
+No input method was installed or live host compatibility verified.
+
+On an intentionally installed build, use synthetic input in TextEdit and a browser
+with app vocabulary disabled. Check `feichirenshengsan` → `飞驰人生3`,
+`nezhazhimotongnaohai` → `哪吒之魔童闹海`, `insideouttwo` → `Inside Out 2`,
+`dontlookup` → `Don't Look Up`, and uppercase English input. Confirm titles using
+Space, numbers and mouse; spaces, punctuation and digits inside the candidate
+must commit exactly once. Return must retain exact typed spelling. Repeat with
+one language enabled and with both disabled, and check Escape, shortcuts and
+focus changes. Existing short-prefix prediction remains bounded; a long title is
+not guaranteed to appear from a short Chinese prefix. These manual checks remain
+unverified.
+
+## Basic domain vocabulary
+
+The [domain guide](../Data/Vocabulary/DOMAINS.md) describes 304 complete names in
+`english/domain.csv`. All 128 standalone suffix rows from the first draft are
+removed. Every remaining reading equals its lowercase text, including dots,
+hyphens and digits. `googlecom` is not an alias for `google.com`.
+
+Run the normal vocabulary Python suite and
+`./scripts/test.sh --filter DomainVocabularyTests`. Checks cover full-name syntax,
+invalid-update failure safety, Chinese reading isolation, literal dotted/hyphenated
+and numeric keys, suffix removal, direct/preview completion, casing, language
+filtering, determinism and exact literal fallback. The exhaustive English trie
+suite walks every stored key and prefix, including domain punctuation and digits.
+
+On October 28, 2026, all 22 vocabulary Python tests and 399 Swift tests passed
+(291 core, 83 presentation, 15 settings, 7 storage and 3 localization), using
+`./scripts/test.sh --disable-sandbox` for the previously documented SwiftPM
+execution-sandbox limitation. The Debug app built with `./scripts/build.sh`.
+CSV dictionary checks, pinned Chinese context verification and ranking attribution
+checks passed. Logs are under `.build/domain-literal-update/`.
+
+No input method was installed or listed domain contacted during automated tests.
+On an intentionally installed build, check synthetic `google.com`, `google.`,
+`rust-lang.org` and `mail.163.com` in TextEdit and a browser with app vocabulary
+disabled. Check Keep Composing and candidate-confirming punctuation policies;
+the latter may confirm before the full dotted name is composed. Number keys keep
+the existing selection contract. Confirm using Space, numbers and mouse, verify
+normal English spacing, and check Return, Escape, shortcuts, focus changes and
+English disabled. These host checks remain unverified; no URL entry mode is added.
+
+## Explicit Cloudflare Radar domain import
+
+The [Radar maintenance command](../Data/Vocabulary/DOMAINS.md#fetch-and-merge-cloudflare-radar)
+fetches `ranking_top_1000` only when explicitly invoked, or replays a local CSV
+with `--input`. Normal app/package builds remain offline. Tokens are read from
+the environment or an ignored dotenv file, are not command arguments, and are
+not written to snapshot/provenance files. Redirects are rejected before forwarding
+the bearer token. Retained Radar attribution and the full CC BY-NC 4.0 license
+are bundled independently of SI's GPLv3 code license.
+
+Run `python3 -m unittest discover -s Tests/VocabularyTests -v`. Synthetic tests
+cover exact 1,000-domain validation, malformed/truncated/duplicate responses,
+existing row/weight preservation, idempotent imports, original seed retention,
+publication rollback, intervening edits, dotenv parsing without shell execution,
+missing credentials, redirect rejection and sanitized authentication errors.
+The merged category, source snapshot and retained licenses have checksum checks.
+
+On October 28, 2026, all 29 Python vocabulary tests and 400 Swift tests passed
+(292 core, 83 presentation, 15 settings, 7 storage and 3 localization). Swift used
+`./scripts/test.sh --disable-sandbox` for the documented execution-sandbox limit.
+`./scripts/build.sh` completed the Debug app build; ordinary dictionary checks,
+pinned Chinese context and ranking attribution checks passed. The initial script checks used synthetic import data. After local Token
+configuration, the authenticated API returned 1,000 valid unique domains: 95
+overlapped the original selection and 905 were added, for 1,209 total names. All
+304 original rows/weights, every fetched domain and a no-write idempotent replay
+were independently verified. The snapshot SHA-256 is
+`80bcc006b2a6e1d264051f95550e3091fcad1dd31a51e3a50f85695562192faa`.
+The updated dictionaries and post-import tests/build are recorded below. Logs are
+under `.build/radar-domain-update/`. No input method was installed or host behavior
+manually verified.
+
+After the authenticated Radar merge, all 29 Python vocabulary tests and all 400
+Swift tests passed again with the 1,209-domain category; the Debug app rebuilt
+successfully. Both dictionaries match their CSV sources, pinned Chinese context
+and ranking attribution checks pass, and the English manifest records 65,161
+effective entries. Source/snapshot/license/import-report files were checked for
+accidental retention of the configured Token; none was found. `.env` remains
+Git-ignored. No input method installation or native host verification was performed.

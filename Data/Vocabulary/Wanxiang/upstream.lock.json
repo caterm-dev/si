@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/amzxyz/rime-wanxiang-data",
+  "revision": "adfa047c339627737f0a4c75674a8042c1ef7f72",
+  "category_overlap": "base",
+  "files": [
+    {
+      "path": "dicts/zi.dict.yaml",
+      "language": "chinese",
+      "size": 616558,
+      "sha256": "fde75aaf0504e2803f2004fcaf752209071584f47e3184ec4af6e99067d41dae",
+      "category": "base"
+    },
+    {
+      "path": "dicts/jichu.dict.yaml",
+      "language": "chinese",
+      "size": 49485286,
+      "sha256": "2cedcac6a4408d74d669a71c9d0cdd31657b4654d07396a739da49aa5cad2caf",
+      "category": "base"
+    },
+    {
+      "path": "dicts/duoyin.dict.yaml",
+      "language": "chinese",
+      "size": 137474,
+      "sha256": "f89a50949e93ac60746aa3058f67bc3a6bbd4a9a5c2d43652df0cb2ae973d555",
+      "category": "base"
+    },
+    {
+      "path": "dicts/en.dict.yaml",
+      "language": "english",
+      "size": 1568914,
+      "sha256": "3caf6a21c09c3b92a5167223a6a09f10b7fee0e32ffdb62415bbc0a946dcf551",
+      "category": "base"
+    },
+    {
+      "path": "dicts/diming.dict.yaml",
+      "language": "chinese",
+      "category": "diming",
+      "size": 3307073,
+      "sha256": "d763cc69ae7f4eacf7f8f39b248cb4dc0c7f996e731967f2fdbae9f7b8f823e7"
+    },
+    {
+      "path": "dicts/fangyan.dict.yaml",
+      "language": "chinese",
+      "category": "fangyan",
+      "size": 8758,
+      "sha256": "ca83030309d1e7d209aec06f80bb2b6070be3d4d37333e710f46e0063bd53d96"
+    },
+    {
+      "path": "dicts/huaxue.dict.yaml",
+      "language": "chinese",
+      "category": "huaxue",
+      "size": 1453393,
+      "sha256": "e3d4f7b1ddb5b83dc779ef5f60cabb2f013a36cd093590205d2e82928291079c"
+    },
+    {
+      "path": "dicts/mingren.dict.yaml",
+      "language": "chinese",
+      "category": "mingren",
+      "size": 667181,
+      "sha256": "3ac8931623bcb7a4e87759a5711b61d52a0e9306c57043c10cfe6d06ad8e5200"
+    },
+    {
+      "path": "dicts/shici.dict.yaml",
+      "language": "chinese",
+      "category": "shici",
+      "size": 16425028,
+      "sha256": "dad7aabc28488ccb20f04daa4d5897cfdcf696c7f18b52aa16378292d595ff41"
+    },
+    {
+      "path": "dicts/taifeng.dict.yaml",
+      "language": "chinese",
+      "category": "taifeng",
+      "size": 8381,
+      "sha256": "2d90ab6866a54207c1be91c6661cf3fc8355da3464815b46d74488e6e3b9b23b"
+    },
+    {
+      "path": "dicts/wuzhong.dict.yaml",
+      "language": "chinese",
+      "category": "wuzhong",
+      "size": 2425099,
+      "sha256": "caa772409ef4c9ba0301613c52a5e4aaa1aed02a3713dc45a6effb5ab5dab321"
+    },
+    {
+      "path": "dicts/yaopin.dict.yaml",
+      "language": "chinese",
+      "category": "yaopin",
+      "size": 898638,
+      "sha256": "42abef8a28cfaa925a2ce68c28c6546d6d6eb5ef5371c123f7b3d0de67c36dab"
+    },
+    {
+      "path": "dicts/yiren.dict.yaml",
+      "language": "chinese",
+      "category": "yiren",
+      "size": 423957,
+      "sha256": "77affd433bc53d2293e6930c185ac0ce1f1c4e6ca1dcc8602ba32e4df8266a95"
+    },
+    {
+      "path": "dicts/yixue.dict.yaml",
+      "language": "chinese",
+      "category": "yixue",
+      "size": 1107483,
+      "sha256": "c0085029792124f950c7edc0d79d4cf9af0a6994beba11a233fed662f95310b7"
+    }
+  ],
+  "license": "CC-BY-4.0",
+  "license_documents": [
+    {
+      "name": "LICENSE",
+      "sha256": "9e5f1b3c610b9c2da5c313bf81d577a7d1acec686bdb0384edefa6df0f90cd94"
+    },
+    {
+      "name": "LICENSE-SCOPE.md",
+      "sha256": "41ba4ac41b6a28a117c172dd22fc8cf31ff3902f79737cc22e22b9412af624f4"
+    },
+    {
+      "name": "NOTICE.md",
+      "sha256": "6c624b06a54d95ad2a33a3200481107f9f8d029dd3e7a224988653daa04bca13"
+    }
+  ]
+}

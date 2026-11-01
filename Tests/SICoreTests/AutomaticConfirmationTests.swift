@@ -7,7 +7,7 @@ struct AutomaticConfirmationTests {
 
     @Test func continuedTypingCommitsStableWordsAndKeepsExactEditableTail() throws {
         var session = makeSession()
-        session.append("nihaopengyou", now: start)
+        session.append("nihao'pengyou", now: start)
         #expect(session.automaticallyConfirm(now: start) == nil)
         session.append("xuexi", now: start.addingTimeInterval(0.2))
         #expect(session.automaticallyConfirm(now: start.addingTimeInterval(0.2)) == nil)
@@ -15,7 +15,7 @@ struct AutomaticConfirmationTests {
         let confirmed = session.automaticallyConfirm(now: start.addingTimeInterval(0.4))
         let commit = try #require(confirmed)
         #expect(commit.text == "你好朋友")
-        #expect(commit.input == "nihaopengyou")
+        #expect(commit.input == "nihao'pengyou")
         #expect(commit.remainingInput == "xuexizhongwen")
         #expect(session.buffer == commit.remainingInput && session.cursor == session.buffer.count)
         #expect(session.candidates.last?.text == "xuexizhongwen")
@@ -28,12 +28,12 @@ struct AutomaticConfirmationTests {
 
     @Test func pauseConfirmsOnlyPrefixAndNeverDrainsTailWithoutNewInput() throws {
         var session = makeSession()
-        session.append("nihaopengyou", now: start)
+        session.append("nihao'pengyou", now: start)
         #expect(session.hasAutomaticPauseCandidate)
         #expect(session.automaticallyConfirm(now: start.addingTimeInterval(1.7), afterPause: true) == nil)
         let confirmed = session.automaticallyConfirm(now: start.addingTimeInterval(2), afterPause: true)
         let commit = try #require(confirmed)
-        #expect(commit.text == "你好" && commit.input == "nihao")
+        #expect(commit.text == "你好" && commit.input == "nihao'")
         #expect(session.buffer == "pengyou")
         #expect(!session.hasAutomaticPauseCandidate)
         #expect(session.automaticallyConfirm(now: start.addingTimeInterval(100), afterPause: true) == nil)
@@ -51,7 +51,7 @@ struct AutomaticConfirmationTests {
     @Test func editsNavigationAndConfigurationInvalidatePendingPause() {
         for action in 0..<8 {
             var session = makeSession()
-            session.append("nihaopengyou", now: start)
+            session.append("nihao'pengyou", now: start)
             let revision = session.automaticConfirmationRevision
             switch action {
             case 0: session.deleteBackward()
@@ -72,7 +72,7 @@ struct AutomaticConfirmationTests {
 
     @Test func freshTypingAfterSelectionMustBuildNewEvidence() {
         var session = makeSession()
-        session.append("nihaopengyou", now: start)
+        session.append("nihao'pengyou", now: start)
         session.suspendAutomaticConfirmation()
         session.append("xuexi", now: start.addingTimeInterval(2))
         #expect(session.automaticallyConfirm(now: start.addingTimeInterval(2)) == nil)
@@ -82,18 +82,18 @@ struct AutomaticConfirmationTests {
 
     @Test func previewsStaleResultsAndOtherClientsCannotCauseAutomaticCommits() throws {
         var session = makeSession(deferred: true)
-        session.append("nihaopengyou", now: start)
+        session.append("nihao'pengyou", now: start)
         let old = try #require(session.pendingCandidateRequest)
         let previewAccepted = session.accept(old.generatePreview(), now: start)
         #expect(previewAccepted)
         #expect(session.automaticallyConfirm(now: start.addingTimeInterval(20), afterPause: true) == nil)
         session.reset()
-        session.append("nihaopengyou", now: start.addingTimeInterval(30))
+        session.append("nihao'pengyou", now: start.addingTimeInterval(30))
         let oldAccepted = session.accept(old.generate(), now: start.addingTimeInterval(32))
         #expect(!oldAccepted)
         #expect(session.automaticallyConfirm(now: start.addingTimeInterval(32), afterPause: true) == nil)
         var other = makeSession(deferred: true)
-        other.append("nihaopengyou", now: start)
+        other.append("nihao'pengyou", now: start)
         let otherAccepted = other.accept(try #require(session.pendingCandidateRequest).generate(), now: start)
         #expect(!otherAccepted)
         let currentAccepted = session.accept(try #require(session.pendingCandidateRequest).generate(), now: start.addingTimeInterval(31))
@@ -105,7 +105,7 @@ struct AutomaticConfirmationTests {
     @Test func implicitConfirmationNeverTrainsOrBecomesPreviousWordContext() throws {
         var session = makeSession()
         session.configure(languages: [.simplifiedChinese], usesContext: true, automaticConfirmationEnabled: true, now: start)
-        session.append("nihaopengyou", now: start)
+        session.append("nihao'pengyou", now: start)
         let confirmed = session.automaticallyConfirm(now: start.addingTimeInterval(2), afterPause: true)
         let automatic = try #require(confirmed)
         var profile = LearningProfile()
@@ -116,16 +116,16 @@ struct AutomaticConfirmationTests {
     }
 
     @Test func disagreementInOutputOrSourceBoundaryBlocksEvenLongPauses() {
-        let input = "nihaopengyou"
+        let input = "nihaoxuexi"
         let boundary = ConfirmationBoundary(sourceCount: 5, outputByteCount: 6)
-        let leader = InputCandidate(text: "你好朋友", language: .simplifiedChinese, score: 100,
+        let leader = InputCandidate(text: "你好学习", language: .simplifiedChinese, score: 100,
                                     confirmationBoundaries: [boundary])
         let alternatives = [
-            InputCandidate(text: "拟好朋友", language: .simplifiedChinese, score: 99, confirmationBoundaries: [boundary]),
-            InputCandidate(text: "你好朋友", language: .simplifiedChinese, score: 99,
+            InputCandidate(text: "拟好学习", language: .simplifiedChinese, score: 99, confirmationBoundaries: [boundary]),
+            InputCandidate(text: "你好学习", language: .simplifiedChinese, score: 99,
                            confirmationBoundaries: [ConfirmationBoundary(sourceCount: 4, outputByteCount: 6)]),
-            InputCandidate(text: "nihaopengyou", language: .english, score: 99),
-            InputCandidate(text: "你好朋友", language: .simplifiedChinese, score: 99, isUserPhrase: true),
+            InputCandidate(text: "nihaoxuexi", language: .english, score: 99),
+            InputCandidate(text: "你好学习", language: .simplifiedChinese, score: 99, isUserPhrase: true),
         ]
         for alternative in alternatives {
             #expect(AutomaticConfirmation.prefixes(for: [leader, alternative], input: input,
@@ -179,17 +179,17 @@ struct AutomaticConfirmationTests {
                          ConfirmationBoundary(sourceCount: 5, outputByteCount: -1),
                          ConfirmationBoundary(sourceCount: 5, outputByteCount: 1_000),
                          ConfirmationBoundary(sourceCount: 5, outputByteCount: 3)] {
-            let candidate = InputCandidate(text: "女\u{301}儿朋友", language: .simplifiedChinese, score: 100,
+            let candidate = InputCandidate(text: "女\u{301}儿学习", language: .simplifiedChinese, score: 100,
                                             confirmationBoundaries: [boundary])
-            #expect(AutomaticConfirmation.prefixes(for: [candidate], input: "nverpengyou",
+            #expect(AutomaticConfirmation.prefixes(for: [candidate], input: "nverxuexi",
                                                    learning: LearningProfile(), now: start, context: nil).isEmpty)
         }
         let boundary = ConfirmationBoundary(sourceCount: 4, outputByteCount: 6)
-        let leader = InputCandidate(text: "女儿朋友", language: .simplifiedChinese, score: 100,
+        let leader = InputCandidate(text: "女儿学习", language: .simplifiedChinese, score: 100,
                                     confirmationBoundaries: [boundary])
-        let joined = InputCandidate(text: "女儿\u{301}朋友", language: .simplifiedChinese, score: 99,
+        let joined = InputCandidate(text: "女儿\u{301}学习", language: .simplifiedChinese, score: 99,
                                     confirmationBoundaries: [boundary])
-        #expect(AutomaticConfirmation.prefixes(for: [leader, joined], input: "nverpengyou",
+        #expect(AutomaticConfirmation.prefixes(for: [leader, joined], input: "nverxuexi",
                                                learning: LearningProfile(), now: start, context: nil).isEmpty)
     }
 
@@ -218,10 +218,23 @@ struct AutomaticConfirmationTests {
             }
             var positive = InputSession(engine: engine)
             positive.configure(languages: languages, automaticConfirmationEnabled: true)
-            positive.append("nihaopengyou", now: start)
+            positive.append("nihaoxuexi", now: start)
             let commit = positive.automaticallyConfirm(now: start.addingTimeInterval(2), afterPause: true)
-            #expect(commit?.text == "你好" && positive.buffer == "pengyou")
+            #expect(commit?.text == "你好" && positive.buffer == "xuexi")
         }
+    }
+
+    @Test func importedEnglishNameBlocksAnUnseparatedTailWithoutDisablingExplicitBoundaries() {
+        #expect(EnglishLexicon.matches(for: "peng").contains { $0.key == "peng" })
+        var ambiguous = makeSession()
+        ambiguous.append("nihaopengyou", now: start)
+        #expect(ambiguous.automaticallyConfirm(now: start.addingTimeInterval(2), afterPause: true) == nil)
+        #expect(ambiguous.buffer == "nihaopengyou")
+        var separated = makeSession()
+        separated.append("nihao'pengyou", now: start)
+        let commit = separated.automaticallyConfirm(now: start.addingTimeInterval(2), afterPause: true)
+        #expect(commit?.text == "你好" && commit?.input == "nihao'")
+        #expect(separated.buffer == "pengyou")
     }
 
     private func makeSession(enabled: Bool = true, deferred: Bool = false) -> InputSession {

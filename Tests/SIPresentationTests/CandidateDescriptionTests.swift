@@ -14,7 +14,6 @@ struct CandidateDescriptionTests {
             InputCandidate(text: "我identifier", language: .simplifiedChinese, score: 10, isMixed: true, hasLiteralSegments: true),
             InputCandidate(text: "Synthetic", language: .english, score: 10, isUserPhrase: true),
             InputCandidate(text: "Synthetic", language: .english, score: 10, isApplicationVocabulary: true),
-            InputCandidate(text: "Synthetic", language: .english, score: 10, isHistory: true),
             InputCandidate(text: "，", language: .simplifiedChinese, score: 10, punctuationLanguage: .simplifiedChinese),
             InputCandidate(text: ",", language: .english, score: 10, punctuationLanguage: .english),
             InputCandidate(text: "Exact e\u{301}", language: nil, score: 0),

@@ -4,6 +4,51 @@ import Testing
 @testable import SIPresentation
 
 struct SequentialWordSelectionTests {
+    @Test func rankedHeadDoesNotFillWordPositionsWithLowerScoringFragments() {
+        let sentence = InputCandidate(text: "完整句子", language: .simplifiedChinese, score: 12, lexicalTokenCount: 3)
+        let word = InputCandidate(text: "词语", language: .simplifiedChinese, score: 11, lexicalTokenCount: 1)
+        let fragment = InputCandidate(text: "另一片段", language: .simplifiedChinese, score: 10, lexicalTokenCount: 2)
+        let prefix = InputCandidate(text: "字", language: .simplifiedChinese, score: 9,
+                                    consumedInputCount: 2, lexicalTokenCount: 1)
+        let lowerFragments = (0..<4).map {
+            InputCandidate(text: "低分片段\($0)", language: .simplifiedChinese, score: 8 - $0, lexicalTokenCount: 2)
+        }
+        let tail = InputCandidate(text: "其他", language: .simplifiedChinese, score: 3, lexicalTokenCount: 1)
+        let literal = InputCandidate(text: "SyntheticInput", language: nil, score: 0)
+        let ranked = [sentence, word, fragment, prefix] + lowerFragments + [tail, literal]
+        #expect(CandidateShortlist.candidates(from: ranked) == [sentence, word, fragment, prefix, tail, literal])
+    }
+
+    @Test func heiKeepsBlackAheadOfLowerScoringMixedFragmentsInBothStagesAndLayouts() throws {
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: Set(InputLanguage.allCases))
+        session.append("hei")
+        let request = try #require(session.pendingCandidateRequest)
+        for result in [request.generatePreview(), request.generate()] {
+            #expect(session.accept(result) == true)
+            let ranked = session.candidates.filter { !$0.isLiteral }
+            let black = try #require(ranked.first { $0.text == "黑" && !$0.isPartial })
+            #expect(ranked.contains { $0.text == "合 I" && $0.isMixed })
+            #expect(black.inputScore > (try #require(ranked.first { $0.text == "合 I" })).inputScore)
+            for expanded in [false, true] {
+                var selection = CandidateSelection()
+                selection.update(session.candidates)
+                selection.setExpanded(expanded)
+                let ordinary = selection.candidates.filter { !$0.isLiteral }
+                #expect(Array(ordinary.prefix(4)) == Array(ranked.prefix(4)))
+                let indices = try ordinary.map { candidate in
+                    try #require(ranked.firstIndex { $0.id == candidate.id })
+                }
+                #expect(indices == indices.sorted())
+                #expect(!ordinary.contains { $0.text == "合 I" })
+                #expect(selection.candidates.last?.text == "hei" && selection.candidates.last?.isLiteral == true)
+                let index = try #require(selection.candidates.firstIndex { $0.id == black.id })
+                selection.move(by: index)
+                #expect(selection.candidate(number: index % selection.visiblePageSize + 1)?.id == black.id)
+            }
+        }
+    }
+
     @Test func reportedTitleKeepsItsFirstCharacterSelectableWithExactRemainder() throws {
         for (input, consumed) in [("sheguofennudehai", "she"), ("she'guo'fen'nu'de'hai", "she'")] {
             for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
@@ -17,9 +62,12 @@ struct SequentialWordSelectionTests {
                         var selection = CandidateSelection()
                         selection.update(session.candidates)
                         selection.setExpanded(expanded)
-                        let ordinary = selection.candidates.filter { !$0.isLiteral && !$0.isHistory }
-                        #expect(ordinary.prefix(4).allSatisfy { $0.lexicalTokenCount != 1 })
-                        #expect(ordinary.dropFirst(4).allSatisfy { $0.lexicalTokenCount == 1 })
+                        let ordinary = selection.candidates.filter { !$0.isLiteral }
+                        let indices = try ordinary.map { candidate in
+                            try #require(session.candidates.firstIndex { $0.id == candidate.id })
+                        }
+                        #expect(indices == indices.sorted())
+                        #expect(ordinary.filter { $0.lexicalTokenCount != 1 }.count <= 4)
                         let index = try #require(selection.candidates.firstIndex { $0.text == "涉" && $0.isLexicalPrefix })
                         selection.move(by: index)
                         let word = try #require(selection.candidate(number: index % selection.visiblePageSize + 1))
@@ -143,9 +191,9 @@ struct SequentialWordSelectionTests {
                     try #require(engineCandidates.firstIndex { $0.id == candidate.id })
                 }
                 #expect(indices == indices.sorted())
-                #expect(selection.candidates.filter { !$0.isLiteral && !$0.isHistory && $0.lexicalTokenCount != 1 }.count <= 4)
+                #expect(selection.candidates.filter { !$0.isLiteral && $0.lexicalTokenCount != 1 }.count <= 4)
                 for (left, right) in zip(engineCandidates.dropLast(), engineCandidates.dropLast().dropFirst()) {
-                    #expect(left.inputScore >= right.inputScore)
+                    #expect(session.presentationScore(for: left) >= session.presentationScore(for: right))
                 }
                 for expanded in [false, true] {
                     selection.setExpanded(expanded)
@@ -158,12 +206,7 @@ struct SequentialWordSelectionTests {
                         selection.movePage(by: 1)
                     }
                 }
-                for language in languages {
-                    if engineCandidates.contains(where: { $0.language == language && !$0.isMixed }) {
-                        #expect(selection.candidates.contains { $0.language == language && !$0.isMixed })
-                    }
-                }
-                if engineCandidates.contains(where: \.isMixed) { #expect(selection.candidates.contains { $0.isMixed }) }
+                #expect(selection.candidates.allSatisfy { engineCandidates.contains($0) })
             }
         }
     }
@@ -197,7 +240,7 @@ struct SequentialWordSelectionTests {
             var selection = CandidateSelection()
             selection.update(session.candidates)
             #expect(selection.candidates.contains { $0.text == (input == "danci" ? "单词" : "ability") && !$0.isPartial })
-            #expect(selection.candidates.contains { !$0.isPartial && !$0.isLiteral && $0.hasCompletion })
+            #expect(session.candidates.contains { !$0.isPartial && !$0.isLiteral && $0.hasCompletion })
             #expect(selection.candidates.last?.text == input && selection.candidates.last?.isLiteral == true)
         }
     }
@@ -220,7 +263,7 @@ struct SequentialWordSelectionTests {
         var selection = CandidateSelection()
         selection.update(values)
         #expect(Array(selection.candidates.prefix(4)) == Array(characters.prefix(4)))
-        #expect(selection.candidates.contains(english) && selection.candidates.contains(mixed))
+        #expect(!selection.candidates.contains(english) && !selection.candidates.contains(mixed))
         #expect(selection.candidates.last == literal && characters.allSatisfy(selection.candidates.contains))
         let expected = selection.candidates
         selection.update(values)
