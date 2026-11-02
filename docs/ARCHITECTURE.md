@@ -7,8 +7,9 @@ SI exposes one macOS input source. Settings contain a set of enabled languages, 
 ## Data flow
 
 Runtime ranking uses the packaged dictionaries and shared word, spelling and language-transition costs.
-The [neural framework](../llm/README.md) is an offline experiment; no language model
-is loaded by the input method. Model integration and quality validation remain planned work.
+The optional development comparison loads a locally staged small Core ML language model
+for bounded candidate scoring. Conversion models and the large reranker remain offline/planned;
+independent quality and live-host validation remain outstanding.
 
 ```text
 Host application key event
@@ -68,6 +69,48 @@ Settings contains language, typing, direct-input, Personal Learning, Input Histo
 `PunctuationCandidates` supplies a fixed local table of English/Chinese alternatives for common ASCII punctuation. The shared engine includes these alongside direct provider and personal matches only when its explicit punctuationCandidatesEnabled option is enabled; this option defaults to false. Exact literal spelling is retained. A single trailing mark can be attached to complete word/sentence choices from the same engine; partial and incomplete choices are excluded. Repeated trailing punctuation does not recurse or expand combinations. Apostrophes after existing input retain their syllable-boundary meaning. `InputCandidate.punctuationLanguage` distinguishes punctuation variants independently of a preceding word's language and participates in cached identity. Explicit isPunctuation metadata also marks the literal fallback for badges and acceptance-spacing behavior, rather than inferring the enabled feature from its text. These variants inherit personal/verbatim exclusions, carry no automatic-confirmation evidence, never train vocabulary/context and never append an acceptance space. Constructed output remains bounded to 4,096 UTF-8 bytes. Full and provisional generation share this path; original input and stale-result validation remain unchanged.
 
 With Show punctuation candidates and a language enabled, the controller starts marked composition for mapped punctuation even when the buffer is empty. The switch is off by default; when off, all punctuation outside composition passes through. Other symbols pass through outside composition. During composition the existing `PunctuationBehavior` policy still decides whether a key remains editable or confirms a candidate. Compact and expanded rows show small E/C badges immediately after punctuation text, with A for the As Typed literal fallback; tooltips and accessibility retain the full description. Badge letters use Core Text glyph-path bounds to center their visible ink horizontally and vertically, independently of NSTextField baseline padding. Only the selected text is committed.
+
+## Small-reranker comparison
+
+The engine attaches its effective merge score and exact-spelling correction priority
+as transient presentation metadata, without changing lexical scores, IDs or committed
+bytes. `CandidateFusion` orders scored candidates independently of engine scores
+using weighted mean log probability in bits per Unicode scalar (higher is better).
+Explicit personal pins and remembered corrections retain priority. Model ties keep
+base order; unscored paths follow scored choices in their original relative order,
+and literal input stays last. Prefixes are unscored because prefix/whole calibration
+remains separate work. There is no bounded reward clamp or additive engine term
+that can reverse unequal model evidence. Positive Settings weights scale displayed
+scores without changing order; zero restores the base ranking. Both rankings retain
+the full engine result before applying the existing shortlist and language-aware
+identities. The original row and its whole/prefix competition remain unchanged.
+
+`SmallReranker` owns the Core ML model and tokenizer in an actor. Initialization
+reads only staged model resources once, verifies the tokenizer SHA-256 and runtime
+schema, and uses the validated FP32 CPU path. Four-candidate batches have a dynamic
+1–256-token width. The graph returns candidate-only summed log probabilities,
+excluding EOS; native scalar/UTF-8 tokenization matches Python. At most 32 eligible
+complete candidates are scored, excluding prefixes, personal/verbatim,
+completion and punctuation paths. An unsupported/overlong pool abstains as a unit.
+The first version provides no preceding-text context or user-data training.
+
+Each controller has a `CandidateRerankingPipeline` with at most one running and one
+latest replacement. It runs after full engine results; provisional hints and the
+base selection remain independent. A fresh comparison UUID is invalidated on each
+composition/configuration update, insertion, cancellation and deactivation. Delivery
+also rechecks panel ownership, client identity, configuration generation, secure
+input and the current session before showing anything. A result updates only the
+comparison; it cannot replace original candidates or move their selected cell.
+Neither Space nor number/mouse commits wait for Core ML. Automatic confirmation
+retains the original decoder's consensus evidence, and manually switching rows
+suspends it like other candidate navigation.
+
+`CandidateSelection` keeps independent original/AI shortlists and one active
+ranking. Collapsed rendering shows both; expanded rendering shows the active grid.
+Down enters a ready AI row, a second Down expands it, and Up returns to the original
+row while collapsed. Numbering, Space and clicks use that ranking's candidate IDs;
+its displayed first choice is neutral for Personal Learning. AI scores are UI-only labels. Settings use `LanguageSettings` and its configuration generation.
+No candidate text, scores or model inputs are persisted or logged.
 
 ## Automatic prefix confirmation
 
@@ -179,9 +222,9 @@ Application dictionary CSV sources, manifests and attribution stay tracked; gene
 
 `llm/reranker_small/benchmarks/` freezes a constructed Chinese challenge separately from training code identity. The offline `SICandidateExport` executable calls the same core engine with empty personal state, exporting the first 32 eligible full candidates in engine order, checking exact-literal availability and preserving language-aware identities. Authored contrasts, real decoder pools, context/phrase variants and robustness diagnostics remain distinct tracks; related normalized-input and lexical-contrast families stay in one dev/test split. Evaluation validates frozen files, separates retrieval/ranking failures, reports categories and family macros, and withholds clean metrics if the audited dataset ID differs from the checkpoint. The 1,230 cases derive from 337 anchors and have AI-assisted labels, not independent human annotations. No model training, native model loading or key-event behavior changes result from constructing this suite.
 
-`llm/reranker_small/` implements an independent 7,419,392-parameter causal character-LM baseline: four width-256 pre-norm blocks, four heads, 1,024-wide FFNs, tied embeddings and 256-token context. Its explicit preparation imports verified raw public sources through package-compatible corpus readers, retaining articles/paragraphs, punctuation and English word spaces. Source/group hashes keep Wikipedia pages and conversation turns together; normalized document deduplication and exclusion of cross-split long-paragraph copies reduce exact leakage. Training-only vocabulary, byte fallback and immutable token/window arrays preserve text without joining documents. FP32 training supports strict CPU/MPS resume with RNG/cursor state; CPU is tested bitwise and MPS weights within measured numerical tolerances. Token-loss evaluation, supplied-candidate scoring/benchmarking and inference-only export are separate commands. Bounded validation uses a fixed permutation across source windows. No formal run, native loading, Pinyin generation, hard-negative ranking fine-tuning or quantization is included in the implementation handoff.
+`llm/reranker_small/` implements an independent 7,419,392-parameter causal character-LM baseline: four width-256 pre-norm blocks, four heads, 1,024-wide FFNs, tied embeddings and 256-token context. Its explicit preparation imports verified raw public sources through package-compatible corpus readers, retaining articles/paragraphs, punctuation and English word spaces. Source/group hashes keep Wikipedia pages and conversation turns together; normalized document deduplication and exclusion of cross-split long-paragraph copies reduce exact leakage. Training-only vocabulary, byte fallback and immutable token/window arrays preserve text without joining documents. FP32 training supports strict CPU/MPS resume with RNG/cursor state; CPU is tested bitwise and MPS weights within measured numerical tolerances. Token-loss evaluation, supplied-candidate scoring/benchmarking and inference-only export are separate commands. Bounded validation uses a fixed permutation across source windows. The local 30,000-step checkpoint can be explicitly converted and staged for native comparison. Pinyin generation, hard-negative ranking fine-tuning and quantization remain separate work.
 
-`llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. Neither reranker has native runtime scheduling or verified ranking quality.
+`llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. The small reranker now has native comparison scheduling; representative ranking quality remains unverified. The large reranker has no native runtime.
 
 The corpus acquisition also supports the latest complete official Chinese Wikipedia current-article dump. Explicit `wikipedia --latest` resolution checks completion metadata, pins a dated URL, verifies the official SHA-1 and records a local SHA-256. The full raw archive retains original simplified/traditional wikitext; streaming preparation selects namespace-0 nonredirect pages and retains page/revision URLs, with Wikipedia's CC BY-SA 4.0 terms kept separate. Existing prepared bundles validate against their own frozen source locks so adding/updating a source does not invalidate historical runs.
 

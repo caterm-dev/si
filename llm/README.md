@@ -1,12 +1,13 @@
 # SI model workspace
 
 Each model family owns its configurations, training code, data preparation,
-checkpoints, reports and exports. The macOS input method loads none of these
-models yet.
+checkpoints, reports and exports. The small reranker supports explicit Core ML
+staging for an experimental native candidate comparison; other models are not loaded
+by the input method.
 
 | Directory | Purpose | Current status |
 | --- | --- | --- |
-| [reranker_small/](reranker_small/README.md) | Small candidate language-model scorer. | Offline 7.4M baseline training, scoring/export and a 1,230-case constructed ranking challenge are implemented; independent quality review and app integration remain pending. |
+| [reranker_small/](reranker_small/README.md) | Small candidate language-model scorer. | Offline 7.4M baseline training, scoring/export and a 1,230-case constructed ranking challenge are implemented; local Core ML candidate comparison is implemented; independent quality review remains pending. |
 | [reranker_large/](reranker_large/README.md) | Candidate scoring after a typing pause, and a larger comparison model. | Reserved; training/inference implementation and weights are not created. |
 | [pinyin_to_text/](pinyin_to_text/README.md) | Pinyin/spelling-to-text conversion with the existing encoder-decoder. | Implemented offline framework, retained 19.7M/default and older 0.403B experiments. |
 

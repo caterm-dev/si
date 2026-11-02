@@ -4,6 +4,10 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let score: Int
     /// Base lexical score for the spelling this candidate actually consumes.
     public let rankingScore: Double
+    /// Final engine score, including eligible learning and consumed-spelling coverage.
+    public private(set) var presentationScore: Double?
+    /// Exact-spelling correction priority is separate from statistical score units.
+    public private(set) var isRememberedChoice = false
     /// Lexical score before learning and the consumed-input coverage reward.
     public var inputScore: Double { rankingScore }
     var languageBoundary: CandidateLanguageBoundary?
@@ -89,6 +93,13 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         return result
     }
 
+    func withPresentationScore(_ score: Double, remembered: Bool) -> Self {
+        var result = self
+        result.presentationScore = score
+        result.isRememberedChoice = remembered
+        return result
+    }
+
     func withLanguageBoundary(_ context: CandidateLanguageBoundary) -> Self {
         var result = self
         result.languageBoundary = context
@@ -111,6 +122,10 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         right.sourceTrace = nil
         left.isChineseSentence = false
         right.isChineseSentence = false
+        left.presentationScore = nil
+        right.presentationScore = nil
+        left.isRememberedChoice = false
+        right.isRememberedChoice = false
         return left == right
     }
 }

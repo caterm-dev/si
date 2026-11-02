@@ -130,7 +130,8 @@ public struct CandidateEngine: Sendable {
                 if $0.score != $1.score { return $0.score > $1.score }
                 return $0.candidate.id < $1.candidate.id
             }
-            .map(\.candidate)
+            .map { $0.candidate.withPresentationScore($0.score, remembered: $0.candidate.canLearn
+                && !$0.candidate.isPartial && $0.candidate.id == preferredID) }
         // Never drop an enabled language's candidates because another language matches.
         // Literal input stays available even with all language providers disabled.
         return merged + [literalCandidate(for: input)]

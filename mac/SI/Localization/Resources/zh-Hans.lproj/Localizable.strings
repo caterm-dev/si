@@ -184,3 +184,16 @@
 "Exported %ld history records. SI has not sent the file anywhere." = "已导出 %ld 条历史记录。SI 未发送此文件。";
 "History export failed. Existing history and any previous destination file are kept. Check the JSONL destination and history storage before retrying." = "历史导出失败。现有历史和目标位置原有的文件均已保留，请检查 JSONL 保存位置及历史存储后重试。";
 "Exports all saved spelling, text and timestamps to one JSONL file, including private input and personal phrases. SI does not upload or send it. Deleting local history does not delete exported copies." = "将全部已保存的拼写、文字和时间导出为一个 JSONL 文件，其中包含私人输入和个人短语。SI 不会上传或发送文件。删除本机历史不会删除已导出的副本。";
+
+// Local neural ranking comparison
+"Compare AI candidate ranking" = "对比 AI 候选排序";
+"AI weight" = "AI 权重";
+"AI Ranking Preview" = "AI 排序预览";
+"The collapsed window compares the original ranking above with local AI ranking below. Down selects the AI row; Down again expands it. Up returns to the original row. Numbers and Space use the selected row. No input history is read or used for training." = "收起的候选框上排显示原始排序，下排显示本地 AI 排序。按 ↓ 选择 AI 行，再按 ↓ 展开；按 ↑ 返回原始行。数字键和空格作用于当前行。不读取输入历史，也不进行训练。";
+"AI score %.2f" = "AI 分数 %.2f";
+"Select AI ranking" = "选择 AI 排序";
+"AI is scoring candidates…" = "AI 正在为候选打分…";
+"AI unavailable — original ranking remains active" = "AI 不可用，仍使用原始排序";
+"AI ranking" = "AI 排序";
+"Select original ranking" = "选择原始排序";
+"The lower row orders scored candidates by AI score, using original order for ties. Positive AI weights scale scores without changing their order; 0 restores the original ranking. Personal pins and remembered corrections keep priority." = "下排按 AI 分数排序，同分时沿用原顺序。正数权重只缩放分数，不改变顺序；设为 0 恢复原排序。个人置顶和记忆纠正保持优先。";

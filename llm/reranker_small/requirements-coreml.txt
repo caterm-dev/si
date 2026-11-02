@@ -1,0 +1,9 @@
+# Conversion tooling only; install in an isolated --target directory.
+coremltools==8.3.0
+protobuf==5.29.4
+attrs==25.3.0
+cattrs==24.1.3
+pyaml==25.7.0
+PyYAML==6.0.3
+packaging==25.0
+tqdm==4.67.1

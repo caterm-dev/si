@@ -16,6 +16,11 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         self?.receiveCandidates(result)
     }
     private var selection = CandidateSelection()
+    private var aiRevision: UUID?
+    private var aiConfigurationGeneration: UInt64 = 0
+    private lazy var rerankingPipeline = CandidateRerankingPipeline { [weak self] id, fusion in
+        self?.receiveComparison(id: id, fusion: fusion)
+    }
     private var markedTextState = MarkedTextState()
     private var presentationRevision: UInt64 = 0
     private var candidateAnchor = CandidateAnchor()
@@ -28,11 +33,22 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var sessionContextGeneration: UInt64 = 0
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
-        panel.list.onSelect = { [weak self] id in
+        panel.list.onSelectRanking = { [weak self] id, ranking in
             guard let self, self.candidatePanel.ownsPresentation, let client = self.client(),
                   self.session.pendingCandidateRequest == nil,
                   let candidate = self.session.candidates.first(where: { $0.id == id }) else { return }
+            guard self.configureSession(for: client), self.session.pendingCandidateRequest == nil else {
+                self.update(client)
+                return
+            }
+            self.selection.selectRanking(ranking)
             self.commitCandidate(candidate, to: client)
+        }
+        panel.list.onChangeRanking = { [weak self] ranking in
+            guard let self, self.candidatePanel.ownsPresentation, let client = self.client(),
+                  self.session.pendingCandidateRequest == nil, self.configureSession(for: client),
+                  self.session.pendingCandidateRequest == nil else { return }
+            self.selectRanking(ranking, to: client)
         }
         panel.list.onMovePage = { [weak self] offset in
             guard let self, self.candidatePanel.ownsPresentation else { return }
@@ -66,6 +82,17 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             commitLiteral(to: client)
             return false
+        }
+
+        if !session.buffer.isEmpty, !selection.isExpanded, session.pendingCandidateRequest == nil {
+            if event.keyCode == 125, selection.ranking == .base, selection.canSelectAI {
+                selectRanking(.ai, to: client)
+                return true
+            }
+            if event.keyCode == 126, selection.ranking == .ai {
+                selectRanking(.base, to: client)
+                return true
+            }
         }
 
         if !session.buffer.isEmpty,
@@ -204,6 +231,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         automaticConfirmationTask?.cancel()
         candidatePipeline.invalidate()
         candidatePreviewPipeline.invalidate()
+        invalidateComparison()
         candidateClient = nil
         selection.update([])
         explicitlyNavigated = false
@@ -260,10 +288,38 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         selection.selected
     }
 
+    private func invalidateComparison() {
+        aiRevision = nil
+        rerankingPipeline.invalidate()
+    }
+
+    private func selectRanking(_ ranking: CandidateSelection.Ranking, to client: any IMKTextInput) {
+        session.suspendAutomaticConfirmation()
+        automaticConfirmationTask?.cancel()
+        selection.selectRanking(ranking)
+        explicitlyNavigated = true
+        presentCandidates(to: client)
+    }
+
+    private func receiveComparison(id: UUID, fusion: CandidateFusion?) {
+        guard aiRevision == id, candidatePanel.ownsPresentation,
+              !IsSecureEventInputEnabled(), LanguageSettings.shared.aiComparisonEnabled,
+              aiConfigurationGeneration == LanguageSettings.shared.configurationGeneration,
+              let client = candidateClient, let activeClient = self.client(),
+              (client as AnyObject) === (activeClient as AnyObject) else { return }
+        guard configureSession(for: client), session.pendingCandidateRequest == nil, aiRevision == id else {
+            update(client)
+            return
+        }
+        selection.receiveComparison(fusion)
+        presentCandidates(to: client)
+    }
+
     private func setCandidateListExpanded(_ expanded: Bool, to client: any IMKTextInput) {
         guard !session.buffer.isEmpty, candidatePanel.ownsPresentation else { return }
         session.suspendAutomaticConfirmation()
         automaticConfirmationTask?.cancel()
+        explicitlyNavigated = true
         selection.setExpanded(expanded)
         presentCandidates(to: client)
     }
@@ -333,6 +389,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             automaticConfirmationTask?.cancel()
             candidatePipeline.invalidate()
             candidatePreviewPipeline.invalidate()
+            invalidateComparison()
             candidateClient = nil
             markedTextState.reset()
             candidateAnchor.reset()
@@ -371,6 +428,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         presentationRevision &+= 1
         let revision = presentationRevision
         automaticConfirmationTask?.cancel()
+        invalidateComparison()
         let sameClient = candidateClient.map { ($0 as AnyObject) === (client as AnyObject) } ?? false
         if !sameClient {
             markedTextState.reset()
@@ -378,6 +436,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         candidateClient = client
         selection.update(session.candidates)
+        let comparesAI = !session.buffer.isEmpty && LanguageSettings.shared.aiComparisonEnabled && !IsSecureEventInputEnabled()
+        if comparesAI { selection.beginComparison() }
         explicitlyNavigated = false
         let markedSelection = NSRange(location: session.cursorUTF16Offset, length: 0)
         if markedTextState.shouldSend(session.buffer, selection: markedSelection) {
@@ -403,6 +463,17 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             presentCandidates(to: client)
             guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
             scheduleAutomaticConfirmation()
+            if comparesAI {
+                let id = UUID()
+                aiRevision = id
+                aiConfigurationGeneration = LanguageSettings.shared.configurationGeneration
+                if session.candidates.contains(where: CandidateFusion.eligible) {
+                    rerankingPipeline.submit(id: id, candidates: session.candidates, weight: LanguageSettings.shared.aiWeight)
+                } else {
+                    selection.receiveComparison(CandidateFusion(candidates: session.candidates, logProbabilities: [:], weight: 0))
+                    presentCandidates(to: client)
+                }
+            }
         }
     }
 
@@ -437,6 +508,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         automaticConfirmationTask?.cancel()
         candidatePipeline.invalidate()
         candidatePreviewPipeline.invalidate()
+        invalidateComparison()
         candidateClient = nil
         markedTextState.reset()
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))

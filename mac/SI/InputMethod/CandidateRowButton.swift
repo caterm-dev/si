@@ -10,6 +10,8 @@ final class CandidateRowButton: NSButton {
     let candidateLabel = NSTextField(labelWithString: "")
     let detailLabel = CandidateBadgeLabel(labelWithString: "")
     let sourceIndicator = NSImageView()
+    let scoreLabel = NSTextField(labelWithString: "")
+    private var aiScore: Double?
     private(set) var candidateID = ""
     private(set) var isCurrent = false
     private(set) var isCompact = false
@@ -34,6 +36,12 @@ final class CandidateRowButton: NSButton {
             addSubview(label)
         }
         sourceIndicator.symbolConfiguration = .init(pointSize: 8, weight: .medium)
+        scoreLabel.font = .monospacedDigitSystemFont(ofSize: 9, weight: .regular)
+        scoreLabel.textColor = .secondaryLabelColor
+        scoreLabel.lineBreakMode = .byTruncatingTail
+        scoreLabel.setAccessibilityElement(false)
+        scoreLabel.isHidden = true
+        addSubview(scoreLabel)
         sourceIndicator.contentTintColor = .tertiaryLabelColor
         sourceIndicator.setAccessibilityElement(false)
         addSubview(sourceIndicator)
@@ -47,11 +55,14 @@ final class CandidateRowButton: NSButton {
     }
 
     func configure(candidate: InputCandidate, number: Int, selected: Bool, compact: Bool = false,
-                   keyboardRow: Bool = true) {
+                   keyboardRow: Bool = true, aiScore: Double? = nil) {
         if let previous = configuredCandidate, previous == candidate,
            previous.text.utf8.elementsEqual(candidate.text.utf8),
            numberLabel.stringValue == String(number), isCurrent == selected, isCompact == compact,
-           isKeyboardRow == keyboardRow { return }
+           isKeyboardRow == keyboardRow, self.aiScore == aiScore { return }
+        self.aiScore = aiScore
+        scoreLabel.isHidden = aiScore == nil
+        scoreLabel.stringValue = aiScore.map { "AI " + $0.formatted(.number.precision(.fractionLength(2))) } ?? ""
         configuredCandidate = candidate
         candidateID = candidate.id
         isCurrent = selected
@@ -88,6 +99,11 @@ final class CandidateRowButton: NSButton {
         toolTip = "\(candidate.text) — \(description)"
         setAccessibilityLabel("\(number), \(candidate.text), \(description)")
         setAccessibilityValue(selected ? L10n.text("Selected") : "")
+        if let aiScore {
+            let scoreDescription = L10n.format("AI score %.2f", aiScore)
+            toolTip = "\(toolTip ?? "") · \(scoreDescription)"
+            setAccessibilityLabel("\(number), \(candidate.text), \(description), \(scoreDescription)")
+        }
         candidateLabel.textColor = .labelColor
         numberLabel.textColor = selected ? CandidateStyle.accent : .secondaryLabelColor
         numberLabel.alphaValue = keyboardRow || CandidateStyle.usesHighContrast ? 1 : 0.6
@@ -122,6 +138,14 @@ final class CandidateRowButton: NSButton {
                                    width: detailWidth, height: 14)
         sourceIndicator.frame = NSRect(x: max(textStart, width - indicatorWidth - 9), y: (bounds.height - 12) / 2,
                                        width: indicatorWidth, height: 12)
+        if !scoreLabel.isHidden {
+            let shift: CGFloat = isFlipped ? -6 : 6
+            candidateLabel.frame.origin.y += shift
+            numberLabel.frame.origin.y += shift
+            sourceIndicator.frame.origin.y += shift
+            scoreLabel.frame = NSRect(x: textStart, y: isFlipped ? bounds.height - 13 : 1,
+                                      width: max(0, bounds.width - textStart - 5), height: 12)
+        }
     }
 
     var preferredWidth: CGFloat {
@@ -131,7 +155,8 @@ final class CandidateRowButton: NSButton {
         let detailWidth = detailLabel.isHidden ? 0 : min(90, detailLabel.intrinsicContentSize.width + 8) + 10
         let indicatorWidth: CGFloat = hasSourceIndicator ? 16 : 0
         // Leave room for NSTextField's cell inset as well as glyph measurement.
-        return 40 + candidateLabel.intrinsicContentSize.width + detailWidth + indicatorWidth
+        return max(40 + candidateLabel.intrinsicContentSize.width + detailWidth + indicatorWidth,
+                   scoreLabel.isHidden ? 0 : scoreLabel.intrinsicContentSize.width + 40)
     }
 
     private var punctuationBadgeWidth: CGFloat { max(14, detailLabel.intrinsicContentSize.width + 5) }

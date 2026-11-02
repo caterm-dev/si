@@ -12,7 +12,8 @@ let package = Package(
     ],
     targets: [
         .target(name: "SILocalization", path: "mac/SI/Localization", resources: [.process("Resources")]),
-        .target(name: "SICore", path: "mac/SI/Core", resources: [.copy("Resources/Chinese"), .copy("Resources/English")],
+        .target(name: "SICore", path: "mac/SI/Core", resources: [.copy("Resources/Chinese"), .copy("Resources/English"),
+                                                             .copy("Resources/Reranker")],
                 linkerSettings: [.linkedLibrary("sqlite3")]),
         .target(name: "SIStorage", dependencies: ["SICore"], path: "mac/SI/Storage",
                 linkerSettings: [.linkedLibrary("sqlite3")]),

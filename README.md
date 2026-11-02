@@ -30,10 +30,51 @@ For `cichuxiande`, the single-character prefix `词` has the same lexical score 
 
 All input processing is local. SI has no analytics, keystroke logging, or cloud dependency for typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate preferences; Input History can retain each submitted spelling/text pair permanently on this Mac. Nothing is uploaded. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
-Runtime candidates currently use dictionary weights, spelling costs, language-transition
-costs and opted-in Personal Learning. The next model direction is large-model conversion;
-the existing [neural experiments](llm/README.md) remain offline and are not connected
-to typing. No model-backed context correction is currently applied.
+Runtime candidates use dictionary weights, spelling costs, language-transition costs
+and opted-in Personal Learning. The experimental small-model comparison described
+below adds local AI scoring in a separate candidate row. It uses no previous input
+context and performs no online training. Large-model conversion remains planned.
+
+## AI candidate comparison preview
+
+With a locally staged small reranker, the collapsed candidate window shows the
+unchanged original ranking above a separate **AI** ranking. The lower row
+shows each scored choice's AI score (higher is better).
+Click either row to confirm its candidate. Down selects the ready AI row; Down
+again expands that ranking into the ordinary grid. Up returns to the original row
+when collapsed. Numbers and Space select from the active row. The AI badge also
+switches rows without taking focus from the host. The existing expand button opens
+the active ranking; Return keeps the exact remaining spelling.
+
+**Settings → AI Ranking Preview** controls the comparison and AI weight (0–2,
+default 1). The comparison is initially enabled for this development preview.
+Both rankings retain the same language-aware identities, literal fallback,
+personal pins, remembered exact-spelling corrections and presentation limits.
+AI scores at most the first 32 eligible complete engine candidates; prefixes,
+personal/verbatim paths, completions and punctuation are not scored.
+Prefix/whole model calibration remains separate work. Within the retained personal
+pin/correction priorities, scored choices sort by `weight × logP(text) /
+(UnicodeScalarCount(text) × ln(2))`, descending. Unequal AI scores cannot be
+overridden by engine scores. Equal scores keep engine order; unscored choices
+follow in their original relative order, and exact literal input stays last.
+The score is unclamped so low-likelihood alternatives remain distinguishable.
+Positive weights scale scores without changing their order; weight 0 restores the
+original ordering. No language receives a reserved slot. This text-only ranking
+and its bounded candidate pool are not calibrated conversion probabilities or
+evidence of improved quality.
+
+Original candidates appear before AI finishes. Loading, unavailable-model and
+inference-failure states are visible, without substituting fake AI results.
+Scoring runs locally in a Core ML actor; edits, cancellation, settings and client
+changes reject obsolete results. Selecting words never waits for neural scoring.
+Secure input suppresses comparison. The model does not read history, previous
+commits, documents or the clipboard, save inputs, train itself or contact a server.
+Automatic prefix confirmation continues to use the original decoder evidence.
+
+Model artifacts stay local and ignored. Normal builds do not download or train
+models; without staged artifacts ordinary input still works and the AI row reports
+unavailability. See [explicit conversion and staging](llm/reranker_small/README.md#native-app-comparison)
+and [validation/manual checks](docs/TESTING.md#small-reranker-comparison).
 
 ## Interface language
 
@@ -262,13 +303,13 @@ The Swift package and Xcode app compile the same core source files. There is no 
 
 ## Model training experiments
 
-The [model workspace](llm/README.md) separates `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The [small reranker](llm/reranker_small/README.md) supports training a 7.4M character LM from scratch, whole-document preparation, candidate scoring/evaluation and inference export. Its [constructed Chinese challenge](llm/reranker_small/benchmarks/README.md) contains 1,230 cases from 337 anchors, with real decoder pools and separate development/test splits. Independent annotation review and native integration remain pending; the large reranker is planned. The existing conversion framework, data, configs, runs and reports are under `llm/pinyin_to_text/`; the shared Python environment stays at `llm/.venv`.
+The [model workspace](llm/README.md) separates `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The [small reranker](llm/reranker_small/README.md) supports training a 7.4M character LM from scratch, whole-document preparation, candidate scoring/evaluation and inference export. Its [constructed Chinese challenge](llm/reranker_small/benchmarks/README.md) contains 1,230 cases from 337 anchors, with real decoder pools and separate development/test splits. Independent annotation review remains pending; local Core ML comparison is implemented; the large reranker is planned. The existing conversion framework, data, configs, runs and reports are under `llm/pinyin_to_text/`; the shared Python environment stays at `llm/.venv`.
 
 The independent [Chinese corpus workspace](corpus/README.md) prepares pinned public conversation, web, Wikipedia and technical-documentation text, with per-source licenses, line origins, deduplication and integrity reports. Chinese Wikipedia acquisition resolves the latest complete official article dump and verifies its official checksum before recording the pin. It also exports explicit character/word readings from the maintained vocabulary. Raw and prepared data stay local and outside Git. This is a separate text-preparation stage; it does not label sentence Pinyin, change the existing training defaults or integrate a model into SI.
 
 Git retains the application dictionary CSV sources, manifests, preparation/training code, configs, source pins, attribution, authored training CSVs and frozen regression fixtures. Generated databases, downloads, generated corpus tables, prepared datasets, Python environments and training outputs are ignored. See [the data policy](CONTRIBUTING.md#local-corpus-and-model-artifacts) and the corpus/model guides to recreate local artifacts; removing them from tracking preserves local copies and does not rewrite earlier Git history.
 
-[The independent `llm/` framework](llm/README.md) now defaults to a randomly initialized 19.7M encoder-decoder for Pinyin-to-Han characters and short words. Its [focused static CSVs](llm/pinyin_to_text/data/pinyin-csv/README.md) use explicit `train/`, `validation/` and `test/` directories with `characters.csv` and `words.csv` groups. Preparation freezes maintained rows and source hashes without generating sentences, Pinyin, typos or random splits. This experiment excludes sentence templates, English/mixed and typo sources; those earlier experiments remain available separately. Representative quality and native deployment remain unverified; no neural model is integrated into SI. Default model sources exclude live Personal Learning, personal phrases, Input History and retired archives. Explicitly volunteered history exports can separately become reviewed offline training observations through [the export workflow](docs/INPUT_HISTORY_EXPORT.md); no live collection or automatic training is connected.
+[The independent `llm/` framework](llm/README.md) now defaults to a randomly initialized 19.7M encoder-decoder for Pinyin-to-Han characters and short words. Its [focused static CSVs](llm/pinyin_to_text/data/pinyin-csv/README.md) use explicit `train/`, `validation/` and `test/` directories with `characters.csv` and `words.csv` groups. Preparation freezes maintained rows and source hashes without generating sentences, Pinyin, typos or random splits. This experiment excludes sentence templates, English/mixed and typo sources; those earlier experiments remain available separately. Representative converter quality and native converter deployment remain unverified; the separate small reranker can be staged for the experimental App comparison. Default model sources exclude live Personal Learning, personal phrases, Input History and retired archives. Explicitly volunteered history exports can separately become reviewed offline training observations through [the export workflow](docs/INPUT_HISTORY_EXPORT.md); no live collection or automatic training is connected.
 
 Each preset script performs one task: run `./llm/pinyin_to_text/scripts/setup.sh` for the environment, `./llm/pinyin_to_text/scripts/data.sh` for CSV preparation, `./llm/pinyin_to_text/scripts/run.sh` for small-model training on MPS, then separately run `validation.sh`, `test.sh`, `infer.sh` or `export.sh` as needed. Shared paths and parameters are in `llm/scripts/defaults.sh`; no stage launches the next one. The scripts use `llm/.venv` without activation and accept explicit argument overrides. Old environment overrides still take precedence; use a fresh terminal before using the new presets. Use `check.sh` and the tiny CPU `smoke.sh` for framework checks. See [the framework guide](llm/README.md) for preset locations and new-run/resume instructions.
 

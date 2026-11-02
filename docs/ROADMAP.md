@@ -83,7 +83,8 @@ Remote inference and keystroke telemetry are not part of the current design. Any
 ## Offline model experiments
 
 - [x] Independent 7.4M causal character-LM baseline with whole-document corpus preparation, train-only vocabulary, grouped splits, strict resume, held-out token-loss and fixed-pool candidate evaluation, plus inference-only export.
-- [ ] Formal small-reranker training, independent ranking-quality evidence, hard-negative fine-tuning, quantization and native integration.
+- [x] Local 30,000-step small checkpoint and explicit FP32 Core ML conversion with original/AI two-row candidate comparison.
+- [ ] Independent ranking-quality evidence, hard-negative fine-tuning, quantization and native host/VoiceOver verification for small-model comparison.
 - [x] Independent from-scratch encoder-decoder framework with training/resume, train-only tokenizer, evaluation/comparison and inference export; 19.7M Pinyin character/word defaults with the earlier 0.403B experiment retained separately.
 - [x] Maintained static CSV groups under explicit train/validation/test directories, source snapshots/checksums, duplicate/leakage validation and no dynamic generation.
 - [x] Tiny CPU workflow and regression coverage, including learned conversion, exact resume, MPS numerical masks and nonzero-dropout checkpoint RNG/gradient checks; bounded 19.7M memorization check.

@@ -5,6 +5,22 @@ import SICore
 
 @MainActor
 struct LanguageSettingsTests {
+    @Test func aiComparisonChangesInvalidatePendingResultsWithoutEnablingRecording() throws {
+        let name = "SI.AIComparisonTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = LanguageSettings(defaults: defaults)
+        #expect(settings.aiComparisonEnabled && settings.aiWeight == 1)
+        let generation = settings.configurationGeneration
+        settings.aiWeight = 0.4
+        settings.aiComparisonEnabled = false
+        #expect(settings.configurationGeneration == generation + 2)
+        let restored = LanguageSettings(defaults: defaults)
+        #expect(!restored.aiComparisonEnabled && restored.aiWeight == 0.4)
+        #expect(restored.englishEnabled && restored.chineseEnabled)
+        #expect(!defaults.bool(forKey: "applicationMemory.vocabularyEnabled"))
+        #expect(!defaults.bool(forKey: "inputHistory.enabled"))
+    }
     @Test func directInputIsOptInPerApplicationAndSurvivesRestart() throws {
         let name = "SI.DirectInputSettingsTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))

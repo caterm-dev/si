@@ -3,8 +3,8 @@
 An offline **7,419,392-parameter causal character language model**, initialized
 from scratch. It learns next-token prediction on public text, then scores exact
 candidate strings supplied by a decoder. Decoder-generated hard-negative/listwise
-fine-tuning, quantization, native inference and keystroke scheduling remain future
-work. The separate [Pinyin-to-text model](../pinyin_to_text/README.md) generates
+fine-tuning and quantization remain future work. An experimental Core ML
+comparison and bounded native scheduling are implemented separately below. The separate [Pinyin-to-text model](../pinyin_to_text/README.md) generates
 conversions; this model only scores supplied text.
 
 ## Terminal quick start
@@ -167,7 +167,7 @@ retained as a separate final literal choice; empty input yields no choices.
 The initial scoring pool must already contain complete aligned Chinese candidates
 from a decoder. Pinyin validation, prefix/whole comparison, mixed-language score
 calibration and integration with SI dictionary scores remain separate work.
-No app code loads the model yet.
+The native comparison below can load an explicitly converted local model; this offline benchmark protocol remains separate from the independent UI ranking.
 
 Benchmark JSONL contains `id`, optional `context`, `candidates`, and `references`
 (accepted exact strings), with a separate origin/license/revision declaration.
@@ -183,3 +183,53 @@ attribution, without optimizer/RNG. Loading needs no original corpus. Export
 requires the prepared dataset to verify provenance and assigns no blanket model
 weight license. Data, runs, reports, exports and weights are ignored by Git.
 The [large reranker](../reranker_large/README.md) remains a separate planned model.
+
+## Native app comparison
+
+The app can compare unchanged engine ranking with local AI ranking in two collapsed
+rows. This first version uses **empty preceding context**, the same lossless scalar
+and byte tokenizer, FP32 Core ML CPU inference, and batches of four. It scores at
+most 32 eligible complete candidates. Prefixes remain unscored;
+prefix/whole model calibration remains separate work.
+The AI row sorts by weighted mean log probability in bits per Unicode scalar,
+independently of engine scores. Personal pins/corrections retain priority; model ties
+use original order, and unscored paths follow in original relative order. Scores
+are unclamped. Settings weight defaults to 1 (range 0–2); positive values only scale
+scores, while 0 restores original ordering. The raw `rank.sh` command still returns
+summed log probabilities, rather than normalized UI scores.
+The heuristic, pool limit and empty context differ from the constructed benchmark;
+that benchmark's accuracy cannot be claimed as App quality.
+
+Install conversion-only tooling into an ignored directory, preserving the pinned
+training environment. From the repository root:
+
+```sh
+./llm/.venv/bin/python -m pip install --no-deps --target .build/coreml-tools \
+  -r llm/reranker_small/requirements-coreml.txt
+./llm/reranker_small/scripts/stage_app.sh
+./scripts/test.sh
+./scripts/build.sh
+```
+
+Staging uses `best.pt` by default and accepts the existing checkpoint/data environment
+overrides or explicit CLI flags. It verifies dataset/source provenance, converts
+with coremltools 8.3.0 and macOS 14 deployment, validates short/full-context/byte-fallback
+predictions against Python, compiles with `xcrun coremlcompiler`, then copies artifacts
+to ignored `mac/SI/Core/Resources/Reranker/`. It refuses an existing staged model;
+use `--output NEW_DIRECTORY` to inspect another conversion before explicitly replacing
+local staged artifacts. The stage reads only public model/corpus artifacts, never
+live personal data. `runtime.json` records checkpoint/tokenizer identity and numerical
+validation; the manifest and copied notices retain source attribution without assigning
+a blanket license to model weights. Review redistribution terms before publishing.
+
+Coremltools warns that Torch 2.6.0 is newer than its tested 2.5.0 converter support;
+conversion is therefore accepted only after numerical validation. FP32 Core ML and
+PyTorch need not be bitwise equal. The exporter checks `atol=0.005, rtol=0.0001`,
+including the 256-token boundary, and native tests compare short reference scores.
+Normal builds require no Python or model download. A missing model displays an
+unavailable state and retains base input. Generated model artifacts are deliberately
+not in Git; a fresh checkout must stage them explicitly to exercise AI.
+
+The comparison does not collect history or train online. Native tests cover real
+engine-to-model scoring, two-row rendering and exact commits; live InputMethodKit,
+host-focus and VoiceOver checks remain separate in `docs/TESTING.md`.

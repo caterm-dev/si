@@ -4,10 +4,14 @@ SI processes input locally with no analytics, raw-keystroke logger, or cloud dep
 
 ## Model experiments
 
-The input method currently uses local dictionaries without a language model. The
-separate `llm/` experiments use explicit offline training data and are not connected
-to typed text, personal phrases or Personal Learning. Future model integration must
-preserve the input method's privacy and retention contract.
+The experimental AI ranking comparison can load an explicitly staged local small
+Core ML model. It scores a bounded set of current candidate strings in memory,
+excluding personal phrases and verbatim paths. It does not read Input History,
+previous submitted text, documents or the clipboard, retain model inputs, update
+weights or transmit input. Secure input suppresses this comparison. The model is
+trained separately on explicit offline data; enabling comparison does not enable
+Personal Learning, history recording or training. The large/conversion model
+experiments remain separate from typing.
 
 ## Software update requests
 

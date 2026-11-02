@@ -982,3 +982,87 @@ and ranking attribution checks pass, and the English manifest records 65,161
 effective entries. Source/snapshot/license/import-report files were checked for
 accidental retention of the configured Token; none was found. `.env` remains
 Git-ignored. No input method installation or native host verification was performed.
+
+
+## Small-reranker comparison
+
+Stage the trained public checkpoint explicitly as documented in
+[the model guide](../llm/reranker_small/README.md#native-app-comparison).
+Normal builds do not install Python dependencies or download/train/stage models.
+The staged runtime and compiled model must be present under the built App's
+`Contents/Resources/Reranker/`. A clean checkout without weights reports AI
+unavailability while retaining original input behavior.
+
+Automated verification on November 1, 2026 used the local 30,000-step checkpoint
+`41692f0980708e6f0e16bd54e3d38c59a0475be8a3310500a977474625e1eeb4`.
+FP32 conversion was compared with PyTorch for 1-token, varied-length Unicode/byte
+fallback and 256-token inputs using `atol=0.005, rtol=0.0001`; the maximum absolute
+sum-score difference was 0.008423 on the long-input fixture. Native short-score
+and partial-batch comparisons use 0.005 absolute tolerance. These are numerical
+checks, not representative ranking-quality or host-latency evidence.
+
+Focused coverage includes unequal AI evidence winning regardless of engine-score
+margins, equal AI evidence retaining engine order, unclamped low-likelihood ordering,
+positive weight scaling, zero weight restoring the base row, unscored-tail order, fixed
+personal/correction priority, excluded personal/verbatim/prefix paths, exact literal
+bytes, scalar tokenization, overlong rejection, cancellation/latest-only scheduling,
+row-local confirmation reasons, and distinct loading/failure states. Native tests
+also connect the real shared decoder, staged model, two-row AppKit rendering and
+exact candidate commits for synthetic input. Screenshots cover light and dark
+appearance using the same views compiled into the App:
+
+```sh
+SI_AI_SNAPSHOT_PATH=/tmp/si-ai-comparison \
+SI_AI_ENGINE_SNAPSHOT_PATH=/tmp/si-ai-engine \
+SI_AI_TIMING_PATH=/tmp/si-ai-timing.json \
+  ./scripts/test.sh --filter CandidateComparisonTests
+```
+
+The optional numeric timing report includes the first cold call and measures
+synthetic native scoring only. It is not host-app latency. Native model tests are
+explicitly skipped when staged artifacts are absent; inspect skip counts before
+claiming model inference passed.
+
+The final local run passed all 437 Swift tests (including the native model tests,
+with no skipped native tests), all 24 small-model Python tests, and
+`./scripts/build.sh`. The 20 staged model/provenance files were hash-checked against
+the built Debug App bundle. Light/dark images from actual decoder/model outputs
+were visually inspected. No input method was installed, replaced or launched for
+these checks; no enabled input source or user learning/history settings were changed.
+
+On November 2, 2026, the comparison row changed from additive fusion to independent
+AI ordering. Regression fixtures give the lower-engine-score choice slightly
+better AI evidence, check low-likelihood scores below the former clamp, preserve
+tie/unscored ordering and verify both rows' selection identities. All 437 Swift
+tests passed, including the staged native model tests without skips, and the Debug
+app built successfully. Synthetic AppKit light/dark renders were inspected. No
+input method was installed or replaced, and live host/VoiceOver checks were not run.
+
+Live checks remain **unverified** until performed in an installed input method:
+
+1. In TextEdit and a browser/editor, type synthetic `womenkaihui`, `woxianganzhao`,
+   `cichuxiande` and `ling`. Confirm original results remain on top and real AI-ranked
+   candidates/scores appear below. Check that scored ordinary choices descend by AI
+   score and unscored prefixes follow in base order. Verify exact literal input
+   remains available on later pages. No language gets a protected slot.
+2. Use Down to select the ready AI row, number/Space to confirm, Up to return to
+   original, and Down again or the expand button to open the active grid. Click
+   both rows and the AI badge. Confirm the host retains focus, labels/scores never
+   commit, first-choice learning is neutral for the displayed ranking, and choosing
+   a prefix retains only its exact source remainder without an extra space.
+3. Type/edit/cancel rapidly, use shortcuts and switch hosts during cold/warm
+   scoring. Old results must not restore a cancelled composition or replace a new
+   client's candidates. Navigate original choices while scoring; their selection
+   must stay fixed when the lower row arrives. Return keeps exact remaining input.
+4. Disable comparison or change its weight while work is pending. Subsequent
+   events must use the current configuration. Disable all languages and verify
+   exact literal input remains. Secure input and direct-input apps must suppress
+   neural comparison. History/learning consent must not change.
+5. Check missing-model/error state in a separate build without staged artifacts.
+   The base row remains usable; the lower row must not claim AI results. Do not
+   remove model files from an active installed input method.
+6. Check VoiceOver labels/actions, keyboard navigation, light/dark/high-contrast
+   appearance, narrow displays and caret placement above/below screen edges.
+
+Do not run the built and installed SI copies together. Ordinary test/build commands
+and in-process rendered views do not establish InputMethodKit host compatibility.
