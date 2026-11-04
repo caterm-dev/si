@@ -10,6 +10,7 @@ enum CandidateScoring {
     // Retained insertion priors; these are not corpus probabilities.
     private static let wordInsertionCost = 20.0
     private static let characterInsertionCost = 2.0
+    private static let englishWordInsertionCost = 3.0
     /// Amplify dictionary-frequency differences relative to insertion and spelling costs.
     /// Known synthetic fixtures favor this over 1.10; it is not a probability estimate.
     private static let frequencyWeight = 1.05
@@ -34,6 +35,11 @@ enum CandidateScoring {
     static func wordCost(weight: Int64, isChineseCharacter: Bool = false) -> Double {
         (wordInsertionCost - frequencyWeight * log(Double(max(1, weight)))
             + (isChineseCharacter ? characterInsertionCost : 0)) / log(2.0)
+    }
+
+    /// Charge each English dictionary token, shared by lookup and sentence edges.
+    static func englishWordCost(weight: Int64) -> Double {
+        wordCost(weight: weight) + englishWordInsertionCost / log(2.0)
     }
 
     static func languageCost(previous: Int, next: Int) -> Double {

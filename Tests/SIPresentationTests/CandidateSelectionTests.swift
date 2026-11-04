@@ -51,7 +51,8 @@ struct CandidateSelectionTests {
             $0.language == .simplifiedChinese && $0.text.count == 1 && support.canDisplay($0.text)
         }
         #expect(displayableCharacters.allSatisfy { selection.candidates.contains($0) })
-        #expect(selection.candidates.contains { $0.language == .english })
+        // English completions remain in full results; no language reserves a window slot.
+        #expect(values.contains { $0.language == .english })
         #expect(selection.candidates.contains { $0.isLiteral && $0.text == "ling" })
         selection.setExpanded(true)
         selection.move(by: zero)

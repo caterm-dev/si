@@ -1,5 +1,44 @@
 # Testing SI
 
+## Restored English article
+
+On November 4, 2026, `english/common.csv` restores the indefinite article `a`
+at the standard local editorial weight 10, independently of upstream conversion.
+`EnglishArticleTests` covers exact lowercase/uppercase lookup, continuous and
+apostrophe-delimited `send a english` segmentation, enabled-language filtering
+and exact literal fallback. Offline inspection with empty personal state confirms
+that `sendaenglish` now generates `send a english`; it ranks 33rd in the full
+merged list and remains outside the current candidate-window shortlist.
+
+All 434 Swift tests and the Debug app build passed. Both CSV dictionary checks
+and the pinned MSIME context check passed. Of 42 vocabulary-tool tests, 41 passed;
+the existing domain-count mismatch remains (metadata 1,209 versus 1,199 rows).
+Logs are under `.build/english-article-*`. No installation or live host verification
+was performed. On an intentionally installed build, check synthetic `a`, `A`,
+`sendaenglish` and `send'a'english` in TextEdit and a browser, including selection,
+Return, Escape, shortcuts, focus changes and disabled English.
+
+## English dictionary-token cost
+
+On November 4, 2026, each English dictionary token gained an additional
+three-nat cost; Chinese single-character tokens retain their two-nat cost.
+The addition is per lexical token, including single-letter words, exact lookup,
+completions, consumed prefixes and English/mixed sentence edges. Personal-code
+priors and unrecognized verbatim costs are unchanged. With empty personal state,
+both preview and full search place `么` above English `me`, and `麼` above
+`men` for input `me`. Bilingual `man` now leads with `慢`, while the exact English
+word remains available. Lower-scoring English completions can fall outside the
+window's ordinary budget; the full engine retains them without reserving slots.
+
+All 432 Swift tests passed (303 core, 91 presentation, 22 settings, 13 storage
+and three localization), and the Debug app built successfully. SwiftPM and Xcode
+required normal compiler/cache access after the agent sandbox blocked manifest
+compilation and dependency resolution. Logs are under `.build/english-word-penalty-*`.
+No installation or live host verification was performed. On an intentionally
+installed build, check `me`, `man`, `iwanttobuild` and `woxiangyaodeploy` in TextEdit
+and a browser, including number/mouse selection, prefix remainders, Return,
+Escape, shortcuts, focus changes and enabled-language changes.
+
 ## Yuliao editorial weight adjustment
 
 On November 4, 2026, `语料` (`yu'liao`) increased from 1,953 to 2,500.

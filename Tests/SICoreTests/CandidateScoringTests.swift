@@ -5,10 +5,38 @@ import Testing
 struct CandidateScoringTests {
     private let languages = Set(InputLanguage.allCases)
 
+    @Test func meChineseExactMatchesOutrankEnglishWordsAndCompletionsInBothStages() throws {
+        let engine = CandidateEngine()
+        for values in [engine.candidates(for: "me", languages: languages),
+                       engine.previewCandidates(for: "me", languages: languages, learning: LearningProfile(),
+                                                dictionary: UserDictionary(), now: .now, context: nil)] {
+            let simplified = try #require(values.firstIndex { $0.text == "么" && $0.language == .simplifiedChinese })
+            let english = try #require(values.firstIndex { $0.text == "me" && $0.language == .english })
+            let traditional = try #require(values.firstIndex { $0.text == "麼" && $0.language == .simplifiedChinese })
+            let completion = try #require(values.firstIndex { $0.text == "men" && $0.language == .english })
+            #expect(simplified < english)
+            #expect(traditional < completion)
+            #expect(values[completion].hasCompletion)
+            #expect(values.last?.isLiteral == true && values.last?.text == "me")
+            #expect(Set(values.map(\.id)).count == values.count)
+        }
+    }
+
+    @Test(arguments: ["a", "I", "me", "world"])
+    func englishDictionaryTokensPayOneNatMoreThanChineseCharacters(text: String) {
+        let weight: Int64 = 100_000
+        let row = DictionaryLexeme(text: text, reading: [text.lowercased()], weight: weight, ordinal: 0)
+        let english = EnglishLexicon.Entry(row, index: 0, totalWeight: Double(weight))
+        let chineseCharacter = CandidateScoring.wordCost(weight: weight, isChineseCharacter: true)
+        let chineseWord = CandidateScoring.wordCost(weight: weight)
+        #expect(abs(english.lexicalCost - chineseCharacter - 1 / log(2.0)) < 1e-12)
+        #expect(abs(english.lexicalCost - chineseWord - 3 / log(2.0)) < 1e-12)
+    }
+
     @Test func exactShortSpellingsOutrankCompletionsInBothSearchStages() throws {
         let engine = CandidateEngine()
         for (input, expected, language) in [("ma", "吗", InputLanguage.simplifiedChinese),
-                                             ("ne", "呢", .simplifiedChinese), ("man", "man", .english)] {
+                                             ("ne", "呢", .simplifiedChinese), ("man", "慢", .simplifiedChinese)] {
             for values in [engine.candidates(for: input, languages: languages),
                            engine.previewCandidates(for: input, languages: languages, learning: LearningProfile(),
                                                     dictionary: UserDictionary(), now: .now, context: nil)] {
@@ -17,6 +45,9 @@ struct CandidateScoringTests {
                 #expect(values.first?.hasCompletion == false)
                 #expect(values.contains { $0.language == .english && $0.hasCompletion })
                 #expect(values.contains { $0.language == .simplifiedChinese && !$0.isMixed })
+                if input == "man" {
+                    #expect(values.contains { $0.text == "man" && $0.language == .english && !$0.hasCompletion })
+                }
                 #expect(values.last?.text == input && values.last?.isLiteral == true)
             }
         }

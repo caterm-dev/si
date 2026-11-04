@@ -1,6 +1,6 @@
 # English vocabulary maintenance
 
-The current [base.csv](../Data/Vocabulary/english/base.csv) is converted from the pinned Wanxiang `dicts/en.dict.yaml`, preserving upstream integer weights without wordfreq normalization. It contains 72,784 supported English forms; with the preserved categories, the packaged resource contains 74,340 entries. The [import guide](../Data/Vocabulary/Wanxiang/README.md) records revision, full CC BY 4.0 data licensing, source checksums, exact conversion rules, exclusions and update commands.
+The current [base.csv](../Data/Vocabulary/english/base.csv) is converted from the pinned Wanxiang `dicts/en.dict.yaml`, preserving upstream integer weights without wordfreq normalization. It contains 72,784 supported English forms; with the preserved categories, the packaged resource contains 74,341 entries. The [import guide](../Data/Vocabulary/Wanxiang/README.md) records revision, full CC BY 4.0 data licensing, source checksums, exact conversion rules, exclusions and update commands.
 
 The existing [movie.csv](../Data/Vocabulary/english/movie.csv) and [domain.csv](../Data/Vocabulary/english/domain.csv) retain text/readings with all weights set to 10. New local additions default to 10. Base owns overlapping weights and case-only spelling; other category entries remain available. Nonbase duplicates merge using maximum weight. The domain collection still contains 1,209 full hostnames and retains its independent Radar CC BY-NC 4.0 attribution. Neither categories nor their filenames introduce ranking bonuses or language modes.
 
@@ -22,6 +22,10 @@ Fetch is a separate explicit network operation. Conversion is offline and replac
 The shared resource unit is `si-wanxiang-weight-v1`, reference mass one, with unknown weight one. Base weights are upstream ranking values, not real occurrence counts or calibrated probabilities. The old retained-vocabulary normalization is no longer used. English casing and membership can change, including absent old forms; exact literal fallback remains available for every nonempty input.
 
 English uses dictionary weights, spelling costs and language-transition costs without model context corrections. Builds and tests require no model staging. The dictionary migration does not establish ranking-quality improvement or host compatibility.
+
+## Common English additions
+
+[common.csv](../Data/Vocabulary/english/common.csv) retains SI-authored coverage additions independently of upstream base conversion. It restores the indefinite article `a` with the standard local editorial weight 10 and GPLv3 provenance in `meta.json`. Exact lookup preserves `a`/`A`, and continuous English segmentation can produce `sendaenglish` → `send a english`. Availability in the full engine does not guarantee a position in the candidate window; existing score and shortlist rules still apply.
 
 ## Technology category
 
@@ -46,7 +50,7 @@ The initial category adds 13 outputs absent from the other English CSVs; its rem
 
 The sources overlap; the original bootstrap collection has 63,602 case-insensitively unique forms. That count is not a measured coverage score. The former bootstrap included an explicit `Gmail` correction. The new base follows Wanxiang spelling (currently `gmail`); it does not retain spelling corrections absent from that source.
 
-SCOWL is pinned to `1e5b7d3a72f47a71da5d28686c1dd4b397178485`, CSpell to `5f051955183427037faba538a3e102a94951d003` and Rime Ice to `da1fbe602e38f26db846fa10120ee64c2b0324c0`. SCOWL's bootstrap used size 50, American spelling A, variant level 1, default category/POS class and no abbreviations. The external sources retained only ASCII alphabetic forms of 2–64 letters; SI's original `a` and `I` remain. Unsupported names were rejected as complete rows rather than transliterated or split into unrelated words. The inline bootstrap metadata preserves original source hashes, filtering and duplicate/casing policy.
+SCOWL is pinned to `1e5b7d3a72f47a71da5d28686c1dd4b397178485`, CSpell to `5f051955183427037faba538a3e102a94951d003` and Rime Ice to `da1fbe602e38f26db846fa10120ee64c2b0324c0`. SCOWL's bootstrap used size 50, American spelling A, variant level 1, default category/POS class and no abbreviations. The external sources retained only ASCII alphabetic forms of 2–64 letters; SI's original bootstrap also included `a` and `I`. The current base retains `I`, while `common.csv` restores `a`. Unsupported names were rejected as complete rows rather than transliterated or split into unrelated words. The inline bootstrap metadata preserves original source hashes, filtering and duplicate/casing policy.
 
 Full redistribution notices are retained in [Data/English/licenses](../Data/English/licenses/), [EnglishVocabularyNotices.txt](../mac/SI/Resources/EnglishVocabularyNotices.txt) and [RankingNotices.txt](../mac/SI/Resources/RankingNotices.txt). SCOWL permits redistribution with notices, CSpell uses MIT, Rime Ice declares GPL-3.0-only, SI additions use GPLv3, and wordfreq-derived data retains CC-BY-SA-4.0 attribution. No installed system dictionary is copied.
 

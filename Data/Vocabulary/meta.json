@@ -615,6 +615,25 @@
         "english_reading": "Lowercase ASCII letters, omit spaces/punctuation, spell digits individually from zero through nine.",
         "scope": "AI and machine learning, software development, hardware, networking, security and cloud computing."
       }
+    },
+    {
+      "id": "english-common",
+      "languages": [
+        "english"
+      ],
+      "reviewed_on": "2026-11-04",
+      "entries": 1,
+      "catalog": "Data/Vocabulary/english/common.csv",
+      "catalog_sha256": "85f184855c426a5998aebec112e1ea9ffb7660cb36996490433d2998c169e0d1",
+      "notes": "docs/ENGLISH_VOCABULARY.md",
+      "metadata": {
+        "origin": "SI-authored common English coverage additions; no third-party wordlist import.",
+        "license": "GPL-3.0-only for SI-authored additions.",
+        "new_entry_weight": 10,
+        "existing_entry_policy": "Base identities retain their weights and canonical casing; category membership adds no ranking bonus.",
+        "english_reading": "Lowercase ASCII letters.",
+        "scope": "The indefinite article a, absent from the pinned English base."
+      }
     }
   ],
   "domain_collection": {

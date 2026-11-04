@@ -65,7 +65,7 @@ enum EnglishLexicon {
             id = index + 1
             weight = row.weight
             probability = Double(max(1, row.weight)) / totalWeight
-            lexicalCost = CandidateScoring.wordCost(weight: row.weight)
+            lexicalCost = CandidateScoring.englishWordCost(weight: row.weight)
             capitalizedText = word.prefix(1).uppercased() + word.dropFirst()
             uppercaseText = word.uppercased()
         }

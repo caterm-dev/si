@@ -1,12 +1,14 @@
 # SI-maintained vocabulary
 
-These CSV files are the editable source of both runtime dictionaries. A pinned Wanxiang conversion supplies the two base files: 1,547,554 Chinese text/toneless-reading pairs from `zi`, `jichu` and `duoyin`, and 72,784 supported English forms from `en`. Ten other normal Chinese source dictionaries retain separate categories named after the upstream files (602,516 rows). The merged resources contain 2,141,202 Chinese and 74,340 English entries. See [the source lock, conversion rules and update workflow](Wanxiang/README.md).
+These CSV files are the editable source of both runtime dictionaries. A pinned Wanxiang conversion supplies the two base files: 1,547,554 Chinese text/toneless-reading pairs from `zi`, `jichu` and `duoyin`, and 72,784 supported English forms from `en`. Ten other normal Chinese source dictionaries retain separate categories named after the upstream files (602,516 rows). The merged resources contain 2,141,202 Chinese and 74,341 English entries. See [the source lock, conversion rules and update workflow](Wanxiang/README.md).
 
 The existing Chinese geography, organizations, technology, science, medicine, movie and game category files, and English movie/domain files, keep their text/readings; all their weights are now 10. Base identities own their upstream weights and English casing; imported Wanxiang categories then take precedence over legacy copies, with other category identities retained as supplements. Category names do not create input-language modes, Settings switches or ranking bonuses. Retained [domains](DOMAINS.md) and [movies](MOVIES.md) keep their own provenance and data terms.
 
 The SI-authored [English technology category](english/technology.csv) adds a maintenance group of 164 common terms, including `AI`, `LLM`, `API`, `GPU` and `Core ML`, at editorial weight 10. Overlapping base entries retain their weights and casing. See [technology maintenance](../../docs/ENGLISH_VOCABULARY.md#technology-category).
 
 `meta.json` records current source pins and historical bootstrap attribution outside the rows. The new source and conversion report are under `Wanxiang/`; old MSIME, SCOWL, CSpell, Rime Ice and wordfreq records remain historical notices for retained category data and provenance. Normal compilation uses CSV only, without a download or upstream conversion.
+
+The SI-authored [common English additions](english/common.csv) restore the article `a` at the default editorial weight 10, independently of upstream base conversion. See [common-word maintenance](../../docs/ENGLISH_VOCABULARY.md#common-english-additions).
 
 ## CSV contract
 

@@ -14,7 +14,7 @@ struct EnglishVocabularyTests {
     private static let weights = Dictionary(uniqueKeysWithValues: rows.map { ($0.text, Double(max(1, $0.weight))) })
 
     private func referenceScore(_ word: String, input: String) -> Double {
-        let lexicalScore = (1.05 * log(Self.weights[word]!) - 20) / log(2.0) - 1
+        let lexicalScore = (1.05 * log(Self.weights[word]!) - 23) / log(2.0) - 1
         let length = Self.keys[word]!.utf8.count
         let missing = length - input.lowercased().utf8.count
         let normalizer = 16 + (1 - exp2(-Double(length - 1)))
