@@ -1,0 +1,639 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-11-04",
+  "scope": "All lines of the explicitly selected prepared bundles; not complete raw archives. Counts reflect deduplicated Han fragments, not population frequencies.",
+  "total_lines": 3540828,
+  "total_characters": 34445051,
+  "total_tokens": 20347213,
+  "sources": [
+    {
+      "id": "lccc",
+      "lines": 1160555,
+      "characters": 9999997,
+      "tokens": 6826331,
+      "types": 118667,
+      "source": {
+        "id": "lccc",
+        "name": "LCCC-base training dialogues",
+        "kind": "lccc",
+        "repository": "https://huggingface.co/datasets/silver/lccc",
+        "revision": "5bd582fa28cd7143f2f9c852e08e23089d677c44",
+        "path": "lccc_base_train.jsonl.gz",
+        "size": 369854377,
+        "sha256": "2162e0ed923fba62329cabf7e1493fbe59248afc94a62508e4abdea61e624627",
+        "license": "MIT",
+        "share_alike": false,
+        "homepage": "https://github.com/thu-coai/CDial-GPT",
+        "license_url": "https://raw.githubusercontent.com/thu-coai/CDial-GPT/81064865221d3503251d633f3d0b651004c938a6/LICENSE",
+        "url": "https://huggingface.co/datasets/silver/lccc/resolve/5bd582fa28cd7143f2f9c852e08e23089d677c44/lccc_base_train.jsonl.gz",
+        "dataset_card": {
+          "path": "licenses/lccc-DATASET_CARD.md",
+          "sha256": "51d1d953671afc7fd5c0294518372839581c40946f275cabd79e52b3e2ed616e"
+        },
+        "license_document": {
+          "path": "licenses/lccc-LICENSE.txt",
+          "sha256": "03da0dd5f60f263f146b6e9c8922ddbce716ffb1ddb8cbceacb0a76f1940b366"
+        }
+      },
+      "input_files": {
+        "text.txt": {
+          "sha256": "b1e4823728221ac138b6b04ec4da5b608499bad3cd0fe68ff726d60d4548702a",
+          "bytes": 31160556
+        },
+        "origins.jsonl": {
+          "sha256": "b478eed066b51e290b8e4a55656598260ab0c59911d14adbc1cd7fe4d95f9440",
+          "bytes": 22729550
+        }
+      }
+    },
+    {
+      "id": "mc4",
+      "lines": 1010816,
+      "characters": 9999980,
+      "tokens": 5506326,
+      "types": 292393,
+      "source": {
+        "id": "mc4",
+        "name": "mC4 Chinese training shard 0 of 1024",
+        "kind": "mc4",
+        "repository": "https://huggingface.co/datasets/allenai/c4",
+        "revision": "1588ec454efa1a09f29cd18ddd04fe05fc8653a2",
+        "path": "multilingual/c4-zh.tfrecord-00000-of-01024.json.gz",
+        "size": 70106866,
+        "sha256": "b58e2bfa1b5319623877a479525affdab7e0e01c26216a7bc2f6c02ec2cca027",
+        "license": "ODC-BY-1.0",
+        "share_alike": false,
+        "homepage": "https://huggingface.co/datasets/allenai/c4",
+        "license_url": "https://opendatacommons.org/licenses/by/1.0/index.html",
+        "url": "https://huggingface.co/datasets/allenai/c4/resolve/1588ec454efa1a09f29cd18ddd04fe05fc8653a2/multilingual/c4-zh.tfrecord-00000-of-01024.json.gz",
+        "dataset_card": {
+          "path": "licenses/mc4-DATASET_CARD.md",
+          "sha256": "bfa4b9d8af6f9d2955d39b7cb617d580763aad7fb9024e425be60738b69ea140"
+        },
+        "license_document": {
+          "path": "licenses/mc4-LICENSE.txt",
+          "sha256": "d19b417c9ae059c2ed8c5a97f1e87b59574e0fe478191cc8544d5b13f4737c3b"
+        }
+      },
+      "input_files": {
+        "text.txt": {
+          "sha256": "735cc9b862a5aac898f1951aa8af1e83c21ddfc5ac1e1231dca916c61c3e3e5c",
+          "bytes": 31015921
+        },
+        "origins.jsonl": {
+          "sha256": "ce55c03778dac81149e833f5613392cb94029559aaaa47e18f777bfe11de8440",
+          "bytes": 11657878
+        }
+      }
+    },
+    {
+      "id": "kubernetes",
+      "lines": 136685,
+      "characters": 1369839,
+      "tokens": 811541,
+      "types": 10059,
+      "source": {
+        "id": "kubernetes",
+        "name": "Kubernetes Chinese documentation",
+        "kind": "markdown",
+        "repository": "https://github.com/kubernetes/website",
+        "revision": "43374c571c6f1c7b0f23daffb16e401232ea7bf3",
+        "prefix": "content/zh-cn/",
+        "license": "CC-BY-4.0",
+        "share_alike": false,
+        "path": "source.tar.gz",
+        "url": "https://codeload.github.com/kubernetes/website/tar.gz/43374c571c6f1c7b0f23daffb16e401232ea7bf3",
+        "license_url": "https://raw.githubusercontent.com/kubernetes/website/43374c571c6f1c7b0f23daffb16e401232ea7bf3/LICENSE",
+        "sha256": "215ac511de285ddcd4ffd4dedcce7ca1984ffc6897e1a3dfafb36997ced65838",
+        "size": 340919606,
+        "license_document": {
+          "path": "licenses/kubernetes-LICENSE.txt",
+          "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+        }
+      },
+      "input_files": {
+        "text.txt": {
+          "sha256": "fdc5b40b0d55313350e8f76b523c62d6ea08cde84b595f30d6fea5fbcf03ce1c",
+          "bytes": 4246202
+        },
+        "origins.jsonl": {
+          "sha256": "f14387377a30f5de6a73b7508fbd4d0e5b093e10b781fd9e0f101f6b8668dc70",
+          "bytes": 9494058
+        }
+      }
+    },
+    {
+      "id": "tensorflow",
+      "lines": 25777,
+      "characters": 263275,
+      "tokens": 154627,
+      "types": 4691,
+      "source": {
+        "id": "tensorflow",
+        "name": "TensorFlow Chinese documentation",
+        "kind": "markdown",
+        "repository": "https://github.com/tensorflow/docs-l10n",
+        "revision": "7cb584af651df3863a3bebc93674163f8dc6db7b",
+        "prefix": "site/zh-cn/",
+        "license": "Apache-2.0",
+        "share_alike": false,
+        "path": "source.tar.gz",
+        "url": "https://codeload.github.com/tensorflow/docs-l10n/tar.gz/7cb584af651df3863a3bebc93674163f8dc6db7b",
+        "license_url": "https://raw.githubusercontent.com/tensorflow/docs-l10n/7cb584af651df3863a3bebc93674163f8dc6db7b/LICENSE",
+        "sha256": "21d71dda5392f4223bd5d8aafc079c3f273ed057ab48f28403f0d6a745a42d8c",
+        "size": 182591930,
+        "license_document": {
+          "path": "licenses/tensorflow-LICENSE.txt",
+          "sha256": "9a97acbe7fac6fc504253eb3972f346f6f2f091563df496a66e81a0990398c59"
+        }
+      },
+      "input_files": {
+        "text.txt": {
+          "sha256": "f8d4439dcf07d20153f884270aec3c4b1dd46566ca2064bc6bd9e22b2ebc4277",
+          "bytes": 815602
+        },
+        "origins.jsonl": {
+          "sha256": "ae63ad6e0ab625e7f9fc952c07a8ed95c98217d18aee7802098c9699e9452970",
+          "bytes": 1143029
+        }
+      }
+    },
+    {
+      "id": "mdn",
+      "lines": 264582,
+      "characters": 2811965,
+      "tokens": 1679699,
+      "types": 14638,
+      "source": {
+        "id": "mdn",
+        "name": "MDN Simplified Chinese documentation",
+        "kind": "markdown",
+        "repository": "https://github.com/mdn/translated-content",
+        "revision": "033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+        "prefix": "files/zh-cn/",
+        "license": "CC-BY-SA-2.5",
+        "share_alike": true,
+        "path": "source.tar.gz",
+        "url": "https://codeload.github.com/mdn/translated-content/tar.gz/033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+        "license_url": "https://raw.githubusercontent.com/mdn/translated-content/033e5bf0a0ed3d4203313a5079bc95e054df7aa6/LICENSE.md",
+        "sha256": "c5128a8382a007a7a2840f94edeb03d2f47ce00fa8b9a5cd515643d3bcb81164",
+        "size": 60711236,
+        "license_document": {
+          "path": "licenses/mdn-LICENSE.txt",
+          "sha256": "57c0d7e200fadfdbadb04b9ab220297809ba7f2ac0adaa6707a07fba432b2ebe"
+        }
+      },
+      "input_files": {
+        "text.txt": {
+          "sha256": "67ce7a17b755e67ba4dbc732457223dea6de3e2666fb0dc93ce87ec2d783f00f",
+          "bytes": 8700477
+        },
+        "origins.jsonl": {
+          "sha256": "cb46d5de35ca02d5511d71209e594a9a333594a5ddcde9df1bcd0a9fd3c9e299",
+          "bytes": 17947522
+        }
+      }
+    },
+    {
+      "id": "wikipedia",
+      "lines": 942413,
+      "characters": 9999995,
+      "tokens": 5368689,
+      "types": 252322,
+      "source": {
+        "id": "wikipedia",
+        "name": "Chinese Wikipedia current article text",
+        "kind": "wikipedia",
+        "repository": "https://dumps.wikimedia.org/zhwiki/",
+        "revision": "20261001",
+        "path": "zhwiki-20261001-pages-articles.xml.bz2",
+        "url": "https://dumps.wikimedia.org/zhwiki/20261001/zhwiki-20261001-pages-articles.xml.bz2",
+        "size": 3430912430,
+        "sha1": "04d5eec3c249fdf8604b97f4435e019c60a4ec94",
+        "license": "CC-BY-SA-4.0",
+        "share_alike": true,
+        "license_document": {
+          "path": "licenses/wikipedia-LICENSE.txt",
+          "sha256": "28a9529c7d0bb4dc51f4bf5c116a3d16ef247a052f7591466768ddf563fd1cf5",
+          "url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt"
+        },
+        "additional_documents": [
+          {
+            "path": "licenses/wikipedia-DUMP_TERMS.html",
+            "sha256": "104242365285791c1d60d61b2ec8eac34e5c4b6a74ae5fdca9996a52f9cd3714",
+            "url": "https://dumps.wikimedia.org/legal.html"
+          },
+          {
+            "path": "metadata/wikipedia/20261001/dumpstatus.json",
+            "sha256": "f8e6648ce9750e72efdf59ceed794244ba129887c109ec8a754f057092e70a81",
+            "url": "https://dumps.wikimedia.org/zhwiki/20261001/dumpstatus.json"
+          },
+          {
+            "path": "metadata/wikipedia/20261001/sha1sums.txt",
+            "sha256": "533b4be44e26fdcc6d5a3e5d74879b74b11736ba804e9ca7cd9b0db62e29b7b6",
+            "url": "https://dumps.wikimedia.org/zhwiki/20261001/zhwiki-20261001-sha1sums.txt"
+          }
+        ],
+        "scope": "Complete pages-articles current-revision dump; cleaning selects namespace 0, excludes redirects.",
+        "download_url": "https://ftp.acc.umu.se/mirror/wikimedia.org/dumps/zhwiki/20261001/zhwiki-20261001-pages-articles.xml.bz2",
+        "sha256": "5db9052efe9ca97aa3da05ffe5b2f12c8ffe5e040f0a9d1ced82ec2fda5d7e2f"
+      },
+      "input_files": {
+        "text.txt": {
+          "sha256": "7b53d33eed4cdad54c7035988bdb519ebeb8b8c0566ce4b59e21b054ed502ed3",
+          "bytes": 30942850
+        },
+        "origins.jsonl": {
+          "sha256": "14d62e1cb5706da2f6003882240f74d6a3b9ef3ad14d9992faa27f40cef6339b",
+          "bytes": 61078932
+        }
+      }
+    }
+  ],
+  "segmentation_manifest_sha256": "ae5da324874b83207dec2e6fbff7190b5ab0ea3f2312f9a05fac9784b73d87a1",
+  "segmentation_configuration": {
+    "schema_version": 1,
+    "model": {
+      "schema_version": 1,
+      "url": "https://file.hankcs.com/hanlp/tok/coarse_electra_small_20220616_012050.zip",
+      "packages": {
+        "hanlp": "2.1.3",
+        "hanlp-common": "0.0.23",
+        "hanlp-trie": "0.0.5",
+        "torch": "2.6.0",
+        "transformers": "4.49.0",
+        "tokenizers": "0.21.0"
+      },
+      "files": {
+        "tok/coarse_electra_small_20220616_012050/config.json": "933aaa610b27db69bb5e0c56981119674da2703f796fa78cbf353fe00675b078",
+        "tok/coarse_electra_small_20220616_012050/model.pt": "920739793da0c607f1cd4bda6f61bcb36070ba6a5d115af2f2254656d8cff970",
+        "tok/coarse_electra_small_20220616_012050/test.log": "fd32c179147ad0a4ab4484b16f327ced7218ee61b07c742f0a0f13a5234e1e88",
+        "tok/coarse_electra_small_20220616_012050/train.log": "376f4d82d5cb301b9f1451eb7f6f9ad4bbce606d4ff43bb15efc08411ea1082f",
+        "tok/coarse_electra_small_20220616_012050/vocabs.json": "679e8142976e79225155c36b17920a9a353f21ac70c4b82c1880b71167818035",
+        "transformers/electra_zh_small_20210706_125427/._tokenizer_config.json": "576fe3271446394d57605b490f740aae4fc953ba4504ac8b346f7a23297cc012",
+        "transformers/electra_zh_small_20210706_125427/config.json": "baca81bc1b187003480015d15215c1a37c306bdf10faf00f53ac99c4de437562",
+        "transformers/electra_zh_small_20210706_125427/tokenizer_config.json": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "transformers/electra_zh_small_20210706_125427/vocab.txt": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c",
+        "utils/char_table_20210602_202632.json": "a7f1e97e037769f74ed7e232ea54dc06c6c6b815610b19b3b0ccadff094c2ccb"
+      },
+      "model_terms": "HanLP Chinese pretrained models: research/teaching only unless separately specified. Model remains a local analysis tool and is not bundled with SI."
+    },
+    "device": "mps",
+    "threads": 4,
+    "batch_size": 512,
+    "chunk_lines": 25000,
+    "script_sha256": "6cecd72471e1cabb933dc778dcadaaa001b2db196651a68dcd37d18be6c0b1ec",
+    "sources": [
+      {
+        "source": {
+          "id": "lccc",
+          "name": "LCCC-base training dialogues",
+          "kind": "lccc",
+          "repository": "https://huggingface.co/datasets/silver/lccc",
+          "revision": "5bd582fa28cd7143f2f9c852e08e23089d677c44",
+          "path": "lccc_base_train.jsonl.gz",
+          "size": 369854377,
+          "sha256": "2162e0ed923fba62329cabf7e1493fbe59248afc94a62508e4abdea61e624627",
+          "license": "MIT",
+          "share_alike": false,
+          "homepage": "https://github.com/thu-coai/CDial-GPT",
+          "license_url": "https://raw.githubusercontent.com/thu-coai/CDial-GPT/81064865221d3503251d633f3d0b651004c938a6/LICENSE",
+          "url": "https://huggingface.co/datasets/silver/lccc/resolve/5bd582fa28cd7143f2f9c852e08e23089d677c44/lccc_base_train.jsonl.gz",
+          "dataset_card": {
+            "path": "licenses/lccc-DATASET_CARD.md",
+            "sha256": "51d1d953671afc7fd5c0294518372839581c40946f275cabd79e52b3e2ed616e"
+          },
+          "license_document": {
+            "path": "licenses/lccc-LICENSE.txt",
+            "sha256": "03da0dd5f60f263f146b6e9c8922ddbce716ffb1ddb8cbceacb0a76f1940b366"
+          }
+        },
+        "counts": {
+          "records_read": 275731,
+          "documents_read": 1062449,
+          "segments_before_dedup": 1292302,
+          "lines": 1160555,
+          "characters": 9999997,
+          "duplicate_segments": 131746
+        },
+        "max_characters": 10000000,
+        "stopped_at_limit": true,
+        "scope": "pinned source subset; not the complete upstream corpus",
+        "files": {
+          "text.txt": {
+            "sha256": "b1e4823728221ac138b6b04ec4da5b608499bad3cd0fe68ff726d60d4548702a",
+            "bytes": 31160556
+          },
+          "origins.jsonl": {
+            "sha256": "b478eed066b51e290b8e4a55656598260ab0c59911d14adbc1cd7fe4d95f9440",
+            "bytes": 22729550
+          }
+        }
+      },
+      {
+        "source": {
+          "id": "mc4",
+          "name": "mC4 Chinese training shard 0 of 1024",
+          "kind": "mc4",
+          "repository": "https://huggingface.co/datasets/allenai/c4",
+          "revision": "1588ec454efa1a09f29cd18ddd04fe05fc8653a2",
+          "path": "multilingual/c4-zh.tfrecord-00000-of-01024.json.gz",
+          "size": 70106866,
+          "sha256": "b58e2bfa1b5319623877a479525affdab7e0e01c26216a7bc2f6c02ec2cca027",
+          "license": "ODC-BY-1.0",
+          "share_alike": false,
+          "homepage": "https://huggingface.co/datasets/allenai/c4",
+          "license_url": "https://opendatacommons.org/licenses/by/1.0/index.html",
+          "url": "https://huggingface.co/datasets/allenai/c4/resolve/1588ec454efa1a09f29cd18ddd04fe05fc8653a2/multilingual/c4-zh.tfrecord-00000-of-01024.json.gz",
+          "dataset_card": {
+            "path": "licenses/mc4-DATASET_CARD.md",
+            "sha256": "bfa4b9d8af6f9d2955d39b7cb617d580763aad7fb9024e425be60738b69ea140"
+          },
+          "license_document": {
+            "path": "licenses/mc4-LICENSE.txt",
+            "sha256": "d19b417c9ae059c2ed8c5a97f1e87b59574e0fe478191cc8544d5b13f4737c3b"
+          }
+        },
+        "counts": {
+          "records_read": 25512,
+          "nonprose_documents": 6213,
+          "documents_read": 19299,
+          "segments_before_dedup": 1719946,
+          "lines": 1010816,
+          "characters": 9999980,
+          "duplicate_segments": 709129
+        },
+        "max_characters": 10000000,
+        "stopped_at_limit": true,
+        "scope": "pinned source subset; not the complete upstream corpus",
+        "files": {
+          "text.txt": {
+            "sha256": "735cc9b862a5aac898f1951aa8af1e83c21ddfc5ac1e1231dca916c61c3e3e5c",
+            "bytes": 31015921
+          },
+          "origins.jsonl": {
+            "sha256": "ce55c03778dac81149e833f5613392cb94029559aaaa47e18f777bfe11de8440",
+            "bytes": 11657878
+          }
+        }
+      },
+      {
+        "source": {
+          "id": "kubernetes",
+          "name": "Kubernetes Chinese documentation",
+          "kind": "markdown",
+          "repository": "https://github.com/kubernetes/website",
+          "revision": "43374c571c6f1c7b0f23daffb16e401232ea7bf3",
+          "prefix": "content/zh-cn/",
+          "license": "CC-BY-4.0",
+          "share_alike": false,
+          "path": "source.tar.gz",
+          "url": "https://codeload.github.com/kubernetes/website/tar.gz/43374c571c6f1c7b0f23daffb16e401232ea7bf3",
+          "license_url": "https://raw.githubusercontent.com/kubernetes/website/43374c571c6f1c7b0f23daffb16e401232ea7bf3/LICENSE",
+          "sha256": "215ac511de285ddcd4ffd4dedcce7ca1984ffc6897e1a3dfafb36997ced65838",
+          "size": 340919606,
+          "license_document": {
+            "path": "licenses/kubernetes-LICENSE.txt",
+            "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+          }
+        },
+        "counts": {
+          "records_read": 2130,
+          "documents_read": 2130,
+          "segments_before_dedup": 181942,
+          "lines": 136685,
+          "characters": 1369839,
+          "duplicate_segments": 45257
+        },
+        "max_characters": 10000000,
+        "stopped_at_limit": false,
+        "scope": "pinned source subset; not the complete upstream corpus",
+        "files": {
+          "text.txt": {
+            "sha256": "fdc5b40b0d55313350e8f76b523c62d6ea08cde84b595f30d6fea5fbcf03ce1c",
+            "bytes": 4246202
+          },
+          "origins.jsonl": {
+            "sha256": "f14387377a30f5de6a73b7508fbd4d0e5b093e10b781fd9e0f101f6b8668dc70",
+            "bytes": 9494058
+          }
+        }
+      },
+      {
+        "source": {
+          "id": "tensorflow",
+          "name": "TensorFlow Chinese documentation",
+          "kind": "markdown",
+          "repository": "https://github.com/tensorflow/docs-l10n",
+          "revision": "7cb584af651df3863a3bebc93674163f8dc6db7b",
+          "prefix": "site/zh-cn/",
+          "license": "Apache-2.0",
+          "share_alike": false,
+          "path": "source.tar.gz",
+          "url": "https://codeload.github.com/tensorflow/docs-l10n/tar.gz/7cb584af651df3863a3bebc93674163f8dc6db7b",
+          "license_url": "https://raw.githubusercontent.com/tensorflow/docs-l10n/7cb584af651df3863a3bebc93674163f8dc6db7b/LICENSE",
+          "sha256": "21d71dda5392f4223bd5d8aafc079c3f273ed057ab48f28403f0d6a745a42d8c",
+          "size": 182591930,
+          "license_document": {
+            "path": "licenses/tensorflow-LICENSE.txt",
+            "sha256": "9a97acbe7fac6fc504253eb3972f346f6f2f091563df496a66e81a0990398c59"
+          }
+        },
+        "counts": {
+          "records_read": 613,
+          "documents_read": 613,
+          "segments_before_dedup": 35562,
+          "lines": 25777,
+          "characters": 263275,
+          "duplicate_segments": 9785
+        },
+        "max_characters": 10000000,
+        "stopped_at_limit": false,
+        "scope": "pinned source subset; not the complete upstream corpus",
+        "files": {
+          "text.txt": {
+            "sha256": "f8d4439dcf07d20153f884270aec3c4b1dd46566ca2064bc6bd9e22b2ebc4277",
+            "bytes": 815602
+          },
+          "origins.jsonl": {
+            "sha256": "ae63ad6e0ab625e7f9fc952c07a8ed95c98217d18aee7802098c9699e9452970",
+            "bytes": 1143029
+          }
+        }
+      },
+      {
+        "source": {
+          "id": "mdn",
+          "name": "MDN Simplified Chinese documentation",
+          "kind": "markdown",
+          "repository": "https://github.com/mdn/translated-content",
+          "revision": "033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+          "prefix": "files/zh-cn/",
+          "license": "CC-BY-SA-2.5",
+          "share_alike": true,
+          "path": "source.tar.gz",
+          "url": "https://codeload.github.com/mdn/translated-content/tar.gz/033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+          "license_url": "https://raw.githubusercontent.com/mdn/translated-content/033e5bf0a0ed3d4203313a5079bc95e054df7aa6/LICENSE.md",
+          "sha256": "c5128a8382a007a7a2840f94edeb03d2f47ce00fa8b9a5cd515643d3bcb81164",
+          "size": 60711236,
+          "license_document": {
+            "path": "licenses/mdn-LICENSE.txt",
+            "sha256": "57c0d7e200fadfdbadb04b9ab220297809ba7f2ac0adaa6707a07fba432b2ebe"
+          }
+        },
+        "counts": {
+          "records_read": 7617,
+          "documents_read": 7617,
+          "segments_before_dedup": 337633,
+          "lines": 264582,
+          "characters": 2811965,
+          "duplicate_segments": 73051
+        },
+        "max_characters": 10000000,
+        "stopped_at_limit": false,
+        "scope": "pinned source subset; not the complete upstream corpus",
+        "files": {
+          "text.txt": {
+            "sha256": "67ce7a17b755e67ba4dbc732457223dea6de3e2666fb0dc93ce87ec2d783f00f",
+            "bytes": 8700477
+          },
+          "origins.jsonl": {
+            "sha256": "cb46d5de35ca02d5511d71209e594a9a333594a5ddcde9df1bcd0a9fd3c9e299",
+            "bytes": 17947522
+          }
+        }
+      },
+      {
+        "source": {
+          "id": "wikipedia",
+          "name": "Chinese Wikipedia current article text",
+          "kind": "wikipedia",
+          "repository": "https://dumps.wikimedia.org/zhwiki/",
+          "revision": "20261001",
+          "path": "zhwiki-20261001-pages-articles.xml.bz2",
+          "url": "https://dumps.wikimedia.org/zhwiki/20261001/zhwiki-20261001-pages-articles.xml.bz2",
+          "size": 3430912430,
+          "sha1": "04d5eec3c249fdf8604b97f4435e019c60a4ec94",
+          "license": "CC-BY-SA-4.0",
+          "share_alike": true,
+          "license_document": {
+            "path": "licenses/wikipedia-LICENSE.txt",
+            "sha256": "28a9529c7d0bb4dc51f4bf5c116a3d16ef247a052f7591466768ddf563fd1cf5",
+            "url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt"
+          },
+          "additional_documents": [
+            {
+              "path": "licenses/wikipedia-DUMP_TERMS.html",
+              "sha256": "104242365285791c1d60d61b2ec8eac34e5c4b6a74ae5fdca9996a52f9cd3714",
+              "url": "https://dumps.wikimedia.org/legal.html"
+            },
+            {
+              "path": "metadata/wikipedia/20261001/dumpstatus.json",
+              "sha256": "f8e6648ce9750e72efdf59ceed794244ba129887c109ec8a754f057092e70a81",
+              "url": "https://dumps.wikimedia.org/zhwiki/20261001/dumpstatus.json"
+            },
+            {
+              "path": "metadata/wikipedia/20261001/sha1sums.txt",
+              "sha256": "533b4be44e26fdcc6d5a3e5d74879b74b11736ba804e9ca7cd9b0db62e29b7b6",
+              "url": "https://dumps.wikimedia.org/zhwiki/20261001/zhwiki-20261001-sha1sums.txt"
+            }
+          ],
+          "scope": "Complete pages-articles current-revision dump; cleaning selects namespace 0, excludes redirects.",
+          "download_url": "https://ftp.acc.umu.se/mirror/wikimedia.org/dumps/zhwiki/20261001/zhwiki-20261001-pages-articles.xml.bz2",
+          "sha256": "5db9052efe9ca97aa3da05ffe5b2f12c8ffe5e040f0a9d1ced82ec2fda5d7e2f"
+        },
+        "counts": {
+          "records_read": 3684,
+          "nonarticle_pages": 338,
+          "documents_read": 2618,
+          "segments_before_dedup": 1054999,
+          "lines": 942413,
+          "characters": 9999995,
+          "duplicate_segments": 112585,
+          "redirect_pages": 728
+        },
+        "max_characters": 10000000,
+        "stopped_at_limit": true,
+        "scope": "pinned source subset; not the complete upstream corpus",
+        "files": {
+          "text.txt": {
+            "sha256": "7b53d33eed4cdad54c7035988bdb519ebeb8b8c0566ce4b59e21b054ed502ed3",
+            "bytes": 30942850
+          },
+          "origins.jsonl": {
+            "sha256": "14d62e1cb5706da2f6003882240f74d6a3b9ef3ad14d9992faa27f40cef6339b",
+            "bytes": 61078932
+          }
+        }
+      }
+    ],
+    "scope": "All lines of the explicitly selected prepared bundles; not complete raw archives. Counts reflect deduplicated Han fragments, not population frequencies."
+  },
+  "review_manifest": {
+    "schema_version": 1,
+    "segmentation_manifest_sha256": "ae5da324874b83207dec2e6fbff7190b5ab0ea3f2312f9a05fac9784b73d87a1",
+    "vocabulary_inputs": {
+      "Data/Vocabulary/chinese/game.csv": "6d818563773304846a88f03a741648e4edfc9c8f25523497ab93fc3574d48368",
+      "Data/Vocabulary/chinese/geography.csv": "89f8d98a5a2c74917b360637b396a352c592a899b892f57fe51e709cb13e807b",
+      "Data/Vocabulary/chinese/medicine.csv": "799bb65e2aaf59988d1338506b251ec89638818bdf8a278e050fa81d07d8a57a",
+      "Data/Vocabulary/chinese/movie.csv": "1a9ba87aa52546c745df60dfe3730ece583b544cd5339a27616bde8785bc5f5c",
+      "Data/Vocabulary/chinese/organizations.csv": "8263a3eb8a194e947b7daa115cccf8cd4963efe7b4fbf22d34fe5aec0ed3cc55",
+      "Data/Vocabulary/chinese/science.csv": "b3b7306e3e2692287d92e8171725e30db52dea542399ef25074c4ffa5860c57e",
+      "Data/Vocabulary/chinese/technology.csv": "5bde2596176310376b6a77070617c19566834a242b4388e470f5f654f85615e1",
+      "Data/Vocabulary/chinese/diming.csv": "88dd7f19a82d029ac12804c5814f7417397cba504d58ce7f4dc2dcc95e5417de",
+      "Data/Vocabulary/chinese/fangyan.csv": "e816f892ef2a98556857ba9abe711041a4b1f5e7665aee7beae840a88b452119",
+      "Data/Vocabulary/chinese/huaxue.csv": "bb2914f005c5102d8905a9abc0cc02239f323c72c79ef30d2e74d46b9f9c6f49",
+      "Data/Vocabulary/chinese/mingren.csv": "c8236ec9cf45cd04985698a60a4e09e3553ed9e6c0a733f47d263a8cf84e6e26",
+      "Data/Vocabulary/chinese/shici.csv": "3621fb1a90dba49aa1fb515cfd12aa11165be84c1f402c92eea90212c48d14a1",
+      "Data/Vocabulary/chinese/taifeng.csv": "6bc4b57c9e6bb36fd6b837186a77c826fee52b4445062670786dc6708b21999a",
+      "Data/Vocabulary/chinese/wuzhong.csv": "18f61ea64fe3c7652f39b84b6fe2e472cb1d22c994f64770515fd76544b7175e",
+      "Data/Vocabulary/chinese/yaopin.csv": "f7aabd5ff5616283084a4cb7fb5604c82d9929fbd5bb1875c3f57a9f032e4f04",
+      "Data/Vocabulary/chinese/yiren.csv": "45b7cec0218c9deb7798077e5d7056d4bff42aa13e0da14a0505712cb22acedb",
+      "Data/Vocabulary/chinese/yixue.csv": "371146bcc5030a6793675f452e92c1bf21a17bd685b4d93f3089a2c92d6b9e60",
+      "Data/Vocabulary/chinese/base.csv": "4b2a84d1ee2eddf1008b8b9598eb36765269a9c03de968988d4c438e5957ec63"
+    },
+    "script_sha256": "b60e2825b9a648bf6a75c0b106fe7a4f35078db87b8fc763248a3b1dc387f531",
+    "total_types": 531407,
+    "missing_decisions": {
+      "review": 463,
+      "repeated_character": 1467,
+      "outside_length_or_script": 35145,
+      "insufficient_source_support": 967,
+      "low_frequency": 295341
+    },
+    "new_weight_policy": "Median existing unambiguous-reading word weight of identical character length and floor(log2(count)) bin, clamped to 10..5000. Editorial suggestions only; raw counts do not replace upstream weights.",
+    "files": {
+      "existing.csv": "ebbc01087f01012ceebf5601644b5b110ec690ada3cffd38d8c2cd59cb0d04b0",
+      "frequencies.csv": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+      "missing.csv": "8ddeff8e4e3e708917d163592c528bc781b52fa877f745ffd0a5929836ac6504"
+    }
+  },
+  "decisions": {
+    "eligible": 463,
+    "accepted": 266,
+    "excluded": 197,
+    "exclusion_reasons": {
+      "mojibake": 2,
+      "unverified_or_incomplete_person_or_character_name": 10,
+      "nonpreferred_spelling_or_conversion_variant": 15,
+      "interjection_or_phonetic_play": 3,
+      "unverified_regional_reading": 4,
+      "compositional_number_or_time_phrase": 25,
+      "incomplete_or_context_dependent_fragment": 35,
+      "nonpreferred_spelling_or_conversion_variant_not_adopted": 22,
+      "grammatical_or_particle_fusion": 11,
+      "unverified_or_incomplete_entity_not_adopted": 41,
+      "context_specific_compositional_entity_phrase": 3,
+      "advertising_or_unverified_brand_noise": 25,
+      "valid_term_but_cross_source_support_is_adapter_suffix_error": 1
+    }
+  },
+  "weight_corrections": 8,
+  "files": {
+    "Data/Vocabulary/chinese/corpus.csv": "633a36af576da8b1a29d9dc7469db5098f13e4e44727f4d0350765f85433d112",
+    "Data/Vocabulary/Corpus/accepted.csv": "b59f5b5e840d06987e40f7926c2582bd667ea49a1c2a314f82a988db2ce31dfa",
+    "Data/Vocabulary/Corpus/corrections.csv": "4b8b6ad411121bd9d6d4076e61238ecf982ec877533d420a28ef526d7ec4aac9",
+    "Data/Vocabulary/Corpus/decisions.json": "2279ab41567f9bca487ae80f8aa6c13603d7d492bc5f9e4e49b1c4c729220a66"
+  },
+  "limits": "Deduplicated, character-limited prepared subsets. HanLP counts are observations, not gold boundaries or general frequencies. Manual review selects terms, not every token occurrence. No model training, runtime neural inference, installation or host verification."
+}

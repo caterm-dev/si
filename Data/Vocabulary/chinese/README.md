@@ -1,6 +1,6 @@
 # Chinese vocabulary categories
 
-The current base contains 1,547,554 text/reading pairs imported from Wanxiang, with the documented SI editorial weight adjustment below. The seven local categories below retain their text/readings with every weight set to 10; new local entries also default to 10. See [Wanxiang conversion](../Wanxiang/README.md) for source pins, licensing, weights and reproduction. The ten other upstream Chinese dictionaries are separate CSV files named after the upstream files (602,516 rows); the complete merged dictionary has 2,141,202 entries. Base weights take precedence, then imported category weights, then preserved local supplements. Ordering remains deterministic and category names add no ranking bonus.
+The current base contains 1,547,554 text/reading pairs imported from Wanxiang, with the documented SI editorial weight adjustments below. The seven earlier local categories retain their text/readings with every weight set to 10; new local entries default to 10. The separate reviewed corpus category uses explicit evidenced weights. See [Wanxiang conversion](../Wanxiang/README.md) for source pins, licensing, weights and reproduction. The ten other upstream Chinese dictionaries are separate CSV files named after the upstream files (602,516 rows); with the 266 corpus additions, the complete merged dictionary has 2,141,468 entries. Base weights take precedence, then imported category weights, then preserved local supplements. Ordering remains deterministic and category names add no ranking bonus.
 
 | File | Rows | Scope |
 | --- | ---: | --- |
@@ -12,12 +12,21 @@ The current base contains 1,547,554 text/reading pairs imported from Wanxiang, w
 | [medicine.csv](medicine.csv) | 5,646 | Medicine and health: Medical specialties, diseases, medicines, treatments and related terms. |
 | [movie.csv](movie.csv) | 810 | Movies: Identified film titles, cinema/festival terms and explicit movie-related vocabulary; includes the [2007–2026 title update](../MOVIES.md). |
 | [game.csv](game.csv) | 741 | Games: Identified games/franchises, game-related vocabulary and esports. |
+| [corpus.csv](corpus.csv) | 266 | Reviewed common/technical terms and complete names from six prepared Chinese corpus sources; [counts, exclusions and weight evidence](../Corpus/README.md). |
 
 Before the Wanxiang base replacement, the October 28 movie update added 212 new effective identities and copies existing title rows into the movie category, bringing the merged Chinese dictionary to 953,837 entries. The table counts category rows; identical cross-category copies merge without changing weights. Existing category rows remain intact. See the [paired movie catalog and provenance](../MOVIES.md).
 
 The former SI-authored `炼仙丹` base addition is now supplied by Wanxiang with weight 333. Historical counts and grouping rules below describe the earlier category split, not the current base or merged total.
 
 ## SI editorial weight adjustments
+
+The [November 4 corpus review](../Corpus/README.md#weights) additionally records
+eight bounded increases for `大连`, `抵挡`, `福建`, `茂名`, `韶关`, `湘潭`, `消极`
+and `印尼`. Their token counts exceed conservative same-reading reference span
+counts across dialogue, web and Wikipedia. Exact old/new values and source
+evidence are in [corrections.csv](../Corpus/corrections.csv). Earlier explicit
+user adjustments below are preserved. These are editorial values in the
+existing weight unit, not occurrence counts or general accuracy measurements.
 
 On October 31, 2026, the user requested increasing `上次` (`shang'ci`) from
 the imported weight 21,766 to the SI editorial weight 40,000. Its text and reading

@@ -3,6 +3,28 @@ import Testing
 @testable import SICore
 
 struct ChineseVocabularyTests {
+    @Test func reviewedCorpusTermsRemainSelectableWithExactLiteralAndLanguageFiltering() throws {
+        let engine = CandidateEngine()
+        let cases = [("chunyou", "唇釉"), ("kongliebiao", "空列表"),
+                     ("kechixufazhan", "可持续发展"), ("guojiafazhangaigewei", "国家发展改革委")]
+        for (input, text) in cases {
+            for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
+                let values = engine.candidates(for: input, languages: languages)
+                let candidate = try #require(values.first { $0.text == text && !$0.isPartial })
+                #expect(candidate.language == .simplifiedChinese && !candidate.isMixed)
+                #expect(values.last?.isLiteral == true && values.last?.text == input)
+                var session = InputSession()
+                session.append(input)
+                let selected = try #require(session.candidates.first { $0.id == candidate.id })
+                let commit = session.commitResult(selected, reason: .explicitSelection)
+                #expect(commit.text == text && commit.input == input && session.buffer.isEmpty)
+            }
+            #expect(!engine.candidates(for: input, languages: [.english]).contains { $0.text == text })
+            let literal = engine.candidates(for: input, languages: [])
+            #expect(literal.count == 1 && literal.first?.isLiteral == true && literal.first?.text == input)
+        }
+    }
+
     @Test func requestedAlchemyPhraseIsACompleteDictionaryCandidate() throws {
         let engine = CandidateEngine()
         for input in ["lianxiandan", "lian'xian'dan"] {

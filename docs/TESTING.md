@@ -1,5 +1,41 @@
 # Testing SI
 
+## HanLP corpus vocabulary review
+
+On November 4–5, 2026, the offline HanLP pass processed all 3,540,828 fragments
+and 34,445,051 Han characters in the six existing prepared Chinese subsets,
+producing 20,347,213 token occurrences. `hanlp_words.py verify` independently
+recounted all token files against exact source text and stored fragment counts.
+`check_word_corrections.py` independently verified all eight corrections using
+exact, overlapping reference spans, avoiding the model's token-splitting bias.
+The [review record](../Data/Vocabulary/Corpus/README.md) retains model/source
+hashes, all 463 eligible decisions, 266 additions and eight old/new base weights.
+
+All 38 corpus-tool tests passed. Vocabulary maintenance passed 43 of 44 tests,
+including the new addition/readings/evidence and bounded-correction checks. The
+remaining failure is the unchanged English domain-count mismatch: metadata
+1,209 versus 1,199 CSV rows; both fields/files were compared with HEAD. Both
+runtime CSV checks and pinned MSIME context checks passed. An independent
+before/after SQLite comparison found exactly 266 added Chinese identities,
+eight changed weights, no removals, and a byte-identical English database.
+
+All **435 Swift tests** passed using `./scripts/test.sh --disable-sandbox`
+(306 core, 91 presentation, 22 settings, 13 storage and three localization).
+The default command was blocked by nested SwiftPM sandboxing. The Debug app
+build passed with normal Xcode compiler/package-cache access after the sandboxed
+attempt was blocked. Logs are local under `corpus/.cache/`.
+
+`ChineseVocabularyTests.reviewedCorpusTermsRemainSelectableWithExactLiteralAndLanguageFiltering`
+checks ordinary/technical and five-/seven-character additions, bilingual and
+Chinese-only lookup, exact source/output commits, disabled Chinese and all
+languages disabled. Data tests check every added reading against the maintained
+character inventory and preserve all earlier category weights outside the
+explicit reviewed exception. No input method was installed or operated in a
+live host. On an intentionally installed build, check synthetic `chunyou`,
+`kongliebiao`, `kechixufazhan` and `fujian` in TextEdit and a browser, including
+candidate selection, prefix remainders, Return, Escape, shortcuts and focus
+changes. These checks do not establish representative ranking quality.
+
 ## Restored English article
 
 On November 4, 2026, `english/common.csv` restores the indefinite article `a`

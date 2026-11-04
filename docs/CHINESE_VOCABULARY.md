@@ -4,7 +4,18 @@ The current [base.csv](../Data/Vocabulary/chinese/base.csv) is converted from pi
 
 The seven remaining local nonbase category CSVs retain their text/readings with all weights set to 10. Base owns overlapping weights, including lower or zero weights; categories add missing identities, with maximum-weight merging among nonbase duplicates. Existing movie/domain catalogs and source attribution remain intact. The requested `炼仙丹` now exists in the Wanxiang base with source weight 333, replacing the former SI-authored base weight of 2,916.
 
-Ten other normal upstream dictionaries remain separate categories named after the upstream files, containing 602,516 rows; see the import guide for names and per-file counts. Their weights take precedence over legacy category copies absent from base. The merged Chinese database has 2,141,202 entries.
+Ten other normal upstream dictionaries remain separate categories named after the upstream files, containing 602,516 rows; see the import guide for names and per-file counts. Their weights take precedence over legacy category copies absent from base. With the separate corpus additions, the merged Chinese database has 2,141,468 entries.
+
+The [HanLP corpus review](../Data/Vocabulary/Corpus/README.md) adds 266 reviewed
+terms in [corpus.csv](../Data/Vocabulary/chinese/corpus.csv) and makes eight
+bounded authoritative base-weight corrections. Its accepted table retains
+per-source counts and explicit readings; all eligible exclusions and old/new
+weights are separately reviewable. New corpus-category weights are explicit
+editorial values anchored to existing word weights, capped at 5,000, rather
+than raw counts or the default local 10. Other category weights and prior user
+adjustments remain intact. HanLP stays an offline analysis tool; no model or
+Python dependency is added to the app. See the review for source limits,
+attribution, independent recount commands and upstream-refresh precautions.
 
 The old MSIME-derived base is replaced. Historical source records and licenses remain for retained category data and attribution. The shared runtime contract is `si-wanxiang-weight-v1`, reference mass one and unknown weight one; no wordfreq conversion or frequency rescaling is applied. These are source ranking weights, not measured occurrence counts or normalized probabilities.
 

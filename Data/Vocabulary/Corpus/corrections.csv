@@ -1,0 +1,9 @@
+text,reading,old_weight,new_weight,reference_text,reference_weight,hanlp_count,reference_surface_count,lccc,mc4,kubernetes,tensorflow,mdn,wikipedia,reference_lccc,reference_mc4,reference_kubernetes,reference_tensorflow,reference_mdn,reference_wikipedia,source_file
+大连,da'lian,6493,11002,打脸,10478,770,147,326,223,0,0,0,221,120,27,0,0,0,0,chinese/base.csv
+抵挡,di'dang,1516,2404,低档,2289,111,23,26,40,0,0,1,44,6,10,1,0,5,1,chinese/base.csv
+福建,fu'jian,5752,10366,附件,9872,953,155,206,342,0,0,0,405,4,79,3,0,23,46,chinese/base.csv
+茂名,mao'ming,150,287,冒名,273,212,13,50,107,0,0,0,55,0,9,1,0,0,3,chinese/base.csv
+韶关,shao'guan,656,726,少管,691,128,8,51,60,0,0,0,17,2,4,2,0,0,0,chinese/base.csv
+湘潭,xiang'tan,527,842,详谈,801,104,20,20,50,0,0,0,34,8,10,0,0,0,2,chinese/base.csv
+消极,xiao'ji,3074,5473,小鸡,5212,168,40,48,53,0,0,0,67,12,25,0,0,0,3,chinese/base.csv
+印尼,yin'ni,2245,4165,因你,3966,355,22,22,100,0,0,0,233,8,9,1,0,3,1,chinese/base.csv

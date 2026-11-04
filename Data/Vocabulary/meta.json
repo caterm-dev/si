@@ -549,6 +549,27 @@
       },
       "attribution": "mac/SI/Core/Resources/English/Wanxiang-NOTICE.txt",
       "attribution_sha256": "187d8f1a5fd95e42ab0a2b70fbde918c1d8d885bb9553b2bd4249d3c84133694"
+    },
+    {
+      "id": "corpus-hanlp-review",
+      "language": "chinese",
+      "description": "Reviewed lexical additions and bounded editorial corrections from six local public-corpus subsets; no runtime model.",
+      "attribution": "mac/SI/Core/Resources/Chinese/Corpus-NOTICE.txt",
+      "attribution_sha256": "49f2aa60d62e15f703638b76d9dacc3762f47ec12dae9707c0b64cdfc85383de",
+      "metadata": {
+        "reviewed_on": "2026-11-04",
+        "sources": "Data/Vocabulary/Corpus/snapshot.json",
+        "catalog": "Data/Vocabulary/chinese/corpus.csv",
+        "catalog_sha256": "633a36af576da8b1a29d9dc7469db5098f13e4e44727f4d0350765f85433d112",
+        "entries": 266,
+        "accepted_evidence": "Data/Vocabulary/Corpus/accepted.csv",
+        "accepted_evidence_sha256": "b59f5b5e840d06987e40f7926c2582bd667ea49a1c2a314f82a988db2ce31dfa",
+        "corrections": "Data/Vocabulary/Corpus/corrections.csv",
+        "corrections_sha256": "4b8b6ad411121bd9d6d4076e61238ecf982ec877533d420a28ef526d7ec4aac9",
+        "model": "HanLP 2.1.3 COARSE_ELECTRA_SMALL_ZH; local research analysis only, not shipped",
+        "weight_policy": "New words use median existing same-length log2-count-bin positive weights, capped at 5000. Eight reviewed base increases are 105% of the prior homophone leader, bounded by twice the original weight.",
+        "license": "SI curation/reading annotations GPL-3.0-only; source observations retain their recorded corpus terms."
+      }
     }
   ],
   "curations": [
@@ -660,6 +681,9 @@
   "local_category_policy": {
     "default_new_entry_weight": 10,
     "category_weight": 10,
-    "description": "Local category weights reset to 10 on 2026-10-29; blank new local CSV weights and newly imported domains default to 10. Upstream weights stay explicit and unchanged."
+    "description": "Local category weights reset to 10 on 2026-10-29; blank new local CSV weights and newly imported domains default to 10. Upstream weights stay explicit and unchanged. Corpus-reviewed additions have explicit evidenced weights; all earlier local category weights remain unchanged.",
+    "reviewed_weight_categories": {
+      "chinese/corpus.csv": "corpus-hanlp-review"
+    }
   }
 }

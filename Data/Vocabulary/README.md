@@ -1,6 +1,14 @@
 # SI-maintained vocabulary
 
-These CSV files are the editable source of both runtime dictionaries. A pinned Wanxiang conversion supplies the two base files: 1,547,554 Chinese text/toneless-reading pairs from `zi`, `jichu` and `duoyin`, and 72,784 supported English forms from `en`. Ten other normal Chinese source dictionaries retain separate categories named after the upstream files (602,516 rows). The merged resources contain 2,141,202 Chinese and 74,341 English entries. See [the source lock, conversion rules and update workflow](Wanxiang/README.md).
+These CSV files are the editable source of both runtime dictionaries. A pinned Wanxiang conversion supplies the two base files: 1,547,554 Chinese text/toneless-reading pairs from `zi`, `jichu` and `duoyin`, and 72,784 supported English forms from `en`. Ten other normal Chinese source dictionaries retain separate categories named after the upstream files (602,516 rows). With the reviewed corpus additions, the merged resources contain 2,141,468 Chinese and 74,341 English entries. See [the source lock, conversion rules and update workflow](Wanxiang/README.md).
+
+The [Chinese corpus review](Corpus/README.md) adds 266 terms in the separate
+[corpus.csv](chinese/corpus.csv), with explicit weights anchored to observed
+existing words, and records eight bounded edits to authoritative base weights.
+Its [review table](Corpus/accepted.csv) preserves counts and readings; source
+pins, model hashes, exclusions and correction evidence remain separate from
+runtime CSV columns. This category is the documented exception to the earlier
+local weight-10 policy. It introduces no runtime model or automatic training.
 
 The existing Chinese geography, organizations, technology, science, medicine, movie and game category files, and English movie/domain files, keep their text/readings; all their weights are now 10. Base identities own their upstream weights and English casing; imported Wanxiang categories then take precedence over legacy copies, with other category identities retained as supplements. Category names do not create input-language modes, Settings switches or ranking bonuses. Retained [domains](DOMAINS.md) and [movies](MOVIES.md) keep their own provenance and data terms.
 

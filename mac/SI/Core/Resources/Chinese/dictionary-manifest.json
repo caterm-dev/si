@@ -7,13 +7,18 @@
     "weight_unit": "si-wanxiang-weight-v1",
     "reference_mass": 1
   },
-  "metadata_sha256": "29df3f0936c285d987f5f59cb84d2056fcd6a2cdb5d98669e1d7388360b63e3b",
+  "metadata_sha256": "d748adcd3501aaf6bf9c8275dbaaac97a7b56ce01d3e0da6982720f379af28e7",
   "unknown_weight": 1,
   "sources": [
     {
       "path": "chinese/base.csv",
-      "sha256": "4b2a84d1ee2eddf1008b8b9598eb36765269a9c03de968988d4c438e5957ec63",
+      "sha256": "3a1a32491841b6ee880ecde6cbdeaaf55439f41b6cc98578ce0da2c7f165090f",
       "rows": 1547554
+    },
+    {
+      "path": "chinese/corpus.csv",
+      "sha256": "633a36af576da8b1a29d9dc7469db5098f13e4e44727f4d0350765f85433d112",
+      "rows": 266
     },
     {
       "path": "chinese/diming.csv",
@@ -101,6 +106,6 @@
       "rows": 21408
     }
   ],
-  "entries": 2141202,
-  "runtime_sha256": "4c2600fcc77920c910157858d45784738ce69f3f25bfa186f7a5fa790d71387e"
+  "entries": 2141468,
+  "runtime_sha256": "6ef37dd482d09f649c6396194c1dcdacf2215e31dcd732d4087cd1a97996ba85"
 }

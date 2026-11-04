@@ -299,10 +299,13 @@ class CSVDictionaryTests(unittest.TestCase):
 
 
 class LocalCategoryPolicyTests(unittest.TestCase):
-    def test_checked_in_local_categories_use_ten_and_imported_files_have_no_prefix(self):
+    def test_local_categories_keep_default_ten_except_evidenced_corpus_curation(self):
         data = Path(__file__).resolve().parents[2] / 'Data/Vocabulary'
         metadata = json.loads((data / 'meta.json').read_bytes())
         local_files = []
+        reviewed = metadata['local_category_policy'].get('reviewed_weight_categories', {})
+        self.assertEqual(reviewed, {'chinese/corpus.csv': 'corpus-hanlp-review'})
+        corpus_source = next(s for s in metadata['upstreams'] if s['id'] == reviewed['chinese/corpus.csv'])
         for language in ('chinese', 'english'):
             upstream = set(metadata['upstream_categories'][language]) | {'base.csv'}
             for path in (data / language).glob('*.csv'):
@@ -310,6 +313,9 @@ class LocalCategoryPolicyTests(unittest.TestCase):
                 if path.name in upstream:
                     continue
                 local_files.append(path)
+                if str(path.relative_to(data)) in reviewed:
+                    self.assertEqual(dictionary.digest(path.read_bytes()), corpus_source['metadata']['catalog_sha256'])
+                    continue
                 with path.open(newline='') as stream:
                     for row in csv.DictReader(stream):
                         self.assertEqual(row['weight'], '10', str(path))

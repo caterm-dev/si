@@ -6,6 +6,10 @@ Its organization follows [chinese-ime-lm's corpus tools](https://github.com/meta
 The implementation is SI-authored and independent of the input method and the
 existing `llm/` CSV experiments.
 
+The optional [HanLP word-frequency review](HANLP_WORDS.md) segments the frozen
+Chinese bundles locally, preserves per-source counts, and proposes missing
+words for manual vocabulary review. It does not train or add a runtime model.
+
 The separate [English conversation collection](english/README.md) acquires and
 prepares PersonaChat/ConvAI2, BlendedSkillTalk, Topical-Chat, Taskmaster 1/2/3,
 ABCD, Schema-Guided Dialogue and an English OASST1 subset. It preserves source
