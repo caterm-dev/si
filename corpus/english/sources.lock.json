@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "language": "en",
+  "sources": [
+    {
+      "id": "convai2",
+      "reader": "convai2",
+      "revision": "a29567f7ce76992fd1f03c51ba9e3b155a37ea51",
+      "repository": "https://github.com/facebookresearch/ParlAI",
+      "license": "CC-BY-4.0",
+      "files": [
+        {
+          "url": "https://parl.ai/downloads/convai2/convai2_fix_723.tgz",
+          "path": "convai2.tgz",
+          "size": 429780162,
+          "sha256": "d0ae89defe2fd0b0a4221eaa642a457d7d40cef475f54798119c7f3b8dd9361d"
+        }
+      ],
+      "documents": [
+        {
+          "path": "licenses/CC-BY-4.0.txt",
+          "url": "https://raw.githubusercontent.com/kubernetes/website/43374c571c6f1c7b0f23daffb16e401232ea7bf3/LICENSE",
+          "size": 18657,
+          "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+        },
+        {
+          "path": "metadata/convai2-task.md",
+          "url": "https://raw.githubusercontent.com/facebookresearch/ParlAI/a29567f7ce76992fd1f03c51ba9e3b155a37ea51/parlai/tasks/convai2/README.md",
+          "size": 228,
+          "sha256": "b87357249777d934f2f70bb2915c8aa942eb8b2c9e1ef2e7c7cbd38f1be4dfda"
+        },
+        {
+          "path": "metadata/convai2-download.py",
+          "url": "https://raw.githubusercontent.com/facebookresearch/ParlAI/a29567f7ce76992fd1f03c51ba9e3b155a37ea51/parlai/tasks/convai2/build.py",
+          "size": 1188,
+          "sha256": "33e524a07e3a3d5a96438a4d9006956873ce315277a24083febf3b8da695299a"
+        }
+      ]
+    },
+    {
+      "id": "bst",
+      "reader": "bst",
+      "revision": "a29567f7ce76992fd1f03c51ba9e3b155a37ea51",
+      "repository": "https://github.com/facebookresearch/ParlAI",
+      "license": "CC-BY-4.0",
+      "files": [
+        {
+          "url": "https://parl.ai/downloads/blended_skill_talk/blended_skill_talk.tar.gz",
+          "path": "bst.tar.gz",
+          "size": 38101408,
+          "sha256": "5fbed0068ee89e2d43b93c3ecb341e784617033efa5e8e911a219d4eda6134a6"
+        }
+      ],
+      "documents": [
+        {
+          "path": "licenses/CC-BY-4.0.txt",
+          "url": "https://raw.githubusercontent.com/kubernetes/website/43374c571c6f1c7b0f23daffb16e401232ea7bf3/LICENSE",
+          "size": 18657,
+          "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+        },
+        {
+          "path": "metadata/bst-task.md",
+          "url": "https://raw.githubusercontent.com/facebookresearch/ParlAI/a29567f7ce76992fd1f03c51ba9e3b155a37ea51/parlai/tasks/blended_skill_talk/README.md",
+          "size": 4473,
+          "sha256": "26b839171ef0e01afc0d8ebdb0c4794e767191dba272d2099968bbe103b9220d"
+        },
+        {
+          "path": "metadata/bst-download.py",
+          "url": "https://raw.githubusercontent.com/facebookresearch/ParlAI/a29567f7ce76992fd1f03c51ba9e3b155a37ea51/parlai/tasks/blended_skill_talk/build.py",
+          "size": 7608,
+          "sha256": "c523967067262faec4dd6dd4e9199a833e54a6538dac782b00c30cb010fc89d4"
+        }
+      ]
+    },
+    {
+      "id": "topical-chat",
+      "reader": "topical-chat",
+      "revision": "7c939229cbcf6f55f6977b341a5a2f2fe982d53f",
+      "repository": "https://github.com/alexa/Topical-Chat",
+      "license": "CDLA-Sharing-1.0",
+      "documents": [
+        {
+          "path": "licenses/topical-chat-DATALICENSE.txt",
+          "url": "https://raw.githubusercontent.com/alexa/Topical-Chat/7c939229cbcf6f55f6977b341a5a2f2fe982d53f/DATALICENSE",
+          "size": 11350,
+          "sha256": "a08ff57744857367fb51f27a06c9877818a102692db72fbe06aaadec4d76e5f3"
+        },
+        {
+          "path": "metadata/topical-chat-README.md",
+          "url": "https://raw.githubusercontent.com/alexa/Topical-Chat/7c939229cbcf6f55f6977b341a5a2f2fe982d53f/README.md",
+          "size": 7733,
+          "sha256": "cd760dd69fbd8185ec4c7a2edc0fb90a10e315cf3cdbf27ee6bce4a6c5e17487"
+        }
+      ],
+      "individual_files": true,
+      "files": [
+        {
+          "path": "conversations/test_freq.json",
+          "url": "https://raw.githubusercontent.com/alexa/Topical-Chat/7c939229cbcf6f55f6977b341a5a2f2fe982d53f/conversations/test_freq.json",
+          "size": 3806399,
+          "sha256": "3c65693d59e40a1fb58ead35dcfe85fbcc88ea93a4d74557df620996f72c8f08",
+          "git_blob_sha1": "3731e2c97d09b97c1c818f684c00b6ad2dc9a3b9"
+        },
+        {
+          "path": "conversations/test_rare.json",
+          "url": "https://raw.githubusercontent.com/alexa/Topical-Chat/7c939229cbcf6f55f6977b341a5a2f2fe982d53f/conversations/test_rare.json",
+          "size": 3787189,
+          "sha256": "4f21a18be16e310840280678e7bb4646852573b239b69183ddf8898f40119567",
+          "git_blob_sha1": "2bc6ab5811452a50570be2cf8c1bdf7b66318508"
+        },
+        {
+          "path": "conversations/train.json",
+          "url": "https://raw.githubusercontent.com/alexa/Topical-Chat/7c939229cbcf6f55f6977b341a5a2f2fe982d53f/conversations/train.json",
+          "size": 60771967,
+          "sha256": "39a079d8464ea5f44f0fd78dbc85fd4eed96303347cbf4f9301f823e3c0f437f",
+          "git_blob_sha1": "b9d7bcbc71ce9a30dd681242c9b849edb3b54055"
+        },
+        {
+          "path": "conversations/valid_freq.json",
+          "url": "https://raw.githubusercontent.com/alexa/Topical-Chat/7c939229cbcf6f55f6977b341a5a2f2fe982d53f/conversations/valid_freq.json",
+          "size": 3785264,
+          "sha256": "d14e8bde94fa5556d4aad8fd3fb666df674e4fef8b4193c8c3c06c72822a366b",
+          "git_blob_sha1": "31ef8dedd366bd98552b12b2d8d423fc8a357801"
+        },
+        {
+          "path": "conversations/valid_rare.json",
+          "url": "https://raw.githubusercontent.com/alexa/Topical-Chat/7c939229cbcf6f55f6977b341a5a2f2fe982d53f/conversations/valid_rare.json",
+          "size": 3779017,
+          "sha256": "b0f3c59584ea4ed61e368dc94feade6ba499a207a6437573b028d1f3ff918714",
+          "git_blob_sha1": "9c9fed4696e94248b4c5c475cd3a4d6af9dd3bc5"
+        }
+      ]
+    },
+    {
+      "id": "taskmaster",
+      "reader": "taskmaster",
+      "revision": "d92cb6af3005f1dc09c39e75e7daf4a04905e00b",
+      "repository": "https://github.com/google-research-datasets/Taskmaster",
+      "license": "CC-BY-4.0",
+      "documents": [
+        {
+          "path": "licenses/CC-BY-4.0.txt",
+          "url": "https://raw.githubusercontent.com/kubernetes/website/43374c571c6f1c7b0f23daffb16e401232ea7bf3/LICENSE",
+          "size": 18657,
+          "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+        },
+        {
+          "path": "metadata/taskmaster-1-README.md",
+          "url": "https://raw.githubusercontent.com/google-research-datasets/Taskmaster/d92cb6af3005f1dc09c39e75e7daf4a04905e00b/TM-1-2019/README.md",
+          "size": 8046,
+          "sha256": "05e1bc05724716ca7905f567a2ec30d99c8d2f5f58e926c2ca7d9da116002446"
+        },
+        {
+          "path": "metadata/taskmaster-2-README.md",
+          "url": "https://raw.githubusercontent.com/google-research-datasets/Taskmaster/d92cb6af3005f1dc09c39e75e7daf4a04905e00b/TM-2-2020/README.md",
+          "size": 7530,
+          "sha256": "0e707d4cc31869e0c0337979f72ecef61fc4fcab2bfe3a4ec1a546b84bc17463"
+        },
+        {
+          "path": "metadata/taskmaster-3-README.md",
+          "url": "https://raw.githubusercontent.com/google-research-datasets/Taskmaster/d92cb6af3005f1dc09c39e75e7daf4a04905e00b/TM-3-2020/README.md",
+          "size": 8441,
+          "sha256": "e80b5ecc4011ef75eea94be5c3beba927e54673db25fd60fc2ca8d5a413ca928"
+        }
+      ],
+      "files": [
+        {
+          "url": "https://codeload.github.com/google-research-datasets/Taskmaster/tar.gz/d92cb6af3005f1dc09c39e75e7daf4a04905e00b",
+          "path": "source.tar.gz",
+          "size": 138453808,
+          "sha256": "c7e4774798ace96e3b413a9beef6d2a706458d66c4e87ef1061e9426db1a3c46"
+        }
+      ]
+    },
+    {
+      "id": "abcd",
+      "reader": "abcd",
+      "revision": "6b8700ce67c6b37b062dd7a60abc76d7ef832a97",
+      "repository": "https://github.com/asappresearch/abcd",
+      "license": "MIT",
+      "documents": [
+        {
+          "path": "licenses/abcd-LICENSE.txt",
+          "url": "https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/LICENSE",
+          "size": 1071,
+          "sha256": "3ab7e179a7f13027b7bc64293541f0e9beacca3701cade67fb8fce78c2d9317b"
+        },
+        {
+          "path": "metadata/abcd-README.md",
+          "url": "https://raw.githubusercontent.com/asappresearch/abcd/6b8700ce67c6b37b062dd7a60abc76d7ef832a97/README.md",
+          "size": 7326,
+          "sha256": "b08125bfdbeadd5b6086aabe5534cc2c8778cbd203de843eae0186ebf1cb549d"
+        }
+      ],
+      "files": [
+        {
+          "url": "https://codeload.github.com/asappresearch/abcd/tar.gz/6b8700ce67c6b37b062dd7a60abc76d7ef832a97",
+          "path": "source.tar.gz",
+          "size": 39079288,
+          "sha256": "60f6addf121804d2946b4120c264c8d795f4d22c0fc3270b165ee12a415cce97"
+        }
+      ]
+    },
+    {
+      "id": "sgd",
+      "reader": "sgd",
+      "revision": "e852981ae34990f4358979625854259302feaa78",
+      "repository": "https://github.com/google-research-datasets/dstc8-schema-guided-dialogue",
+      "license": "CC-BY-SA-4.0",
+      "documents": [
+        {
+          "path": "licenses/sgd-LICENSE.txt",
+          "url": "https://raw.githubusercontent.com/google-research-datasets/dstc8-schema-guided-dialogue/e852981ae34990f4358979625854259302feaa78/LICENSE.txt",
+          "size": 20139,
+          "sha256": "71a43a169b52bb1b39510b65ec5b43b4bbb59196d449a835fe58b50af6a72742"
+        },
+        {
+          "path": "metadata/sgd-README.md",
+          "url": "https://raw.githubusercontent.com/google-research-datasets/dstc8-schema-guided-dialogue/e852981ae34990f4358979625854259302feaa78/README.md",
+          "size": 16294,
+          "sha256": "e16545f163578037e6b7315b8da243f9f9871f4f071a812ab86b73702f124168"
+        }
+      ],
+      "files": [
+        {
+          "url": "https://codeload.github.com/google-research-datasets/dstc8-schema-guided-dialogue/tar.gz/e852981ae34990f4358979625854259302feaa78",
+          "path": "source.tar.gz",
+          "size": 36792911,
+          "sha256": "ff97a9ab52b4cc9f25e1a093c96431512465e8377f9a1f57dc710a10484d2188"
+        }
+      ]
+    },
+    {
+      "id": "oasst1",
+      "reader": "oasst1",
+      "revision": "fdf72ae0827c1cda404aff25b6603abec9e3399b",
+      "hub_repository": "OpenAssistant/oasst1",
+      "repository": "https://huggingface.co/datasets/OpenAssistant/oasst1",
+      "license": "Apache-2.0",
+      "files": [
+        {
+          "path": "2023-04-12_oasst_ready.messages.jsonl.gz",
+          "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/2023-04-12_oasst_ready.messages.jsonl.gz",
+          "size": 34196309,
+          "sha256": "286a6e9a5a413b3272ae9c0b5a20d327983dea1c24342ae28cb244a6da65185c"
+        },
+        {
+          "path": "data/train-00000-of-00001-b42a775f407cee45.parquet",
+          "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/data/train-00000-of-00001-b42a775f407cee45.parquet",
+          "size": 39516251,
+          "sha256": "bbfadf5ed1278ba2208c837fdcad865adf65f5df55d80abadab2745db13fcb5e"
+        },
+        {
+          "path": "data/validation-00000-of-00001-134b8fd0c89408b6.parquet",
+          "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/data/validation-00000-of-00001-134b8fd0c89408b6.parquet",
+          "size": 2080179,
+          "sha256": "24002597bb13a7edd42d92f773762f25e285f72c31a70449393d0ded1dc7b416"
+        }
+      ],
+      "documents": [
+        {
+          "path": "licenses/oasst1-LICENSE.txt",
+          "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/LICENSE",
+          "size": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        },
+        {
+          "path": "metadata/oasst1-README.md",
+          "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/README.md",
+          "size": 10168,
+          "sha256": "68483ac2fcc2f3f7779f453352363827678070ef35b6d746ccb2ca6958540fff"
+        }
+      ]
+    }
+  ]
+}

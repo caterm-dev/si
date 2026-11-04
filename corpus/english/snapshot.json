@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "source_lock_sha256": "30f8b08ff0e445a5118fa7a1c38d2fcbcdac31197282808f10cd7b9ebbb93c50",
+  "bundle_manifest_sha256": "ee946261ab38dc6d548e71113f5ae3f3f810f3078c62f2d55e8ebb56d887315c",
+  "sources": [
+    {
+      "id": "convai2",
+      "conversations": 9939,
+      "turns": 147040,
+      "characters": 7287464,
+      "splits": {
+        "train": {
+          "conversations": 8939,
+          "turns": 131438,
+          "characters": 6498266
+        },
+        "validation": {
+          "conversations": 1000,
+          "turns": 15602,
+          "characters": 789198
+        }
+      },
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "bst",
+      "conversations": 6808,
+      "turns": 77501,
+      "characters": 5244519,
+      "splits": {
+        "test": {
+          "conversations": 980,
+          "turns": 11154,
+          "characters": 782544
+        },
+        "train": {
+          "conversations": 4819,
+          "turns": 54880,
+          "characters": 3684222
+        },
+        "validation": {
+          "conversations": 1009,
+          "turns": 11467,
+          "characters": 777753
+        }
+      },
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "topical-chat",
+      "conversations": 10784,
+      "turns": 235279,
+      "characters": 24278514,
+      "splits": {
+        "test-frequent": {
+          "conversations": 539,
+          "turns": 11760,
+          "characters": 1206318
+        },
+        "test-rare": {
+          "conversations": 539,
+          "turns": 11770,
+          "characters": 1209106
+        },
+        "train": {
+          "conversations": 8628,
+          "turns": 188377,
+          "characters": 19428655
+        },
+        "validation-frequent": {
+          "conversations": 539,
+          "turns": 11681,
+          "characters": 1220759
+        },
+        "validation-rare": {
+          "conversations": 539,
+          "turns": 11691,
+          "characters": 1213676
+        }
+      },
+      "license": "CDLA-Sharing-1.0"
+    },
+    {
+      "id": "taskmaster",
+      "conversations": 54263,
+      "turns": 1125394,
+      "characters": 52662779,
+      "splits": {
+        "test": {
+          "conversations": 770,
+          "turns": 16924,
+          "characters": 738460
+        },
+        "train": {
+          "conversations": 6168,
+          "turns": 135647,
+          "characters": 5913241
+        },
+        "unsplit": {
+          "conversations": 46555,
+          "turns": 955925,
+          "characters": 45272269
+        },
+        "validation": {
+          "conversations": 770,
+          "turns": 16898,
+          "characters": 738809
+        }
+      },
+      "license": "CC-BY-4.0"
+    },
+    {
+      "id": "abcd",
+      "conversations": 10042,
+      "turns": 184501,
+      "characters": 7653850,
+      "splits": {
+        "test": {
+          "conversations": 1004,
+          "turns": 18561,
+          "characters": 764310
+        },
+        "train": {
+          "conversations": 8034,
+          "turns": 147244,
+          "characters": 6116526
+        },
+        "validation": {
+          "conversations": 1004,
+          "turns": 18696,
+          "characters": 773014
+        }
+      },
+      "license": "MIT"
+    },
+    {
+      "id": "sgd",
+      "conversations": 22825,
+      "turns": 463282,
+      "characters": 23394186,
+      "splits": {
+        "test": {
+          "conversations": 4201,
+          "turns": 84592,
+          "characters": 4495853
+        },
+        "train": {
+          "conversations": 16142,
+          "turns": 329964,
+          "characters": 16489309
+        },
+        "validation": {
+          "conversations": 2482,
+          "turns": 48726,
+          "characters": 2409024
+        }
+      },
+      "license": "CC-BY-SA-4.0"
+    },
+    {
+      "id": "oasst1",
+      "conversations": 3636,
+      "turns": 29973,
+      "characters": 18145111,
+      "splits": {
+        "train": {
+          "conversations": 3448,
+          "turns": 28463,
+          "characters": 17243253
+        },
+        "validation": {
+          "conversations": 188,
+          "turns": 1510,
+          "characters": 901858
+        }
+      },
+      "license": "Apache-2.0"
+    }
+  ],
+  "totals": {
+    "conversations": 118297,
+    "turns": 2262970,
+    "characters": 138666423
+  }
+}

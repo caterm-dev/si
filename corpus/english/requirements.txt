@@ -1,0 +1,3 @@
+# Only OASST1's official Parquet split files require a non-standard-library reader.
+# This version was already installed in the acquisition environment.
+pyarrow==20.0.0

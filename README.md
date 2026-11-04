@@ -268,7 +268,7 @@ Tests/                 Swift Testing coverage for core, storage, and settings
 scripts/               Build, test, and local installation commands
 docs/                  Architecture, manual checks, and roadmap
 eval/                  Shared frozen ranking, correction and Pinyin-to-Hanzi evaluation
-corpus/                Pinned offline Chinese text corpora and lexical reading resources
+corpus/                Pinned offline Chinese text, English dialogue and lexical reading resources
 llm/                   Offline spelling-to-text training experiments (not loaded by the app)
 ```
 
@@ -285,7 +285,7 @@ under `llm/`. Run `python3 -m eval validate` to inspect the registered suites.
 
 The [model workspace](llm/README.md) separates `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The [small reranker](llm/reranker_small/README.md) supports training a 7.4M character LM from scratch, whole-document preparation, candidate scoring/evaluation and inference export. Its [constructed Chinese challenge](llm/reranker_small/benchmarks/README.md) contains 1,230 cases from 337 anchors, with real decoder pools and separate development/test splits. Independent annotation review remains pending; native AI ranking has been removed pending redesign; the large reranker is planned. The existing conversion framework, data, configs, runs and reports are under `llm/pinyin_to_text/`; the shared Python environment stays at `llm/.venv`.
 
-The independent [Chinese corpus workspace](corpus/README.md) prepares pinned public conversation, web, Wikipedia and technical-documentation text, with per-source licenses, line origins, deduplication and integrity reports. Chinese Wikipedia acquisition resolves the latest complete official article dump and verifies its official checksum before recording the pin. It also exports explicit character/word readings from the maintained vocabulary. Raw and prepared data stay local and outside Git. This is a separate text-preparation stage; it does not label sentence Pinyin, change the existing training defaults or integrate a model into SI.
+The independent [corpus workspace](corpus/README.md) prepares pinned public Chinese conversation, web, Wikipedia and technical-documentation text, with per-source licenses, line origins, deduplication and integrity reports. Chinese Wikipedia acquisition resolves the latest complete official article dump and verifies its official checksum before recording the pin. It also exports explicit character/word readings from the maintained vocabulary. The separate [English conversation collection](corpus/english/README.md) acquires PersonaChat/ConvAI2, BST, Topical-Chat, Taskmaster 1/2/3, ABCD, SGD and English OASST1 messages, preserving dialogue/turn identity, data terms and upstream splits. Raw and prepared data stay local and outside Git. These preparation stages do not label sentence Pinyin, change existing training defaults or integrate a model into SI.
 
 Git retains the application dictionary CSV sources, manifests, preparation/training code, configs, source pins, attribution, authored training CSVs and frozen regression fixtures. Generated databases, downloads, generated corpus tables, prepared datasets, Python environments and training outputs are ignored. See [the data policy](CONTRIBUTING.md#local-corpus-and-model-artifacts) and the corpus/model guides to recreate local artifacts; removing them from tracking preserves local copies and does not rewrite earlier Git history.
 

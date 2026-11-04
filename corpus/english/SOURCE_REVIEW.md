@@ -1,16 +1,62 @@
 # English corpus source review
 
-Reviewed on **2026-11-04**. This is a source-selection assessment, not a source
-lock or an acquired corpus. English fetching/cleaning is not implemented yet.
-No archives have been downloaded, no English counts have been measured, and no
-training or changes to runtime dictionaries are implied.
+Reviewed on **2026-11-04**. This document records source-selection decisions.
+The selected conversation sources now have an explicit acquisition/preparation
+workflow in [the English guide](README.md), with a separate source lock and
+retained attribution. Prose sources and deferred alternatives below are not
+implicitly acquired. No training or changes to runtime dictionaries are implied.
 
-## Recommended initial sources
+## Conversation-first selection
 
-The initial collection should cover general prose, technical writing and
-conversation. The recommendations below apply to the specified upstream text,
+The user's priority is English conversation. Prioritize everyday exchanges and
+practical requests; the previously reviewed technical prose is supplemental.
+The recommendations below apply to the specified upstream text,
 subject to its notices and any file-specific exceptions. Public availability
 alone does not establish permission to reuse content.
+
+| Source | Conversation value | Published terms and selection boundary | Priority |
+| --- | --- | --- | --- |
+| PersonaChat / ConvAI2 | Human-written, persona-conditioned chit-chat about interests and personal topics. More relevant to informal typing than documentation. | The publisher's [ConvAI2 task declaration](https://github.com/facebookresearch/ParlAI/blob/main/parlai/tasks/convai2/README.md) specifies CC BY 4.0. Pin the original archive and retain its notices. Original/revised persona variants and the two speaker perspectives must not be counted as independent conversations or leak across splits. | First batch: everyday conversation. Fictional profiles and elicited exchanges are not naturally occurring chat logs. |
+| BlendedSkillTalk (BST) | About 7,000 conversations combining personality, empathy and knowledge. Human crowdworkers converse, with one worker receiving suggested replies. | The [publisher task README](https://github.com/facebookresearch/ParlAI/blob/main/parlai/tasks/blended_skill_talk/README.md) declares CC BY 4.0 for BST. Select the new BST dialogue turns; separately review inherited starter turns, persona/context fields and suggestions. The [download script](https://github.com/facebookresearch/ParlAI/blob/main/parlai/tasks/blended_skill_talk/build.py) also fetches separate EmpatheticDialogues-derived files; those are not admitted by BST's license label. | First batch after field-level review. Retain the guided/free distinction; do not describe all turns as spontaneous, unassisted chat. |
+| Topical-Chat | Publisher reports 10,784 human-human conversations and 235,281 utterances over eight broad topics, with no assigned user/assistant roles. Useful for sustained interest/topic discussion. | The publisher's [DATALICENSE](https://github.com/alexa/Topical-Chat/blob/master/DATALICENSE) specifies CDLA-Sharing-1.0, distinct from its software license. Retain attribution/license and modification notices; published enhanced data stays under its sharing terms. Select `conversations/` message fields, not externally fetched reading sets. Check identified quotations/third-party passages separately. | First batch after content/notice review. Knowledge-grounded discussion can sound more like fact exchange than casual messaging. |
+| Taskmaster-1 and Taskmaster-2 | [TM-1](https://github.com/google-research-datasets/Taskmaster/blob/master/TM-1-2019/README.md): 13,215 dialogues, including 5,507 two-person spoken and 7,708 written self-dialogues. [TM-2](https://github.com/google-research-datasets/Taskmaster/blob/master/TM-2-2020/README.md): 17,289 two-person spoken dialogues involving restaurants, food, travel, movies, music and sports. | Both dataset READMEs explicitly grant CC BY 4.0. Extract utterance text with source/conversation/turn/speaker identity; keep instructions, annotations and API payloads separate. Spoken user turns are transcriptions; written self-dialogues are one worker writing both sides. | First batch: prioritize TM-2 and distinguish TM-1 collection methods. Good practical questions, alternatives and clarifications; automated-interface roleplay differs from social chat. |
+| ABCD | Publisher describes over 10,000 human-human customer-service chats with 55 intents. Useful for refunds, account issues, complaints and problem clarification. | The [publisher repository](https://github.com/asappresearch/abcd) contains code and data under its [MIT license](https://github.com/asappresearch/abcd/blob/master/LICENSE); inspect the pinned data's notices. Extract original utterances rather than action records, scenario metadata or delexicalized placeholder text. Preserve original splits. | First batch supplement for service conversations, with entity/contact screening. Narrow service scenarios should not dominate general chat. |
+| Schema-Guided Dialogue (SGD) | Over 20,000 task-oriented conversations spanning 20 domains. Useful for appointments, travel, calendars, weather and service requests. | The [publisher README](https://github.com/google-research-datasets/dstc8-schema-guided-dialogue) explicitly licenses SGD and SGD-X under CC BY-SA 4.0. Keep ShareAlike text separate and preserve original splits. Import utterances, not schema descriptions, slot values or service calls. | Second batch: useful domain breadth, but simulator-generated dialogue plans with crowdworker wording are less spontaneous than human-human chat. SGD-X schema variants are not new independent conversations. |
+
+Published sizes above describe complete upstream datasets, including held-out
+data, and are not measured SI training counts. Training preparation must select
+only eligible training conversations and report its own retained counts.
+For SI, a useful corpus improves the representation of text a person might
+type; conversational-agent response benchmarks alone do not establish that.
+Preserve contractions, casing, punctuation, short acknowledgements and turn
+boundaries. Do not turn persona profiles, knowledge paragraphs, instructions or
+API actions into pretend user utterances. Keep source, role and collection
+method available for later sampling; choose mixing ratios only after inspecting
+the retained data and evaluating the intended input task.
+
+### Further dialogue candidates
+
+- [Multi-Session Chat (MSC)](https://parl.ai/projects/msc/) extends PersonaChat
+  into human-human conversations across sessions, making it relevant to ongoing
+  social exchanges. Its session-1 overlap needs deduplication. The inspected
+  task code's MIT header licenses software; the downloadable data's license
+  still needs verification before admission.
+- [WildChat-1M](https://huggingface.co/datasets/allenai/WildChat-1M) and
+  [WildChat-4.8M](https://huggingface.co/datasets/allenai/WildChat-4.8M) contain
+  real user/ChatGPT interactions. Current publisher cards declare ODC-BY;
+  WildChat-1M records the 2024 change from the older ImpACT license. Evaluate
+  the exact release, collection consent, third-party content and retained
+  metadata before admission. Consider English user turns separately from
+  machine replies; exclude IP hashes, geography, headers and contributor
+  identity from prepared text. A toxicity-filtered release does not establish
+  removal of all personal information or make it ordinary human-human chat.
+- [EmpatheticDialogues](https://github.com/facebookresearch/EmpatheticDialogues)
+  is relevant to emotional everyday exchanges, but its [CC BY-NC 4.0
+  license](https://github.com/facebookresearch/EmpatheticDialogues/blob/main/LICENSE)
+  keeps it outside the default broadly reusable collection, like DailyDialog.
+  Preserve that boundary when reviewing BST's separately downloaded inputs.
+
+## Previously reviewed prose and assistant sources
 
 | Source | Proposed acquisition and scope | Published terms and obligations | Suitability and limits |
 | --- | --- | --- | --- |
@@ -79,15 +125,18 @@ Before a recommended source becomes an executable fetch entry:
    and verification reports. Corpus preparation must not start training, modify
    input-method behavior, read private SI data or overwrite existing experiments.
 
-Recommended implementation order: Kubernetes and Rust for Markdown extraction,
-Wikipedia for general prose, OASST1 for conversation, then Python and MDN with
-their additional format/license handling. This ordering is an engineering
-recommendation, not a measured quality result or a corpus mixing ratio.
+Recommended implementation order: PersonaChat/ConvAI2 and Taskmaster-2, then
+BST and Topical-Chat after their field/content reviews, followed by ABCD.
+OASST1 and SGD are supplements; prose sources have lower priority for the
+conversation-focused scope. This ordering is an engineering recommendation,
+not a measured quality result or a corpus mixing ratio.
 
 ## Review validation
 
 Upstream license/policy pages and dataset cards were inspected through web
-access. Local `hf datasets info` metadata requests failed because the execution
-environment could not resolve the host; no Hub revision or archive integrity is
-claimed here. English download/cleaning tests will belong to implementation.
-This documentation-only review does not require an app build or installation.
+access. Initial restricted `hf datasets info` requests failed to resolve the
+host; authorized network access subsequently retrieved the publisher metadata
+and pinned OASST1 revision. Acquisition, archive verification, reader tests and
+measured bundle counts are recorded separately in the English guide/snapshot
+and the repository testing record. This review alone does not establish archive
+integrity or downstream model quality.

@@ -374,6 +374,53 @@ shortcuts, focus changes and app-vocabulary pause/clear. Context-sensitive order
 can differ from earlier builds. Verify automatic confirmation on ambiguous input.
 Live host behavior and VoiceOver require manual verification.
 
+## Offline English conversation acquisition
+
+On November 4, 2026, the selected English conversation collection acquired and
+verified 833,930,152 pinned raw bytes across ConvAI2, BST, Topical-Chat,
+Taskmaster 1/2/3, ABCD, SGD and OASST1. The frozen ConvAI2/BST archive hashes
+match the publisher download manifests; Topical-Chat's five original files
+also match the pinned publisher Git blob identities. Full data terms and
+publisher notices are retained separately from downloaded data. No external
+reading-set retrieval, model training, app installation or private SI data
+access was performed.
+
+The complete `corpus/english/prepared/dialogue-v1/` bundle contains 118,297
+dialogue/tree records, 2,262,970 utterances and 138,666,423 Unicode code points.
+The independent full verifier agrees with the tracked [English snapshot](../corpus/english/snapshot.json).
+Two full preparations produced byte-identical output across all 48 bundle
+files, including manifests and copied attribution. Raw and prepared data stay
+ignored by Git; only source pins, attribution, code/tests, docs and the measured
+summary are tracked. See [the English guide](../corpus/english/README.md).
+
+Source inspection found 8,939 duplicate ConvAI2 second-speaker presentations,
+which preparation excludes while preserving the complete original view. BST
+starter/context/suggestion fields, Topical-Chat reading sets, ABCD action
+records and SGD API/schema fields are not prepared as utterances. Empty/control
+turn exclusions are counted without rewriting retained text. Taskmaster has
+reused IDs: nine identical selected records are excluded, distinct transcript
+variants retain shared grouping IDs with unique record identities, and 55
+missing speaker labels are explicitly `unknown` rather than inferred.
+
+Taskmaster-3's model-example TSVs reuse 21,894 complete dialogue IDs across
+multiple splits; another 788 source dialogues have no TSV examples. These
+complete dialogues remain explicitly `unsplit`, with the original example-split
+memberships retained. No clean dialogue-level train/test separation is claimed
+for those TSVs. Original boundaries elsewhere, including Topical-Chat's
+frequent/rare sets and OASST1's Parquet splits, are retained. OASST1 keeps
+original parent edges for filtered English message trees; serialization order
+must not be treated as conversational adjacency. This acquisition is not a
+ready-to-train mixture or a general partial-copy/cross-source overlap audit.
+
+All 31 corpus tests (19 existing Chinese and 12 new English regressions), all
+301 current Swift tests and the Debug app build passed. The English regressions
+cover all seven readers, exact text, field selection, original/unassigned
+splits, overlapping example-split evidence, reused IDs, graph edges, checksum
+failure, traversal rejection, frozen attribution, immutable outputs and failed
+preparation rollback. Restricted Swift/Xcode attempts failed on compiler/cache
+sandbox access; authorized reruns passed. No native host compatibility or
+model-quality result is implied by these offline checks.
+
 ## Offline Chinese corpus preparation
 
 The subsequent October 30 Wikipedia addition resolved the latest complete official Chinese article dump to `20261001`, requiring both article generation and combined-file jobs to be done and agreement between completion metadata, SHA-1 list and HTTP file size. The full 3,430,912,430-byte raw archive passed official SHA-1 `04d5eec3c249fdf8604b97f4435e019c60a4ec94` and local SHA-256 `5db9052efe9ca97aa3da05ffe5b2f12c8ffe5e040f0a9d1ced82ec2fda5d7e2f`. Slow official/Your.org transfers resumed from retained ranges through the Wikimedia-listed Umeå University mirror, with at most three concurrent connections. Initial text preparation produced 942,413 fragments and 9,999,995 Han characters; this is a character-limited subset of the full raw dump. The [Wikipedia snapshot](../corpus/chinese/wikipedia-20261001.snapshot.json) records exact hashes/counts. The new bundle passed text/length/hash/origin/license/metadata checks, all six pinned raw archives passed verification, and the original five-source bundle still passed against its frozen source lock after Wikipedia was added. All 19 corpus tests, 287 Swift tests and the Debug build passed. Corpus tests cover completed-date selection, combined-file readiness, unchanged other pins, mirror provenance, safe range resumption/assembly, corruption rejection, namespace/redirect filtering, nested wikitext and exact page/revision origins. No training or app installation was performed.

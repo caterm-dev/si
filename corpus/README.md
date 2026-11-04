@@ -6,10 +6,13 @@ Its organization follows [chinese-ime-lm's corpus tools](https://github.com/meta
 The implementation is SI-authored and independent of the input method and the
 existing `llm/` CSV experiments.
 
-English acquisition is planned separately. The [English source review](english/SOURCE_REVIEW.md)
-records recommended public sources, their data terms and deferred alternatives.
-It is a source-selection assessment; no English source lock, downloaded corpus
-or English preparation pipeline is implemented yet.
+The separate [English conversation collection](english/README.md) acquires and
+prepares PersonaChat/ConvAI2, BlendedSkillTalk, Topical-Chat, Taskmaster 1/2/3,
+ABCD, Schema-Guided Dialogue and an English OASST1 subset. It preserves source
+licenses, conversation/turn identity and upstream splits, including explicitly
+unassigned data. The [source review](english/SOURCE_REVIEW.md) records the
+selection rationale and deferred alternatives. The Chinese commands and
+Han-fragment contract below remain separate from English dialogue preparation.
 
 | Path | Contents |
 | --- | --- |
@@ -19,6 +22,8 @@ or English preparation pipeline is implemented yet.
 | `clean/`, `prepare.py` | Shared normalization, wikitext/XML extraction and offline preparation. |
 | `check.py` | Bundle hash, origin alignment and content/count verification. |
 | `pinyin/build.py` | Explicit character and word reading tables from SI's maintained vocabulary. |
+| `english.py`, `clean/dialogue.py` | Pinned English dialogue acquisition, source readers, immutable preparation and verification. |
+| `english/sources.lock.json`, `english/licenses/`, `english/metadata/` | English source pins and retained full data terms/publisher notices. |
 | `chinese/snapshot.json` | Measured first-batch text counts and checksums; not the corpus itself. |
 | `chinese/raw/`, `chinese/prepared/`, `pinyin/generated/` | Local data, excluded from Git. |
 
