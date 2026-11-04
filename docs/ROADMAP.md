@@ -54,6 +54,10 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [x] Editable punctuation/symbols by default, opt-in, default-off language-labeled common punctuation candidates, optional punctuation confirmation, and no-learning delimiter commits.
 - [ ] Real-host verification of punctuation, numbers, URLs, identifiers, and code entry.
 - [x] Opt-in direct key passthrough by client application, with searchable application discovery and persistent app rules.
+- [x] Separate explicit Accessibility/Screen Recording permission actions for future experiments, without changing input behavior.
+- [ ] Redesign AI features; native model ranking and input-field context reads are removed.
+- [ ] Native experimental permission dialogs/revocation and Settings keyboard/VoiceOver verification.
+- [ ] Unified input-control recognition and automatic input behavior; permission authorization currently inspects no controls and captures no images.
 - [ ] Native direct-input switching, pending-composition, shortcut and app-memory verification.
 - [ ] Preserve exact literal text with a clear, discoverable selection path.
 
@@ -83,8 +87,9 @@ Remote inference and keystroke telemetry are not part of the current design. Any
 ## Offline model experiments
 
 - [x] Independent 7.4M causal character-LM baseline with whole-document corpus preparation, train-only vocabulary, grouped splits, strict resume, held-out token-loss and fixed-pool candidate evaluation, plus inference-only export.
-- [x] Local 30,000-step small checkpoint and explicit FP32 Core ML conversion with original/AI two-row candidate comparison.
-- [ ] Independent ranking-quality evidence, hard-negative fine-tuning, quantization and native host/VoiceOver verification for small-model comparison.
+- [x] Local 30,000-step small checkpoint and explicit offline FP32 Core ML conversion.
+- [ ] Redesign native AI integration; the former original/AI comparison is removed.
+- [ ] Independent ranking-quality evidence, hard-negative fine-tuning, quantization and native host/VoiceOver verification for future native AI integration.
 - [x] Independent from-scratch encoder-decoder framework with training/resume, train-only tokenizer, evaluation/comparison and inference export; 19.7M Pinyin character/word defaults with the earlier 0.403B experiment retained separately.
 - [x] Maintained static CSV groups under explicit train/validation/test directories, source snapshots/checksums, duplicate/leakage validation and no dynamic generation.
 - [x] Tiny CPU workflow and regression coverage, including learned conversion, exact resume, MPS numerical masks and nonzero-dropout checkpoint RNG/gradient checks; bounded 19.7M memorization check.

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "default": {
+    "license": "GPL-3.0-only",
+    "origin": "SI-authored focused Pinyin character/word pairs selected from the original maintained vocabulary; training-only character decomposition checked against the existing SI character-reading inventory. See README.md and selection.json.",
+    "revision": "pinyin-lexical-v1-2026-10-28"
+  },
+  "files": {}
+}

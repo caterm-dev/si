@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "revision": "lexical-v1",
+  "splits": {
+    "dev": 69,
+    "test": 64
+  },
+  "files": {
+    "dev.jsonl": "b3c6952029b13f50202c6145cde6289ad5ca86e28ae93620ba5b92feb7b23dfc",
+    "provenance.json": "39dba54488dfe53f7377a523e0015475e28bb3a15df9ea745afd6097629c5d05",
+    "sources/provenance.json": "810feacdccf1eea179e2c488fbd222d5f8c300c3f9c7f3fa583058c03f8d3c6e",
+    "sources/test/characters.csv": "797426c671f7fdf6e86e940b0d4b55d6024d3d3e828c68e7ef510a74fd2a9694",
+    "sources/test/words.csv": "47839c7ccd692c29a43cb67a0eb0d8b9d822916aabffd3f05b8e3df3fec25769",
+    "sources/validation/characters.csv": "b24e7333dd1ac148fcd0e2041f66d7999e20336a31e9bced297d8f8f7deeea8a",
+    "sources/validation/words.csv": "8de8be6dc9c8700dbeb7d4569f96623a87e68e412b1beeda67fcd4e20e86b16e",
+    "test.jsonl": "d754513583f1aa93236e67fe143c2a14ecaab2d0acd755b301338a82f681bbb5"
+  }
+}

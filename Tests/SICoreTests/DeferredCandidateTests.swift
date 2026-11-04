@@ -3,6 +3,25 @@ import Testing
 @testable import SICore
 
 struct DeferredCandidateTests {
+    @Test func languageChangesKeepCompositionAndCaretWhileRejectingOldCandidates() throws {
+        var session = InputSession(candidateGeneration: .deferred)
+        session.append("he")
+        session.moveCursor(by: -1)
+        var previous = try #require(session.pendingCandidateRequest)
+        for languages: Set<InputLanguage> in [[.english], [], [.simplifiedChinese], Set(InputLanguage.allCases)] {
+            session.configure(languages: languages)
+            #expect(session.accept(previous.generate()) == false)
+            #expect(session.accept(previous.generatePreview()) == false)
+            #expect(session.buffer == "he" && session.cursorUTF16Offset == 1)
+            let current = try #require(session.pendingCandidateRequest)
+            #expect(session.accept(current.generate()) == true)
+            #expect(session.candidates.last?.isLiteral == true && session.candidates.last?.text == "he")
+            #expect(session.candidates.contains { $0.language == .english } == languages.contains(.english))
+            #expect(session.candidates.contains { $0.language == .simplifiedChinese } == languages.contains(.simplifiedChinese))
+            previous = current
+        }
+    }
+
     @Test func currentPreviewUpdatesBeforeFinalSearchWithoutAcceptingOldRevisions() throws {
         var session = InputSession(candidateGeneration: .deferred)
         session.append("ni")

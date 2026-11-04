@@ -36,23 +36,7 @@ struct SettingsView: View {
                     Text(L10n.text(settings.punctuationBehavior.explanation))
                 }
                 ApplicationPassthroughSection(settings: settings)
-                Section {
-                    Toggle("Compare AI candidate ranking", isOn: $settings.aiComparisonEnabled)
-                    HStack {
-                        Text("AI weight")
-                        Slider(value: $settings.aiWeight, in: 0...2, step: 0.1)
-                            .accessibilityLabel(Text("AI weight"))
-                        Text(settings.aiWeight, format: .number.precision(.fractionLength(1)))
-                            .monospacedDigit()
-                            .frame(width: 30)
-                    }
-                    .disabled(!settings.aiComparisonEnabled)
-                } header: {
-                    Text("AI Ranking Preview")
-                } footer: {
-                    Text("The lower row orders scored candidates by AI score, using original order for ties. Positive AI weights scale scores without changing their order; 0 restores the original ranking. Personal pins and remembered corrections keep priority.")
-                    Text("The collapsed window compares the original ranking above with local AI ranking below. Down selects the AI row; Down again expands it. Up returns to the original row. Numbers and Space use the selected row. No input history is read or used for training.")
-                }
+                ExperimentPermissionsSection()
                 ApplicationMemorySection(settings: applicationMemory)
                 InputHistorySection(history: inputHistory)
                 UserDictionarySection(dictionary: dictionary)

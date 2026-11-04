@@ -1,0 +1,165 @@
+text,reading,weight
+AGI,agi,10
+AI,ai,10
+algorithm,algorithm,10
+API,api,10
+AR,ar,10
+artificial intelligence,artificialintelligence,10
+ASCII,ascii,10
+authentication,authentication,10
+AWS,aws,10
+backend,backend,10
+bandwidth,bandwidth,10
+benchmark,benchmark,10
+BERT,bert,10
+BIOS,bios,10
+blockchain,blockchain,10
+Bluetooth,bluetooth,10
+bytecode,bytecode,10
+cache,cache,10
+CDN,cdn,10
+chatbot,chatbot,10
+ChatGPT,chatgpt,10
+checkpoint,checkpoint,10
+CI/CD,cicd,10
+CLI,cli,10
+cloud computing,cloudcomputing,10
+compiler,compiler,10
+container,container,10
+Core ML,coreml,10
+CPU,cpu,10
+CSS,css,10
+CUDA,cuda,10
+cybersecurity,cybersecurity,10
+database,database,10
+dataset,dataset,10
+deep learning,deeplearning,10
+deployment,deployment,10
+distributed system,distributedsystem,10
+DNS,dns,10
+Docker,docker,10
+embedding,embedding,10
+encryption,encryption,10
+endpoint,endpoint,10
+ETL,etl,10
+fine-tuning,finetuning,10
+firmware,firmware,10
+FP16,fponesix,10
+FP32,fpthreetwo,10
+framework,framework,10
+frontend,frontend,10
+FTP,ftp,10
+full stack,fullstack,10
+GAN,gan,10
+GB,gb,10
+generative AI,generativeai,10
+Git,git,10
+GitHub,github,10
+GPT,gpt,10
+GPU,gpu,10
+GraphQL,graphql,10
+HTML,html,10
+HTTP,http,10
+HTTPS,https,10
+IDE,ide,10
+inference,inference,10
+IoT,iot,10
+IP,ip,10
+IPv4,ipvfour,10
+IPv6,ipvsix,10
+Java,java,10
+JavaScript,javascript,10
+JSON,json,10
+JVM,jvm,10
+KB,kb,10
+Kubernetes,kubernetes,10
+LAN,lan,10
+large language model,largelanguagemodel,10
+latency,latency,10
+LLM,llm,10
+load balancer,loadbalancer,10
+LoRA,lora,10
+machine learning,machinelearning,10
+MB,mb,10
+microservice,microservice,10
+middleware,middleware,10
+ML,ml,10
+MLOps,mlops,10
+MQTT,mqtt,10
+multimodal,multimodal,10
+neural network,neuralnetwork,10
+NLP,nlp,10
+NoSQL,nosql,10
+NPU,npu,10
+NVMe,nvme,10
+OAuth,oauth,10
+OCR,ocr,10
+ONNX,onnx,10
+OpenAI,openai,10
+OpenGL,opengl,10
+open source,opensource,10
+OpenSSL,openssl,10
+operating system,operatingsystem,10
+PHP,php,10
+PNG,png,10
+POSIX,posix,10
+prompt,prompt,10
+prompt engineering,promptengineering,10
+Python,python,10
+PyTorch,pytorch,10
+quantization,quantization,10
+RAG,rag,10
+RAM,ram,10
+reinforcement learning,reinforcementlearning,10
+repository,repository,10
+REST,rest,10
+retrieval augmented generation,retrievalaugmentedgeneration,10
+RGB,rgb,10
+RNN,rnn,10
+ROM,rom,10
+RPC,rpc,10
+runtime,runtime,10
+Rust,rust,10
+SaaS,saas,10
+sandbox,sandbox,10
+SDK,sdk,10
+search engine,searchengine,10
+semiconductor,semiconductor,10
+serverless,serverless,10
+SIMD,simd,10
+software,software,10
+source code,sourcecode,10
+SQL,sql,10
+SSD,ssd,10
+SSH,ssh,10
+SSL,ssl,10
+SVG,svg,10
+Swift,swift,10
+SwiftUI,swiftui,10
+TCP,tcp,10
+tensor,tensor,10
+TLS,tls,10
+token,token,10
+tokenizer,tokenizer,10
+TPU,tpu,10
+transformer,transformer,10
+TypeScript,typescript,10
+UDP,udp,10
+UI,ui,10
+URI,uri,10
+URL,url,10
+USB,usb,10
+UTF-8,utfeight,10
+UX,ux,10
+vector database,vectordatabase,10
+virtualization,virtualization,10
+virtual machine,virtualmachine,10
+VPN,vpn,10
+VR,vr,10
+VRAM,vram,10
+WAN,wan,10
+WebAssembly,webassembly,10
+WebSocket,websocket,10
+Wi-Fi,wifi,10
+XML,xml,10
+YAML,yaml,10

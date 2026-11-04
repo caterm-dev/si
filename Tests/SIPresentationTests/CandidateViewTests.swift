@@ -6,6 +6,42 @@ import SILocalization
 
 @MainActor
 struct CandidateViewTests {
+    @Test func compactWindowUsesOneEngineRankingForKeyboardMouseAndAccessibility() throws {
+        let engine = CandidateEngine()
+        for (input, languages) in [("womenkaihui", Set(InputLanguage.allCases)),
+                                   ("biruzhege", [.simplifiedChinese]),
+                                   ("Keep_Bytes", [])] {
+            let values = engine.candidates(for: input, languages: languages)
+            var selection = CandidateSelection()
+            selection.update(values)
+            let indices = try selection.candidates.map { candidate in
+                try #require(values.firstIndex { $0.id == candidate.id })
+            }
+            #expect(indices == indices.sorted())
+            #expect(selection.candidates.last?.text == input)
+            #expect(selection.candidates.last?.isLiteral == true)
+            #expect(selection.selected == selection.candidates.first)
+            #expect(selection.confirmationReason(for: selection.selected) == .defaultAcceptance)
+
+            let view = CandidateListView()
+            view.render(selection)
+            view.frame = NSRect(origin: .zero, size: view.preferredSize)
+            view.layoutSubtreeIfNeeded()
+            #expect(view.rows.count == min(6, selection.candidates.count))
+            #expect(Set(view.rows.map { $0.frame.minY }).count == 1)
+            #expect(view.preferredSize.height == CandidateStyle.rowHeight + 8)
+            #expect(view.accessibilityChildren()?.compactMap { $0 as? CandidateRowButton } == view.rows)
+            var clicked: String?
+            view.onSelect = { clicked = $0 }
+            for (index, row) in view.rows.enumerated() {
+                row.performClick(nil)
+                #expect(clicked == selection.candidate(number: index + 1)?.id)
+                #expect(row.candidateLabel.stringValue == selection.candidates[index].text)
+                #expect(row.isCurrent == (index == 0))
+            }
+        }
+    }
+
     @Test func expandedGridSharesContentSizedColumnsAcrossFourRows() throws {
         var session = InputSession()
         session.append("sheguofennudehai")

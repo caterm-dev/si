@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "origin": "SI-authored synthetic correction pairs created for the shared evaluation registry. Explicit fixed dev/test assignments; no private text, external benchmark, automatic corruption or training data used.",
+  "license": "GPL-3.0-only",
+  "revision": "synthetic-v1-2026-11-03",
+  "independent_annotation_review": false,
+  "scope": "Noisy Pinyin to Hanzi, Chinese character corrections, English spelling, mixed technical names and exact-preservation controls. These are requested transformations, not a claim that automatic correction is always appropriate.",
+  "training_overlap": "Not audited against any training corpus; not an independent production benchmark."
+}

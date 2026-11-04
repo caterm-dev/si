@@ -4,35 +4,6 @@ import SICore
 
 // One client owns the selected cell, numbered row and displayed page.
 struct CandidateSelection {
-    enum Ranking { case base, ai }
-    enum ComparisonState { case disabled, loading, ready, unavailable }
-    private(set) var ranking: Ranking = .base
-    private(set) var comparisonState: ComparisonState = .disabled
-    private(set) var fusion: CandidateFusion?
-    private var baseCandidates: [InputCandidate] = []
-    private var aiCandidates: [InputCandidate] = []
-    var showsComparison: Bool { comparisonState != .disabled }
-    var canSelectAI: Bool { comparisonState == .ready }
-
-    func candidates(for ranking: Ranking) -> [InputCandidate] {
-        ranking == .base ? baseCandidates : aiCandidates
-    }
-
-    mutating func beginComparison() { comparisonState = .loading }
-
-    mutating func receiveComparison(_ fusion: CandidateFusion?) {
-        self.fusion = fusion
-        comparisonState = fusion == nil ? .unavailable : .ready
-        aiCandidates = fusion.map { shortlist($0.candidates) } ?? []
-    }
-
-    mutating func selectRanking(_ ranking: Ranking) {
-        guard ranking == .base || canSelectAI else { return }
-        if self.ranking != ranking {
-            self.ranking = ranking
-            selectedIndex = 0
-        }
-    }
     /// The displayed global first choice stays neutral, including number/mouse acceptance.
     func confirmationReason(for candidate: InputCandidate?) -> CommitReason {
         guard let candidate else { return .literal }
@@ -56,7 +27,7 @@ struct CandidateSelection {
     private(set) var isExpanded = false
     var visiblePageSize: Int { Self.pageSize }
     var pageCapacity: Int { Self.pageSize * (isExpanded ? Self.expandedRowCount : 1) }
-    var candidates: [InputCandidate] { candidates(for: ranking) }
+    private(set) var candidates: [InputCandidate] = []
     private(set) var selectedIndex = 0
     private var textSupport = CandidateTextSupport()
 
@@ -93,11 +64,7 @@ struct CandidateSelection {
 
     mutating func update(_ candidates: [InputCandidate]) {
         if candidates.isEmpty { textSupport = CandidateTextSupport() }
-        baseCandidates = shortlist(candidates)
-        aiCandidates = []
-        fusion = nil
-        ranking = .base
-        comparisonState = .disabled
+        self.candidates = shortlist(candidates)
         selectedIndex = 0
         if self.candidates.isEmpty { isExpanded = false }
     }
@@ -109,7 +76,9 @@ struct CandidateSelection {
         return CandidateShortlist.candidates(from: displayable)
     }
 
-    mutating func setExpanded(_ expanded: Bool) { isExpanded = expanded }
+    mutating func setExpanded(_ expanded: Bool) {
+        isExpanded = expanded
+    }
 
     mutating func move(by offset: Int) {
         guard !candidates.isEmpty else { return }

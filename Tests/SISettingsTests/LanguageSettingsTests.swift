@@ -5,22 +5,54 @@ import SICore
 
 @MainActor
 struct LanguageSettingsTests {
-    @Test func aiComparisonChangesInvalidatePendingResultsWithoutEnablingRecording() throws {
-        let name = "SI.AIComparisonTests.\(UUID().uuidString)"
+    @Test func languageSwitchesPersistIndependentlyWithoutChangingDirectInputOrConsent() throws {
+        let name = "SI.LanguageSwitchTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = LanguageSettings(defaults: defaults)
-        #expect(settings.aiComparisonEnabled && settings.aiWeight == 1)
-        let generation = settings.configurationGeneration
-        settings.aiWeight = 0.4
-        settings.aiComparisonEnabled = false
-        #expect(settings.configurationGeneration == generation + 2)
-        let restored = LanguageSettings(defaults: defaults)
-        #expect(!restored.aiComparisonEnabled && restored.aiWeight == 0.4)
-        #expect(restored.englishEnabled && restored.chineseEnabled)
-        #expect(!defaults.bool(forKey: "applicationMemory.vocabularyEnabled"))
-        #expect(!defaults.bool(forKey: "inputHistory.enabled"))
+        settings.setPassthrough(true, for: "com.example.Terminal")
+        for (english, chinese) in [(false, true), (false, false), (true, false), (true, true)] {
+            let generation = settings.configurationGeneration
+            settings.englishEnabled = english
+            settings.chineseEnabled = chinese
+            #expect(settings.configurationGeneration == generation + 1)
+            let restored = LanguageSettings(defaults: defaults)
+            #expect(restored.englishEnabled == english && restored.chineseEnabled == chinese)
+            #expect(restored.enabledLanguages.contains(.english) == english)
+            #expect(restored.enabledLanguages.contains(.simplifiedChinese) == chinese)
+            #expect(restored.usesPassthrough(in: "com.example.Terminal"))
+            #expect(!defaults.bool(forKey: "applicationMemory.vocabularyEnabled"))
+            #expect(!defaults.bool(forKey: "inputHistory.enabled"))
+        }
     }
+
+    @Test func retiredAIPreferencesAreRemovedWithoutChangingLanguagesDirectInputOrConsent() throws {
+        for enabled in [false, true] {
+            let name = "SI.RetiredAISettingsTests.\(UUID().uuidString)"
+            let defaults = try #require(UserDefaults(suiteName: name))
+            defer { defaults.removePersistentDomain(forName: name) }
+            defaults.set(enabled, forKey: "typing.aiComparison")
+            defaults.set(enabled, forKey: "typing.aiContext")
+            defaults.set(0.4, forKey: "typing.aiWeight")
+            defaults.set(false, forKey: LanguageSettings.englishKey)
+            defaults.set(true, forKey: LanguageSettings.chineseKey)
+            defaults.set(["com.example.Terminal"], forKey: LanguageSettings.passthroughApplicationsKey)
+            defaults.set(enabled, forKey: "applicationMemory.vocabularyEnabled")
+            defaults.set(enabled, forKey: "inputHistory.enabled")
+
+            for _ in 0..<2 {
+                let settings = LanguageSettings(defaults: defaults)
+                for key in ["typing.aiComparison", "typing.aiContext", "typing.aiWeight"] {
+                    #expect(defaults.object(forKey: key) == nil)
+                }
+                #expect(settings.enabledLanguages == [.simplifiedChinese])
+                #expect(settings.usesPassthrough(in: "com.example.Terminal"))
+                #expect(defaults.bool(forKey: "applicationMemory.vocabularyEnabled") == enabled)
+                #expect(defaults.bool(forKey: "inputHistory.enabled") == enabled)
+            }
+        }
+    }
+
     @Test func directInputIsOptInPerApplicationAndSurvivesRestart() throws {
         let name = "SI.DirectInputSettingsTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))

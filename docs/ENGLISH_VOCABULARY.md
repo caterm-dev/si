@@ -1,6 +1,6 @@
 # English vocabulary maintenance
 
-The current [base.csv](../Data/Vocabulary/english/base.csv) is converted from the pinned Wanxiang `dicts/en.dict.yaml`, preserving upstream integer weights without wordfreq normalization. It contains 72,784 supported English forms; with the preserved categories, the packaged resource contains 74,337 entries. The [import guide](../Data/Vocabulary/Wanxiang/README.md) records revision, full CC BY 4.0 data licensing, source checksums, exact conversion rules, exclusions and update commands.
+The current [base.csv](../Data/Vocabulary/english/base.csv) is converted from the pinned Wanxiang `dicts/en.dict.yaml`, preserving upstream integer weights without wordfreq normalization. It contains 72,784 supported English forms; with the preserved categories, the packaged resource contains 74,340 entries. The [import guide](../Data/Vocabulary/Wanxiang/README.md) records revision, full CC BY 4.0 data licensing, source checksums, exact conversion rules, exclusions and update commands.
 
 The existing [movie.csv](../Data/Vocabulary/english/movie.csv) and [domain.csv](../Data/Vocabulary/english/domain.csv) retain text/readings with all weights set to 10. New local additions default to 10. Base owns overlapping weights and case-only spelling; other category entries remain available. Nonbase duplicates merge using maximum weight. The domain collection still contains 1,209 full hostnames and retains its independent Radar CC BY-NC 4.0 attribution. Neither categories nor their filenames introduce ranking bonuses or language modes.
 
@@ -22,6 +22,14 @@ Fetch is a separate explicit network operation. Conversion is offline and replac
 The shared resource unit is `si-wanxiang-weight-v1`, reference mass one, with unknown weight one. Base weights are upstream ranking values, not real occurrence counts or calibrated probabilities. The old retained-vocabulary normalization is no longer used. English casing and membership can change, including absent old forms; exact literal fallback remains available for every nonempty input.
 
 English uses dictionary weights, spelling costs and language-transition costs without model context corrections. Builds and tests require no model staging. The dictionary migration does not establish ranking-quality improvement or host compatibility.
+
+## Technology category
+
+[technology.csv](../Data/Vocabulary/english/technology.csv) is an SI-authored selection of 164 common terms covering AI/machine learning, software development, hardware, networking, security and cloud computing. Examples include `AI`, `LLM`, `API`, `GPU`, `ChatGPT`, `Core ML`, `MLOps` and `cloud computing`. These additions use SI's GPLv3 license; no third-party wordlist is imported. The curation record in `Data/Vocabulary/meta.json` retains its scope, row count and CSV checksum.
+
+Every category row uses editorial weight 10. Existing base entries still own their casing and weight: the category row `AI,ai,10` leaves the base `ai,ai,3078` effective. Lowercase `ai` therefore yields the English word `ai`, while uppercase `AI` yields `AI` through the existing case handling. This category introduces no abbreviation aliases or ranking bonus. Multiword readings omit spaces (`Core ML` → `coreml`); digits are spelled individually (`FP16` → `fponesix`).
+
+The initial category adds 13 outputs absent from the other English CSVs; its remaining rows group existing terms without changing their effective weights or spelling. Rebuild the runtime dictionaries with the ordinary CSV build command after editing. Run `EnglishVocabularyTests` for exact technology output, case preservation, completions, disabled English and literal fallback. Automated checks do not establish live host compatibility.
 
 ## Historical bootstrap sources and attribution
 

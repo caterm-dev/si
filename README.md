@@ -2,7 +2,7 @@
 
 **One input. Every language.**
 
-SI is an open-source macOS input method built around one idea: choose the languages you use in Settings, then type without switching between language modes. Candidates from enabled languages appear together, including ambiguous matches. The original text always remains available.
+SI is an open-source macOS input method built around one idea: choose the languages you use in Settings or SI's input menu, then type without switching between language modes. Candidates from enabled languages appear together, including ambiguous matches. The original text always remains available.
 
 > **Status: development preview; Chinese engine migration in progress.** The current worktree implements the Chinese decoder in Swift using MSIME-derived lookup and word-lattice algorithms, with a pinned dictionary maintained by SI. Debug and Release builds have passed. The remaining regression suite passes after ten failing tests were removed at the user's request; those underlying behaviors remain unresolved. See the current validation record. Chinese quality parity and host compatibility remain unproven. English lookup and bounded Chinese/English lexical paths are connected; full regressions and host verification remain incomplete.
 
@@ -31,50 +31,14 @@ For `cichuxiande`, the single-character prefix `词` has the same lexical score 
 All input processing is local. SI has no analytics, keystroke logging, or cloud dependency for typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate preferences; Input History can retain each submitted spelling/text pair permanently on this Mac. Nothing is uploaded. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
 Runtime candidates use dictionary weights, spelling costs, language-transition costs
-and opted-in Personal Learning. The experimental small-model comparison described
-below adds local AI scoring in a separate candidate row. It uses no previous input
-context and performs no online training. Large-model conversion remains planned.
+and opted-in Personal Learning. The input method has one engine-ranked candidate
+list. AI ranking, its comparison row, model loading and input-field context reads
+have been removed pending redesign. Offline model experiments remain separate in
+[the model workspace](llm/README.md).
 
-## AI candidate comparison preview
+## Input languages
 
-With a locally staged small reranker, the collapsed candidate window shows the
-unchanged original ranking above a separate **AI** ranking. The lower row
-shows each scored choice's AI score (higher is better).
-Click either row to confirm its candidate. Down selects the ready AI row; Down
-again expands that ranking into the ordinary grid. Up returns to the original row
-when collapsed. Numbers and Space select from the active row. The AI badge also
-switches rows without taking focus from the host. The existing expand button opens
-the active ranking; Return keeps the exact remaining spelling.
-
-**Settings → AI Ranking Preview** controls the comparison and AI weight (0–2,
-default 1). The comparison is initially enabled for this development preview.
-Both rankings retain the same language-aware identities, literal fallback,
-personal pins, remembered exact-spelling corrections and presentation limits.
-AI scores at most the first 32 eligible complete engine candidates; prefixes,
-personal/verbatim paths, completions and punctuation are not scored.
-Prefix/whole model calibration remains separate work. Within the retained personal
-pin/correction priorities, scored choices sort by `weight × logP(text) /
-(UnicodeScalarCount(text) × ln(2))`, descending. Unequal AI scores cannot be
-overridden by engine scores. Equal scores keep engine order; unscored choices
-follow in their original relative order, and exact literal input stays last.
-The score is unclamped so low-likelihood alternatives remain distinguishable.
-Positive weights scale scores without changing their order; weight 0 restores the
-original ordering. No language receives a reserved slot. This text-only ranking
-and its bounded candidate pool are not calibrated conversion probabilities or
-evidence of improved quality.
-
-Original candidates appear before AI finishes. Loading, unavailable-model and
-inference-failure states are visible, without substituting fake AI results.
-Scoring runs locally in a Core ML actor; edits, cancellation, settings and client
-changes reject obsolete results. Selecting words never waits for neural scoring.
-Secure input suppresses comparison. The model does not read history, previous
-commits, documents or the clipboard, save inputs, train itself or contact a server.
-Automatic prefix confirmation continues to use the original decoder evidence.
-
-Model artifacts stay local and ignored. Normal builds do not download or train
-models; without staged artifacts ordinary input still works and the AI row reports
-unavailability. See [explicit conversion and staging](llm/reranker_small/README.md#native-app-comparison)
-and [validation/manual checks](docs/TESTING.md#small-reranker-comparison).
+The macOS input-source menu for SI includes independent **English** and **Chinese (Simplified)** checkmarks. Click either to enable or disable that input language without opening Settings. These global preferences stay synchronized with Settings and allow both languages together or neither (exact original input remains available). Changing a checkmark refreshes the active composition without committing its spelling or moving its caret. No keyboard shortcut is assigned. Per-application direct input still takes precedence; to convert Chinese in an app such as Terminal, first turn off its direct-input rule in Settings.
 
 ## Interface language
 
@@ -84,9 +48,9 @@ Interface language is independent of the English/Chinese input-language switches
 
 ## Vocabulary maintenance
 
-Chinese and English base dictionaries now come from a pinned [rime-wanxiang-data](https://github.com/amzxyz/rime-wanxiang-data) revision. The independently written [conversion script](scripts/wanxiang_dictionary.py) imports `zi`, `jichu` and `duoyin` into `chinese/base.csv` (1,547,554 text/reading pairs), and `en` into `english/base.csv` (72,784 supported forms). Base weights retain the upstream integers, without wordfreq normalization or frequency rescaling, except for [documented SI editorial adjustments](Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments). The upstream weights are already transformed ranking values, not raw occurrence counts or probabilities. This replacement changes vocabulary, casing and ranking; it does not establish improved conversion quality.
+Chinese and English base dictionaries now come from a pinned [rime-wanxiang-data](https://github.com/amzxyz/rime-wanxiang-data) revision. The independently written [conversion script](scripts/wanxiang_dictionary.py) imports `zi`, `jichu` and `duoyin` into `chinese/base.csv` (1,547,554 text/reading pairs), and `en` into `english/base.csv` (72,784 supported forms). Base weights retain the upstream integers, without wordfreq normalization or frequency rescaling, except for [documented SI editorial adjustments](Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments). The upstream weights are already transformed ranking values, not raw occurrence counts or probabilities. For `yuliao`, the SI editorial weight for `语料` is 2,500, placing it above `语聊` (2,442) and below `预料` (3,036) before personal preferences. This replacement changes vocabulary, casing and ranking; it does not establish improved conversion quality.
 
-All ten other normal upstream Chinese dictionaries are imported into separate categories named after the upstream files, adding 602,516 category rows. The complete merged resources contain 2,141,202 Chinese and 74,337 English entries. The seven remaining local Chinese categories and both English categories retain their text/readings with uniform weight 10. The separately removed culture/sports file is not restored. Their entries supplement the base; overlapping identities use the base weight and English casing, so historical category weights cannot overwrite the new source weights. Imported categories retain upstream weights over legacy category copies; duplicates within each tier still merge by maximum weight. Categories remain maintenance groups without language modes or ranking bonuses. The [domain category](Data/Vocabulary/DOMAINS.md) retains its 1,209 full hostnames and separate Radar CC BY-NC 4.0 terms; the [movie catalog](Data/Vocabulary/MOVIES.md) retains its 400 selected films from 2007–2026.
+All ten other normal upstream Chinese dictionaries are imported into separate categories named after the upstream files, adding 602,516 category rows. The complete merged resources contain 2,141,202 Chinese and 74,340 English entries. The seven remaining local Chinese categories and the existing English movie/domain categories retain their text/readings with uniform weight 10. The separately removed culture/sports file is not restored. Their entries supplement the base; overlapping identities use the base weight and English casing, so historical category weights cannot overwrite the new source weights. Imported categories retain upstream weights over legacy category copies; duplicates within each tier still merge by maximum weight. Categories remain maintenance groups without language modes or ranking bonuses. The [domain category](Data/Vocabulary/DOMAINS.md) retains its 1,209 full hostnames and separate Radar CC BY-NC 4.0 terms; the [movie catalog](Data/Vocabulary/MOVIES.md) retains its 400 selected films from 2007–2026.
 
 ```sh
 # Explicit source download, pinned by revision, size and SHA-256:
@@ -103,6 +67,8 @@ See the [import scope, exceptions and update workflow](Data/Vocabulary/Wanxiang/
 
 [Data/Vocabulary](Data/Vocabulary/README.md) contains the editable CSVs and source-level metadata. Normal CSV builds remain offline and do not rerun the upstream conversion. Both runtime databases retain the same SQLite schema and use the versioned `si-wanxiang-weight-v1` contract in `Data/DictionaryFormat.json`; incompatible old resources fail closed. Source pins, full data licensing, conversion checksums and preserved category hashes are retained. Older MSIME, SCOWL, CSpell, Rime Ice and wordfreq records remain historical attribution, not the current base-frequency pipeline. Historical Chinese MSNG tables remain archived outside the app and are not used for runtime scoring. See [Chinese maintenance](docs/CHINESE_VOCABULARY.md) and [English maintenance](docs/ENGLISH_VOCABULARY.md).
 
+The SI-authored [English technology category](Data/Vocabulary/english/technology.csv) contains 164 common AI, software, hardware and networking terms at editorial weight 10. Existing base entries retain their weights and casing, including lowercase `ai`; typing `AI` still produces uppercase `AI`. See [technology maintenance](docs/ENGLISH_VOCABULARY.md#technology-category).
+
 ## Automatic prefix confirmation
 
 Enable **Automatically confirm stable prefixes** in **SI Settings → Typing** to let SI confirm leading Chinese words while you continue typing or pause. It is off by default. SI keeps at least four output characters editable during continuous typing, or two after a pause of at least 1.8 seconds; complete-word boundaries can leave a longer ending. Only the confirmed source spelling is consumed, and the remaining exact spelling stays marked and editable without an extra space.
@@ -117,7 +83,13 @@ Open **SI Settings → Direct Input by Application → Manage Direct Input…** 
 
 In a selected app, SI passes key events to the host without composition, candidates, punctuation conversion or automatic spacing. Space, Tab, Return, navigation and shortcuts belong to the host. If the rule takes effect during composition, SI inserts only the exact pending spelling once and rejects old candidate results and automatic-confirmation tasks. SI does not learn vocabulary while direct input is enabled; existing saved data remains until deleted. Turning direct input off restores ordinary conversion and the app's independently configured learning consent.
 
-Rules use the InputMethodKit client's application identity, not the foreground process. A browser rule applies to every tab and input field; an editor rule includes its embedded terminal. It cannot distinguish an address from a search in a combined address bar. No Accessibility or Input Monitoring permission is requested, and SI remains the selected system input source. Native host behavior still requires the [direct-input manual checks](docs/TESTING.md#direct-input-by-application).
+Rules use the InputMethodKit client's application identity, not the foreground process. A browser rule applies to every tab and input field; an editor rule includes its embedded terminal. It cannot distinguish an address from a search in a combined address bar. Application-wide rules need no Accessibility or Input Monitoring permission, and SI remains the selected system input source. Native host behavior still requires the [direct-input manual checks](docs/TESTING.md#direct-input-by-application).
+
+## Experimental permissions
+
+**SI Settings → Experimental Permissions** provides separate **Request Accessibility…** and **Request Screen Recording…** actions with current permission status. macOS controls authorization; denied requests open the corresponding Privacy & Security pane. Permission is requested only by these buttons, never automatically while typing. A restart of SI may be required after authorization; do not run built and installed copies together.
+
+These permission entry points are available for future input-control experiments. They do not inspect controls, capture images or automatically select input behavior by field. Granting either permission leaves input behavior, enabled languages, Personal Learning and Input History unchanged. Input Monitoring and global event taps are not used. Native permission dialogs still require [manual verification](docs/TESTING.md#experimental-permissions).
 
 ## Personal Learning
 
@@ -295,6 +267,7 @@ mac/Support/           Input-method bundle metadata
 Tests/                 Swift Testing coverage for core, storage, and settings
 scripts/               Build, test, and local installation commands
 docs/                  Architecture, manual checks, and roadmap
+eval/                  Shared frozen ranking, correction and Pinyin-to-Hanzi evaluation
 corpus/                Pinned offline Chinese text corpora and lexical reading resources
 llm/                   Offline spelling-to-text training experiments (not loaded by the app)
 ```
@@ -303,13 +276,20 @@ The Swift package and Xcode app compile the same core source files. There is no 
 
 ## Model training experiments
 
-The [model workspace](llm/README.md) separates `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The [small reranker](llm/reranker_small/README.md) supports training a 7.4M character LM from scratch, whole-document preparation, candidate scoring/evaluation and inference export. Its [constructed Chinese challenge](llm/reranker_small/benchmarks/README.md) contains 1,230 cases from 337 anchors, with real decoder pools and separate development/test splits. Independent annotation review remains pending; local Core ML comparison is implemented; the large reranker is planned. The existing conversion framework, data, configs, runs and reports are under `llm/pinyin_to_text/`; the shared Python environment stays at `llm/.venv`.
+The [shared evaluation registry](eval/README.md) owns fixed datasets for ranking,
+correction and Pinyin-to-Hanzi conversion, independent of model size or algorithm.
+It provides blind input export, a common prediction format, exact-output scoring,
+integrity/split checks and comparable reports. Small and future large rerankers
+use the same frozen ranking pools; model-specific training/loss evaluation stays
+under `llm/`. Run `python3 -m eval validate` to inspect the registered suites.
+
+The [model workspace](llm/README.md) separates `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The [small reranker](llm/reranker_small/README.md) supports training a 7.4M character LM from scratch, whole-document preparation, candidate scoring/evaluation and inference export. Its [constructed Chinese challenge](llm/reranker_small/benchmarks/README.md) contains 1,230 cases from 337 anchors, with real decoder pools and separate development/test splits. Independent annotation review remains pending; native AI ranking has been removed pending redesign; the large reranker is planned. The existing conversion framework, data, configs, runs and reports are under `llm/pinyin_to_text/`; the shared Python environment stays at `llm/.venv`.
 
 The independent [Chinese corpus workspace](corpus/README.md) prepares pinned public conversation, web, Wikipedia and technical-documentation text, with per-source licenses, line origins, deduplication and integrity reports. Chinese Wikipedia acquisition resolves the latest complete official article dump and verifies its official checksum before recording the pin. It also exports explicit character/word readings from the maintained vocabulary. Raw and prepared data stay local and outside Git. This is a separate text-preparation stage; it does not label sentence Pinyin, change the existing training defaults or integrate a model into SI.
 
 Git retains the application dictionary CSV sources, manifests, preparation/training code, configs, source pins, attribution, authored training CSVs and frozen regression fixtures. Generated databases, downloads, generated corpus tables, prepared datasets, Python environments and training outputs are ignored. See [the data policy](CONTRIBUTING.md#local-corpus-and-model-artifacts) and the corpus/model guides to recreate local artifacts; removing them from tracking preserves local copies and does not rewrite earlier Git history.
 
-[The independent `llm/` framework](llm/README.md) now defaults to a randomly initialized 19.7M encoder-decoder for Pinyin-to-Han characters and short words. Its [focused static CSVs](llm/pinyin_to_text/data/pinyin-csv/README.md) use explicit `train/`, `validation/` and `test/` directories with `characters.csv` and `words.csv` groups. Preparation freezes maintained rows and source hashes without generating sentences, Pinyin, typos or random splits. This experiment excludes sentence templates, English/mixed and typo sources; those earlier experiments remain available separately. Representative converter quality and native converter deployment remain unverified; the separate small reranker can be staged for the experimental App comparison. Default model sources exclude live Personal Learning, personal phrases, Input History and retired archives. Explicitly volunteered history exports can separately become reviewed offline training observations through [the export workflow](docs/INPUT_HISTORY_EXPORT.md); no live collection or automatic training is connected.
+[The independent `llm/` framework](llm/README.md) now defaults to a randomly initialized 19.7M encoder-decoder for Pinyin-to-Han characters and short words. Its [focused static CSVs](llm/pinyin_to_text/data/pinyin-csv/README.md) use explicit `train/`, `validation/` and `test/` directories with `characters.csv` and `words.csv` groups. Preparation freezes maintained rows and source hashes without generating sentences, Pinyin, typos or random splits. This experiment excludes sentence templates, English/mixed and typo sources; those earlier experiments remain available separately. Representative converter quality and native converter deployment remain unverified; native AI ranking has been removed pending redesign. Default model sources exclude live Personal Learning, personal phrases, Input History and retired archives. Explicitly volunteered history exports can separately become reviewed offline training observations through [the export workflow](docs/INPUT_HISTORY_EXPORT.md); no live collection or automatic training is connected.
 
 Each preset script performs one task: run `./llm/pinyin_to_text/scripts/setup.sh` for the environment, `./llm/pinyin_to_text/scripts/data.sh` for CSV preparation, `./llm/pinyin_to_text/scripts/run.sh` for small-model training on MPS, then separately run `validation.sh`, `test.sh`, `infer.sh` or `export.sh` as needed. Shared paths and parameters are in `llm/scripts/defaults.sh`; no stage launches the next one. The scripts use `llm/.venv` without activation and accept explicit argument overrides. Old environment overrides still take precedence; use a fresh terminal before using the new presets. Use `check.sh` and the tiny CPU `smoke.sh` for framework checks. See [the framework guide](llm/README.md) for preset locations and new-run/resume instructions.
 

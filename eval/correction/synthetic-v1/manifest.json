@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "revision": "synthetic-v1",
+  "splits": {
+    "dev": 25,
+    "test": 55
+  },
+  "files": {
+    "dev.jsonl": "a08912bd3c5fa815f7e8e809ef402bc4fae8c72978e1016a442463e0120ddb17",
+    "provenance.json": "102753885d0e37f6e66d86a71f2554fbb3eb0bf0473fe966262b0a2cd5efe019",
+    "test.jsonl": "1d73c96e3b8617fd746ace52c5f5aff86cd3ed143b3cb1f9de508aa6bec10106"
+  }
+}

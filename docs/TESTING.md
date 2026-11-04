@@ -1,5 +1,25 @@
 # Testing SI
 
+## Yuliao editorial weight adjustment
+
+On November 4, 2026, `语料` (`yu'liao`) increased from 1,953 to 2,500.
+Offline `SICandidateExport` with empty personal state confirmed `yuliao` ranks
+`预料`, `语料`, `语聊`, `玉料`, `鱼疗`, `余料`, with exact literal input retained.
+Both CSV dictionary checks, pinned MSIME context checks and ranking checks passed.
+All 430 Swift tests and the Debug app build passed with normal compiler/cache
+access after sandboxed attempts failed. Of 42 vocabulary-tool tests, 41 passed;
+the unrelated English domain-count assertion failed (metadata 1,209 versus 1,199
+rows). No input method was installed and no live host checks were performed.
+
+
+## Input-menu language switches
+
+Run `./scripts/test.sh` and `./scripts/build.sh`. `LanguageSettingsTests` covers independent language persistence, configuration invalidation, unchanged direct-input rules and recording consent. `DeferredCandidateTests.languageChangesKeepCompositionAndCaretWhileRejectingOldCandidates` covers language changes through English-only, neither, Chinese-only and both, retaining exact input/caret, rejecting obsolete preview/final results and restoring ambiguous bilingual candidates.
+
+On an intentionally installed build, select SI and open the macOS input-source menu. Check that English and Chinese (Simplified) reflect Settings, toggle independently, persist after a normal restart and have no keyboard shortcuts. With both enabled, `he` must retain English and Chinese choices; with neither enabled, exact original spelling must remain available. During composition, move the caret and toggle a language: preserve marked spelling/caret, refresh choices, and prevent an old candidate click or automatic-confirmation timer from committing a stale choice. Repeat in TextEdit, a browser field, an editor and Terminal, including focus changes and host shortcuts. In an app with direct input enabled, language checkmarks must not override passthrough; disable that app rule in Settings before testing conversion. Check menu keyboard navigation, VoiceOver checkmark announcements and English/Chinese UI labels in light/dark appearance. Automated tests/builds do not establish native menu routing or host compatibility; these checks require a login-session verification.
+
+On November 3, 2026, all 444 Swift tests and the Debug app build passed. The initial sandboxed commands could not access SwiftPM/compiler facilities; both required commands passed with ordinary cache access outside the agent sandbox. No installation or live menu, host-app, keyboard or VoiceOver verification was performed.
+
 ## Matched-input coverage ranking
 
 On October 31, 2026, the user authorized a soft coverage reward after comparing
@@ -426,6 +446,18 @@ In a selected Terminal app, type synthetic `echo SI_TEST_42`, use Space, digits,
 
 Toggle direct input across a pending composition/search or pause timer, then return to the host, use candidate mouse/page/expansion controls if still visible and change focus rapidly. Only the exact pending source spelling may be inserted, once, with no extra space; obsolete candidates/timers must not convert or restore it. Turn direct input off and verify fresh conversion, without stale selection or history. With vocabulary/history independently opted in, confirm direct input adds no app records or incomplete history suffix, including after Return; existing records must remain deletable. Inspect data only with synthetic input. Native host, reentry, VoiceOver and appearance checks remain unverified until performed in a login session.
 
+On November 4, 2026, the application-language redesign was reverted to the independent Direct Input by Application switch. `./scripts/test.sh` passed all 430 Swift tests and `./scripts/build.sh` built the Debug app successfully, using ordinary compiler/cache access outside the agent sandbox. Documentation links and `git diff --check` passed. No input method was installed or launched, and native host/VoiceOver behavior was not retested.
+
+## Experimental permissions
+
+Run `./scripts/test.sh` and `./scripts/build.sh`. Permission controls are separate from language, direct-input, learning and history settings. No focused-control detection or field-based automatic input behavior is implemented.
+
+On an intentionally installed build, open **Experimental Permissions** and verify keyboard navigation, VoiceOver labels and light/dark appearance. Invoke each request button separately, test denial/retry and authorization in Privacy & Security, then return and refresh status. Neither launching SI nor typing should prompt. If macOS requires a restart, restart the installed copy normally without running a second SI process. Granting either or both permissions must leave ordinary candidates, enabled languages, direct-input app rules and learning/history consent unchanged. No controls or images should be captured.
+
+System permission dialogs, revocation, Settings keyboard/VoiceOver and live appearance remain unverified until exercised in the login session.
+
+On November 3, 2026, removing the app-specific address-bar experiment while retaining the generic permission actions passed all 444 Swift tests (307 core, 98 presentation, 23 settings, 13 storage and three localization) using `./scripts/test.sh --disable-sandbox`, plus the Debug build with `./scripts/build.sh`. The SwiftPM nested sandbox fallback and standard Xcode cache access outside the workspace sandbox were required. Localization lint, local Markdown targets and `git diff --check` passed. The removed experiment's three tests were deleted with its implementation. No input method was installed or launched, no permissions were granted, and no host controls or images were inspected.
+
 ## Mixed English lookup
 
 `MixedEnglishSpacingTests` checks one space at Chinese/English boundaries and
@@ -690,6 +722,10 @@ Set `SI_CANDIDATE_SNAPSHOT_PATH` to an output PNG path to retain the synthetic o
 `SequentialWordSelectionTests` verifies `biruzhege` in Chinese-only/bilingual searches, provisional/full results and both layouts: all retained choices preserve engine-relative order, constructed choices share the four-hypothesis limit, every page number matches its candidate, and choosing `比如` consumes only `biru` (including apostrophe-aware boundaries). The synthetic interleaved head and bilingual `hei` regressions verify that lower-ranked mixed fragments never move ahead of `黑`, and fragments outside the ranked head do not backfill word positions. `FirstWordPrefixTests` covers crowding, the ordinary 27-choice budget with additional character retention, retained language identities/literal, the decoder's independent 24-word pool, consumed-spelling learning and lexical evidence. Offscreen view tests render actual pages in light and dark appearances; set `SI_WORD_SELECTION_SNAPSHOT_PATH=/tmp/si-word-selection` to retain the first/second `biruzhege` pages. These checks do not establish live host routing, VoiceOver or positioning.
 
 `CandidatePlacementTests` checks synthetic host geometry separately: inline-session coordinates taking priority over displaced document geometry, recovery from a cached document fallback, actual-range validation and ambiguous-origin corroboration, UTF-16 offsets after supplementary characters, invalid/unavailable marked ranges and rectangle fallback, fresh geometry after reflow, composition-start queries, caret fallback, composition-local cached coordinates, invalid/missing coordinates, edge clamping, left/above displays, and display removal. It does not exercise InputMethodKit's actual coordinate delivery.
+
+`EnglishVocabularyTests.technologyCategoryAddsTermsAndPreservesBaseCasingAndLiteralInput` covers the SI-authored technology category, including base `ai` versus uppercase input `AI`, new multiword/digit keys, completion, disabled English and exact literal fallback. Category provenance and the CSV checksum are recorded in `Data/Vocabulary/meta.json`.
+
+On November 3, 2026, the 164-row technology category added 13 effective outputs. A source comparison preserved all 74,327 preexisting English outputs, keys and weights. Both CSV dictionary checks, pinned Chinese context verification, all 306 Swift tests (`./scripts/test.sh --disable-sandbox`, because nested SwiftPM sandboxing was unavailable) and the Debug app build passed. Python vocabulary maintenance passed 41 of 42 tests; the existing domain metadata count is 1,209 while its unchanged CSV contains 1,199 rows, so `test_domain_category_is_valid_ascii_without_urls_or_duplicate_outputs` still fails. No installation or live host verification was performed.
 
 `EnglishVocabularyTests` compares direct candidates against a source-list reference, checks technology exact/completion/mixed candidates and disabled languages, checks every English word and every nonempty prefix against the complete vocabulary, verifies cached casing and probability costs, and exercises mixed exact/completion walks with apostrophe boundaries and the two-letter completion minimum. Run it with `./scripts/test.sh --filter EnglishVocabularyTests`. Lexical order, full result ranges, exact literals and language filtering must remain intact.
 
@@ -984,85 +1020,63 @@ accidental retention of the configured Token; none was found. `.env` remains
 Git-ignored. No input method installation or native host verification was performed.
 
 
-## Small-reranker comparison
+## Shared offline model and algorithm evaluation
 
-Stage the trained public checkpoint explicitly as documented in
-[the model guide](../llm/reranker_small/README.md#native-app-comparison).
-Normal builds do not install Python dependencies or download/train/stage models.
-The staged runtime and compiled model must be present under the built App's
-`Contents/Resources/Reranker/`. A clean checkout without weights reports AI
-unavailability while retaining original input behavior.
-
-Automated verification on November 1, 2026 used the local 30,000-step checkpoint
-`41692f0980708e6f0e16bd54e3d38c59a0475be8a3310500a977474625e1eeb4`.
-FP32 conversion was compared with PyTorch for 1-token, varied-length Unicode/byte
-fallback and 256-token inputs using `atol=0.005, rtol=0.0001`; the maximum absolute
-sum-score difference was 0.008423 on the long-input fixture. Native short-score
-and partial-batch comparisons use 0.005 absolute tolerance. These are numerical
-checks, not representative ranking-quality or host-latency evidence.
-
-Focused coverage includes unequal AI evidence winning regardless of engine-score
-margins, equal AI evidence retaining engine order, unclamped low-likelihood ordering,
-positive weight scaling, zero weight restoring the base row, unscored-tail order, fixed
-personal/correction priority, excluded personal/verbatim/prefix paths, exact literal
-bytes, scalar tokenization, overlong rejection, cancellation/latest-only scheduling,
-row-local confirmation reasons, and distinct loading/failure states. Native tests
-also connect the real shared decoder, staged model, two-row AppKit rendering and
-exact candidate commits for synthetic input. Screenshots cover light and dark
-appearance using the same views compiled into the App:
+The [root evaluation registry](../eval/README.md) supplies frozen ranking,
+correction and Pinyin-to-Hanzi suites for all model sizes and algorithms:
 
 ```sh
-SI_AI_SNAPSHOT_PATH=/tmp/si-ai-comparison \
-SI_AI_ENGINE_SNAPSHOT_PATH=/tmp/si-ai-engine \
-SI_AI_TIMING_PATH=/tmp/si-ai-timing.json \
-  ./scripts/test.sh --filter CandidateComparisonTests
+python3 -m eval validate
+python3 -m unittest discover -s eval/tests -p 'test_*.py' -v
+./llm/.venv/bin/python -m unittest discover -s eval/tests -p 'test_*.py' -v
+./llm/reranker_small/scripts/check.sh -p test_benchmarks.py
 ```
 
-The optional numeric timing report includes the first cold call and measures
-synthetic native scoring only. It is not host-app latency. Native model tests are
-explicitly skipped when staged artifacts are absent; inspect skip counts before
-claiming model inference passed.
+Tests cover fixed data hashes/splits, original multi-reference Pinyin rows,
+missing-gold/empty ranking pools, language-aware index permutations, exact Unicode
+outputs, correction/no-change metrics, full prediction coverage, dataset/scorer
+comparison guards and real tiny-checkpoint adapters. The standard-library run
+skips optional adapters if PyTorch is unavailable; the shared environment runs
+them. The historical ranking builder/evaluator reads compatibility links to the
+same relocated files. Use the registry's export/score/compare commands for new
+cross-model reports; keep model loss/perplexity separate. These constructed
+fixtures have no independent label review, and new training corpora need their
+own overlap audits. No offline check establishes native host compatibility.
 
-The final local run passed all 437 Swift tests (including the native model tests,
-with no skipped native tests), all 24 small-model Python tests, and
-`./scripts/build.sh`. The 20 staged model/provenance files were hash-checked against
-the built Debug App bundle. Light/dark images from actual decoder/model outputs
-were visually inspected. No input method was installed, replaced or launched for
-these checks; no enabled input source or user learning/history settings were changed.
+## AI ranking removal
 
-On November 2, 2026, the comparison row changed from additive fusion to independent
-AI ordering. Regression fixtures give the lower-engine-score choice slightly
-better AI evidence, check low-likelihood scores below the former clamp, preserve
-tie/unscored ordering and verify both rows' selection identities. All 437 Swift
-tests passed, including the staged native model tests without skips, and the Debug
-app built successfully. Synthetic AppKit light/dark renders were inspected. No
-input method was installed or replaced, and live host/VoiceOver checks were not run.
+The input method now presents only the original engine ranking. Native AI scoring,
+its comparison row/status/scores, context readback, Settings switches and bundled
+model resources are removed. Offline model training/evaluation remains separate.
+`LanguageSettingsTests` covers cleanup of all retired AI preferences while
+preserving enabled languages, direct-input rules and both recording consents.
+Existing candidate-selection and presentation tests cover the engine shortlist,
+number/mouse confirmation, neutral first-choice learning and expanded paging.
 
-Live checks remain **unverified** until performed in an installed input method:
+Run `./scripts/test.sh` and `./scripts/build.sh`. Inspect the built app to confirm
+that no Reranker resources or compiled model assets are bundled.
 
-1. In TextEdit and a browser/editor, type synthetic `womenkaihui`, `woxianganzhao`,
-   `cichuxiande` and `ling`. Confirm original results remain on top and real AI-ranked
-   candidates/scores appear below. Check that scored ordinary choices descend by AI
-   score and unscored prefixes follow in base order. Verify exact literal input
-   remains available on later pages. No language gets a protected slot.
-2. Use Down to select the ready AI row, number/Space to confirm, Up to return to
-   original, and Down again or the expand button to open the active grid. Click
-   both rows and the AI badge. Confirm the host retains focus, labels/scores never
-   commit, first-choice learning is neutral for the displayed ranking, and choosing
-   a prefix retains only its exact source remainder without an extra space.
-3. Type/edit/cancel rapidly, use shortcuts and switch hosts during cold/warm
-   scoring. Old results must not restore a cancelled composition or replace a new
-   client's candidates. Navigate original choices while scoring; their selection
-   must stay fixed when the lower row arrives. Return keeps exact remaining input.
-4. Disable comparison or change its weight while work is pending. Subsequent
-   events must use the current configuration. Disable all languages and verify
-   exact literal input remains. Secure input and direct-input apps must suppress
-   neural comparison. History/learning consent must not change.
-5. Check missing-model/error state in a separate build without staged artifacts.
-   The base row remains usable; the lower row must not claim AI results. Do not
-   remove model files from an active installed input method.
-6. Check VoiceOver labels/actions, keyboard navigation, light/dark/high-contrast
-   appearance, narrow displays and caret placement above/below screen edges.
+On November 4, 2026, `./scripts/test.sh` passed all 433 tests (301 core,
+91 presentation, 25 settings, 13 storage and three localization), and
+`./scripts/build.sh` passed the Debug app build. Both commands used normal
+compiler/cache access after the agent sandbox blocked SwiftPM/Xcode facilities.
+The built app contains no Reranker directory or Core ML model resources. Synthetic
+expanded light/dark and narrow candidate renders were inspected; the new compact
+regression checks one row and matching engine/number/mouse/accessibility identities.
+Localization plist lint, 101 local Markdown targets and `git diff --check` passed.
+No input method was installed, replaced or launched. Live Settings/VoiceOver and
+interprocess host behavior remain unverified.
 
-Do not run the built and installed SI copies together. Ordinary test/build commands
-and in-process rendered views do not establish InputMethodKit host compatibility.
+Live verification remains required in TextEdit and a browser/editor:
+
+1. Compose synthetic `womenkaihui`, `ling` and `biruzhege`. Verify a single compact
+   engine row, no AI badges/status/scores, and the exact literal choice on paging.
+2. Verify Down expands the engine grid, Up navigates that grid, Page Up/Down and
+   numbers use the current page/row, and mouse/Space confirms the displayed choice
+   without taking host focus. Prefix selection must leave the exact remainder.
+3. Check Return, Escape, shortcuts, rapid edits, cancellation and focus changes;
+   obsolete candidates must not restore old composition or commit stale text.
+4. Check Settings has no AI ranking/context controls; languages, direct input,
+   Personal Learning and Input History retain their existing settings.
+5. Check keyboard use, VoiceOver, light/dark/high-contrast appearance and narrow
+   display positioning. In-process rendering does not establish host compatibility.

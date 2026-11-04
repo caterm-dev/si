@@ -31,11 +31,16 @@ On the same date, the user requested making `长的` the default first choice fo
 (18,096) and `常德` (14,365). Its separate `zhang'de` reading is unchanged.
 This is an editorial ranking adjustment, not a measured occurrence count.
 
+On November 4, 2026, the user requested ranking `语料` above `语聊` for
+`yuliao`. Its `yu'liao` weight increases from 1,953 to 2,500, above `语聊`
+(2,442) and below `预料` (3,036). This is an editorial ranking adjustment,
+not a measured occurrence count.
+
 The base SHA-256 recorded in the import metadata/report identifies the original
 pinned conversion; the generated runtime manifest records the current edited CSV
 hash. Ordinary CSV builds preserve this edit. A fresh Wanxiang conversion replaces
 manual base edits, and `wanxiang_dictionary.py convert --check` intentionally
-reports this difference from the pinned conversion. Review/reapply this adjustment
+reports this difference from the pinned conversion. Review/reapply these adjustments
 when explicitly refreshing upstream data; no converter or source lock is changed.
 
 ## First-pass boundaries

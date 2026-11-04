@@ -4,13 +4,10 @@ SI processes input locally with no analytics, raw-keystroke logger, or cloud dep
 
 ## Model experiments
 
-The experimental AI ranking comparison can load an explicitly staged local small
-Core ML model. It scores a bounded set of current candidate strings in memory,
-excluding personal phrases and verbatim paths. It does not read Input History,
-previous submitted text, documents or the clipboard, retain model inputs, update
-weights or transmit input. Secure input suppresses this comparison. The model is
-trained separately on explicit offline data; enabling comparison does not enable
-Personal Learning, history recording or training. The large/conversion model
+The input method uses dictionary-frequency and opted-in Personal Learning ranking.
+It loads no AI model and reads no preceding input-field text. The former AI ranking
+and context switches are removed, and their saved preferences are cleared without
+changing language, Personal Learning or Input History consent. Offline model
 experiments remain separate from typing.
 
 ## Software update requests
@@ -19,9 +16,15 @@ experiments remain separate from typing.
 
 Sparkle retains its ordinary updater preferences and last-check information in the app's bundle defaults domain (`com.caterm.inputmethod.si`) and may cache update downloads. This is separate from language/learning consent and private phrase/learning archives. No vocabulary is downloaded while typing. Closing Settings keeps the input server alive; choosing to install an update restarts SI after its normal pending-write flush. A log out/back in may still be needed if macOS does not resume the input method.
 
+## Experimental permissions
+
+**Experimental Permissions** offers separate, user-initiated Accessibility and Screen Recording permission requests. These grants are independent of input languages, Personal Learning and Input History, and do not change input behavior. Startup and typing never prompt for permission. Revocation is available in macOS Privacy & Security.
+
+The permission entry points do not inspect focused controls, read field values or URLs, capture images or perform OCR. There are no focus observers or field-based automatic input rules. Neither permission enables network transfer, Input Monitoring, global event taps or additional retained input data.
+
 ## Personal Learning
 
-**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. SI does not read documents, clipboard, window titles, URLs or chat recipients and requests no Accessibility/Input Monitoring permission or global event tap.
+**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. Personal Learning does not read documents, clipboard, window titles, URLs or chat recipients. Optional experimental permissions are described below; SI uses no Input Monitoring permission or global event tap.
 
 Each record retains normalized consumed spelling, exact output/language/mixed identity, bounded strength, aggregate usage/nonfirst-choice counts, base score, lexical-unit evidence and last-use time. The currently remembered deliberate choice for a spelling also retains its selection time. A new deliberate nonfirst choice replaces the prior selection marker for that spelling; no chronological sequence is saved by Personal Learning. App identifiers are no longer stored in vocabulary rows. First-choice Space/number/mouse acceptance only updates usage, never preference strength or the selection marker. Every three nonfirst choices add one frequency point up to 32. Separately, one deliberate selection is enough to lead the next exact normalized-spelling search, after any explicit personal-phrase pin. Prefixes save only consumed spelling. Literal, personal/verbatim, punctuation, delimiter and automatic confirmations are excluded, and confirmed sentences do not create additional component-word records.
 

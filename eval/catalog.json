@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "ranking": "chinese-v1",
+    "correction": "synthetic-v1",
+    "pinyin_to_hanzi": "lexical-v1"
+  },
+  "suites": [
+    {
+      "task": "ranking",
+      "suite": "chinese-v1",
+      "manifest_sha256": "d12b5acb3ffc61a77309090ef7663844e14621e732ccf792e12a7d0e1b44f6aa"
+    },
+    {
+      "task": "correction",
+      "suite": "synthetic-v1",
+      "manifest_sha256": "ab97979a3c031b6b44188d8a575ba666deddf530e8a13971f27b36f8d2ee21a0"
+    },
+    {
+      "task": "pinyin_to_hanzi",
+      "suite": "lexical-v1",
+      "manifest_sha256": "4d0fca5a54d45884ab8ab9afed4293998060a0bf5cf2392a291f20a8f615e1b8"
+    }
+  ]
+}

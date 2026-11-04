@@ -6,6 +6,11 @@ Its organization follows [chinese-ime-lm's corpus tools](https://github.com/meta
 The implementation is SI-authored and independent of the input method and the
 existing `llm/` CSV experiments.
 
+English acquisition is planned separately. The [English source review](english/SOURCE_REVIEW.md)
+records recommended public sources, their data terms and deferred alternatives.
+It is a source-selection assessment; no English source lock, downloaded corpus
+or English preparation pipeline is implemented yet.
+
 | Path | Contents |
 | --- | --- |
 | `chinese/sources.lock.json` | Reviewed source revisions, URLs, sizes, hashes and data terms. |

@@ -185,15 +185,15 @@
 "History export failed. Existing history and any previous destination file are kept. Check the JSONL destination and history storage before retrying." = "History export failed. Existing history and any previous destination file are kept. Check the JSONL destination and history storage before retrying.";
 "Exports all saved spelling, text and timestamps to one JSONL file, including private input and personal phrases. SI does not upload or send it. Deleting local history does not delete exported copies." = "Exports all saved spelling, text and timestamps to one JSONL file, including private input and personal phrases. SI does not upload or send it. Deleting local history does not delete exported copies.";
 
-// Local neural ranking comparison
-"Compare AI candidate ranking" = "Compare AI candidate ranking";
-"AI weight" = "AI weight";
-"AI Ranking Preview" = "AI Ranking Preview";
-"The collapsed window compares the original ranking above with local AI ranking below. Down selects the AI row; Down again expands it. Up returns to the original row. Numbers and Space use the selected row. No input history is read or used for training." = "The collapsed window compares the original ranking above with local AI ranking below. Down selects the AI row; Down again expands it. Up returns to the original row. Numbers and Space use the selected row. No input history is read or used for training.";
-"AI score %.2f" = "AI score %.2f";
-"Select AI ranking" = "Select AI ranking";
-"AI is scoring candidates…" = "AI is scoring candidates…";
-"AI unavailable — original ranking remains active" = "AI unavailable — original ranking remains active";
-"AI ranking" = "AI ranking";
-"Select original ranking" = "Select original ranking";
-"The lower row orders scored candidates by AI score, using original order for ties. Positive AI weights scale scores without changing their order; 0 restores the original ranking. Personal pins and remembered corrections keep priority." = "The lower row orders scored candidates by AI score, using original order for ties. Positive AI weights scale scores without changing their order; 0 restores the original ranking. Personal pins and remembered corrections keep priority.";
+// Optional experimental permissions
+"Accessibility" = "Accessibility";
+"Allowed" = "Allowed";
+"Not allowed" = "Not allowed";
+"Request Accessibility…" = "Request Accessibility…";
+"Screen Recording" = "Screen Recording";
+"Request Screen Recording…" = "Request Screen Recording…";
+"Refresh Permission Status" = "Refresh Permission Status";
+"Experimental Permissions" = "Experimental Permissions";
+"Request Accessibility and Screen Recording separately for future input-control experiments. Granting permission does not change input behavior or enable Personal Learning or Input History." = "Request Accessibility and Screen Recording separately for future input-control experiments. Granting permission does not change input behavior or enable Personal Learning or Input History.";
+
+"These permission actions do not inspect controls or capture images. macOS may require restarting SI after authorization; do not launch a second copy." = "These permission actions do not inspect controls or capture images. macOS may require restarting SI after authorization; do not launch a second copy.";

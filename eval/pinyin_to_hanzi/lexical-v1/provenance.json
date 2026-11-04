@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "origin": "Frozen SI-authored character/word validation and test CSVs; validation renamed dev. Same-input outputs grouped as accepted references. No Pinyin, text, noise or random split generated.",
+  "license": "GPL-3.0-only",
+  "revision": "lexical-v1-2026-11-03",
+  "source_hashes": {
+    "llm/pinyin_to_text/data/pinyin-csv/validation/characters.csv": "b24e7333dd1ac148fcd0e2041f66d7999e20336a31e9bced297d8f8f7deeea8a",
+    "llm/pinyin_to_text/data/pinyin-csv/validation/words.csv": "8de8be6dc9c8700dbeb7d4569f96623a87e68e412b1beeda67fcd4e20e86b16e",
+    "llm/pinyin_to_text/data/pinyin-csv/test/characters.csv": "797426c671f7fdf6e86e940b0d4b55d6024d3d3e828c68e7ef510a74fd2a9694",
+    "llm/pinyin_to_text/data/pinyin-csv/test/words.csv": "47839c7ccd692c29a43cb67a0eb0d8b9d822916aabffd3f05b8e3df3fec25769"
+  },
+  "split_mapping": {
+    "validation": "dev",
+    "test": "test"
+  },
+  "independent_annotation_review": false,
+  "training_overlap": "Unknown for arbitrary models. These are existing inspected regression sets; original converter training excluded these exact inputs/targets. Audit every new training corpus independently."
+}

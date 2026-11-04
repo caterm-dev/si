@@ -22,6 +22,27 @@ struct EnglishVocabularyTests {
         return lexicalScore + log2(channel)
     }
 
+    @Test func technologyCategoryAddsTermsAndPreservesBaseCasingAndLiteralInput() {
+        let engine = CandidateEngine()
+        for (input, expected) in [("ai", "ai"), ("AI", "AI"), ("llm", "LLM"),
+                                  ("cloudcomputing", "cloud computing"), ("coreml", "Core ML"),
+                                  ("fponesix", "FP16"), ("fpthreetwo", "FP32"),
+                                  ("iot", "IoT"), ("mlops", "MLOps"), ("mqtt", "MQTT"),
+                                  ("npu", "NPU"), ("searchengine", "search engine"),
+                                  ("simd", "SIMD"), ("tpu", "TPU"), ("ux", "UX"), ("vr", "VR")] {
+            let result = engine.candidates(for: input, languages: [.english])
+            #expect(result.contains { $0.text == expected && $0.language == .english && !$0.hasCompletion })
+            #expect(result.last?.text == input && result.last?.isLiteral == true)
+        }
+        #expect(EnglishCandidateProvider().candidates(for: "corem")
+            .contains { $0.text == "Core ML" && $0.hasCompletion })
+        for languages: Set<InputLanguage> in [[], [.simplifiedChinese]] {
+            let result = engine.candidates(for: "coreml", languages: languages)
+            #expect(!result.contains { $0.language == .english || $0.isMixed })
+            #expect(result.last?.text == "coreml" && result.last?.isLiteral == true)
+        }
+    }
+
     @Test func technologySourcesProvideCanonicalExactWordsCompletionsAndMixedTokens() {
         let engine = CandidateEngine()
         for (input, expected) in [("gmail", "gmail"), ("GMAIL", "GMAIL"), ("github", "GitHub"),

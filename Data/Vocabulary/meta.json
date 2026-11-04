@@ -596,6 +596,25 @@
         "initial_new_entry_weight": 100,
         "current_category_weight": 10
       }
+    },
+    {
+      "id": "english-technology",
+      "languages": [
+        "english"
+      ],
+      "reviewed_on": "2026-11-03",
+      "entries": 164,
+      "catalog": "Data/Vocabulary/english/technology.csv",
+      "catalog_sha256": "5a494e55b4cb2393649b88a052da8fc88f158bfad21537c368fe1bdd777f32b2",
+      "notes": "docs/ENGLISH_VOCABULARY.md",
+      "metadata": {
+        "origin": "SI-authored selection of common technology terms and public product names; no third-party wordlist import.",
+        "license": "GPL-3.0-only for SI-authored additions; overlapping base entries retain existing upstream attribution.",
+        "new_entry_weight": 10,
+        "existing_entry_policy": "Base identities retain their weights and canonical casing; category membership adds no ranking bonus.",
+        "english_reading": "Lowercase ASCII letters, omit spaces/punctuation, spell digits individually from zero through nine.",
+        "scope": "AI and machine learning, software development, hardware, networking, security and cloud computing."
+      }
     }
   ],
   "domain_collection": {

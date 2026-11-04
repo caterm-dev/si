@@ -13,25 +13,9 @@ final class LanguageSettings {
     static let punctuationKey = "typing.punctuationBehavior"
     static let punctuationCandidatesKey = "typing.punctuationCandidates"
     static let automaticConfirmationKey = "typing.automaticConfirmation"
-    static let aiComparisonKey = "typing.aiComparison"
-    static let aiWeightKey = "typing.aiWeight"
     static let passthroughApplicationsKey = "typing.passthroughApplications"
     private(set) var configurationGeneration: UInt64 = 0
     private(set) var passthroughApplications: Set<String>
-
-    var aiComparisonEnabled: Bool {
-        didSet {
-            defaults.set(aiComparisonEnabled, forKey: Self.aiComparisonKey)
-            if oldValue != aiComparisonEnabled { configurationGeneration &+= 1 }
-        }
-    }
-
-    var aiWeight: Double {
-        didSet {
-            defaults.set(aiWeight, forKey: Self.aiWeightKey)
-            if oldValue != aiWeight { configurationGeneration &+= 1 }
-        }
-    }
 
     func usesPassthrough(in applicationID: String?) -> Bool {
         applicationID.map { passthroughApplications.contains($0) } ?? false
@@ -92,11 +76,11 @@ final class LanguageSettings {
         self.defaults = defaults
         passthroughApplications = Set((defaults.stringArray(forKey: Self.passthroughApplicationsKey) ?? [])
             .filter { !$0.isEmpty })
-        defaults.register(defaults: [Self.englishKey: true, Self.chineseKey: true,
-                                     Self.aiComparisonKey: true, Self.aiWeightKey: 1.0])
-        aiComparisonEnabled = defaults.bool(forKey: Self.aiComparisonKey)
-        let weight = defaults.double(forKey: Self.aiWeightKey)
-        aiWeight = weight.isFinite ? min(2, max(0, weight)) : 1
+        defaults.register(defaults: [Self.englishKey: true, Self.chineseKey: true])
+        // Retired AI ranking preferences must not carry into a future design.
+        for key in ["typing.aiComparison", "typing.aiContext", "typing.aiWeight"] {
+            defaults.removeObject(forKey: key)
+        }
         englishEnabled = defaults.bool(forKey: Self.englishKey)
         chineseEnabled = defaults.bool(forKey: Self.chineseKey)
         automaticConfirmationEnabled = defaults.bool(forKey: Self.automaticConfirmationKey)

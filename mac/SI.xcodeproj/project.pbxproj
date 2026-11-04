@@ -20,7 +20,6 @@
 			explicitFolders = (
 				Core/Resources/Chinese,
 				Core/Resources/English,
-				Core/Resources/Reranker,
 			);
 			path = SI;
 			sourceTree = "<group>";
