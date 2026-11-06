@@ -205,6 +205,8 @@ App Sandbox is disabled because the legacy InputMethodKit server uses interproce
 
 The input menu rebuilds independent English/Chinese checkmarks from `LanguageSettings` whenever IMK requests it. Separate Objective-C selectors toggle the same persisted properties used by Settings, with no key equivalents or active-language mode. They use the existing main-thread IMK callback bridge and immediately reconfigure/update only the controller's active composition, preserving source spelling and caret while rejecting obsolete results. Other sessions observe the change at existing configuration boundaries. Direct-input application rules still take precedence and are not modified by language checkmarks. The selectors do not rely on a menu item's target or represented object surviving IMK's command-dictionary bridge.
 
+The Settings window uses a sidebar and a scrollable detail pane. Search matches page names and common setting labels in the current interface language and English. The visible page binds to the existing settings models. Typing, personal data, optional permissions and software updates have separate pages, and their existing management sheets and confirmation actions remain attached to their controls.
+
 The Xcode Run scheme passes `--settings`; normal system launches keep the process in the background. The installed app exposes Settings through the input menu and on reopening the app.
 
 ## Software updates

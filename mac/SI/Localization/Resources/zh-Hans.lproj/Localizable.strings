@@ -216,3 +216,28 @@
 "Search saved sentences" = "搜索已保存整句";
 "Sentence History" = "整句历史";
 "View Saved Sentences…" = "查看已保存整句…";
+
+// Settings navigation and groups
+"Settings" = "设置";
+"Search Settings" = "搜索设置";
+"Clear Search" = "清除搜索";
+"Settings Categories" = "设置分类";
+"Input" = "输入";
+"Personal Data" = "个人数据";
+"System" = "系统";
+"Direct Input" = "直接输入";
+"Permissions" = "权限";
+"About SI" = "关于 SI";
+"Composition" = "组字";
+"Confirm stable leading Chinese words as you type or pause, keeping the ending editable." = "继续键入或暂停时，确认开头稳定的中文词语，末尾仍可编辑。";
+"Offer English or Chinese symbols for common punctuation keys." = "为常用标点键提供英文或中文符号候选。";
+"Applications" = "应用";
+"Dictionary" = "词典";
+"Learning" = "学习";
+"Saved Data" = "已存数据";
+"Legacy Data" = "旧版数据";
+"Recording" = "记录";
+"Allowed Applications" = "允许记录的应用";
+"System Access" = "系统访问权限";
+"Granting Permissions" = "授权方法";
+"Keyboard Shortcuts" = "键盘快捷键";

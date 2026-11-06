@@ -43,6 +43,10 @@ supplies results while the model loads. See [production ranking and model packag
 
 The macOS input-source menu for SI includes independent **English** and **Chinese (Simplified)** checkmarks. Click either to enable or disable that input language without opening Settings. These global preferences stay synchronized with Settings and allow both languages together or neither (exact original input remains available). Changing a checkmark refreshes the active composition without committing its spelling or moving its caret. No keyboard shortcut is assigned. Per-application direct input still takes precedence; to convert Chinese in an app such as Terminal, first turn off its direct-input rule in Settings.
 
+## SI Settings
+
+Open **SI Settings…** from the input menu. **Typing** opens first, with language and composition controls. Use the sidebar or search for a setting such as “punctuation”, “export” or “screen recording”. **Personal Data** groups Personal Phrases, Personal Learning, Input History and Sentence History into separate pages. Experimental permissions and software updates are under **System**.
+
 ## Interface language
 
 The app supports English and Simplified Chinese. Settings, input-menu actions, candidate descriptions and accessibility labels follow the macOS preferred app language, with English as the fallback. Set a preferred language for SI in **System Settings → General → Language & Region → Applications**, where available, then restart SI normally for the change to take effect. Do not launch a second copy of the input method.
@@ -94,7 +98,7 @@ Editing, moving the caret, navigating/expanding candidates, or crossing a host b
 
 ## Direct input by application
 
-Open **SI Settings → Direct Input by Application → Manage Direct Input…** and turn on direct input for apps such as Terminal. Every app uses normal SI conversion by default. The searchable list discovers apps in the standard system, local and user Applications folders, plus running apps, and displays each app's system icon beside its name. **Add Application…** lets you select an `.app` stored elsewhere; **Refresh** rescans the list. Rules are saved locally by bundle identifier, and enabled rules remain listed with a generic application icon when an app is no longer installed.
+Open **SI Settings → Direct Input → Manage Direct Input…** and turn on direct input for apps such as Terminal. Every app uses normal SI conversion by default. The searchable list discovers apps in the standard system, local and user Applications folders, plus running apps, and displays each app's system icon beside its name. **Add Application…** lets you select an `.app` stored elsewhere; **Refresh** rescans the list. Rules are saved locally by bundle identifier, and enabled rules remain listed with a generic application icon when an app is no longer installed.
 
 In a selected app, SI passes key events to the host without composition, candidates, punctuation conversion or automatic spacing. Space, Tab, Return, navigation and shortcuts belong to the host. If the rule takes effect during composition, SI inserts only the exact pending spelling once and rejects old candidate results and automatic-confirmation tasks. SI does not learn vocabulary while direct input is enabled; existing saved data remains until deleted. Turning direct input off restores ordinary conversion and the app's independently configured learning consent.
 
@@ -102,7 +106,7 @@ Rules use the InputMethodKit client's application identity, not the foreground p
 
 ## Experimental permissions
 
-**SI Settings → Experimental Permissions** shows the current permission status and provides separate **Open Accessibility Settings…** and **Open Screen Recording Settings…** buttons. Each opens its Privacy & Security pane and shows a floating panel. Drag SI from the panel into the system list, then enable the permission. You can also click **+** in the system list, press **Shift-Command-G**, go to `~/Library/Input Methods/` and select the installed `SI.app`. After granting permission, refresh the status in SI Settings. If macOS asks for a restart, restart the installed SI.
+**SI Settings → Permissions** shows the current permission status and provides separate **Open Accessibility Settings…** and **Open Screen Recording Settings…** buttons. Each opens its Privacy & Security pane and shows a floating panel. Drag SI from the panel into the system list, then enable the permission. You can also click **+** in the system list, press **Shift-Command-G**, go to `~/Library/Input Methods/` and select the installed `SI.app`. After granting permission, refresh the status in SI Settings. If macOS asks for a restart, restart the installed SI.
 
 These permission entry points are available for future input-control experiments. They do not inspect controls, capture images or automatically select input behavior by field. Granting either permission leaves input behavior, enabled languages, Personal Learning and Input History unchanged. Input Monitoring and global event taps are not used. Native permission dialogs still require [manual verification](docs/TESTING.md#experimental-permissions).
 
@@ -225,7 +229,7 @@ To uninstall, select another input source, remove SI in Keyboard settings, then 
 
 ## Check for updates
 
-In the installed Release app, choose **Check for Updates…** from the SI input menu or **SI Settings → Software Updates**. SI uses Sparkle, as Caterm does, with a separate SI update feed. Checking is manual; background checks, automatic installation and system-profile submission are disabled. Sparkle verifies the update signature and asks before downloading/installing. Save your work and finish composing before installing; SI restarts and flushes pending personal-data writes through its normal termination path. If typing does not resume, log out and back in. Debug builds and copies outside `~/Library/Input Methods/SI.app` show an explanation in Settings and disable checking.
+In the installed Release app, choose **Check for Updates…** from the SI input menu or **SI Settings → About SI → Software Updates**. SI uses Sparkle, as Caterm does, with a separate SI update feed. Checking is manual; background checks, automatic installation and system-profile submission are disabled. Sparkle verifies the update signature and asks before downloading/installing. Save your work and finish composing before installing; SI restarts and flushes pending personal-data writes through its normal termination path. If typing does not resume, log out and back in. Debug builds and copies outside `~/Library/Input Methods/SI.app` show an explanation in Settings and disable checking.
 
 Versions without the updater need one manual installation of an updater-enabled release. A check requires a published SI Sparkle feed; adding this implementation does not publish a release or establish native update/host compatibility. See [release and update configuration](docs/RELEASING.md#in-app-updates).
 

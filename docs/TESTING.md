@@ -1,5 +1,14 @@
 # Testing SI
 
+## Settings navigation
+
+1. Open **SI Settings…** from the input menu. Confirm **Typing** opens first and shows the language switches and composition controls.
+2. Use the sidebar with the mouse and keyboard. Confirm selection and the page heading agree, the detail pane scrolls independently, and switching pages starts at the heading. Search for “punctuation”, “export”, “screen recording” and “标点” in the corresponding interface languages. Check a search with no matches, clear it with Escape or the clear button, and verify the full sidebar returns.
+3. Visit Personal Phrases, Personal Learning, Input History and Sentence History. Confirm each management sheet opens and closes, each consent switch is independent, and canceling clear confirmations and export panels leaves stored data intact. Use synthetic data. Check the two experimental permission statuses and the update availability in **About SI**.
+4. Repeat in English and Simplified Chinese at the minimum window size, in light and dark appearances and with Increase Contrast. With VoiceOver, confirm the sidebar selection, page and group headings, control labels and switch values are announced. Check keyboard focus on returning from management sheets.
+
+The redesign passed all 463 Swift tests with `./scripts/test.sh --disable-sandbox` and built with `./scripts/build.sh`. An isolated SwiftUI preview with synthetic data exercised mouse and Down Arrow navigation, the English switch, search, and Escape. Rendered previews covered English and Simplified Chinese, light and dark appearance, and the minimum window size. VoiceOver, Increase Contrast, management sheets and system dialogs still require manual checks.
+
 ## Segmented marked spelling
 
 `MarkedTextPresentationTests` covers Chinese syllables (`chileme` → `chi le me`),
@@ -598,7 +607,7 @@ Settings no longer includes the Try the candidate engine section or its applicat
 
 On October 26, 2026, all 342 remaining Swift tests passed (258 core, 67 presentation, 14 settings and 3 storage), and the Debug app built successfully. The four removed tests covered only the deleted Settings preview model.
 
-On an intentionally installed build, open Settings and confirm Languages, Typing, Direct Input by Application, Personal Learning, Personal Phrases and update controls remain accessible by keyboard and VoiceOver in light/dark appearance. Confirm there is no candidate-engine trial section. These native UI checks remain unverified for this cleanup.
+On an intentionally installed build, open Settings and confirm the language and composition controls in Typing, Direct Input by Application, Personal Learning, Personal Phrases and the update controls in About SI remain accessible by keyboard and VoiceOver in light/dark appearance. Confirm there is no candidate-engine trial section. These native UI checks remain unverified for this cleanup.
 
 ## Direct input by application
 
@@ -608,7 +617,7 @@ On October 26, 2026, all 346 Swift tests passed (258 core, 67 presentation, 18 s
 
 Check that discovered and manually added apps show their system icons, missing apps show a generic icon, and icons stay aligned with names and switches while filtering and scrolling. Icons are decorative: VoiceOver should read the app switch's label once without a separate image announcement.
 
-On an intentionally installed build, open **Direct Input by Application → Manage Direct Input…**. Search for Terminal by name and bundle identifier, enable its switch, close/reopen Settings and restart SI normally to check persistence. Confirm standard-folder and running apps appear, Refresh picks up changes, Add Application accepts an app elsewhere, and an enabled missing app remains removable by its identifier. Check the search, switches, file picker and Done button using the keyboard and VoiceOver, in light/dark appearance and Increased Contrast.
+On an intentionally installed build, open **Direct Input → Manage Direct Input…**. Search for Terminal by name and bundle identifier, enable its switch, close/reopen Settings and restart SI normally to check persistence. Confirm standard-folder and running apps appear, Refresh picks up changes, Add Application accepts an app elsewhere, and an enabled missing app remains removable by its identifier. Check the search, switches, file picker and Done button using the keyboard and VoiceOver, in light/dark appearance and Increased Contrast.
 
 In a selected Terminal app, type synthetic `echo SI_TEST_42`, use Space, digits, Tab completion, Return, arrows, Home/End, Delete, Escape and Control shortcuts. Every key must reach the host once, without candidates, automatic spacing or an extra Return to finish composition. Repeat with punctuation candidates and automatic confirmation enabled. Switch to TextEdit and verify ordinary Chinese/English candidates, selection and literal Return still work. A browser rule must apply to both its address bar and page inputs; an editor rule must apply to both editor and embedded terminal. No system input-source selection or Accessibility/Input Monitoring prompt should occur.
 
@@ -620,7 +629,7 @@ On November 4, 2026, the application-language redesign was reverted to the indep
 
 Run `./scripts/test.sh` and `./scripts/build.sh`. Permission controls are separate from language, direct-input, learning and history settings. No focused-control detection or field-based automatic input behavior is implemented.
 
-On an intentionally installed build, open **Experimental Permissions** and verify keyboard navigation, VoiceOver labels and light/dark appearance. With Accessibility disabled and System Settings closed, choose **Open Screen Recording Settings…** and verify that the correct pane and floating panel appear without an Accessibility prompt. Drag SI from the panel into the list and confirm that macOS accepts the bundle from `~/Library/Input Methods/SI.app`. Revoke the grant in System Settings and repeat with System Settings already open. Verify **Open Accessibility Settings…** separately and check that the panel closes when System Settings quits. Verify keyboard-only authorization using the system list's **+** file chooser and **Shift-Command-G**. Test the floating panel in English and Simplified Chinese.
+On an intentionally installed build, open **Permissions** and verify keyboard navigation, VoiceOver labels and light/dark appearance. With Accessibility disabled and System Settings closed, choose **Open Screen Recording Settings…** and verify that the correct pane and floating panel appear without an Accessibility prompt. Drag SI from the panel into the list and confirm that macOS accepts the bundle from `~/Library/Input Methods/SI.app`. Revoke the grant in System Settings and repeat with System Settings already open. Verify **Open Accessibility Settings…** separately and check that the panel closes when System Settings quits. Verify keyboard-only authorization using the system list's **+** file chooser and **Shift-Command-G**. Test the floating panel in English and Simplified Chinese.
 
 Return to SI and refresh status after each change. If macOS requires a restart, restart the installed copy normally without running a second SI process. Neither launching SI nor typing should prompt. Granting either or both permissions must leave ordinary candidates, enabled languages, direct-input app rules and learning/history consent unchanged. No host controls or images should be captured.
 

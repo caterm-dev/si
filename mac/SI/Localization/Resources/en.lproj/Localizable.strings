@@ -216,3 +216,28 @@
 "Search saved sentences" = "Search saved sentences";
 "Sentence History" = "Sentence History";
 "View Saved Sentences…" = "View Saved Sentences…";
+
+// Settings navigation and groups
+"Settings" = "Settings";
+"Search Settings" = "Search Settings";
+"Clear Search" = "Clear Search";
+"Settings Categories" = "Settings Categories";
+"Input" = "Input";
+"Personal Data" = "Personal Data";
+"System" = "System";
+"Direct Input" = "Direct Input";
+"Permissions" = "Permissions";
+"About SI" = "About SI";
+"Composition" = "Composition";
+"Confirm stable leading Chinese words as you type or pause, keeping the ending editable." = "Confirm stable leading Chinese words as you type or pause, keeping the ending editable.";
+"Offer English or Chinese symbols for common punctuation keys." = "Offer English or Chinese symbols for common punctuation keys.";
+"Applications" = "Applications";
+"Dictionary" = "Dictionary";
+"Learning" = "Learning";
+"Saved Data" = "Saved Data";
+"Legacy Data" = "Legacy Data";
+"Recording" = "Recording";
+"Allowed Applications" = "Allowed Applications";
+"System Access" = "System Access";
+"Granting Permissions" = "Granting Permissions";
+"Keyboard Shortcuts" = "Keyboard Shortcuts";

@@ -8,56 +8,48 @@ struct SettingsView: View {
     var inputHistory: InputHistorySettings = .shared
     var sentenceHistory: InputHistorySettings = .sentences
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("SI").font(.largeTitle.bold())
-            Text("One input. Every language.").font(.title3).foregroundStyle(.secondary)
-            Form {
-                Section {
-                    Toggle("English", isOn: $settings.englishEnabled)
-                    Toggle("Chinese (Simplified)", isOn: $settings.chineseEnabled)
-                } header: {
-                    Text("Languages")
-                } footer: {
-                    Text("Enabled languages work together. When input matches more than one language, SI shows their candidates together. You can always keep the original text.")
-                }
-                Section {
-                    Toggle("Automatically confirm stable prefixes", isOn: $settings.automaticConfirmationEnabled)
-                    Toggle("Show punctuation candidates", isOn: $settings.punctuationCandidatesEnabled)
-                    Picker("Punctuation during composition", selection: $settings.punctuationBehavior) {
-                        ForEach(PunctuationBehavior.allCases) { behavior in
-                            Text(L10n.text(behavior.displayName)).tag(behavior)
-                        }
-                    }
-                } header: {
-                    Text("Typing")
-                } footer: {
-                    Text("Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train Personal Learning. Return and shortcuts keep the remaining original spelling.")
-                    Text("Punctuation candidates are off by default. Enable them to choose English or Chinese symbols with language badges. When off, punctuation outside composition passes through unchanged.")
-                    Text(L10n.text(settings.punctuationBehavior.explanation))
-                }
-                ApplicationPassthroughSection(settings: settings)
-                ExperimentPermissionsSection()
-                ApplicationMemorySection(settings: applicationMemory)
-                InputHistorySection(history: inputHistory)
-                InputHistorySection(history: sentenceHistory)
-                UserDictionarySection(dictionary: dictionary)
-                UpdateSettingsSection(updater: updater)
-                Section("Development Preview") {
-                    Text("SI offers Chinese conversion and English suggestions through one input source, with personal phrases and optional local learning. Chinese sentence quality and host-app compatibility are still under development.")
-                        .foregroundStyle(.secondary)
-                    Text("Space selects a candidate. Return keeps the original text. Escape cancels. Left and Right edit the composition; Up, Down, page keys, and number keys navigate candidates.")
-                        .foregroundStyle(.secondary)
-                    Link("View SI on GitHub", destination: Self.repositoryURL)
-                }
-            }
-            .formStyle(.grouped)
-        }
-        .padding(24)
-        .frame(minWidth: 520, minHeight: 600)
-    }
+    @State private var search = ""
+    @State private var selectedPage: SettingsPage = .typing
 
-    private static let repositoryURL = URL(string: "https://github.com/caterm-dev/si") ?? URL(filePath: "/")
+    var body: some View {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        let groups = SettingsPage.groups.compactMap { group in
+            let pages = group.pages.filter { $0.matches(query) }
+            return pages.isEmpty ? nil : (title: group.title, pages: pages)
+        }
+        let matches = groups.flatMap(\.pages)
+        let visiblePage = matches.contains(selectedPage) ? selectedPage : matches.first
+
+        HStack(spacing: 0) {
+            SettingsSidebar(search: $search, selection: visiblePage, groups: groups) { selectedPage = $0 }
+            Divider()
+            if let visiblePage {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        Text(L10n.text(visiblePage.title))
+                            .font(.largeTitle.bold())
+                            .accessibilityAddTraits(.isHeader)
+                        SettingsDetail(
+                            page: visiblePage, settings: settings, updater: updater, dictionary: dictionary,
+                            applicationMemory: applicationMemory, inputHistory: inputHistory, sentenceHistory: sentenceHistory
+                        )
+                    }
+                    .frame(maxWidth: 700, alignment: .leading)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 26)
+                    .frame(maxWidth: .infinity)
+                }
+                .id(visiblePage)
+                .focusSection()
+            } else {
+                ContentUnavailableView.search(text: query)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .background(Color(nsColor: .textBackgroundColor))
+        .frame(minWidth: 760, minHeight: 520)
+        .toggleStyle(.switch)
+    }
 }
 
 #Preview {
