@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-11-05",
+  "scope": "Conservative explicit one-time Chinese phrase grouping; ambiguous entries remain in their previous word categories.",
+  "policy": {
+    "patterns": [
+      [
+        "prepositional_or_conditional",
+        "^(?:以至于|取决于|有助于|得益于|相对于|相比于|根据|依据|按照|依照|关于|对于|由于|为了|因为|尽管|既然|如果|即使|即便|不论|无论|不管|只要|只有|随着|针对|基于|鉴于|除了|以便|以免).{1,}$"
+      ],
+      [
+        "adverbial_or_modal",
+        "^(?:也就是说|总的来说|一般来说|换句话说|为什么|怎么办|怎么会|怎么样|主要是|已经|正在|目前|现在|始终|仍然|依然|一直|从未|总是|经常|常常|往往|偶尔|逐渐|渐渐|突然|马上|立刻|立即|即将|刚刚|曾经|终于|早已|尚未|不再|再次|仍在|还在|不曾|未曾|不要|不能|可以|能够|应该|必须|需要|希望|想要|愿意|不愿|不想|不必|不敢|不肯|不会|不用|没有|不是|是否|为何|什么|哪里|怎么|怎样|如何|多么|那么|这么|只是|就是|也是|这是|那是|本来|实在|确实|真的).{2,}$"
+      ],
+      [
+        "subject_predicate",
+        "^(?:自己|大家|别人|我们|你们|他们|她们|它们|咱们|人家|我|你|您|他|她|它|俺|咱|谁)(?:已经|正在|可以|应该|需要|觉得|认为|知道|希望|喜欢|告诉|能够|愿意|是|有|在|要|想|会|能|该|就|还|也|不|没|说|看|听|做|给|把|被|对|向|跟|和|与|来|去).*$"
+      ],
+      [
+        "possessive",
+        "^(?:自己|大家|别人|我们|你们|他们|她们|它们|咱们|人家|我|你|您|他|她|它|俺|咱|谁)的.*$"
+      ],
+      [
+        "adverbial_de",
+        ".*(?:更好|有效|积极|认真|清楚|正确|合理|充分|广泛|深入|轻松|及时|顺利|努力|大力|主动|自由|慢慢|悄悄|安静|仔细|逐步|逐渐|容易|快乐|安全|稳定|不断|严格|准确)地(?:提高|理解|认识|发展|完成|工作|学习|生活|说明|分析|处理|实现|进行|支持|解决|考虑|回答|执行|运行|使用|讨论|研究|保护|帮助|改善).*$"
+      ],
+      [
+        "aspect",
+        "^(?:知道|觉得|认为|发现|完成|取得|实现|提高|看|听|说|做|走|来|去|给|拿|吃|喝|买|卖|写|学|用|想)(?:了|着|过).*$"
+      ],
+      [
+        "temporal_clause",
+        "^(?:吃饭|下班|上班|放学|毕业|结婚|离婚|工作|学习|开会|讨论|完成|处理|启动|结束|离开|回来)(?:之前|之后|以前|以后|的时候|时|后|前)$"
+      ]
+    ],
+    "reviewed_examples": [
+      "根据不同的场景",
+      "根据不同的车型",
+      "根据不同的季节",
+      "根据不同的情况",
+      "根据不同的需求",
+      "根据不完全统计",
+      "根据材料",
+      "根据测算",
+      "根据产品",
+      "根据车辆",
+      "根据车型的不同",
+      "根据城市",
+      "根据出生地法",
+      "根据大数据分析",
+      "更好地理解",
+      "根据省"
+    ],
+    "reference_sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+    "source_sha256": {
+      "base.csv": "3a1a32491841b6ee880ecde6cbdeaaf55439f41b6cc98578ce0da2c7f165090f",
+      "corpus.csv": "633a36af576da8b1a29d9dc7469db5098f13e4e44727f4d0350765f85433d112",
+      "diming.csv": "88dd7f19a82d029ac12804c5814f7417397cba504d58ce7f4dc2dcc95e5417de",
+      "fangyan.csv": "e816f892ef2a98556857ba9abe711041a4b1f5e7665aee7beae840a88b452119",
+      "game.csv": "6d818563773304846a88f03a741648e4edfc9c8f25523497ab93fc3574d48368",
+      "geography.csv": "89f8d98a5a2c74917b360637b396a352c592a899b892f57fe51e709cb13e807b",
+      "huaxue.csv": "bb2914f005c5102d8905a9abc0cc02239f323c72c79ef30d2e74d46b9f9c6f49",
+      "medicine.csv": "799bb65e2aaf59988d1338506b251ec89638818bdf8a278e050fa81d07d8a57a",
+      "mingren.csv": "c8236ec9cf45cd04985698a60a4e09e3553ed9e6c0a733f47d263a8cf84e6e26",
+      "movie.csv": "1a9ba87aa52546c745df60dfe3730ece583b544cd5339a27616bde8785bc5f5c",
+      "organizations.csv": "8263a3eb8a194e947b7daa115cccf8cd4963efe7b4fbf22d34fe5aec0ed3cc55",
+      "science.csv": "b3b7306e3e2692287d92e8171725e30db52dea542399ef25074c4ffa5860c57e",
+      "shici.csv": "3621fb1a90dba49aa1fb515cfd12aa11165be84c1f402c92eea90212c48d14a1",
+      "taifeng.csv": "6bc4b57c9e6bb36fd6b837186a77c826fee52b4445062670786dc6708b21999a",
+      "technology.csv": "5bde2596176310376b6a77070617c19566834a242b4388e470f5f654f85615e1",
+      "wuzhong.csv": "18f61ea64fe3c7652f39b84b6fe2e472cb1d22c994f64770515fd76544b7175e",
+      "yaopin.csv": "f7aabd5ff5616283084a4cb7fb5604c82d9929fbd5bb1875c3f57a9f032e4f04",
+      "yiren.csv": "45b7cec0218c9deb7798077e5d7056d4bff42aa13e0da14a0505712cb22acedb",
+      "yixue.csv": "371146bcc5030a6793675f452e92c1bf21a17bd685b4d93f3089a2c92d6b9e60"
+    },
+    "row_counts": {
+      "base.csv": 46497
+    },
+    "unique_texts": 46097
+  },
+  "lexical_exceptions": [
+    "现在分词",
+    "过去分词",
+    "现在完成时",
+    "现在进行时",
+    "过去完成时",
+    "过去进行时",
+    "一一的函子",
+    "曾达的囚徒",
+    "琼斯的日记",
+    "我是传奇",
+    "我的世界",
+    "我的战争",
+    "你的名字",
+    "我是歌手",
+    "我是证人",
+    "谁动了我的奶酪",
+    "你好",
+    "您好",
+    "再见",
+    "谢谢",
+    "有的放矢",
+    "不得而知",
+    "不以为然",
+    "不管三七二十一",
+    "只争朝夕",
+    "只有香如故",
+    "不知所措",
+    "不可思议",
+    "不言而喻",
+    "无所不在",
+    "无所事事",
+    "与时俱进",
+    "因地制宜",
+    "因材施教",
+    "将计就计",
+    "取而代之",
+    "看得见",
+    "看不见",
+    "说得来",
+    "来得及",
+    "来不及",
+    "了不起",
+    "根据地",
+    "根据地法"
+  ],
+  "changes": {
+    "base.csv": {
+      "before": 1547554,
+      "retained": 1501057,
+      "moved": 46497
+    },
+    "shici.csv": {
+      "before": 335208,
+      "retained": 0,
+      "moved": 335208
+    }
+  },
+  "output_sha256": {
+    "chinese/base.csv": "3dcd6d666249b22a5ee78f5ab451057be0b258e5b2e20e9c2e2478b1d965e97b",
+    "chinese/phrase/base.csv": "d4480d53e9af7c87fc0f693e08c143c1b806c6d5a96640082f9239512f5a63a6",
+    "chinese/phrase/shici.csv": "3621fb1a90dba49aa1fb515cfd12aa11165be84c1f402c92eea90212c48d14a1"
+  },
+  "effective_dictionary": {
+    "entries": 2141468,
+    "sha256": "76b61d505219112f4e5ba419d5ec4757693d39161b78d8b176c807d3dd59a1b0"
+  },
+  "row_preservation": "Each original source row is retained verbatim in its original category basename across chinese/ and chinese/phrase/. All readings move together.",
+  "compilation": "Chinese compilation reads both directories. A basename of base.csv retains base priority; metadata-listed imported basenames retain their upstream tier. English discovery is unchanged.",
+  "limitations": "This is not exhaustive linguistic annotation. Independent HanLP observations and curated categories protect known words/names/terms; they are lexical guards, not proof of wordhood. shici.csv is moved as a complete source collection, including its short forms and titles."
+}

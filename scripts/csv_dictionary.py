@@ -55,6 +55,16 @@ def write_atomic(path, content):
         Path(temporary).unlink(missing_ok=True)
 
 
+def category_sources(language):
+    sources = list((DATA / language).glob('*.csv'))
+    if language == 'chinese':
+        directory = DATA / language / 'phrase'
+        if directory.is_symlink():
+            raise ValueError('Phrase directory must not be a symbolic link')
+        sources.extend(directory.glob('*.csv'))
+    return sorted(sources)
+
+
 def metadata():
     raw = (DATA / 'meta.json').read_bytes()
     value = json.loads(raw)
@@ -68,7 +78,8 @@ def metadata():
         if (language not in DATABASES or not isinstance(categories, list)
                 or len(categories) != len(set(categories))
                 or any(not re.fullmatch(r'[a-z][a-z0-9_-]*\.csv', name) or name == 'base.csv'
-                       or not (DATA / language / name).is_file() for name in categories)):
+                       or not any(path.name == name for path in category_sources(language))
+                       for name in categories)):
             raise ValueError('Invalid authoritative upstream categories')
     for language in DATABASES:
         unknown = value['languages'][language].get('unknown_weight')
@@ -101,7 +112,7 @@ def integer(value, minimum, field):
 
 def rows(language):
     directory = DATA / language
-    sources = sorted(directory.glob('*.csv'))
+    sources = category_sources(language)
     if directory / 'base.csv' not in sources:
         raise ValueError('Missing base.csv: ' + language)
     configuration = json.loads((DATA / 'meta.json').read_bytes())
@@ -145,7 +156,7 @@ def rows(language):
                 count += 1
             except ValueError as error:
                 raise ValueError(f'{path}:{reader.line_num}: {error}') from error
-        records.append({'path': f'{language}/{path.name}', 'sha256': digest(content), 'rows': count})
+        records.append({'path': path.relative_to(DATA).as_posix(), 'sha256': digest(content), 'rows': count})
     policy = configuration.get('category_overlap', 'maximum')
     if policy == 'base':
         # A pinned base owns its weights and canonical English casing. Preserved

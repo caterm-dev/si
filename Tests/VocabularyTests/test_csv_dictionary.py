@@ -102,6 +102,32 @@ class CSVDictionaryTests(unittest.TestCase):
         self.build()
         self.assertEqual(self.query('chinese', "SELECT value FROM tbl_1_n WHERE key='ne' ORDER BY weight DESC,rowid"), [('讷',), ('哪',), ('呐',)])
 
+    def test_phrase_directory_preserves_base_and_upstream_priority_without_english_leakage(self):
+        self.meta['category_overlap'] = 'base'
+        self.meta['upstream_categories'] = {'chinese': ['shici.csv']}
+        self.save_meta()
+        self.csv('chinese', 'base', [('呢', 'ne', 20), ('你好', "ni'hao", 0)])
+        self.csv('chinese', 'shici', [('你好', "ni'hao", 90), ('示例句', "shi'li'ju", 12)])
+        self.csv('chinese', 'local', [('示例句', "shi'li'ju", 99)])
+        self.build()
+        original = self.root / 'before-phrases.sqlite'
+        original.write_bytes((self.output / 'Chinese/si-pinyin.sqlite').read_bytes())
+        phrases = self.data / 'chinese' / 'phrase'
+        phrases.mkdir()
+        unscoped = self.data / 'phrase'
+        unscoped.mkdir()
+        (unscoped / 'legacy.csv').write_text('text,reading,weight\n外, wai,10\n')
+        self.csv('chinese', 'base', [('呢', 'ne', 20)])
+        (phrases / 'base.csv').write_text("text,reading,weight\n你好,ni'hao,0\n")
+        (self.data / 'chinese/shici.csv').rename(phrases / 'shici.csv')
+        self.build()
+        self.assertTrue(lexicon.same_dictionary(original, self.output / 'Chinese/si-pinyin.sqlite'))
+        self.assertEqual(len(self.query('english', 'SELECT * FROM tbl_1_a')), 2)
+        manifest = json.loads((self.output / 'Chinese/dictionary-manifest.json').read_text())
+        self.assertIn('chinese/phrase/base.csv', [source['path'] for source in manifest['sources']])
+        self.assertIn('chinese/phrase/shici.csv', [source['path'] for source in manifest['sources']])
+        self.build(check=True)
+
     def test_blank_local_weights_default_to_ten_but_imported_weights_stay_explicit(self):
         self.csv('chinese', 'custom', [('新', 'xin', ''), ('零', 'ling', 0)])
         self.csv('english', 'custom', [('example', 'example', '')])

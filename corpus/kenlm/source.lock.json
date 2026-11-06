@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "origin": "https://kheafield.com/code/kenlm.tar.gz",
+  "archive_sha256": "6bb66b6c17f6d23907bd6258ee585328b3e5f5f2b201d41c5f6bd0c390c2c913",
+  "upstream": "https://github.com/kpu/kenlm",
+  "adoption": "Explicit user request for offline KenLM configuration selection; no app integration",
+  "license": "LGPL-2.1-or-later for most code, with exceptions enumerated in retained LICENSE; upstream builder license headers apply",
+  "build_commands": [
+    [
+      "cmake",
+      "-S",
+      "corpus/.cache/kenlm-src/kenlm",
+      "-B",
+      "corpus/.cache/kenlm-build",
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+      "-DBUILD_TESTING=OFF"
+    ],
+    [
+      "cmake",
+      "--build",
+      "corpus/.cache/kenlm-build",
+      "--target",
+      "lmplz",
+      "build_binary",
+      "query",
+      "-j",
+      "6"
+    ]
+  ],
+  "versions": {
+    "cmake": "cmake version 3.27.8",
+    "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+    "dependencies": [
+      "boost 1.92.0_1",
+      "eigen 5.0.1"
+    ]
+  },
+  "binaries": {
+    "lmplz": {
+      "path": "corpus/.cache/kenlm-build/bin/lmplz",
+      "sha256": "3ffeab73dcea9ea3eed55bde9c90da5efa39e537d7a0c85e0088e6d3ff5cb29b"
+    },
+    "build_binary": {
+      "path": "corpus/.cache/kenlm-build/bin/build_binary",
+      "sha256": "b63f96614f30828292f0f82034839559f53781e3e62096f66c7eb23ba6f87405"
+    },
+    "query": {
+      "path": "corpus/.cache/kenlm-build/bin/query",
+      "sha256": "361e478a1dcf59df4b9930ec119baee5c865e5874ccf820f657ff0fe14504c02"
+    }
+  },
+  "notes": "Author-hosted source archive has no Git revision metadata: the complete archive SHA-256 is the source pin. Eigen 5 is not compatible with optional Eigen3 interpolation discovery; interpolation is not needed for lmplz/build_binary/query. No source patch was required.",
+  "retained_notices": {
+    "corpus/kenlm/LICENSE": "6d9f8894586896ee3b383c962e141f527edeb54f561a6bd189d0eb08380c4cc2",
+    "corpus/kenlm/COPYING.LESSER.3": "9ccf26cfe845e0eb8bb58053e47366e7ab6b697ae010f7650978d4b71b7d1fc1",
+    "corpus/kenlm/COPYING": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+    "corpus/kenlm/COPYING.3": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+    "corpus/kenlm/double-conversion.LICENSE": "4af93c12062c58058378de2397dc1c92bbff9ddfb1d583a01c84127557ce97ca"
+  }
+}

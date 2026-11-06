@@ -1,10 +1,10 @@
 # Chinese vocabulary categories
 
-The current base contains 1,547,554 text/reading pairs imported from Wanxiang, with the documented SI editorial weight adjustments below. The seven earlier local categories retain their text/readings with every weight set to 10; new local entries default to 10. The separate reviewed corpus category uses explicit evidenced weights. See [Wanxiang conversion](../Wanxiang/README.md) for source pins, licensing, weights and reproduction. The ten other upstream Chinese dictionaries are separate CSV files named after the upstream files (602,516 rows); with the 266 corpus additions, the complete merged dictionary has 2,141,468 entries. Base weights take precedence, then imported category weights, then preserved local supplements. Ordering remains deterministic and category names add no ranking bonus.
+The original base contained 1,547,554 text/reading pairs imported from Wanxiang, with the documented SI editorial weight adjustments below. The seven earlier local categories retain their text/readings with every weight set to 10; new local entries default to 10. The separate reviewed corpus category uses explicit evidenced weights. See [Wanxiang conversion](../Wanxiang/README.md) for source pins, licensing, weights and reproduction. The ten other upstream Chinese dictionaries are separate CSV files named after the upstream files (602,516 rows); with the 266 corpus additions, the complete merged dictionary has 2,141,468 entries. Base weights take precedence, then imported category weights, then preserved local supplements. Ordering remains deterministic and category names add no ranking bonus.
 
 | File | Rows | Scope |
 | --- | ---: | --- |
-| [base.csv](base.csv) | 1,547,554 | Wanxiang single-character, base and alternative-reading vocabulary, merged into toneless SI readings. |
+| [base.csv](base.csv) | 1,501,057 | Wanxiang single-character, base and alternative-reading vocabulary, merged into toneless SI readings. |
 | [geography.csv](geography.csv) | 18,141 | Geography and places: Administrative place names and geographical terms. |
 | [organizations.csv](organizations.csv) | 4,312 | Organizations: Schools, universities, companies, associations, public agencies and cultural institutions. |
 | [technology.csv](technology.csv) | 3,820 | Technology and engineering: Computing, software, networks, electronics, machinery and engineering terms. |
@@ -17,6 +17,14 @@ The current base contains 1,547,554 text/reading pairs imported from Wanxiang, w
 Before the Wanxiang base replacement, the October 28 movie update added 212 new effective identities and copies existing title rows into the movie category, bringing the merged Chinese dictionary to 953,837 entries. The table counts category rows; identical cross-category copies merge without changing weights. Existing category rows remain intact. See the [paired movie catalog and provenance](../MOVIES.md).
 
 The former SI-authored `炼仙丹` base addition is now supplied by Wanxiang with weight 333. Historical counts and grouping rules below describe the earlier category split, not the current base or merged total.
+
+## Phrase and verse grouping
+
+[phrase/](phrase/README.md) now contains 46,497 clear base phrases and the
+complete 335,208-row `shici.csv` collection. Original rows/readings/weights and
+source-priority tiers are preserved; compilation includes both directories.
+The effective dictionary remains 2,141,468 entries. See the phrase guide and
+review record for conservative boundaries and source hashes.
 
 ## SI editorial weight adjustments
 
@@ -44,6 +52,10 @@ On November 4, 2026, the user requested ranking `语料` above `语聊` for
 `yuliao`. Its `yu'liao` weight increases from 1,953 to 2,500, above `语聊`
 (2,442) and below `预料` (3,036). This is an editorial ranking adjustment,
 not a measured occurrence count.
+
+On November 6, 2026, the user requested ranking `泰国` above `太过` for
+`taiguo`. The `tai'guo` weight for `泰国` increases from 14,290 to 22,000.
+`太过` keeps its weight of 20,909.
 
 The base SHA-256 recorded in the import metadata/report identifies the original
 pinned conversion; the generated runtime manifest records the current edited CSV

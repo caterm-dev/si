@@ -10,11 +10,13 @@ final class CandidateSourceTrace: Equatable, Sendable {
     let verbatim: Bool
     let rawOutputByteCount: Int
     let interiorBoundaries: [ConfirmationBoundary]
+    /// Source-only syllable cuts; unlike confirmation evidence, these need no output alignment.
+    let syllableSourceCounts: [Int]
 
     init(sourceCount: Int, outputByteCount: Int, languages: Int, previous: CandidateSourceTrace?,
          word: String = "", wordLanguage: Int = 0, lexicalCost: Double = 0,
          personal: Bool = false, verbatim: Bool = false, rawOutputByteCount: Int? = nil,
-         interiorBoundaries: [ConfirmationBoundary] = []) {
+         interiorBoundaries: [ConfirmationBoundary] = [], syllableSourceCounts: [Int] = []) {
         boundary = ConfirmationBoundary(sourceCount: sourceCount, outputByteCount: outputByteCount)
         self.languages = languages
         self.previous = previous
@@ -25,6 +27,7 @@ final class CandidateSourceTrace: Equatable, Sendable {
         self.verbatim = verbatim
         self.rawOutputByteCount = rawOutputByteCount ?? outputByteCount
         self.interiorBoundaries = interiorBoundaries
+        self.syllableSourceCounts = syllableSourceCounts
     }
 
     static func == (lhs: CandidateSourceTrace, rhs: CandidateSourceTrace) -> Bool {
@@ -33,6 +36,7 @@ final class CandidateSourceTrace: Equatable, Sendable {
             && lhs.wordLanguage == rhs.wordLanguage && lhs.lexicalCost == rhs.lexicalCost
             && lhs.personal == rhs.personal && lhs.verbatim == rhs.verbatim
             && lhs.rawOutputByteCount == rhs.rawOutputByteCount && lhs.interiorBoundaries == rhs.interiorBoundaries
+            && lhs.syllableSourceCounts == rhs.syllableSourceCounts
             && lhs.previous == rhs.previous
     }
 

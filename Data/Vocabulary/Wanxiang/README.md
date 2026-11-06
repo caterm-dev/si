@@ -152,3 +152,13 @@ follow [the native checks](../../../docs/TESTING.md) before claiming it.
 
 See the [October 29 verification record](VERIFICATION.md) for checks actually run,
 the source-specific regression updates and remaining limitations.
+
+## Maintained phrase layout
+
+The November 5 conservative [phrase grouping](../chinese/phrase/README.md) moves clear
+base combinations to `chinese/phrase/base.csv` and the complete poetry category to
+`chinese/phrase/shici.csv`. Original basenames retain their compilation priority across
+both directories. Conversion totals above describe the original unsplit import;
+ordinary CSV compilation uses the maintained layout. Explicit upstream conversion
+still regenerates original import locations: review/reapply the phrase grouping
+and existing editorial edits when deliberately refreshing upstream data.

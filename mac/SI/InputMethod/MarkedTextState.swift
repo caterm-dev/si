@@ -1,7 +1,7 @@
 import Foundation
 
-/// Last host update for one client/composition. Candidate-only deliveries must not
-/// restart the host's inline or fallback composition UI with identical marked text.
+/// Last host update for one client/composition. Candidate deliveries resend marked
+/// text only when its displayed spelling/segmentation or UTF-16 caret changes.
 struct MarkedTextState {
     private var text: String?
     private var selection: NSRange?

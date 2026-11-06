@@ -20,6 +20,7 @@ struct LexicalCompositionDecoder: Sendable {
         var learningBonus = 0.0
         var contextID = 0
         var interiorBoundaries: [ConfirmationBoundary] = []
+        var syllableSourceCounts: [Int] = []
     }
     private struct Path {
         var confirmationTrace: ConfirmationTrace?
@@ -223,7 +224,7 @@ struct LexicalCompositionDecoder: Sendable {
                         outputByteCount: next.comparisonText.utf8.count, languages: next.languages, previous: path.sourceTrace,
                         word: edge.text, wordLanguage: edge.languages, lexicalCost: edge.cost,
                         personal: edge.personal, verbatim: edge.verbatim, rawOutputByteCount: next.text.utf8.count,
-                        interiorBoundaries: edge.interiorBoundaries)
+                        interiorBoundaries: edge.interiorBoundaries, syllableSourceCounts: edge.syllableSourceCounts)
                     next.languageBoundary = languageBoundary
                     if includesConfirmationEvidence && !preview && chineseLexicon == nil {
                         next.confirmationTrace = path.confirmationTrace
@@ -362,7 +363,8 @@ struct LexicalCompositionDecoder: Sendable {
                                     + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: reading),
                                 contextID: wordIDs[row.text]!,
                                 interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text,
-                                    sourceCounts: sourceEnds.dropLast().map { input.rawBoundaries[$0] })))
+                                    sourceCounts: sourceEnds.dropLast().map { input.rawBoundaries[$0] }),
+                                syllableSourceCounts: sourceEnds.dropLast().map { input.rawBoundaries[$0] }))
                         }
                         visit(syllable.end)
                         reading.removeLast()

@@ -1,0 +1,148 @@
+{
+  "contract": "si-kenlm-cleaning-v1",
+  "length_unit": "Unicode scalars, not Swift Character or UTF-16",
+  "counts": {
+    "低频": 4,
+    "边界五": 5,
+    "边界十九": 19,
+    "边界二十": 20
+  },
+  "dictionary": [
+    "词典",
+    "Case"
+  ],
+  "cases": [
+    {
+      "name": "base",
+      "line": "中国 -12.5e+2 １２ .5 +3 1. 1e-3",
+      "threshold": 0,
+      "expected": [
+        "中国",
+        "<num>",
+        "<num>",
+        "<num>",
+        "<num>",
+        "<num>",
+        "<num>"
+      ]
+    },
+    {
+      "name": "whole-line-replacement",
+      "line": "中国 � 正常",
+      "threshold": 0,
+      "expected": null
+    },
+    {
+      "name": "whole-line-mojibake",
+      "line": "锟斤拷 后文",
+      "threshold": 5,
+      "expected": null
+    },
+    {
+      "name": "strict-five",
+      "line": "低频 边界五 边界十九 边界二十 词典 新词",
+      "threshold": 5,
+      "expected": [
+        "<oov>",
+        "边界五",
+        "边界十九",
+        "边界二十",
+        "词典",
+        "<oov>"
+      ]
+    },
+    {
+      "name": "strict-twenty",
+      "line": "低频 边界五 边界十九 边界二十 词典 新词",
+      "threshold": 20,
+      "expected": [
+        "<oov>",
+        "<oov>",
+        "<oov>",
+        "边界二十",
+        "词典",
+        "<oov>"
+      ]
+    },
+    {
+      "name": "case-sensitive-protection",
+      "line": "Case case",
+      "threshold": 5,
+      "expected": [
+        "Case",
+        "<oov>"
+      ]
+    },
+    {
+      "name": "markers",
+      "line": "<num> <oov> 9",
+      "threshold": 20,
+      "expected": [
+        "<num>",
+        "<oov>",
+        "<num>"
+      ]
+    },
+    {
+      "name": "empty",
+      "line": " \n",
+      "threshold": 0,
+      "expected": []
+    },
+    {
+      "name": "scalar-boundary-32-astral",
+      "line": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "threshold": 0,
+      "expected": [
+        "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+      ]
+    },
+    {
+      "name": "scalar-boundary-33-astral",
+      "line": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "threshold": 0,
+      "expected": [
+        "<oov>"
+      ]
+    },
+    {
+      "name": "combining-not-graphemes",
+      "line": "ééééééééééééééééé",
+      "threshold": 0,
+      "expected": [
+        "<oov>"
+      ]
+    },
+    {
+      "name": "numeric-before-long",
+      "line": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999",
+      "threshold": 20,
+      "expected": [
+        "<num>"
+      ]
+    },
+    {
+      "name": "non-numeric-forms",
+      "line": "NaN inf 1,000 1e+ −12 ＋12 ²",
+      "threshold": 0,
+      "expected": [
+        "NaN",
+        "inf",
+        "1,000",
+        "1e+",
+        "−12",
+        "＋12",
+        "²"
+      ]
+    },
+    {
+      "name": "unicode-decimal-digits",
+      "line": "١٢.٣ １２３",
+      "threshold": 0,
+      "expected": [
+        "<num>",
+        "<num>"
+      ]
+    }
+  ]
+}

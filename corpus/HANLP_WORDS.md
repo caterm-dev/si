@@ -1,5 +1,12 @@
 # HanLP word-frequency review
 
+This is the historical vocabulary-analysis workflow. The local Han-fragment
+bundles and their derived HanLP/token tables were deleted on November 5, 2026
+at the user's request. Maintained application vocabulary/audit records remain;
+a fixed occurrence-count dictionary is retained under
+`chinese/dictionaries/generated/unigram-reference-v1/` for the custom tokenizer.
+Use [the raw-derived workflow](KENLM_DATA.md) for current KenLM input.
+
 This workflow uses HanLP as a **local, offline corpus-analysis tool**. It does
 not add HanLP, a Python interpreter, a neural model or host-text inspection to
 the input method. Vocabulary changes still use the existing CSV compiler and
@@ -7,10 +14,10 @@ shared Swift engine.
 
 ## Inputs and model
 
-The selected inputs are all six existing prepared Chinese sources:
+The historical inputs were all six prepared Chinese sources:
 `chinese/prepared/chinese-v1/` and
-`chinese/prepared/wikipedia-20261001-v1/`. Together they contain 3,540,828
-fragments and 34,445,051 Han characters. This processes every line of those
+`chinese/prepared/wikipedia-20261001-v1/`. Together they contained 3,540,828
+fragments and 34,445,051 Han characters. That run processed every line of those
 bundles, **not every record of the larger downloaded raw archives**. The LCCC,
 mC4 and Wikipedia preparations stopped at their documented character limits.
 
@@ -18,8 +25,9 @@ These are simplified, punctuation-separated, 4–96-character fragments,
 deduplicated within each source. Their counts measure occurrences in this
 prepared collection, not original dialogue frequency or general Chinese usage.
 Sources stay separate; technical documentation and Wikipedia are not treated as
-a representative conversation sample. Existing origins remain available by
-source and one-based line number. See [the corpus guide](README.md) and
+a representative conversation sample. The original audit recorded source and
+one-based fragment line numbers; those local fragment/origin files have since
+been deleted. See [the corpus guide](README.md) and
 [source notices](chinese/NOTICE.md) for transformations and data terms.
 
 The model is HanLP 2.1.3's

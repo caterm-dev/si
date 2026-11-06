@@ -21,10 +21,14 @@ For review:
 - [`snapshot.json`](snapshot.json): measured totals, exact input/model/code
   hashes, package versions, original vocabulary hashes and source terms.
 
-The full token and frequency tables remain local under
+Historical local token/frequency paths were
 `corpus/chinese/generated/hanlp-words-v1/` and
-`corpus/chinese/generated/hanlp-review-v2/`. In the latter, `frequencies.csv`
-contains every observed token, and `decisions.csv` combines the eligible
+`corpus/chinese/generated/hanlp-review-v2/`. These fragment-derived directories
+were deleted on November 5, 2026 at the user's request; they are not current
+training data. A hash-verified frequency-only reference is retained in
+`corpus/chinese/dictionaries/generated/unigram-reference-v1/`. In the historical
+review, `frequencies.csv` contained every observed token, and `decisions.csv`
+combined the eligible
 proposals, per-source counts, decisions and readings. Generated corpus tables
 remain outside Git; the small reviewed selection and measured snapshot are
 maintained provenance artifacts.

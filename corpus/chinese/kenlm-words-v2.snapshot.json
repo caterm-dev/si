@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "completed_on": "2026-11-05",
+  "output_directory": "corpus/chinese/generated/kenlm-words-v2",
+  "manifest_sha256": "608cf0c132dcb7f63dcfbcd012c25c1d35dc4806f5f9a6baf5550216a977052c",
+  "combined": {
+    "path": "kenlm-input.txt",
+    "bytes": 4322204298,
+    "sha256": "92660454982b99a22c815871b3345ed664cd04493ae8c2471aa781540f470f47"
+  },
+  "totals": {
+    "input_lines": 71956292,
+    "empty_lines": 28796620,
+    "candidate_sentences": 60065125,
+    "sentences": 59811874,
+    "tokens": 871659206,
+    "over_100_tokens": 253251,
+    "sentences_with_digits": 14106701,
+    "sentences_with_english": 8169376
+  },
+  "dictionary": {
+    "path": "corpus/chinese/dictionaries/generated/unigram-words-v2/frequencies.csv",
+    "sha256": "da57dc31b23707052477aaf176d81f74ced51eafe230d10950fc04b5086ad7f7",
+    "words": 1736611,
+    "observed_words": 198021,
+    "smoothed_words": 1538590,
+    "maximum_word_length": 24,
+    "sources": {
+      "Data/Vocabulary/chinese/base.csv": "3dcd6d666249b22a5ee78f5ab451057be0b258e5b2e20e9c2e2478b1d965e97b",
+      "Data/Vocabulary/chinese/corpus.csv": "633a36af576da8b1a29d9dc7469db5098f13e4e44727f4d0350765f85433d112",
+      "Data/Vocabulary/chinese/diming.csv": "88dd7f19a82d029ac12804c5814f7417397cba504d58ce7f4dc2dcc95e5417de",
+      "Data/Vocabulary/chinese/fangyan.csv": "e816f892ef2a98556857ba9abe711041a4b1f5e7665aee7beae840a88b452119",
+      "Data/Vocabulary/chinese/game.csv": "6d818563773304846a88f03a741648e4edfc9c8f25523497ab93fc3574d48368",
+      "Data/Vocabulary/chinese/geography.csv": "89f8d98a5a2c74917b360637b396a352c592a899b892f57fe51e709cb13e807b",
+      "Data/Vocabulary/chinese/huaxue.csv": "bb2914f005c5102d8905a9abc0cc02239f323c72c79ef30d2e74d46b9f9c6f49",
+      "Data/Vocabulary/chinese/medicine.csv": "799bb65e2aaf59988d1338506b251ec89638818bdf8a278e050fa81d07d8a57a",
+      "Data/Vocabulary/chinese/mingren.csv": "c8236ec9cf45cd04985698a60a4e09e3553ed9e6c0a733f47d263a8cf84e6e26",
+      "Data/Vocabulary/chinese/movie.csv": "1a9ba87aa52546c745df60dfe3730ece583b544cd5339a27616bde8785bc5f5c",
+      "Data/Vocabulary/chinese/organizations.csv": "8263a3eb8a194e947b7daa115cccf8cd4963efe7b4fbf22d34fe5aec0ed3cc55",
+      "Data/Vocabulary/chinese/science.csv": "b3b7306e3e2692287d92e8171725e30db52dea542399ef25074c4ffa5860c57e",
+      "Data/Vocabulary/chinese/taifeng.csv": "6bc4b57c9e6bb36fd6b837186a77c826fee52b4445062670786dc6708b21999a",
+      "Data/Vocabulary/chinese/technology.csv": "5bde2596176310376b6a77070617c19566834a242b4388e470f5f654f85615e1",
+      "Data/Vocabulary/chinese/wuzhong.csv": "18f61ea64fe3c7652f39b84b6fe2e472cb1d22c994f64770515fd76544b7175e",
+      "Data/Vocabulary/chinese/yaopin.csv": "f7aabd5ff5616283084a4cb7fb5604c82d9929fbd5bb1875c3f57a9f032e4f04",
+      "Data/Vocabulary/chinese/yiren.csv": "45b7cec0218c9deb7798077e5d7056d4bff42aa13e0da14a0505712cb22acedb",
+      "Data/Vocabulary/chinese/yixue.csv": "371146bcc5030a6793675f452e92c1bf21a17bd685b4d93f3089a2c92d6b9e60"
+    },
+    "excluded_directory": "Data/Vocabulary/chinese/phrase",
+    "smoothing": "pseudocount 1 only for words without observed reference counts",
+    "frequency_reference_sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+    "input_method_weights_used_as_counts": false
+  },
+  "code": {
+    "corpus/build_word_dictionary.py": "06d6e90f511c9e710d0dae9c41bc7e1e1661a9930a1131aaf735ffcf55d5c7f0",
+    "corpus/prepare_kenlm_raw.py": "6996c45ea1ad86fc0a2ba2c59431b4774eb90641020b28d28b84b151ec24b50e",
+    "corpus/tokenize_unigram.py": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa"
+  },
+  "sources": [
+    {
+      "id": "lccc",
+      "counts": {
+        "input_lines": 20073720,
+        "empty_lines": 0,
+        "candidate_sentences": 23198910,
+        "sentences": 23198760,
+        "tokens": 145954069,
+        "over_100_tokens": 150,
+        "maximum_sentence_tokens": 100,
+        "sentences_with_digits": 659476,
+        "sentences_with_english": 250725
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "9f683ed11e677dca9c3dbaca0ad490cc6d5fabecd21673c6f7d2fa341324817e",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "da57dc31b23707052477aaf176d81f74ced51eafe230d10950fc04b5086ad7f7",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "6781a61a3c543f5aa8ec1db812bd13dfb7f45fea3b3f8aab26f0d5140b936edf",
+          "bytes": 807614710
+        },
+        "origins.jsonl": {
+          "sha256": "b8df91f16a3795f1bb1e0c436e19cc0302faf395f587a2a24e31b574fe971d54",
+          "bytes": 288446940
+        }
+      }
+    },
+    {
+      "id": "mc4",
+      "counts": {
+        "input_lines": 588133,
+        "empty_lines": 2,
+        "candidate_sentences": 1233711,
+        "sentences": 1200736,
+        "tokens": 23346465,
+        "over_100_tokens": 32975,
+        "maximum_sentence_tokens": 100,
+        "sentences_with_digits": 424144,
+        "sentences_with_english": 346584
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "b1309bebeed5b2aae5403d025b94930842ecc53ab6e9dcfe20e941c66b2fcb7b",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "da57dc31b23707052477aaf176d81f74ced51eafe230d10950fc04b5086ad7f7",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "e16826bd79670661a7788bda3ec10e9390756649653b732e612813a42a3256a2",
+          "bytes": 127547179
+        },
+        "origins.jsonl": {
+          "sha256": "b694e49f878b0983f573e682efc179e0e2f16cd499229ab3e111da71ea9ab97c",
+          "bytes": 13164232
+        }
+      }
+    },
+    {
+      "id": "kubernetes",
+      "counts": {
+        "input_lines": 341175,
+        "empty_lines": 203139,
+        "candidate_sentences": 164149,
+        "sentences": 164108,
+        "tokens": 1753719,
+        "over_100_tokens": 41,
+        "maximum_sentence_tokens": 97,
+        "sentences_with_digits": 17048,
+        "sentences_with_english": 109400
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "76b51450ba61fd8636b1d5bc7ee80347258fdf38d66f4533fe352f360504822e",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "da57dc31b23707052477aaf176d81f74ced51eafe230d10950fc04b5086ad7f7",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "6afc20cb72d30030e635c3d9e094bcfa2176099dd8f5f456a40b31d82eaf36b2",
+          "bytes": 9747852
+        },
+        "origins.jsonl": {
+          "sha256": "821ef1a966ce6515e64b201b53d3886d5a9cb7c02a99c51283cd0919761c53ae",
+          "bytes": 1735005
+        }
+      }
+    },
+    {
+      "id": "tensorflow",
+      "counts": {
+        "input_lines": 56287,
+        "empty_lines": 25935,
+        "candidate_sentences": 40624,
+        "sentences": 40619,
+        "tokens": 394421,
+        "over_100_tokens": 5,
+        "maximum_sentence_tokens": 90,
+        "sentences_with_digits": 7686,
+        "sentences_with_english": 17880
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "1d1fd123d67ad8bcb907fea1b02c30e03394cfb82ee6aa06c392ef7c192e8c99",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "da57dc31b23707052477aaf176d81f74ced51eafe230d10950fc04b5086ad7f7",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "f93f4f6f2ef6085752d9dc5744c1170b9db3cbb141650e7bf42fafa487e0e726",
+          "bytes": 1969328
+        },
+        "origins.jsonl": {
+          "sha256": "648d8f0d7001057e95f75855341d9119ac4ba7f7083c5f2259d6503c3ad92385",
+          "bytes": 398793
+        }
+      }
+    },
+    {
+      "id": "mdn",
+      "counts": {
+        "input_lines": 410068,
+        "empty_lines": 205585,
+        "candidate_sentences": 272398,
+        "sentences": 272384,
+        "tokens": 2893368,
+        "over_100_tokens": 14,
+        "maximum_sentence_tokens": 98,
+        "sentences_with_digits": 15529,
+        "sentences_with_english": 81452
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "6de4a6861e7c6fde471a800b5d1dcaa07b0b9250c152dc41534bcee35c0d8822",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "da57dc31b23707052477aaf176d81f74ced51eafe230d10950fc04b5086ad7f7",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "a581673ec48e3139440d52413c58450749d6ed8b3c664d1d6086843d05848d73",
+          "bytes": 15697872
+        },
+        "origins.jsonl": {
+          "sha256": "14dcc405528e70b8f94d9990f8995467e749161cb4f775e2f7b675432f67021e",
+          "bytes": 2905747
+        }
+      }
+    },
+    {
+      "id": "wikipedia",
+      "counts": {
+        "input_lines": 50486909,
+        "empty_lines": 28361959,
+        "candidate_sentences": 35155333,
+        "sentences": 34935267,
+        "tokens": 697317164,
+        "over_100_tokens": 220066,
+        "maximum_sentence_tokens": 100,
+        "sentences_with_digits": 12982818,
+        "sentences_with_english": 7363335
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "5f02b5f987c4274e8d7bf4ec0b08d9cf297a80fc237ce708414c38c008124e2e",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "da57dc31b23707052477aaf176d81f74ced51eafe230d10950fc04b5086ad7f7",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "f24b9832fb470c4aeab00c992a1c4d72f142a1c8ff8fd40531f2e4d80d19087d",
+          "bytes": 3359627357
+        },
+        "origins.jsonl": {
+          "sha256": "e11119050bfa748d4e4bd6040bc805eea0f6f2e03f6f7b6ef125c2f0a5dccb11",
+          "bytes": 444713593
+        }
+      }
+    }
+  ],
+  "validation": {
+    "corpus_unit_tests": 60,
+    "swift_tests": 443,
+    "debug_build": "passed",
+    "flat_word_vocabulary_equality_audit": "passed",
+    "full_normalized_source_retention": "passed",
+    "combined_source_byte_range_hashes": "passed"
+  },
+  "maximum_sentence_tokens": 100,
+  "training_started": false,
+  "split_assignment": null
+}

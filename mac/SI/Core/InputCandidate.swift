@@ -12,6 +12,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public var inputScore: Double { rankingScore }
     var languageBoundary: CandidateLanguageBoundary?
     var sourceTrace: CandidateSourceTrace?
+    private var displaySourceBoundaries: [Int] = []
     /// Runtime provenance for generated Chinese sentence alternatives.
     private(set) var isChineseSentence = false
     /// Ephemeral length-weighted token preference; shares the frequency cap with whole-input learning.
@@ -31,6 +32,19 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     /// Transient lexical-node count for word-selection presentation, independent of identity and score.
     public private(set) var lexicalTokenCount: Int?
     public let confirmationBoundaries: [ConfirmationBoundary]
+
+    /// Exact source-character cuts for displaying Chinese syllables and English words.
+    /// This is presentation metadata, independent of commit/automatic-confirmation evidence.
+    public var sourceSegmentBoundaries: [Int] {
+        var result = displaySourceBoundaries
+        var trace = sourceTrace
+        while let node = trace {
+            result.append(node.boundary.sourceCount)
+            result.append(contentsOf: node.syllableSourceCounts)
+            trace = node.previous
+        }
+        return Array(Set(result)).sorted()
+    }
 
     // Language is part of identity: matching text from two languages remains visible.
     public let id: String
@@ -112,6 +126,12 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         return result
     }
 
+    func withDisplaySourceBoundaries(_ boundaries: [Int]) -> Self {
+        var result = self
+        result.displaySourceBoundaries = boundaries
+        return result
+    }
+
     func hasSameCommitValue(as other: Self) -> Bool {
         var left = self
         var right = other
@@ -120,6 +140,8 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         right.languageBoundary = nil
         left.sourceTrace = nil
         right.sourceTrace = nil
+        left.displaySourceBoundaries = []
+        right.displaySourceBoundaries = []
         left.isChineseSentence = false
         right.isChineseSentence = false
         left.presentationScore = nil

@@ -1,5 +1,28 @@
 # Testing SI
 
+## Segmented marked spelling
+
+`MarkedTextPresentationTests` covers Chinese syllables (`chileme` → `chi le me`),
+English words (`iwanttobuild` → `i want to build`), mixed candidates, incomplete
+Chinese readings, casing, ü/u: aliases, explicit apostrophes, UTF-16 caret
+offsets, prefix remainders, literal commits, and rejected stale results.
+
+On an intentionally installed build, repeat these synthetic inputs in TextEdit
+and browser fields. Check Home/End, backward/forward deletion near visual spaces,
+candidate navigation, Space/number/mouse confirmation, prefix selection, Return,
+shortcuts, Escape and focus changes. Only real source characters should be edited;
+Return/shortcuts must preserve spelling without display spaces. Check rapid
+typing through provisional/full results, unknown identifiers, disabled languages,
+caret positioning near screen edges, light/dark appearance and VoiceOver. These
+native host and spoken accessibility checks remain unverified by package tests.
+
+On November 5, 2026, all 443 Swift tests passed with
+`./scripts/test.sh --disable-sandbox`, including eight marked-spelling tests,
+and the Debug app build passed. The default SwiftPM sandbox could not nest in
+the agent sandbox; Xcode required normal compiler/package-cache access. Logs
+are local under `.build/segmented-marked-*`. No installation or live host check
+was performed.
+
 ## HanLP corpus vocabulary review
 
 On November 4–5, 2026, the offline HanLP pass processed all 3,540,828 fragments
@@ -267,6 +290,16 @@ report are in `.build/prefix-consumed-only-*`.
 
 ## Category filenames and local weight defaults
 
+The November 5 phrase/verse split adds flat Chinese CSV discovery under
+`Data/Vocabulary/chinese/phrase/`. The compiler regression moves base and imported
+rows across directories while preserving a zero authoritative base weight,
+upstream-over-local precedence, generated row IDs and English isolation.
+The full effective dictionary and compiled SQLite rows are independently
+compared with the pre-split dictionary. Run the vocabulary-tool tests and
+`python3 scripts/csv_dictionary.py build --check --language chinese` after
+editing either Chinese source directory. This is source organization; it
+requires no input-method installation or host-event behavior change.
+
 The ten imported Chinese categories now use their upstream stems directly
 (`diming.csv`, `shici.csv`, etc.). Metadata tracks ownership and precedence;
 conversion retires the former prefixed paths only when their recorded bytes
@@ -292,6 +325,19 @@ the Debug build, locked conversion reproduction, both dictionary checks and the
 pinned Chinese context check passed. Source/base CSV hashes matched their
 pre-rename contents; all nine local text/reading sequences matched their
 pre-normalization sequences. Documentation links and `git diff --check` passed.
+
+## Thailand homophone ranking
+
+`ChineseFrequencyRankingTests.thailandRanksAheadOfHomophone` checks that
+`泰国` ranks ahead of `太过` for `taiguo` and `tai'guo` in provisional and
+full results, with Chinese alone and with both languages enabled.
+
+On November 6, 2026, both generated dictionaries and the pinned MSIME context
+passed verification. All 444 Swift tests and the Debug app build passed.
+Vocabulary tooling passed 44 of 45 tests, with the existing domain row-count
+mismatch. Live host verification is pending. In TextEdit and a browser field,
+use an installed build with empty personal preferences for this spelling and
+check that `泰国` appears ahead of `太过`, then confirm each candidate.
 
 ## Wanxiang base and category replacement
 
@@ -1202,3 +1248,16 @@ Live verification remains required in TextEdit and a browser/editor:
    Personal Learning and Input History retain their existing settings.
 5. Check keyboard use, VoiceOver, light/dark/high-contrast appearance and narrow
    display positioning. In-process rendering does not establish host compatibility.
+
+## Offline KenLM configuration selection
+
+Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests -v`.
+Synthetic fixtures check first-occurrence deduplication, stable seeded block
+assignment, split counts/disjointness, 100,000-line smoke extraction, query
+summary parsing, all-smokes-before-full gating and failure stopping, complete
+four-model comparison validation and the size/perplexity recommendation rule.
+Real smoke models exercise `lmplz`, quantized trie construction and `query`;
+full comparisons verify scored heldout token coverage including EOS, identical
+input/tool hashes and matching OOV counts. All commands, options, source pins,
+data counts and measured results are in [README_kenlm_train.md](../README_kenlm_train.md).
+No native installation or user-data collection is part of this offline workflow.

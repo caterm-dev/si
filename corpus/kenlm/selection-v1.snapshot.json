@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "completed_on": "2026-11-05",
+  "stage": "configuration-selection-complete",
+  "run_directory": "corpus/chinese/generated/kenlm-selection-v1",
+  "data": {
+    "schema_version": 1,
+    "input": {
+      "path": "/Users/eric/src/si/corpus/chinese/generated/kenlm-words-v2/kenlm-input.txt",
+      "sha256": "92660454982b99a22c815871b3345ed664cd04493ae8c2471aa781540f470f47",
+      "lines": 59811874
+    },
+    "seed": 20261105,
+    "block_lines": 1000,
+    "hash": "SHA-256",
+    "assignment": "SHA256(ASCII('kenlm-block-v1:{seed}:{zero_based_block}')) first 8 bytes big-endian modulo 10000 < 200 => heldout; blocks of deduplicated lines",
+    "unique_lines": 46966862,
+    "duplicate_lines_removed": 12845012,
+    "splits": {
+      "train": {
+        "lines": 46077862,
+        "tokens": 793546051,
+        "bytes": 3941335246,
+        "sha256": "db68306a90f17d64f5c09d6b04a3a35fc309f1a37c20386a9b8ce4f1f702796e"
+      },
+      "heldout": {
+        "lines": 889000,
+        "tokens": 15585727,
+        "bytes": 77182428,
+        "sha256": "a01168f4c392acdb41c508cba6ef11c27188e4e87a9997b20d97d8d358d9210f"
+      }
+    },
+    "heldout_line_fraction": 0.018928239233866634,
+    "deduplicated": {
+      "path": "deduplicated.txt",
+      "sha256": "992bc6aa648d9e8a4c1d122990e6771653eef7c8600941a8c2b94477ee051235"
+    },
+    "no_duplicate_or_shared_line_hashes": true,
+    "seconds": 411.5628912090324
+  },
+  "block_audit": {
+    "blocks_checked": 46967,
+    "unique_lines_checked": 46966862,
+    "all_block_routes_byte_equal": true,
+    "split_checksums_valid": true,
+    "smoke_prefixes": {
+      "smoke-train.txt": {
+        "lines": 100000,
+        "sha256": "3d99b82f9be5197cfe0b57fad27ff161d85430e80b80ebaea2c4aee7f95ba85f"
+      },
+      "smoke-heldout.txt": {
+        "lines": 10000,
+        "sha256": "59b474cd5f1e95df830c661b0928692181f50955b6803cf900a33012ae1aca01"
+      }
+    }
+  },
+  "selection": {
+    "results": [
+      {
+        "configuration": "o3",
+        "ngram_counts": {
+          "1": 3129263,
+          "2": 79584106,
+          "3": 59463133
+        },
+        "identity": {
+          "training_sha256": "db68306a90f17d64f5c09d6b04a3a35fc309f1a37c20386a9b8ce4f1f702796e",
+          "evaluation_sha256": "a01168f4c392acdb41c508cba6ef11c27188e4e87a9997b20d97d8d358d9210f",
+          "tools": {
+            "lmplz": "3ffeab73dcea9ea3eed55bde9c90da5efa39e537d7a0c85e0088e6d3ff5cb29b",
+            "build_binary": "b63f96614f30828292f0f82034839559f53781e3e62096f66c7eb23ba6f87405",
+            "query": "361e478a1dcf59df4b9930ec119baee5c865e5874ccf820f657ff0fe14504c02"
+          },
+          "order": 3,
+          "prune": [
+            0,
+            0,
+            1
+          ],
+          "memory": "40%",
+          "temporary_directory": "/tmp",
+          "binary_type": "trie",
+          "probability_bits": 8,
+          "backoff_bits": 8,
+          "smoke": false
+        },
+        "discount_fallback": false,
+        "training_seconds": 218.09663400007412,
+        "binary_build_seconds": 73.35433483403176,
+        "total_training_seconds": 291.4509688341059,
+        "query_seconds": 5.548675124999136,
+        "binary_bytes": 965910882,
+        "binary_sha256": "525c20fffcb62ddd41ffca8437c65ed622d0fe412a21f6fbaa5df28a4bdc14c5",
+        "perplexity_including_oovs": 204.9237246551493,
+        "perplexity_excluding_oovs": 197.9060264003678,
+        "oovs": 38678,
+        "query_tokens": 16474727
+      },
+      {
+        "configuration": "o4a",
+        "ngram_counts": {
+          "1": 3129263,
+          "2": 79584106,
+          "3": 59463133,
+          "4": 26505397
+        },
+        "identity": {
+          "training_sha256": "db68306a90f17d64f5c09d6b04a3a35fc309f1a37c20386a9b8ce4f1f702796e",
+          "evaluation_sha256": "a01168f4c392acdb41c508cba6ef11c27188e4e87a9997b20d97d8d358d9210f",
+          "tools": {
+            "lmplz": "3ffeab73dcea9ea3eed55bde9c90da5efa39e537d7a0c85e0088e6d3ff5cb29b",
+            "build_binary": "b63f96614f30828292f0f82034839559f53781e3e62096f66c7eb23ba6f87405",
+            "query": "361e478a1dcf59df4b9930ec119baee5c865e5874ccf820f657ff0fe14504c02"
+          },
+          "order": 4,
+          "prune": [
+            0,
+            0,
+            1,
+            2
+          ],
+          "memory": "40%",
+          "temporary_directory": "/tmp",
+          "binary_type": "trie",
+          "probability_bits": 8,
+          "backoff_bits": 8,
+          "smoke": false
+        },
+        "discount_fallback": false,
+        "training_seconds": 289.08681508305017,
+        "binary_build_seconds": 89.71491937502287,
+        "total_training_seconds": 378.80173445807304,
+        "query_seconds": 5.931732750032097,
+        "binary_bytes": 1310593617,
+        "binary_sha256": "0ce73df66feb77fdbd0733b0a2f1df00469b2ea8113be2e373ababa8e42d9e31",
+        "perplexity_including_oovs": 178.02126238908605,
+        "perplexity_excluding_oovs": 171.8949159647354,
+        "oovs": 38678,
+        "query_tokens": 16474727
+      },
+      {
+        "configuration": "o4b",
+        "ngram_counts": {
+          "1": 3129263,
+          "2": 79584106,
+          "3": 278925276,
+          "4": 58628863
+        },
+        "identity": {
+          "training_sha256": "db68306a90f17d64f5c09d6b04a3a35fc309f1a37c20386a9b8ce4f1f702796e",
+          "evaluation_sha256": "a01168f4c392acdb41c508cba6ef11c27188e4e87a9997b20d97d8d358d9210f",
+          "tools": {
+            "lmplz": "3ffeab73dcea9ea3eed55bde9c90da5efa39e537d7a0c85e0088e6d3ff5cb29b",
+            "build_binary": "b63f96614f30828292f0f82034839559f53781e3e62096f66c7eb23ba6f87405",
+            "query": "361e478a1dcf59df4b9930ec119baee5c865e5874ccf820f657ff0fe14504c02"
+          },
+          "order": 4,
+          "prune": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "memory": "40%",
+          "temporary_directory": "/tmp",
+          "binary_type": "trie",
+          "probability_bits": 8,
+          "backoff_bits": 8,
+          "smoke": false
+        },
+        "discount_fallback": false,
+        "training_seconds": 327.69389779202174,
+        "binary_build_seconds": 271.9168937919894,
+        "total_training_seconds": 599.6107915840112,
+        "query_seconds": 7.040008916053921,
+        "binary_bytes": 3224030690,
+        "binary_sha256": "9a451fe3a682102d398fdb02f0378a21e76daa539050961680a0f988aa410911",
+        "perplexity_including_oovs": 164.02602267053254,
+        "perplexity_excluding_oovs": 158.310916503176,
+        "oovs": 38678,
+        "query_tokens": 16474727
+      },
+      {
+        "configuration": "o5",
+        "ngram_counts": {
+          "1": 3129263,
+          "2": 79584106,
+          "3": 59463133,
+          "4": 58628863,
+          "5": 17115702
+        },
+        "identity": {
+          "training_sha256": "db68306a90f17d64f5c09d6b04a3a35fc309f1a37c20386a9b8ce4f1f702796e",
+          "evaluation_sha256": "a01168f4c392acdb41c508cba6ef11c27188e4e87a9997b20d97d8d358d9210f",
+          "tools": {
+            "lmplz": "3ffeab73dcea9ea3eed55bde9c90da5efa39e537d7a0c85e0088e6d3ff5cb29b",
+            "build_binary": "b63f96614f30828292f0f82034839559f53781e3e62096f66c7eb23ba6f87405",
+            "query": "361e478a1dcf59df4b9930ec119baee5c865e5874ccf820f657ff0fe14504c02"
+          },
+          "order": 5,
+          "prune": [
+            0,
+            0,
+            1,
+            1,
+            2
+          ],
+          "memory": "40%",
+          "temporary_directory": "/tmp",
+          "binary_type": "trie",
+          "probability_bits": 8,
+          "backoff_bits": 8,
+          "smoke": false
+        },
+        "discount_fallback": false,
+        "training_seconds": 338.82069016690366,
+        "binary_build_seconds": 129.55872704088688,
+        "total_training_seconds": 468.37941720779054,
+        "query_seconds": 6.807613083044998,
+        "binary_bytes": 1744519520,
+        "binary_sha256": "71dec99d7184590fcd81c911975dde26a9bd28ab198f29306b03b89c6190743b",
+        "perplexity_including_oovs": 169.47087154678064,
+        "perplexity_excluding_oovs": 163.62116914796613,
+        "oovs": 38678,
+        "query_tokens": 16474727
+      }
+    ],
+    "recommended_configuration": "o4b",
+    "rule": "Smallest trie within 1% of the best including-OOV heldout PPL; break exact size ties by total training time",
+    "best_including_oov_perplexity": 164.02602267053254,
+    "recommended_relative_ppl_gap": 0.0,
+    "training_scope": "train.txt only",
+    "final_combined_data_training_performed": false
+  },
+  "code": {
+    "corpus/kenlm_train.py": "d5a925c557db08952714d7c2faac4e1bdfa3f2cb3c90b734071ada3ad8e990f3",
+    "corpus/kenlm/build_tools.sh": "f52f86927048e3339b09a91a1a6da79e7c220a375df252f3f78e0efc3048f9c0"
+  },
+  "tool_lock_sha256": "5eae1d37b1280f7125728382326a0ed312f2377f90347a8835484e04d0868458",
+  "validation": {
+    "corpus_unit_tests": 65,
+    "swift_tests": 443,
+    "debug_build": "passed",
+    "all_four_smokes_before_full_fits": "passed",
+    "all_full_lmplz_input_token_counts": "passed",
+    "all_full_query_heldout_token_counts_including_eos": "passed",
+    "all_model_hashes_and_raw_query_metrics": "passed",
+    "all_requested_orders_pruning_memory_temp_quantization_commands": "passed"
+  },
+  "final_combined_data_training_performed": false,
+  "next_action": "Await the user's configuration confirmation before final all-deduplicated-data retraining"
+}

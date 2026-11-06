@@ -12,8 +12,8 @@
   "sources": [
     {
       "path": "chinese/base.csv",
-      "sha256": "3a1a32491841b6ee880ecde6cbdeaaf55439f41b6cc98578ce0da2c7f165090f",
-      "rows": 1547554
+      "sha256": "a4985ce03e14fce95e0e0760d8a62d3b677bb50e42b4a2cee8c2e001e81f64c8",
+      "rows": 1501057
     },
     {
       "path": "chinese/corpus.csv",
@@ -66,14 +66,19 @@
       "rows": 4312
     },
     {
+      "path": "chinese/phrase/base.csv",
+      "sha256": "d4480d53e9af7c87fc0f693e08c143c1b806c6d5a96640082f9239512f5a63a6",
+      "rows": 46497
+    },
+    {
+      "path": "chinese/phrase/shici.csv",
+      "sha256": "3621fb1a90dba49aa1fb515cfd12aa11165be84c1f402c92eea90212c48d14a1",
+      "rows": 335208
+    },
+    {
       "path": "chinese/science.csv",
       "sha256": "b3b7306e3e2692287d92e8171725e30db52dea542399ef25074c4ffa5860c57e",
       "rows": 2659
-    },
-    {
-      "path": "chinese/shici.csv",
-      "sha256": "3621fb1a90dba49aa1fb515cfd12aa11165be84c1f402c92eea90212c48d14a1",
-      "rows": 335208
     },
     {
       "path": "chinese/taifeng.csv",
@@ -107,5 +112,5 @@
     }
   ],
   "entries": 2141468,
-  "runtime_sha256": "6ef37dd482d09f649c6396194c1dcdacf2215e31dcd732d4087cd1a97996ba85"
+  "runtime_sha256": "d1c66332c72b770fc1975255f2abc1364f5e77ab581ac6835bb4cd537ef82dc5"
 }

@@ -52,6 +52,9 @@ Interface language is independent of the English/Chinese input-language switches
 
 Chinese and English base dictionaries now come from a pinned [rime-wanxiang-data](https://github.com/amzxyz/rime-wanxiang-data) revision. The independently written [conversion script](scripts/wanxiang_dictionary.py) imports `zi`, `jichu` and `duoyin` into `chinese/base.csv` (1,547,554 text/reading pairs), and `en` into `english/base.csv` (72,784 supported forms). Base weights retain the upstream integers, without wordfreq normalization or frequency rescaling, except for [documented SI editorial adjustments](Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments). The upstream weights are already transformed ranking values, not raw occurrence counts or probabilities. For `yuliao`, the SI editorial weight for `语料` is 2,500, placing it above `语聊` (2,442) and below `预料` (3,036) before personal preferences. This replacement changes vocabulary, casing and ranking; it does not establish improved conversion quality.
 
+For `taiguo`, the editorial weight of 22,000 ranks `泰国` ahead of `太过`
+(20,909) before personal preferences.
+
 All ten other normal upstream Chinese dictionaries are imported into separate categories named after the upstream files, adding 602,516 category rows. With the reviewed corpus additions, the complete merged resources contain 2,141,468 Chinese and 74,341 English entries. The seven remaining local Chinese categories and the existing English movie/domain categories retain their text/readings with uniform weight 10. The separately removed culture/sports file is not restored. Their entries supplement the base; overlapping identities use the base weight and English casing, so historical category weights cannot overwrite the new source weights. Imported categories retain upstream weights over legacy category copies; duplicates within each tier still merge by maximum weight. Categories remain maintenance groups without language modes or ranking bonuses. The [domain category](Data/Vocabulary/DOMAINS.md) retains its 1,209 full hostnames and separate Radar CC BY-NC 4.0 terms; the [movie catalog](Data/Vocabulary/MOVIES.md) retains its 400 selected films from 2007–2026.
 
 ```sh
@@ -64,6 +67,13 @@ python3 scripts/wanxiang_dictionary.py convert --check
 python3 scripts/csv_dictionary.py build
 python3 scripts/csv_dictionary.py build --check
 ```
+
+The [phrase and verse collection](Data/Vocabulary/chinese/phrase/README.md) separately
+groups 46,497 clear base phrases and the existing 335,208-row poetry source.
+The remaining word-side Chinese base has 1,501,057 rows. Compilation reads both
+Chinese directories and preserves every effective entry, reading, weight and
+deterministic order. Idioms, names, domain terms and ambiguous entries remain
+conservatively grouped with words.
 
 See the [import scope, exceptions and update workflow](Data/Vocabulary/Wanxiang/README.md). The conversion removes Chinese tones, maps ü to v and merges tone-collapsed duplicates by maximum weight. English retains SI's full-text typing-key contract rather than Rime abbreviations; case variants use the highest source weight with first-source ties. Nineteen unsupported non-ASCII English forms are listed in the conversion report. Missing weights remain zero; 73 malformed numeric suffixes use Rime's numeric-prefix interpretation. Neither the importer nor normal builds read private phrases or Personal Learning.
 
@@ -227,6 +237,14 @@ Each new release increments the last version component (`0.1.0` → `0.1.1`) and
 Packaging explicitly uses HFS+ inside the compressed DMG. This avoids an APFS image-size estimation failure that can report `No space left on device` even when the Mac has ample free space; see [DMG troubleshooting](docs/RELEASING.md#dmg-creation-reports-no-space).
 
 ## Keyboard behavior
+
+While composing, the letters at the host input caret show spaces between the
+Chinese syllables or English words of the highest-ranked whole candidate:
+`chileme` displays as `chi le me`, and `iwanttobuild` as `i want to build`.
+Mixed candidates use both kinds of boundary. These are display spaces; editing,
+prefix consumption, Return and shortcuts still use the exact original spelling.
+Explicit apostrophes and casing remain intact. Unknown input stays unchanged;
+provisional segmentation can change as current search results arrive.
 
 | Key | During composition |
 | --- | --- |

@@ -6,9 +6,45 @@ Its organization follows [chinese-ime-lm's corpus tools](https://github.com/meta
 The implementation is SI-authored and independent of the input method and the
 existing `llm/` CSV experiments.
 
-The optional [HanLP word-frequency review](HANLP_WORDS.md) segments the frozen
-Chinese bundles locally, preserves per-source counts, and proposes missing
+The historical [HanLP word-frequency review](HANLP_WORDS.md) segmented frozen
+Chinese bundles locally, preserved per-source counts, and proposed missing
 words for manual vocabulary review. It does not train or add a runtime model.
+
+The independent [streaming unigram tokenizer](UNIGRAM_TOKENIZER.md) applies
+NFKC/invisible-character cleaning, punctuation sentence splitting and local
+dictionary/Viterbi Han segmentation to explicitly selected text files. It
+preserves lowercased English, numbers and punctuation in space-separated output,
+with bounded multiprocessing and a 100-token sentence limit. It uses only the
+Python standard library and leaves earlier corpus bundles and SI vocabulary intact.
+
+The current [raw-derived KenLM workflow](KENLM_DATA.md) reads all six pinned
+local raw archives and preserves numbers, English, punctuation, short spans
+and repeated occurrences. It uses the same custom unigram tokenizer, keeps
+commas/enumeration commas inside sentences and records exact sentence lineage.
+The current v2 dictionary reads only flat Chinese word CSVs, excluding
+`Data/Vocabulary/chinese/phrase/`; observed corpus counts and explicit
+pseudocount-1 smoothing supply unigram probabilities, rather than input-method
+ranking weights. Outputs are under `chinese/generated/kenlm-words-v2/`.
+The earlier local Han-fragment bundles and their derived token files were
+**deleted at the user's request on November 5, 2026**. Historical counts below
+remain provenance records; their old local paths are not current training data.
+
+```sh
+python3 corpus/prepare_raw_text.py --source all
+python3 corpus/build_word_dictionary.py
+python3 corpus/prepare_kenlm_raw.py tokenize --workers 4
+python3 corpus/prepare_kenlm_raw.py finalize
+```
+
+The explicit [KenLM configuration-selection workflow](../README_kenlm_train.md)
+uses `kenlm_train.py` to deduplicate exact lines, split stable 1,000-line blocks
+with seed 20261105, run all four smoke tests, and compare train-split quantized
+trie models on the same heldout file. Tool source pins/notices are retained under
+`kenlm/`; generated splits, models and logs remain local. Final combined-data
+retraining waits for the user's later configuration choice.
+
+The commands below for `prepare.py` reproduce the historical Han-fragment
+contract only. Use the raw workflow above for complete-text KenLM preparation.
 
 The separate [English conversation collection](english/README.md) acquires and
 prepares PersonaChat/ConvAI2, BlendedSkillTalk, Topical-Chat, Taskmaster 1/2/3,
@@ -24,6 +60,7 @@ Han-fragment contract below remain separate from English dialogue preparation.
 | `chinese/licenses/`, `chinese/NOTICE.md` | Full retained notices, dataset cards and attribution. |
 | `fetch.py`, `wikipedia.py` | Explicit pinned acquisition, latest complete Wikipedia resolution and archive verification. |
 | `clean/`, `prepare.py` | Shared normalization, wikitext/XML extraction and offline preparation. |
+| `prepare_raw_text.py`, `prepare_kenlm_raw.py` | Complete local raw extraction, shared unigram tokenization, sentence lineage and verified KenLM input. |
 | `check.py` | Bundle hash, origin alignment and content/count verification. |
 | `pinyin/build.py` | Explicit character and word reading tables from SI's maintained vocabulary. |
 | `english.py`, `clean/dialogue.py` | Pinned English dialogue acquisition, source readers, immutable preparation and verification. |
@@ -38,13 +75,13 @@ caches stay local. A fresh checkout needs the explicit acquisition/preparation
 steps below. Removing an existing artifact from Git tracking keeps its local
 copy; it does not erase earlier commits or require downloading it again.
 
-## Sources and scope
+## Historical sources and fragment scope
 
 The first lock selects LCCC-base's training archive, Chinese mC4 training shard
 0 of 1,024, and the Chinese documentation trees of Kubernetes, TensorFlow and
 MDN. This provides conversational, general web and technical writing. All five
-raw archives are downloaded in full (about 1.02 GB combined); the default
-preparation retains at most **10,000,000 unique output Han characters per source**.
+raw archives were downloaded in full (about 1.02 GB combined); the legacy default
+preparation retained at most **10,000,000 unique output Han characters per source**.
 This is a bounded initial subset, not all Chinese mC4 or all LCCC. Documents are
 processed in the pinned archive's member order; dialogue/web records remain in
 their file order. New source versions need new pins, checksums and notice review.
@@ -58,12 +95,12 @@ Official completion metadata and checksums are retained under
 SHA-1 before publishing the file and records an additional local SHA-256.
 The verified initial Wikipedia text bundle contains **942,413 fragments** and
 **9,999,995 Han characters**, stopping at the default ten-million-character
-limit. It is at `chinese/prepared/wikipedia-20261001-v1/`; the separate
+limit. It was at the now-deleted `chinese/prepared/wikipedia-20261001-v1/`; the separate
 [Wikipedia snapshot](chinese/wikipedia-20261001.snapshot.json) records measured
 counts and hashes. The original five-source snapshot remains unchanged. The
 full raw dump is retained, so later full-text processing needs no new download.
 
-The verified October 30, 2026 batch contains **2,598,415 fragments** and
+The historical verified October 30, 2026 batch contained **2,598,415 fragments** and
 **24,445,056 Han characters**, deduplicated within each source:
 
 | Source | Fragments | Han characters | Selection |

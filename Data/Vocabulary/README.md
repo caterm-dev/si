@@ -18,6 +18,16 @@ The SI-authored [English technology category](english/technology.csv) adds a mai
 
 The SI-authored [common English additions](english/common.csv) restore the article `a` at the default editorial weight 10, independently of upstream base conversion. See [common-word maintenance](../../docs/ENGLISH_VOCABULARY.md#common-english-additions).
 
+## Phrase and verse grouping
+
+The [phrase directory](chinese/phrase/README.md) separately maintains 46,497 clear
+base phrases and the complete 335,208-row verse collection. Chinese compilation
+reads flat CSVs in both `chinese/` and `chinese/phrase/`. Original basenames preserve
+base/upstream/local priority across these directories, and source manifests
+record the actual relative path. The effective Chinese dictionary is unchanged.
+The remaining word-side base has 1,501,057 rows. This conservative one-time split
+retains idioms, names, domain terms and ambiguous entries in their word groups.
+
 ## CSV contract
 
 UTF-8 CSV, with this exact header:
@@ -34,7 +44,8 @@ Use standard CSV quoting for commas and quotes. BOM and CRLF files are accepted;
 
 No maintained ID or ordering column is required. Compilation assigns internal row IDs by the UTF-8 binary order of reading, then exact text. This makes same-weight ordering deterministic and independent of category filenames, file discovery order or CSV row positions. Reordering rows or renaming nonbase categories does not change the effective dictionary. Moving an overlapping identity into or out of base can change its authoritative weight. The former manually supplied ordinal is removed; equal-weight ordering can differ from the original upstream import order.
 
-To correct a spelling, reading, casing or weight, edit its rows. Edit base to change an overlapping identity; changing a shadowed category weight does not replace base. Among nonbase duplicates, change every higher-weight copy for a lower weight to take effect. To exclude a word, delete all copies of its text/reading pair; there is no overlay that can restore it on the next build. To add a category, create `chinese/technology.csv` or `english/companies.csv`, with the same header, and move/add rows. Flat filenames must match `[a-z][a-z0-9_-]*.csv`; compilation discovers every CSV in each language directory automatically. Keep `base.csv`, even if its rows have been moved into other categories. Empty categories are allowed; an entire language dictionary cannot be empty.
+To correct a spelling, reading, casing or weight, edit its rows. Edit base to change an overlapping identity; changing a shadowed category weight does not replace base. Among nonbase duplicates, change every higher-weight copy for a lower weight to take effect. To exclude a word, delete all copies of its text/reading pair; there is no overlay that can restore it on the next build. To add a category, create `chinese/technology.csv` or `english/companies.csv`, with the same header, and move/add rows. Flat filenames must match `[a-z][a-z0-9_-]*.csv`; compilation discovers every flat CSV in each language directory automatically,
+and also Chinese CSVs in `chinese/phrase/`. Keep `base.csv`, even if its rows have been moved into other categories. Empty categories are allowed; an entire language dictionary cannot be empty.
 
 New local entries default to weight **10**, in both languages. Keep all three CSV fields and leave `weight` blank to use that default; explicit numeric weights, including zero, remain supported. Base and metadata-listed upstream categories require explicit weights and never inherit the local default. The Radar updater uses the same default constant for new domains. For example, a local addition can use:
 

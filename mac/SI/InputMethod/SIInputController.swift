@@ -290,7 +290,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // Host geometry calls can synchronously service another IMK event. Resolve on
         // a value copy so reentry cannot overlap a mutating access to controller state.
         var nextAnchor = candidateAnchor
-        let caret = nextAnchor.resolve(cursorUTF16Offset: session.cursorUTF16Offset, markedRange: client.markedRange(),
+        let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
+        let caret = nextAnchor.resolve(cursorUTF16Offset: marked.cursorUTF16Offset, markedRange: client.markedRange(),
                                              screens: screens, queryRange: { range in
             var actualRange = NSRange(location: NSNotFound, length: 0)
             let rect = client.firstRect(forCharacterRange: range, actualRange: &actualRange)
@@ -418,9 +419,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         candidateClient = client
         selection.update(session.candidates)
         explicitlyNavigated = false
-        let markedSelection = NSRange(location: session.cursorUTF16Offset, length: 0)
-        if markedTextState.shouldSend(session.buffer, selection: markedSelection) {
-            client.setMarkedText(session.buffer, selectionRange: markedSelection,
+        let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
+        let markedSelection = NSRange(location: marked.cursorUTF16Offset, length: 0)
+        if markedTextState.shouldSend(marked.text, selection: markedSelection) {
+            client.setMarkedText(marked.text, selectionRange: markedSelection,
                                  replacementRange: NSRange(location: NSNotFound, length: 0))
         }
         // A nested key, commit or focus callback supersedes this host update.

@@ -1,0 +1,314 @@
+{
+  "schema_version": 1,
+  "prepared_on": "2026-11-05",
+  "contract": "complete-raw-to-unigram-kenlm-v1",
+  "source_lock_sha256": "31f5cf0a58c414995fdec8644224ceefc2c33cdee49235a67d0bae77d17bcef0",
+  "manifest": {
+    "path": "corpus/chinese/generated/kenlm-raw-v1/manifest.json",
+    "sha256": "f2ecc6eeb483134de67b04618eeedeefbfccf5522cb3684046f53aca22a311af"
+  },
+  "combined": {
+    "path": "kenlm-input.txt",
+    "bytes": 4352662268,
+    "sha256": "761ba51ace202fda42b80ec4f95b9bd15f6e4e07ce144c2c88943d52672f1f50"
+  },
+  "totals": {
+    "input_lines": 71956292,
+    "empty_lines": 28796620,
+    "candidate_sentences": 60065125,
+    "sentences": 59798702,
+    "tokens": 907459538,
+    "over_100_tokens": 266423,
+    "sentences_with_digits": 14099322,
+    "sentences_with_english": 8166232
+  },
+  "maximum_sentence_tokens": 100,
+  "sources": [
+    {
+      "id": "lccc",
+      "raw_archive_sha256": "2162e0ed923fba62329cabf7e1493fbe59248afc94a62508e4abdea61e624627",
+      "raw_counts": {
+        "records_read": 6820506,
+        "documents": 20073720,
+        "surrogates_removed": 0,
+        "lines": 20073720,
+        "characters": 238643665
+      },
+      "counts": {
+        "input_lines": 20073720,
+        "empty_lines": 0,
+        "candidate_sentences": 23198910,
+        "sentences": 23198639,
+        "tokens": 164773744,
+        "over_100_tokens": 271,
+        "maximum_sentence_tokens": 100,
+        "sentences_with_digits": 659436,
+        "sentences_with_english": 250720
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "9f683ed11e677dca9c3dbaca0ad490cc6d5fabecd21673c6f7d2fa341324817e",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "a307c8e2d6634d56157e5655468f28555e7ace4d52778182e9c6cc6fc5214d4b",
+          "bytes": 826387433
+        },
+        "origins.jsonl": {
+          "sha256": "d0a156521981ac33668e4409516b8cc47123daeecb1ae8833c6ec29f56e563d9",
+          "bytes": 288445435
+        }
+      }
+    },
+    {
+      "id": "mc4",
+      "raw_archive_sha256": "b58e2bfa1b5319623877a479525affdab7e0e01c26216a7bc2f6c02ec2cca027",
+      "raw_counts": {
+        "records_read": 53264,
+        "documents": 53264,
+        "surrogates_removed": 0,
+        "lines": 588133,
+        "characters": 61138395
+      },
+      "counts": {
+        "input_lines": 588133,
+        "empty_lines": 2,
+        "candidate_sentences": 1233711,
+        "sentences": 1200039,
+        "tokens": 24264365,
+        "over_100_tokens": 33672,
+        "maximum_sentence_tokens": 100,
+        "sentences_with_digits": 424150,
+        "sentences_with_english": 346700
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "b1309bebeed5b2aae5403d025b94930842ecc53ab6e9dcfe20e941c66b2fcb7b",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "a7fce0b110d86b15ba9ca084a8926861d20f8f41cba9a33115816067a795ea97",
+          "bytes": 128143040
+        },
+        "origins.jsonl": {
+          "sha256": "3d3e537f4fb5038f13971ff6b58460264d5a55be33dc49bbd4204f86c98237eb",
+          "bytes": 13156767
+        }
+      }
+    },
+    {
+      "id": "kubernetes",
+      "raw_archive_sha256": "215ac511de285ddcd4ffd4dedcce7ca1984ffc6897e1a3dfafb36997ced65838",
+      "raw_counts": {
+        "records_read": 2130,
+        "documents": 2130,
+        "surrogates_removed": 0,
+        "lines": 341175,
+        "characters": 4855380
+      },
+      "counts": {
+        "input_lines": 341175,
+        "empty_lines": 203139,
+        "candidate_sentences": 164149,
+        "sentences": 164108,
+        "tokens": 1800167,
+        "over_100_tokens": 41,
+        "maximum_sentence_tokens": 97,
+        "sentences_with_digits": 17048,
+        "sentences_with_english": 109400
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "76b51450ba61fd8636b1d5bc7ee80347258fdf38d66f4533fe352f360504822e",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "88989cbbec815ac235222c93e5f1e2120b59df89399b91e4878a172eaae83433",
+          "bytes": 9794300
+        },
+        "origins.jsonl": {
+          "sha256": "821ef1a966ce6515e64b201b53d3886d5a9cb7c02a99c51283cd0919761c53ae",
+          "bytes": 1735005
+        }
+      }
+    },
+    {
+      "id": "tensorflow",
+      "raw_archive_sha256": "21d71dda5392f4223bd5d8aafc079c3f273ed057ab48f28403f0d6a745a42d8c",
+      "raw_counts": {
+        "records_read": 613,
+        "documents": 613,
+        "surrogates_removed": 0,
+        "lines": 56287,
+        "characters": 883980
+      },
+      "counts": {
+        "input_lines": 56287,
+        "empty_lines": 25935,
+        "candidate_sentences": 40624,
+        "sentences": 40619,
+        "tokens": 404140,
+        "over_100_tokens": 5,
+        "maximum_sentence_tokens": 90,
+        "sentences_with_digits": 7686,
+        "sentences_with_english": 17880
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "1d1fd123d67ad8bcb907fea1b02c30e03394cfb82ee6aa06c392ef7c192e8c99",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "a19dd0227fde5e24bc17002ddaad4fe310f7e3ac2a9215e0977427c16f35602b",
+          "bytes": 1979047
+        },
+        "origins.jsonl": {
+          "sha256": "648d8f0d7001057e95f75855341d9119ac4ba7f7083c5f2259d6503c3ad92385",
+          "bytes": 398793
+        }
+      }
+    },
+    {
+      "id": "mdn",
+      "raw_archive_sha256": "c5128a8382a007a7a2840f94edeb03d2f47ce00fa8b9a5cd515643d3bcb81164",
+      "raw_counts": {
+        "records_read": 7617,
+        "documents": 7617,
+        "surrogates_removed": 0,
+        "lines": 410068,
+        "characters": 6388717
+      },
+      "counts": {
+        "input_lines": 410068,
+        "empty_lines": 205585,
+        "candidate_sentences": 272398,
+        "sentences": 272383,
+        "tokens": 3000466,
+        "over_100_tokens": 15,
+        "maximum_sentence_tokens": 100,
+        "sentences_with_digits": 15529,
+        "sentences_with_english": 81451
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "6de4a6861e7c6fde471a800b5d1dcaa07b0b9250c152dc41534bcee35c0d8822",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "26535542e3c97811a55488a53cd05f387096f7263941f1f2678ebfe0f872fe91",
+          "bytes": 15804537
+        },
+        "origins.jsonl": {
+          "sha256": "566d07b7ee2c63e05201044201152c68a53c284fad4cb4c7fa37240be4863b3b",
+          "bytes": 2905737
+        }
+      }
+    },
+    {
+      "id": "wikipedia",
+      "raw_archive_sha256": "5db9052efe9ca97aa3da05ffe5b2f12c8ffe5e040f0a9d1ced82ec2fda5d7e2f",
+      "raw_counts": {
+        "records_read": 4969911,
+        "nonarticle_pages": 1952740,
+        "documents": 1558805,
+        "surrogates_removed": 0,
+        "lines": 50486909,
+        "characters": 1178160323,
+        "redirect_pages": 1458366
+      },
+      "counts": {
+        "input_lines": 50486909,
+        "empty_lines": 28361959,
+        "candidate_sentences": 35155333,
+        "sentences": 34922914,
+        "tokens": 713216656,
+        "over_100_tokens": 232419,
+        "maximum_sentence_tokens": 100,
+        "sentences_with_digits": 12975473,
+        "sentences_with_english": 7360081
+      },
+      "identity": {
+        "raw_text_manifest_sha256": "5f02b5f987c4274e8d7bf4ec0b08d9cf297a80fc237ce708414c38c008124e2e",
+        "tokenizer_sha256": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+        "dictionary_sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+        "sentence_punctuation": "。！？.!?"
+      },
+      "files": {
+        "text.txt": {
+          "sha256": "1689b2f0c0023f2efe9ad4544a4b0daba67e1275e7c2a8bcf779067fe5065a73",
+          "bytes": 3370553911
+        },
+        "origins.jsonl": {
+          "sha256": "7360ad8c95a502df4dc584abdf0664dcb38e272c0498d6684f8c7fa65b5c6eed",
+          "bytes": 444556925
+        }
+      }
+    }
+  ],
+  "code": {
+    "corpus/prepare_raw_text.py": "ce51973a0a113125ec1fafe4449f99c0a2eeee5f06719f08a5345f70558060ee",
+    "corpus/tokenize_unigram.py": "c045d7d2beca3b3a0fc253845aaf617a3a74178fe6828cca1097cb093902bdaa",
+    "corpus/prepare_kenlm_raw.py": "9191f34b443624b93ad0b9bcd2bf64b5cd7cfb4ace651f817a3d3b2cbf4af863"
+  },
+  "dictionary": {
+    "path": "corpus/chinese/dictionaries/generated/unigram-reference-v1/frequencies.csv",
+    "sha256": "48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93",
+    "positive_han_words": 530015,
+    "maximum_word_length": 96,
+    "purpose": "Fixed historical lexical reference only, not old training text"
+  },
+  "removed_previous_outputs": [
+    {
+      "path": "corpus/chinese/prepared/chinese-v1",
+      "bytes": 139084469
+    },
+    {
+      "path": "corpus/chinese/prepared/wikipedia-20261001-v1",
+      "bytes": 92301105
+    },
+    {
+      "path": "corpus/chinese/generated/hanlp-words-v1",
+      "bytes": 98710337
+    },
+    {
+      "path": "corpus/chinese/generated/hanlp-review-v1",
+      "bytes": 25424256
+    },
+    {
+      "path": "corpus/chinese/generated/hanlp-review-v2",
+      "bytes": 25329983
+    },
+    {
+      "path": "corpus/chinese/generated/kenlm-unigram-v1",
+      "bytes": 378168801
+    },
+    {
+      "path": "corpus/chinese/generated/kenlm-source-examples",
+      "bytes": 5957
+    }
+  ],
+  "examples": {
+    "path": "corpus/chinese/generated/kenlm-raw-v1/source-examples.json",
+    "sha256": "24bad40e33f210072ada2405761ef007942f9f8e093dfa5a98a5dc7a51692962"
+  },
+  "validation": {
+    "corpus_unit_tests": 58,
+    "swift_tests": 443,
+    "debug_build": "passed",
+    "source_retention": "Every retained sentence checked against normalized source characters; unmapped nonempty sentences resegmented to verify the >100-token filter",
+    "combined_integrity": "Every source byte range checked against its token-file SHA-256"
+  },
+  "scope": "Complete pinned local raw archives; no character cap, deduplication or 4–96 Han cutting. Numbers/English/punctuation retained after NFKC; commas/enumeration commas stay within sentences. Original scripts are preserved without simplification. Markup extraction remains heuristic.",
+  "training_started": false,
+  "split_assignment": null
+}

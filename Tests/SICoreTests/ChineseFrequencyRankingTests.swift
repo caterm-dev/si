@@ -3,6 +3,22 @@ import Testing
 @testable import SICore
 
 struct ChineseFrequencyRankingTests {
+    @Test(arguments: ["taiguo", "tai'guo"])
+    func thailandRanksAheadOfHomophone(input: String) throws {
+        for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
+            var session = InputSession(candidateGeneration: .deferred)
+            session.configure(languages: languages)
+            session.append(input)
+            let request = try #require(session.pendingCandidateRequest)
+            for candidates in [request.generatePreview().candidates, request.generate().candidates] {
+                let matches = candidates.filter {
+                    $0.language == .simplifiedChinese && !$0.isPartial && ($0.text == "泰国" || $0.text == "太过")
+                }
+                #expect(matches.map(\.text) == ["泰国", "太过"])
+            }
+        }
+    }
+
     @Test func previousOccurrenceWeightAppliesEquallyToDirectAndPrefixChoices() throws {
         let entry = try #require(ChineseLexicon.standard.exactMatches(["shang", "ci"]).first { $0.text == "上次" })
         #expect(entry.weight == 40_000)

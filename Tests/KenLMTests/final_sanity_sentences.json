@@ -1,0 +1,28 @@
+{
+  "contract": "si-kenlm-final-sanity-v1",
+  "purpose": "Authored functional sanity examples only; not an independent quality benchmark.",
+  "bad_sentence_policy": "Reverse the body tokens of each good sentence, retaining final punctuation. Both sides have exactly the same token multiset and token count after cleaning.",
+  "acceptance_before_scoring": {"required_pair_wins": 20, "minimum_median_log10_margin_per_token_including_eos": 0.25},
+  "good_sentences": [
+    "今天早上我坐地铁去公司上班。",
+    "下班以后我们一起去餐厅吃晚饭。",
+    "请你帮我把窗户关上。",
+    "老师正在教室里给学生讲课。",
+    "妈妈每天都会给孩子准备早餐。",
+    "这本书的内容非常有趣，我想再读一遍。",
+    "如果明天下雨，我们就取消这次活动。",
+    "我已经把需要修改的文件发给你了。",
+    "大家正在会议室里讨论新的工作计划。",
+    "他认真检查了程序中的错误，然后重新运行测试。",
+    "为了保护环境，我们应该减少一次性塑料的使用。",
+    "医生建议他每天坚持锻炼并且早点休息。",
+    "春天来了，公园里的花慢慢开了。",
+    "我们到达车站的时候，火车已经开走了。",
+    "我想知道这个问题应该怎么解决。",
+    "请在收到消息以后尽快回复。",
+    "他把钥匙放在桌子上，然后出门去买东西。",
+    "经过大家的共同努力，这个项目终于完成了。",
+    "这家餐厅的饭菜很好吃，服务也很周到。",
+    "我希望以后能够有更多时间陪伴家人。"
+  ]
+}
