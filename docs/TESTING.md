@@ -1211,11 +1211,11 @@ cross-model reports; keep model loss/perplexity separate. These constructed
 fixtures have no independent label review, and new training corpora need their
 own overlap audits. No offline check establishes native host compatibility.
 
-## AI ranking removal
+## Retired AI comparison and host context
 
-The input method now presents only the original engine ranking. Native AI scoring,
-its comparison row/status/scores, context readback, Settings switches and bundled
-model resources are removed. Offline model training/evaluation remains separate.
+The November 4 removal retired the AI comparison row, status and scores, host
+context readback, legacy Settings switches and bundled model resources. The
+production KenLM ranking below still uses one engine-ranked candidate list.
 `LanguageSettingsTests` covers cleanup of all retired AI preferences while
 preserving enabled languages, direct-input rules and both recording consents.
 Existing candidate-selection and presentation tests cover the engine shortlist,
@@ -1244,8 +1244,9 @@ Live verification remains required in TextEdit and a browser/editor:
    without taking host focus. Prefix selection must leave the exact remainder.
 3. Check Return, Escape, shortcuts, rapid edits, cancellation and focus changes;
    obsolete candidates must not restore old composition or commit stale text.
-4. Check Settings has no AI ranking/context controls; languages, direct input,
-   Personal Learning and Input History retain their existing settings.
+4. Check Settings has no retired AI comparison or host context controls.
+   Languages, direct input, Personal Learning and Input History retain their
+   existing settings.
 5. Check keyboard use, VoiceOver, light/dark/high-contrast appearance and narrow
    display positioning. In-process rendering does not establish host compatibility.
 
@@ -1261,3 +1262,20 @@ full comparisons verify scored heldout token coverage including EOS, identical
 input/tool hashes and matching OOV counts. All commands, options, source pins,
 data counts and measured results are in [README_kenlm_train.md](../README_kenlm_train.md).
 No native installation or user-data collection is part of this offline workflow.
+
+## Production KenLM ranking
+
+See [the production model record](../README_kenlm_train.md#production-kenlm-ranking)
+for the model install command and the train-only benchmark links.
+`SI_TEST_KENLM_INSTALLATION` points the full Swift suite to a versioned test
+installation. It exercises native scores, cleaning vectors, configuration
+load, model-free provisional selection, stale results and automatic-confirmation
+confidence checks. Both build configurations use the same preset.
+
+Manual validation in TextEdit and a browser/editor remains pending. On an
+intentionally installed build, compare a compatible model installation with
+the missing-model fallback. Check that `biruzhege` retains a selectable
+`比如` prefix and leaves `zhege` after confirmation. Exercise quick Space
+and number confirmation, delayed full results, cancellations and focus switches
+while the model opens. Check the opt-in automatic confirmation path and secure
+input. Verify candidate order, selection and VoiceOver in both window layouts.

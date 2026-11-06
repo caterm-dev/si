@@ -14,6 +14,13 @@ struct ChineseDecoder: Sendable {
 
     init(lexicon: ChineseLexicon) { self.lexicon = lexicon }
 
+    private struct Span: Hashable {
+        let end: Int
+        let sourceStart: Int
+        let sourceEnd: Int
+        let syllables: [String]
+    }
+
     private struct Edge {
         let end: Int
         let sourceStart: Int
@@ -23,6 +30,7 @@ struct ChineseDecoder: Sendable {
         let personal: Bool
         let tokenBonus: Double
         let letters: Int
+        var rankingToken: RankingToken? = nil
         var interiorBoundaries: [ConfirmationBoundary] = []
         var syllableSourceCounts: [Int] = []
     }
@@ -50,23 +58,9 @@ struct ChineseDecoder: Sendable {
         guard let input = PinyinInput(source) else { return [] }
         // Saved codes augment the Chinese lattice; they must not change or erase the
         // standard dictionary reading (for example a saved nihao code versus ni'hao).
-        let literal = ChineseSyllables.primary(input)
-        let alias = ChineseSpellingAliases.readings(input).first
-        let primary = alias ?? (literal.isEmpty ? nil : ChineseReading(syllables: literal))
+        let sentenceReadings = Self.sentenceReadings(input)
+        let primary = sentenceReadings.first
         var cuts = primary.map { [$0] } ?? []
-        // Ambiguous consonant boundaries must compete in sentence search too:
-        // wo/xian/gan/zhao and wo/xiang/an/zhao have equal spelling evidence.
-        var sentenceReadings = cuts
-        if let primary, !primary.isCorrected,
-           primary.syllables.allSatisfy(ChineseSyllables.complete.contains) {
-            var seen: Set<[String]> = [primary.syllables.map(ChineseSyllables.canonical)]
-            for cut in ChineseSyllables.alternatives(input, minimumOnly: true)
-                where cut.count == primary.syllables.count && sentenceReadings.count < 32 {
-                if seen.insert(cut.map(ChineseSyllables.canonical)).inserted {
-                    sentenceReadings.append(ChineseReading(syllables: cut))
-                }
-            }
-        }
         // Broader full-key lookup alternatives remain limited to short unseparated
         // input. Sentence cuts above use only equally short complete segmentations;
         // additional corrected alias readings still belong to optional autocorrection.
@@ -110,6 +104,7 @@ struct ChineseDecoder: Sendable {
                     hasCompletion: completion, lexicalTokenCount: exact || completion ? 1 : nil)
                     .withLanguageBoundary(.chinese())
                     .withSourceTrace(wordTrace(row, typed: typed, input: input))
+                    .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight))
                     .withDisplaySourceBoundaries(exact ? [] : displaySourceBoundaries(typed: typed, input: input)))
             }
             guard cutIndex == 0 else { continue }
@@ -138,7 +133,8 @@ struct ChineseDecoder: Sendable {
                                     hasCompletion: Self.completes(row.reading, typed: prefix.syllables),
                                     lexicalTokenCount: full ? 1 : nil)
                                     .withLanguageBoundary(.chinese())
-                                    .withSourceTrace(wordTrace(row, typed: prefix.syllables, input: input)))
+                                    .withSourceTrace(wordTrace(row, typed: prefix.syllables, input: input))
+                                    .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight)))
                             }
                         }
                     }
@@ -175,6 +171,7 @@ struct ChineseDecoder: Sendable {
                             rankingScore: score, lexicalTokenCount: row.reading == fallback.syllables ? 1 : nil)
                             .withLanguageBoundary(.chinese())
                             .withSourceTrace(wordTrace(row, typed: fallback.syllables, input: input))
+                            .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight))
                         if candidate.isPartial {
                             if includesPartials { prefixes.append(candidate) }
                         } else {
@@ -274,6 +271,92 @@ struct ChineseDecoder: Sendable {
         return ordered + partials
     }
 
+    private static func sentenceReadings(_ input: PinyinInput) -> [ChineseReading] {
+        let literal = ChineseSyllables.primary(input)
+        guard let primary = ChineseSpellingAliases.readings(input).first
+            ?? (literal.isEmpty ? nil : ChineseReading(syllables: literal)) else { return [] }
+        var readings = [primary]
+        // Ambiguous consonant boundaries with equally short complete cuts share the graph.
+        if !primary.isCorrected, primary.syllables.allSatisfy(ChineseSyllables.complete.contains) {
+            var seen: Set<[String]> = [primary.syllables.map(ChineseSyllables.canonical)]
+            for cut in ChineseSyllables.alternatives(input, minimumOnly: true)
+                where cut.count == primary.syllables.count && readings.count < 32 {
+                if seen.insert(cut.map(ChineseSyllables.canonical)).inserted {
+                    readings.append(ChineseReading(syllables: cut))
+                }
+            }
+        }
+        return readings
+    }
+
+    private static func visitSpans(_ readings: [ChineseReading], maximumSyllables: Int,
+                                   _ visit: (Int, Span, [Int]) -> Void) {
+        let count = readings[0].syllables.count
+        var seen = Array(repeating: Set<Span>(), count: count)
+        // Columns retain a fixed syllable ordinal. Source offsets keep edges from
+        // incompatible cuts from joining, while shared spans are looked up only once.
+        for reading in readings {
+            let syllables = reading.syllables.map(ChineseSyllables.canonical)
+            let offsets = reading.offsets
+            for start in 0..<count {
+                for end in start + 1...min(count, start + maximumSyllables) {
+                    let span = Span(end: end, sourceStart: offsets[start], sourceEnd: offsets[end],
+                                    syllables: Array(syllables[start..<end]))
+                    if seen[start].insert(span).inserted { visit(start, span, offsets) }
+                }
+            }
+        }
+    }
+
+    private func dictionaryRows(_ syllables: [String], limit: Int?) -> [DictionaryLexeme] {
+        guard syllables.count <= Self.maximumWordSyllables,
+              syllables.allSatisfy(ChineseSyllables.complete.contains) else { return [] }
+        return lexicon.exactMatches(syllables, limit: limit)
+    }
+
+    #if SWIFT_PACKAGE
+    /// Match only gold prefixes. Reachability is exact without materializing the
+    /// exponential set of paths that emit unrelated text.
+    func probeGoldLattice(_ source: String, gold: String) -> PinyinDecoder.GoldLatticeProbe {
+        guard let input = PinyinInput(source) else { return .inputLimit }
+        guard gold.utf8.count <= PinyinDecoder.maximumOutputBytes else { return .outputLimit }
+        let readings = Self.sentenceReadings(input)
+        guard let count = readings.first?.syllables.count, count >= 2 else { return .noPath }
+        var spans = Array(repeating: [Span](), count: count)
+        Self.visitSpans(readings, maximumSyllables: Self.maximumWordSyllables) { start, span, _ in
+            spans[start].append(span)
+        }
+        struct Position: Hashable {
+            let source: Int
+            let output: Int
+        }
+        let target = Array(gold.utf8)
+        func reachesGold(limit: Int?) -> Bool {
+            var positions = Array(repeating: Set<Position>(), count: count + 1)
+            positions[0].insert(Position(source: 0, output: 0))
+            var lookup: [[String]: [DictionaryLexeme]] = [:]
+            for start in 0..<count where !positions[start].isEmpty {
+                for span in spans[start] {
+                    let matching = positions[start].filter { $0.source == span.sourceStart }
+                    guard !matching.isEmpty else { continue }
+                    let rows = lookup[span.syllables] ?? dictionaryRows(span.syllables, limit: limit)
+                    lookup[span.syllables] = rows
+                    for position in matching {
+                        for row in rows where target[position.output...].starts(with: row.text.utf8) {
+                            positions[span.end].insert(Position(source: span.sourceEnd,
+                                                                output: position.output + row.text.utf8.count))
+                        }
+                    }
+                }
+            }
+            return positions[count].contains(Position(source: input.letters.count, output: target.count))
+        }
+        if reachesGold(limit: Self.spanLimit) { return .inBoundedLattice }
+        if reachesGold(limit: nil) { return .lexicalRowLimit }
+        return .noPath
+    }
+    #endif
+
     private func decode(_ syllables: [String], offsets: [Int], input: PinyinInput, source: String,
                         dictionary: UserDictionary, learning: LearningProfile, now: Date,
                         context: CandidateContext?, evidence: Bool, includesPartials: Bool,
@@ -282,52 +365,35 @@ struct ChineseDecoder: Sendable {
         let count = syllables.count
         var graph = Array(repeating: [Edge](), count: count)
         var lookup: [String: [DictionaryLexeme]] = [:]
-        struct Span: Hashable {
-            let end: Int
-            let sourceStart: Int
-            let sourceEnd: Int
-            let syllables: [String]
-        }
-        var spans = Array(repeating: Set<Span>(), count: count)
         let readings = [ChineseReading(syllables: syllables, offsets: offsets, isCorrected: false)] + alternatives
-        // Columns retain a fixed syllable ordinal. Source offsets keep edges from
-        // incompatible cuts from joining, while shared spans are looked up only once.
-        for reading in readings {
-            let syllables = reading.syllables.map(ChineseSyllables.canonical)
-            let offsets = reading.offsets
-            for start in 0..<count {
-                for end in start + 1...min(count, start + max(Self.maximumWordSyllables, dictionary.maximumCodeLength)) {
-                    let span = Array(syllables[start..<end])
-                    guard spans[start].insert(Span(end: end, sourceStart: offsets[start], sourceEnd: offsets[end],
-                                                   syllables: span)).inserted else { continue }
-                    let key = span.joined(separator: "'")
-                    let rows: [DictionaryLexeme]
-                    if let cached = lookup[key] { rows = cached }
-                    else {
-                        rows = span.count <= Self.maximumWordSyllables && span.allSatisfy(ChineseSyllables.complete.contains)
-                            ? lexicon.exactMatches(span, limit: Self.spanLimit) : []
-                        lookup[key] = rows
-                    }
-                    let spelling = input.rawText(from: offsets[start], to: offsets[end])
-                    for row in rows {
-                        graph[start].append(Edge(end: end, sourceStart: offsets[start], sourceEnd: offsets[end], text: row.text,
-                            score: -log(2.0) * (CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
-                                + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: span)), personal: false,
-                            tokenBonus: learning.tokenBonus(input: spelling, text: row.text, language: .simplifiedChinese, now: now),
-                            letters: offsets[end] - offsets[start],
-                            interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text,
-                                sourceCounts: offsets[(start + 1)..<end].map { input.rawBoundaries[$0] }),
-                            syllableSourceCounts: offsets[(start + 1)..<end].map { input.rawBoundaries[$0] }))
-                    }
-                    let code = String(input.letters[offsets[start]..<offsets[end]])
-                    for phrase in dictionary.phrases(for: code) where phrase.language == .simplifiedChinese
-                        && input.respects(phrase.boundaries, from: offsets[start], to: offsets[end]) {
-                        graph[start].append(Edge(end: end, sourceStart: offsets[start], sourceEnd: offsets[end], text: phrase.text,
-                            score: -log(2.0) * CandidateScoring.personalCost(codeLength: code.count, typedLength: code.count,
-                                                                          pinned: phrase.isPinned), personal: true,
-                            tokenBonus: 0, letters: offsets[end] - offsets[start]))
-                    }
-                }
+        Self.visitSpans(readings, maximumSyllables: max(Self.maximumWordSyllables, dictionary.maximumCodeLength)) { start, span, offsets in
+            let key = span.syllables.joined(separator: "'")
+            let rows: [DictionaryLexeme]
+            if let cached = lookup[key] { rows = cached }
+            else {
+                rows = dictionaryRows(span.syllables, limit: Self.spanLimit)
+                lookup[key] = rows
+            }
+            let spelling = input.rawText(from: span.sourceStart, to: span.sourceEnd)
+            let syllableSources = offsets[(start + 1)..<span.end].map { input.rawBoundaries[$0] }
+            for row in rows {
+                graph[start].append(Edge(end: span.end, sourceStart: span.sourceStart, sourceEnd: span.sourceEnd, text: row.text,
+                    score: -log(2.0) * (CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+                        + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: span.syllables)), personal: false,
+                    tokenBonus: learning.tokenBonus(input: spelling, text: row.text, language: .simplifiedChinese, now: now),
+                    letters: span.sourceEnd - span.sourceStart,
+                    rankingToken: RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight),
+                    interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text,
+                        sourceCounts: syllableSources),
+                    syllableSourceCounts: syllableSources))
+            }
+            let code = String(input.letters[span.sourceStart..<span.sourceEnd])
+            for phrase in dictionary.phrases(for: code) where phrase.language == .simplifiedChinese
+                && input.respects(phrase.boundaries, from: span.sourceStart, to: span.sourceEnd) {
+                graph[start].append(Edge(end: span.end, sourceStart: span.sourceStart, sourceEnd: span.sourceEnd, text: phrase.text,
+                    score: -log(2.0) * CandidateScoring.personalCost(codeLength: code.count, typedLength: code.count,
+                                                                  pinned: phrase.isPinned), personal: true,
+                    tokenBonus: 0, letters: span.sourceEnd - span.sourceStart))
             }
         }
         let ranking = learning.ranking(for: source, now: now, context: context)
@@ -371,7 +437,7 @@ struct ChineseDecoder: Sendable {
                     next.sourceTrace = CandidateSourceTrace(sourceCount: input.rawBoundaries[edge.sourceEnd],
                         outputByteCount: next.text.utf8.count, languages: 1, previous: path.sourceTrace,
                         word: edge.text, wordLanguage: 1, lexicalCost: -edge.score * Self.bitsPerNat,
-                        personal: edge.personal, interiorBoundaries: edge.interiorBoundaries,
+                        personal: edge.personal, rankingToken: edge.rankingToken, interiorBoundaries: edge.interiorBoundaries,
                         syllableSourceCounts: edge.syllableSourceCounts)
                     next.score += edge.score
                     if !path.words.isEmpty {

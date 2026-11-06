@@ -6,6 +6,7 @@ final class CandidateSourceTrace: Equatable, Sendable {
     let word: String
     let wordLanguage: Int
     let lexicalCost: Double
+    let rankingToken: RankingToken?
     let personal: Bool
     let verbatim: Bool
     let rawOutputByteCount: Int
@@ -16,6 +17,7 @@ final class CandidateSourceTrace: Equatable, Sendable {
     init(sourceCount: Int, outputByteCount: Int, languages: Int, previous: CandidateSourceTrace?,
          word: String = "", wordLanguage: Int = 0, lexicalCost: Double = 0,
          personal: Bool = false, verbatim: Bool = false, rawOutputByteCount: Int? = nil,
+         rankingToken: RankingToken? = nil,
          interiorBoundaries: [ConfirmationBoundary] = [], syllableSourceCounts: [Int] = []) {
         boundary = ConfirmationBoundary(sourceCount: sourceCount, outputByteCount: outputByteCount)
         self.languages = languages
@@ -23,6 +25,7 @@ final class CandidateSourceTrace: Equatable, Sendable {
         self.word = word
         self.wordLanguage = wordLanguage
         self.lexicalCost = lexicalCost
+        self.rankingToken = rankingToken
         self.personal = personal
         self.verbatim = verbatim
         self.rawOutputByteCount = rawOutputByteCount ?? outputByteCount
@@ -34,7 +37,7 @@ final class CandidateSourceTrace: Equatable, Sendable {
         if lhs === rhs { return true }
         return lhs.boundary == rhs.boundary && lhs.languages == rhs.languages && lhs.word == rhs.word
             && lhs.wordLanguage == rhs.wordLanguage && lhs.lexicalCost == rhs.lexicalCost
-            && lhs.personal == rhs.personal && lhs.verbatim == rhs.verbatim
+            && lhs.rankingToken == rhs.rankingToken && lhs.personal == rhs.personal && lhs.verbatim == rhs.verbatim
             && lhs.rawOutputByteCount == rhs.rawOutputByteCount && lhs.interiorBoundaries == rhs.interiorBoundaries
             && lhs.syllableSourceCounts == rhs.syllableSourceCounts
             && lhs.previous == rhs.previous

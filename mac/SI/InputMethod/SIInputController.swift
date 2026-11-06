@@ -190,15 +190,17 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         let appSettings = ApplicationMemorySettings.shared
         let memory = appSettings.snapshot()
-        session.configure(languages: LanguageSettings.shared.enabledLanguages,
+        let languages = LanguageSettings.shared
+        let secureInput = IsSecureEventInputEnabled()
+        session.configure(languages: languages.enabledLanguages,
                           learning: memory.learning,
                           dictionary: UserDictionarySettings.shared.dictionaryForInput,
                           contextGeneration: sessionContextGeneration,
-                          automaticConfirmationEnabled: LanguageSettings.shared.automaticConfirmationEnabled
-                            && !IsSecureEventInputEnabled(),
-                          configurationGeneration: LanguageSettings.shared.configurationGeneration,
+                          automaticConfirmationEnabled: languages.automaticConfirmationEnabled && !secureInput,
+                          configurationGeneration: languages.configurationGeneration,
                           applicationMemory: memory,
-                          punctuationCandidatesEnabled: LanguageSettings.shared.punctuationCandidatesEnabled)
+                          punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
+                          rankingExperiment: secureInput ? RankingExperiment() : languages.productionRanking)
         return true
     }
 

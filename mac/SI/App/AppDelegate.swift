@@ -23,7 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             async let phrases: Void = UserDictionarySettings.shared.start()
             async let appMemory: Void = ApplicationMemorySettings.shared.start()
             async let history: Void = InputHistorySettings.shared.start()
-            _ = await (phrases, appMemory, history)
+            async let rankingModel: Void = LanguageSettings.shared.startRankingModel()
+            _ = await (phrases, appMemory, history, rankingModel)
         }
         if ProcessInfo.processInfo.arguments.contains("--settings") {
             showSettings()

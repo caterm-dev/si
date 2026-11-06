@@ -8,8 +8,10 @@ SI exposes one macOS input source. Settings contain a set of enabled languages, 
 
 Runtime ranking uses the packaged dictionaries and shared word, spelling and language-transition costs.
 Opted-in Personal Learning retains its existing frequency and exact-choice preferences.
-AI ranking, native model loading and preceding input-field reads are removed pending
-redesign. Model experiments remain offline; live-host validation remains outstanding.
+Production ranking groups whole candidates before prefixes and reranks Chinese
+lexical tokens with a local KenLM model when available, including Chinese
+segments in mixed results. The same configuration runs in Debug and Release.
+Live-host validation remains outstanding.
 
 ```text
 Host application key event
@@ -54,7 +56,7 @@ Lexical output inserts one space between adjacent English edges in both English-
 
 The existing twelve-path state beams, separate base/personalized selections, two protected full spellings, bounded prefix pools, personal fanout and 4,096-byte output limit remain. Exact lexical English boundaries prevent token learning from promoting split-word alternatives. Paths containing personal/verbatim nodes never receive learning/context effects. Mixed results carry no automatic-confirmation trace. The engine queries every enabled lane, preserves language-aware identity, and ranks their whole and prefix results together by effective score. Mixed results stay in the engine and qualify for the window through the first four coverage-adjusted ranked choices, sharing that eligibility with Chinese/English hypotheses and receiving no identity reservation. Direct English words and English/mixed sentence tokens use the same word/spelling cost. Explicit personal phrases use the shared 10,000-weight prior and code-spelling cost; unpinned phrases compete by score and no longer inherit a dictionary-size-dependent direct score. The engine retains all emitted results, with exact literal fallback.
 
-`CandidateEngine` ranks each candidate using only the spelling it actually consumes. `InputCandidate.inputScore` equals its base `rankingScore`; no suffix projection, unknown-remainder penalty or additional prefix-confirmation cost is applied. `LearningProfile` adds the capped frequency/token maximum and eligible previous-word bonus for the consumed spelling, without scaling by total composition length. This same rule applies before Chinese/lexical prefix presentation limits, in provisional/full merging and in `InputSession.presentationScore`. The engine does not query providers for suffix lookahead. Short words may outrank full sentences; no type or consumed-length reservation compensates for that outcome. Saved base scores, preference units and storage limits are unchanged.
+`CandidateEngine` ranks each candidate using only the spelling it actually consumes. `InputCandidate.inputScore` equals its base `rankingScore`; no suffix projection, unknown-remainder penalty or additional prefix-confirmation cost is applied. `LearningProfile` adds the capped frequency/token maximum and eligible previous-word bonus for the consumed spelling, without scaling by total composition length. This same rule applies before Chinese/lexical prefix presentation limits, in provisional/full merging and in `InputSession.presentationScore`. The engine does not query providers for suffix lookahead. Within a production coverage group, short words and sentences compete by score. Whole candidates precede prefixes, and longer prefix spans precede shorter ones. Saved base scores, preference units and storage limits are unchanged.
 
 Source traces and confirmation boundaries retain exact source/output alignment as decoder evidence; they do not add scores from another candidate or the pending suffix to an explicit prefix. `CandidateLanguageBoundary` still records endpoint languages for lexical spacing and transitions within constructed candidates. Full sentence construction, base/personalized beams and the 4,096-byte output bound remain. Only confirmed consumed spelling can train vocabulary; hypothetical suffix words are never persisted.
 
@@ -92,11 +94,18 @@ into a grid. Space, numbers and mouse clicks confirm the same candidate IDs, and
 the displayed global first choice stays neutral for Personal Learning. Pending
 engine searches disable stale rows until revision-checked results arrive.
 
-The app and Swift package have no AI scorer, tokenizer, inference queue, model
-resources or host-field context probe. `LanguageSettings` removes retired
-`typing.aiComparison`, `typing.aiContext` and `typing.aiWeight` preferences at
-initialization without changing languages, direct-input rules or recording consent.
-Offline model tools and retained local checkpoints are independent of typing.
+At startup the app opens a verified local model on a background task.
+`CandidateRankingPool` reuses the engine's winning lexical traces, resets the
+LM state at language boundaries and applies the new scores before shortlisting.
+English LM weight is zero. The production English insertion cost is 28 bits per
+dictionary token, including tokens in mixed candidates. Request snapshots carry
+the model and configuration, and old requests cannot publish after session
+reconfiguration. Previews and synchronous selection fallback use the production
+dictionary scores without querying the model. Secure event input uses legacy
+ranking. The app does not bundle a model or probe host text. `LanguageSettings`
+clears the retired AI and development ranking preferences without changing
+languages, direct-input rules or recording consent.
+See [the production model record](../README_kenlm_train.md#production-kenlm-ranking).
 
 ## Automatic prefix confirmation
 

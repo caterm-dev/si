@@ -1,18 +1,42 @@
 # KenLM experiments and final model build
 
-This offline experiment uses the completed word-side-only tokenization at
+The offline training experiments use the completed word-side-only tokenization at
 `corpus/chinese/generated/kenlm-words-v2/kenlm-input.txt` (SHA-256
 `92660454982b99a22c815871b3345ed664cd04493ae8c2471aa781540f470f47`).
 Its vocabulary comes only from flat Chinese word CSVs; `chinese/phrase/` is
 excluded as a vocabulary source. Source data terms and attribution remain with
-the input corpus. This experiment does not change the input method.
+the input corpus. See [the development ranking experiment](#development-kenlm-ranking)
+for native integration and heldout ranking results.
 
 The first three rounds below record **train-split comparison models**. Their
 statements that final retraining was not performed describe those historical
 experiments. The separately authorized final full-data clean2 build uses
 [scripts/kenlm_final.py](scripts/kenlm_final.py), with artifacts under
 `.build/kenlm-final/`; its commands, provenance and acceptance results are recorded
-in the final section. The original comparison script has no automatic final-fit stage.
+in [the full-data build section](#final-full-data-clean2-build). The original
+comparison script has no automatic final-fit stage.
+
+## Model uses
+
+Both artifacts use clean2, order 4, pruning `0 1 2 3`, and an 8-bit probability
+and backoff trie with `-a 22`. The training population determines their use.
+
+| Role | Local artifact | SHA-256 |
+| --- | --- | --- |
+| App model | `.build/kenlm-final/final.bin` | `b8ff26637fa93e5d9a2bc4aacd9e22e00b4d30d421ce1d158f7e6cb8889ca286` |
+| Ranking benchmark and weight tuning | `.build/kenlm-round3/models/clean2/p0123-a22/model.trie` | `0083776ec5acaf9c818ac7cf1eedf9cd955d9c2eb7cbc734cd07bb7e33e20605` |
+
+The app model uses the combined train and former heldout population, with
+clean2 frequencies recalculated on the combined data. Its companion manifest
+is `.build/kenlm-final/final.meta.json`. Exclude this artifact from heldout
+ranking evaluation and weight selection.
+
+The benchmark model uses only the original train split and its clean2
+frequencies. Its `result.json` records the binary hash. The command journal in
+`p0123` records estimation from `data/clean2/train.txt`, and the journal in
+`p0123-a22` records conversion of that same ARPA. Use this binary for
+heldout-derived pinyin benchmarks, weight tuning and LM feature extraction on
+those examples.
 
 ## Tools and source pin
 
@@ -20,7 +44,8 @@ Python 3.12+ and the standard library suffice for the pipeline. KenLM is built
 locally from its author's official source archive. The complete archive pin,
 binary hashes, compiler/dependency versions and build commands are in
 [the tool lock](corpus/kenlm/source.lock.json). Full upstream license notices are
-retained beside that lock. No KenLM code or model is bundled with SI.
+retained beside that lock. SI links a [query-only library](Vendor/SIKenLM/README.md)
+for the development experiment. Model files are installed separately.
 
 ```sh
 # macOS build dependencies (the current machine already had CMake):
@@ -555,10 +580,10 @@ The original sources are copied and counted in order by the prepare stage, then 
 /Users/eric/src/si/corpus/.cache/kenlm-build/bin/query -v word /Users/eric/src/si/.build/kenlm-final/final_large.bin < /Users/eric/src/si/.build/kenlm-final/sanity/markers.txt > /Users/eric/src/si/.build/kenlm-final/sanity/final_large-markers.stdout 2> /Users/eric/src/si/.build/kenlm-final/sanity/final_large-markers.stderr
 ```
 
-KenLM source: https://kheafield.com/code/kenlm.tar.gz, archive SHA-256 `6bb66b6c17f6d23907bd6258ee585328b3e5f5f2b201d41c5f6bd0c390c2c913`. The author archive has no Git commit or semantic-release metadata; git_commit is explicitly null. Binary format version is 5, and all three executable hashes are retained. No revision is invented.
+KenLM source: https://kheafield.com/code/kenlm.tar.gz, archive SHA-256 `6bb66b6c17f6d23907bd6258ee585328b3e5f5f2b201d41c5f6bd0c390c2c913`. The original metadata recorded `git_commit` as null. Inspection of the same verified archive during native integration found `GIT_REVISION` at `b32c19389737a5def8bbc4623de809ced3091187`. The original metadata is preserved. Binary format version is 5, and all three executable hashes are retained.
 
 final.bin SHA-256: `b8ff26637fa93e5d9a2bc4aacd9e22e00b4d30d421ce1d158f7e6cb8889ca286`. final_large.bin SHA-256: `12f6d1beeac14828a71cc048b48f093b98e44d68274cc4b655042b6f3beec60d`.
-final.meta.json contains model/ARPA hashes and timestamps, KenLM source/executable identity, rule version/module hash/Unicode version, cleaning_vectors.json SHA-256, dictionary source and protected-vocabulary hashes, full mapping/corpus hashes, counts and exact commands. Compatibility fingerprint: `82ab31b58d309e6ae7da3ac9318e16bf73bc980b7c42b6406070f1e9cad7c9a5`. This prepares future app-side compatibility validation; no native loader or validator is integrated here.
+final.meta.json contains model/ARPA hashes and timestamps, KenLM source/executable identity, rule version/module hash/Unicode version, cleaning_vectors.json SHA-256, dictionary source and protected-vocabulary hashes, full mapping/corpus hashes, counts and exact commands. Compatibility fingerprint: `82ab31b58d309e6ae7da3ac9318e16bf73bc980b7c42b6406070f1e9cad7c9a5`. The separate development installer and loader consume this metadata as described below.
 
 git check-ignore confirms .gitignore .build/ covers final.bin, final_large.bin and both ARPAs. None is staged or committed. Original source hashes/mtime/inodes and every existing train-only model are checked before and after. Build/scoring artifacts stay local.
 
@@ -566,3 +591,572 @@ Validation: 19 Python KenLM tests, 443 shared Swift tests and the Debug app buil
 
 Artifact audit passed; see .build/kenlm-final/audit.json for mapping, corpus, model, metadata and preservation checks.
 <!-- KENLM_FINAL_END -->
+
+## Development KenLM ranking
+
+### Historical development configuration
+
+The later [production preset](#production-kenlm-ranking) replaces these switches.
+During this experiment, the Debug Settings switches **Use KenLM for Chinese candidates** and
+**Rank full coverage first** are independent and default off. Coverage puts
+whole results before prefixes and longer prefix spans before shorter spans.
+Within a span the engine compares scores. Pins, remembered choices, the
+shortlist, exact consumed source boundaries and literal fallback retain their
+existing contracts. Both switches are disabled under secure event input.
+
+```sh
+corpus/.venv/bin/python scripts/install_kenlm_model.py
+```
+
+The installer verifies the metadata and computes SHA-256 while copying the
+full-data binary into a new versioned directory in
+`~/Library/Application Support/SI/KenLM/`. It atomically selects that directory
+through `current.json`, which records the checksum, bytes and nanosecond
+modification times of the installed model and metadata. The Debug loader reads
+the two small manifests, checks file stamps and opens a lazy memory mapping on
+a worker. A missing or incompatible installation leaves dictionary ranking
+available. Installation neither enables the switches nor registers the app.
+The Release build uses the legacy ranking.
+
+The reranker uses the actual winning dictionary path for each candidate ID.
+It adds the weighted KenLM log probability in bits and replaces the existing
+Chinese per-word insertion cost. Frequency stays at weight 1 in the selected
+profiles. It starts at BOS, resets on a language boundary and scores only the
+emitted lexical words, without EOS or an inferred suffix. The app uses no host
+context. Offline context probes explicitly supply up to three preceding
+tokens from the same clause. English LM weight stays at zero. Tokens that
+clean to `<oov>` or lack a model index are scored through the ordinary
+`<oov>` vocabulary entry. The `lm_oov_ratio` feature is the share among
+scored candidate tokens. Active LM ranking suspends automatic prefix
+confirmation because the existing confidence check uses legacy scores.
+
+The coverage experiment preserves existing English scores within each
+coverage group. The difficulty set keeps the intended outputs for
+`goon` and `cannot` so the benchmark reports any ranking mismatches.
+
+### Evaluation protocol
+
+All ranking measurements use the train-only model identified above. Both
+benchmark executables reject the full-data binary by hash. The original
+heldout file and compiled dictionaries are hashed in
+`.build/kenlm-ranking/dataset/manifest.json`; original train and heldout files
+are unchanged.
+
+The preparation script splits tokenized lines at Unicode punctuation and
+chooses one eligible Han-only clause uniformly within each eligible line. It
+then samples 20,000 clauses from different source lines with seed 20261106.
+Words use their highest-weight dictionary reading, breaking ties by
+spelling, with character readings as a fallback. No clause is filtered by
+candidate-pool reachability. Whole clauses with identical gold text or
+whole-clause Pinyin stay on the same side of the split. The development set
+has 11,997 clauses and 45,676 queries. The frozen test has 8,003 clauses and
+30,544 queries. Each source clause contributes a whole-clause query, a random
+one- to four-word span, and, where possible, a separate noninitial span with
+and without its actual preceding tokens. Common short spans can repeat across
+splits. The 30,841-line strict subset uses the previous whole-line,
+minimum-four-word and unique-reading rules. Its diagnostic scores can overlap
+development clauses.
+
+English evaluation uses both providers and 100 ordinary dictionary words from
+each of five frequency bands. Each word has a whole spelling and a random
+proper prefix at least three letters long. Eligible whole keys have at least
+four ASCII letters and match dictionary text case-insensitively. The LM
+factorial uses the same Chinese weight and insertion cost on both sides of
+the coverage toggle to isolate coverage. A separate row profile uses the
+Debug combined preset's selected insertion cost. English LM is zero in
+every profile.
+
+The engine builds one candidate pool per query. Recall is the fraction with
+an exact nonliteral whole match in that pool. Top-1 and Top-5 use the
+shortlist with exact output bytes and count unreachable examples in the
+denominator. Edit error is the summed Levenshtein distance of the first result
+divided by gold character count. Benchmarks use a Release CLI with warmed
+dictionary initialization. Per-query latency includes candidate generation,
+experimental scoring, ordering and shortlisting. It excludes process
+startup, model checksum verification, host rendering and interprocess input.
+
+```sh
+si_run=.build/kenlm-ranking
+si_model=.build/kenlm-round3/models/clean2/p0123-a22/model.trie
+corpus/.venv/bin/python scripts/prepare_kenlm_ranking.py "$si_run/dataset"
+swift build -c release -debug-info-format none --scratch-path "$si_run/build" --disable-sandbox
+si_products=$(swift build -c release --scratch-path "$si_run/build" --show-bin-path)
+"$si_products/SIBenchmark" --kenlm tune "$si_model" "$si_run/dataset" > "$si_run/tuning.json"
+for si_mode in test strict english; do
+    "$si_products/SIBenchmark" --kenlm "$si_mode" "$si_model" "$si_run/dataset" "$si_run/tuning.json" > "$si_run/$si_mode.json"
+done
+"$si_products/SIBenchmark" --kenlm hard "$si_model" "$si_run/dataset" eval/ranking/hard-cases.tsv "$si_run/tuning.json" > "$si_run/hard.json"
+printf '%s\n' '{"id":"example","input":"nihaopengyou"}' |
+    "$si_products/SICandidateExport" --features "$si_model" > "$si_run/features-smoke.csv"
+```
+
+The feature export uses the same pool as the app. It writes absolute and
+within-span features, including coverage, token counts and lengths, dictionary
+frequency, LM score and OOV ratio. The export reads explicit input rows and
+does not collect compositions from the running app.
+
+### Corpus filter audit
+
+The source has 889,000 lines and 2,351,011 punctuation-delimited clauses. Of these clauses, 612,582 contain non-Han tokens and 125 Han clauses lack usable readings. The fallback was available but unused in the retained Han clauses.
+
+| First exclusion reason | Lines | Share of source | Punctuation | Digits | English | Polyphonic single-character token |
+| --- | --- | --- | --- | --- | --- | --- |
+| No Han-only clause | 121,808 | 13.7017% | 77.93% | 64.72% | 49.85% | 40.66% |
+| No readable Han clause | 33 | 0.0037% | 87.88% | 30.30% | 39.39% | 54.55% |
+| Strict: fewer than four words | 50,975 | 5.7340% | 0.00% | 0.00% | 0.00% | 22.12% |
+| Strict: whole line contains non-Han material | 737,971 | 83.0114% | 96.36% | 34.31% | 18.73% | 68.49% |
+| Strict: missing or nonunique word reading | 69,213 | 7.7855% | 0.00% | 0.00% | 0.00% | 97.03% |
+
+Feature shares are within excluded lines and can overlap. Clause sampling limits one
+query family per source line. The unsampled eligible lines are not filtered errors.
+
+### Development weight selection
+
+The 101 configurations cover the legacy path, coverage alone, 11 insertion-only
+settings, and the cross product of four LM weights, 11 insertion penalties and
+two coverage settings. The Chinese LM weights are 0.25, 0.5, 1 and 2. The
+insertion penalties are −4, 0, 2, 4, 6, 8, 10, 12, 16, 22 and 28.85 bits.
+Selection maximizes pooled development Top-1, then prefers smaller LM weight
+and the insertion penalty closest to the legacy value. Only the selected
+profiles run on the frozen test.
+
+| Profile | LM weight | Insertion bits | Coverage | Development Top-1 |
+| --- | --- | --- | --- | --- |
+| Legacy | 0 | 28.854 | Off | 42.34% |
+| Coverage only | 0 | 28.854 | On | 44.35% |
+| Insertion only | 0 | 28.85 | Off | 42.35% |
+| LM | 0.25 | 22 | Off | 43.11% |
+| LM + coverage | 0.25 | 28.85 | On | 45.96% |
+
+### Frozen Chinese test
+
+Each accuracy cell is **Top-1 / Top-5**. Length is in gold Han characters.
+
+| Track / length | Queries | Pool recall | Legacy | Coverage only | Insertion only | LM | LM + coverage |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| All queries | 30,544 | 64.94% | 41.69% / 56.92% | 43.94% / 57.82% | 41.69% / 56.92% | 43.06% / 58.97% | 45.56% / 59.48% |
+| Whole clause | 8,003 | 47.06% | 30.33% / 43.33% | 33.44% / 44.61% | 30.33% / 43.35% | 31.06% / 44.70% | 34.40% / 45.57% |
+| Whole clause, 1–8 | 4,772 | 55.53% | 37.51% / 51.47% | 40.88% / 53.00% | 37.51% / 51.47% | 37.91% / 52.89% | 41.91% / 53.81% |
+| Whole clause, 9–16 | 2,426 | 42.17% | 24.28% / 38.25% | 27.82% / 39.37% | 24.28% / 38.29% | 25.47% / 39.82% | 28.65% / 40.85% |
+| Whole clause, 17–32 | 766 | 12.14% | 6.27% / 10.97% | 6.53% / 11.23% | 6.27% / 10.97% | 7.70% / 11.36% | 7.57% / 11.49% |
+| Whole clause, 33+ | 39 | 0.00% | 0.00% / 0.00% | 0.00% / 0.00% | 0.00% / 0.00% | 0.00% / 0.00% | 0.00% / 0.00% |
+| Random short span | 8,003 | 71.15% | 47.58% / 62.86% | 49.24% / 63.64% | 47.58% / 62.86% | 47.81% / 64.25% | 50.38% / 64.75% |
+| Random short span, 1–8 | 7,799 | 70.74% | 47.22% / 62.34% | 48.87% / 63.10% | 47.22% / 62.34% | 47.48% / 63.73% | 49.88% / 64.19% |
+| Random short span, 9–16 | 203 | 86.70% | 61.58% / 82.76% | 64.04% / 84.24% | 61.58% / 82.76% | 60.10% / 84.24% | 69.46% / 86.21% |
+| Random short span, 17–32 | 1 | 100.00% | 0.00% / 100.00% | 0.00% / 100.00% | 0.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% |
+| Matched span without context | 7,269 | 71.36% | 44.70% / 61.12% | 46.80% / 61.89% | 44.70% / 61.12% | 45.70% / 62.46% | 47.56% / 62.79% |
+| Matched span without context, 1–8 | 7,117 | 71.04% | 44.30% / 60.64% | 46.41% / 61.42% | 44.30% / 60.64% | 45.27% / 61.99% | 47.07% / 62.29% |
+| Matched span without context, 9–16 | 150 | 86.00% | 63.33% / 83.33% | 65.33% / 84.00% | 63.33% / 83.33% | 65.33% / 84.00% | 70.00% / 86.00% |
+| Matched span without context, 17–32 | 2 | 100.00% | 50.00% / 100.00% | 50.00% / 100.00% | 50.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% |
+| Matched span with context | 7,269 | 71.36% | 44.70% / 61.12% | 46.80% / 61.89% | 44.70% / 61.12% | 48.40% / 65.37% | 50.56% / 65.70% |
+| Matched span with context, 1–8 | 7,117 | 71.04% | 44.30% / 60.64% | 46.41% / 61.42% | 44.30% / 60.64% | 48.03% / 64.99% | 50.13% / 65.28% |
+| Matched span with context, 9–16 | 150 | 86.00% | 63.33% / 83.33% | 65.33% / 84.00% | 63.33% / 83.33% | 65.33% / 83.33% | 70.00% / 85.33% |
+| Matched span with context, 17–32 | 2 | 100.00% | 50.00% / 100.00% | 50.00% / 100.00% | 50.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% |
+
+The strict diagnostic reuses the same selected weights. It shares 486 source
+lines with development and 325 with frozen test.
+
+| Track / length | Queries | Pool recall | Legacy | Coverage only | Insertion only | LM | LM + coverage |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Strict subset | 30,841 | 63.85% | 37.41% / 58.04% | 44.99% / 60.44% | 37.41% / 58.04% | 38.61% / 60.23% | 45.17% / 62.04% |
+
+On frozen whole clauses, coverage alone adds 3.11 percentage points of Top-1,
+LM alone adds 0.73 and both add 4.07. Candidate-pool recall falls from 55.53%
+at 1–8 characters to 12.14% at 17–32. All 39 clauses with at least 33 characters
+are unreachable in the existing pool. Explicit preceding tokens raise
+combined Top-1 from 47.56% to 50.56% on the same 7,269 noninitial spans.
+That context is available only in the offline diagnostic.
+
+**Latency in ms, P50 / P95.** The model uses lazy mapping. The run did not clear the OS page cache.
+
+| Track / length | Legacy | Coverage only | Insertion only | LM | LM + coverage |
+| --- | --- | --- | --- | --- | --- |
+| Frozen all | 3.69 / 17.55 | 3.78 / 17.67 | 3.77 / 17.65 | 4.21 / 18.30 | 4.21 / 18.29 |
+| Frozen whole clauses | 8.02 / 26.72 | 8.11 / 26.85 | 8.10 / 26.84 | 8.56 / 27.58 | 8.56 / 27.57 |
+| Whole clauses, 1–8 | 5.27 / 11.38 | 5.37 / 11.54 | 5.35 / 11.52 | 5.79 / 12.43 | 5.79 / 12.43 |
+| Whole clauses, 9–16 | 15.98 / 25.52 | 16.06 / 25.72 | 16.05 / 25.71 | 16.48 / 26.58 | 16.48 / 26.58 |
+| Whole clauses, 17–32 | 24.81 / 39.88 | 24.88 / 40.03 | 24.87 / 40.02 | 25.22 / 41.79 | 25.23 / 41.79 |
+| Whole clauses, 33+ | 0.02 / 0.03 | 0.02 / 0.03 | 0.02 / 0.03 | 0.02 / 0.03 | 0.02 / 0.03 |
+| Strict subset | 9.98 / 21.63 | 10.06 / 21.73 | 10.05 / 21.72 | 10.42 / 22.25 | 10.42 / 22.25 |
+
+| Track | Legacy | Coverage only | Insertion only | LM | LM + coverage |
+| --- | --- | --- | --- | --- | --- |
+| Frozen all edit error | 45.23% | 44.45% | 45.23% | 44.28% | 43.48% |
+| Frozen whole edit error | 64.47% | 63.81% | 64.47% | 63.79% | 63.02% |
+| Strict edit error | 31.83% | 30.30% | 31.83% | 31.27% | 30.02% |
+
+### English regression
+
+Each accuracy cell is **Top-1 / Top-5**. Weight bands use the compiled dictionary weights.
+
+| Track / weight | Queries | Pool recall | Legacy | Coverage only | Chinese LM | Chinese LM + coverage | Debug combined preset |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Whole | 500 | 100.00% | 92.60% / 98.60% | 97.00% / 99.60% | 87.60% / 97.80% | 95.60% / 99.20% | 99.00% / 99.80% |
+| Whole, 0–9 | 100 | 100.00% | 84.00% / 96.00% | 94.00% / 99.00% | 75.00% / 94.00% | 92.00% / 99.00% | 97.00% / 99.00% |
+| Whole, 10–99 | 100 | 100.00% | 89.00% / 97.00% | 94.00% / 99.00% | 86.00% / 96.00% | 94.00% / 97.00% | 99.00% / 100.00% |
+| Whole, 100–999 | 100 | 100.00% | 94.00% / 100.00% | 99.00% / 100.00% | 89.00% / 99.00% | 97.00% / 100.00% | 99.00% / 100.00% |
+| Whole, 1000–9999 | 100 | 100.00% | 98.00% / 100.00% | 99.00% / 100.00% | 93.00% / 100.00% | 98.00% / 100.00% | 100.00% / 100.00% |
+| Whole, 10000+ | 100 | 100.00% | 98.00% / 100.00% | 99.00% / 100.00% | 95.00% / 100.00% | 97.00% / 100.00% | 100.00% / 100.00% |
+| Prefix | 500 | 100.00% | 19.80% / 54.20% | 33.00% / 67.40% | 15.60% / 48.00% | 30.80% / 63.80% | 35.20% / 73.40% |
+| Prefix, 0–9 | 100 | 100.00% | 10.00% / 39.00% | 27.00% / 60.00% | 8.00% / 33.00% | 23.00% / 58.00% | 28.00% / 66.00% |
+| Prefix, 10–99 | 100 | 100.00% | 19.00% / 39.00% | 27.00% / 52.00% | 15.00% / 35.00% | 25.00% / 52.00% | 28.00% / 55.00% |
+| Prefix, 100–999 | 100 | 100.00% | 18.00% / 54.00% | 29.00% / 68.00% | 18.00% / 49.00% | 28.00% / 62.00% | 30.00% / 72.00% |
+| Prefix, 1000–9999 | 100 | 100.00% | 19.00% / 61.00% | 28.00% / 69.00% | 13.00% / 54.00% | 27.00% / 65.00% | 33.00% / 81.00% |
+| Prefix, 10000+ | 100 | 100.00% | 33.00% / 78.00% | 54.00% / 88.00% | 24.00% / 69.00% | 51.00% / 82.00% | 57.00% / 93.00% |
+
+| English latency, ms P50 / P95 | Legacy | Coverage only | Chinese LM | Chinese LM + coverage | Debug combined preset |
+| --- | --- | --- | --- | --- | --- |
+| Whole | 2.75 / 10.67 | 2.89 / 10.82 | 2.98 / 11.02 | 3.05 / 11.05 | 3.05 / 11.06 |
+| Prefix | 1.46 / 5.80 | 1.54 / 5.88 | 1.60 / 6.08 | 1.63 / 6.15 | 1.64 / 6.15 |
+
+With coverage off, Chinese reranking lowers English Top-1 by 5.00 percentage
+points on whole words and 4.20 points on prefixes in bilingual mode, even at
+zero English LM weight. The Debug combined preset uses 28.85 insertion bits.
+The factorial uses 22 bits to hold the penalty fixed across its LM profiles.
+
+### Authored hard cases
+
+The coverage experiment preserves the original English scores. Both target
+outputs remain selectable and commit the full input. The benchmark records
+four of six Top-1 passes with coverage alone and with the Debug combined
+preset. The Swift suite checks English score parity and exact target commit bytes.
+
+| Input | Expected | English only, coverage | Bilingual, coverage | Bilingual, LM + coverage | Top-1 result |
+| --- | --- | --- | --- | --- | --- |
+| `goon` | `go on` | `goon` | `goon` | `goon` | Fail |
+| `into` | `into` | `into` | `into` | `into` | Pass |
+| `also` | `also` | `also` | `also` | `also` | Pass |
+| `maybe` | `maybe` | `maybe` | `maybe` | `maybe` | Pass |
+| `cannot` | `cannot` | `can not` | `can not` | `can not` | Fail |
+| `myself` | `myself` | `myself` | `myself` | `myself` | Pass |
+
+### Validation and limits
+
+| Stage | Swift tests passed | Debug build |
+| --- | --- | --- |
+| a. Native loader and cleaning | 446 | Passed |
+| b. LM scoring and zero-weight parity | 448 | Passed |
+| c. Independent coverage strategy | 449 | Passed |
+| d. Shared pool and feature export | 451 | Passed |
+| e. Dataset and benchmark | 452 | Passed |
+| f. English guard cases and final configuration | 453 | Passed |
+
+An independent Release probe compared Git baseline `8d1d25a` with the current
+code using the installed model and both LM weights at zero. Across 36 authored
+inputs and four language configurations, all 144 snapshots matched byte for
+byte, including preview and full candidate IDs, score bit patterns, window
+ordering, every visible selection’s committed bytes, remainder and cursor.
+The comparison covered 10,487 full-pool candidates and 6,593 window selections.
+
+The final Swift pass used the installed model and compared native token scores
+with KenLM query. The 19 Python KenLM tests also passed. Dataset and split
+hashes, native model stamps, CSV grouping, Xcode project and localization
+syntax, and Git ignore rules were verified. The Debug bundle contains no
+KenLM binary or ARPA assets. The original corpus and train-only model were
+read-only inputs. Live input-method and VoiceOver checks remain pending.
+
+## Ranking diagnostics and English insertion cost
+
+This round uses the existing frozen development, test, strict and English query
+files. The original heldout text supplies gold token boundaries for the
+diagnostic only. Dictionary and model files are read-only inputs. The Chinese
+grid uses the same train-only model and selection rule as the preceding round.
+The full-data model is used only by the existing loader smoke tests.
+
+### Recall attribution
+
+The probe checks the ordinary Chinese candidate pool for exact, nonliteral,
+whole-clause output. For a miss, it first records a hard input or output
+restriction, if present. Otherwise it runs a gold-prefix dynamic program over
+the decoder's actual syllable cuts and dictionary spans, with the ordinary
+per-span row cap of 32 and then with only that row cap removed. A path in the
+first probe indicates a beam or terminal candidate-limit loss. A path appearing
+only in the second probe indicates a lexical row-cap loss. Both count as
+search pruning.
+
+If neither probe finds a path, an exact dictionary-only counterfactual matches
+the frozen spelling and gold text without the decoder's cut and span limits.
+A successful path indicates a decoder restriction. With no path, an absent
+original gold token takes precedence as a dictionary gap. Remaining cases
+count as reading incompatibilities. The original gold token membership and
+multiple dictionary readings are also counted independently. These data
+contain dictionary-generated Pinyin and no independent pronunciation labels,
+so the diagnosis cannot judge whether the chosen reading is natural in context.
+
+### English word audit and grid
+
+The audit treats alphabetic ASCII typing keys whose output lowercases to the
+same key as word forms. For case variants it keeps the highest dictionary
+weight, with a deterministic text tie-break. It enumerates all nonempty
+two-word splits, including one-letter parts present in the dictionary.
+The reported ratios are the whole word's weight divided by each part's
+weight, and divided by their product. The last ratio uses a floor of one,
+matching the frequency term in the engine. The smallest product ratios form
+the 200-item review list. Upstream weights are ranking inputs; these ratios
+are descriptive and do not by themselves predict the first candidate.
+
+The generated guards use lowercase, alphabetic whole words at least four
+letters long with dictionary weight strictly greater than 1,000. A SHA-256
+word-key split assigns approximately 60% to development and keeps every
+form's whole and prefix queries in the same group across both sources. The
+original 1,000-query English benchmark is also reported in full for comparison.
+The new English grid tunes on the development portion of the original whole,
+original prefix and generated guard tracks with equal weight per track.
+It maximizes the mean Top-1 and breaks exact ties by distance to the legacy
+cost. Candidate generation and coverage stay fixed in bilingual mode during
+this selection. Both LM weights are zero during the English grid. The
+held-back groups use only the legacy and selected English penalties.
+
+`w_wip_en` is an absolute insertion cost in bits. Its default is
+`23 / ln(2)`. The reranker adds the difference between the legacy and chosen
+cost once per English dictionary token, including the English part of mixed
+paths. It uses the existing emitted candidate pool and winning derivation, so
+the experiment leaves beam membership intact. No case-specific weights are
+used. The selected value was evaluated offline before adoption in the
+[production preset](#production-kenlm-ranking).
+
+### Reproduction
+
+```sh
+si_run=.build/kenlm-ranking-diagnostics
+si_dataset=.build/kenlm-ranking/dataset
+si_model=.build/kenlm-round3/models/clean2/p0123-a22/model.trie
+swift build -c release -debug-info-format none --scratch-path "$si_run/build" --disable-sandbox --product SIBenchmark
+si_cli="$(swift build -c release --scratch-path "$si_run/build" --show-bin-path)/SIBenchmark"
+
+"$si_cli" --kenlm recall "$si_model" "$si_dataset" > "$si_run/recall-probe.json"
+corpus/.venv/bin/python scripts/diagnose_kenlm_ranking.py recall "$si_dataset" "$si_run/recall-probe.json" "$si_run"
+corpus/.venv/bin/python scripts/diagnose_kenlm_ranking.py english "$si_dataset" "$si_run"
+"$si_cli" --english-ranking audit "$si_run/english-audit.jsonl" > "$si_run/english-audit.json"
+corpus/.venv/bin/python scripts/diagnose_kenlm_ranking.py summarize-english "$si_run"
+"$si_cli" --english-ranking grid "$si_dataset/english.jsonl" "$si_run/english-guards.jsonl" > "$si_run/english-grid.json"
+
+"$si_cli" --kenlm tune "$si_model" "$si_dataset" > "$si_run/tuning.json"
+for si_mode in test strict; do
+    "$si_cli" --kenlm "$si_mode" "$si_model" "$si_dataset" "$si_run/tuning.json" > "$si_run/$si_mode.json"
+done
+"$si_cli" --kenlm english-final "$si_model" "$si_dataset" "$si_run/english-grid.json" "$si_run/tuning.json" > "$si_run/english.json"
+"$si_cli" --kenlm hard "$si_model" "$si_dataset" eval/ranking/hard-cases.tsv "$si_run/english-grid.json" "$si_run/tuning.json" > "$si_run/hard.json"
+```
+
+### Frozen recall results
+
+Class percentages use missed clauses in the same length bucket. Overall recall is 3,766 / 8,003.
+
+| Gold characters | Queries | Misses | Missing word | Reading mismatch | Search pruning | Decoder limits |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1–8 | 4,772 | 2,122 | 0 (0.00%) | 0 (0.00%) | 2,086 (98.30%) | 36 (1.70%) |
+| 9–16 | 2,426 | 1,403 | 0 (0.00%) | 0 (0.00%) | 1,375 (98.00%) | 28 (2.00%) |
+| 17–32 | 766 | 673 | 0 (0.00%) | 0 (0.00%) | 360 (53.49%) | 313 (46.51%) |
+| 33+ | 39 | 39 | 0 (0.00%) | 0 (0.00%) | 0 (0.00%) | 39 (100.00%) |
+| All | 8,003 | 4,237 | 0 (0.00%) | 0 (0.00%) | 3,821 (90.18%) | 416 (9.82%) |
+
+| Evidence | 1–8 | 9–16 | 17–32 | 33+ | All |
+| --- | --- | --- | --- | --- | --- |
+| Beam or terminal cap | 1242 | 693 | 170 | 0 | 2105 |
+| 32-row lexical cap | 844 | 682 | 190 | 0 | 1716 |
+| 64-letter input cap | 0 | 0 | 306 | 39 | 345 |
+| Output byte cap | 0 | 0 | 0 | 0 | 0 |
+| Syllable cut or word span restriction | 36 | 28 | 7 | 0 | 71 |
+
+All gold source tokens in the missed clauses occur in the compiled dictionary. 2,710 of 4,237 misses (63.96%) contain a gold token with multiple readings. Each has stronger evidence of a search or decoder restriction under the frozen spelling. The sampling method and lack of independent contextual pronunciations limit conclusions about reading quality.
+
+Up to ten actual examples for each populated class and length bucket are in
+`.build/kenlm-ranking-diagnostics/recall-examples.md` and `recall.json`.
+The zero-count groups have no examples. Every missed clause and its evidence
+is retained in `recall-cases.jsonl` in the same directory.
+
+### Expanded Chinese grid and frozen results
+
+The development sweep evaluated 167 profiles on 45,676 queries. The best score under each LM weight is shown with every tied insertion cost.
+
+| Chinese LM weight | Coverage off best cost(s) | Coverage off Top-1 | Coverage on best cost(s) | Coverage on Top-1 |
+| --- | --- | --- | --- | --- |
+| 0.05 | 28.85 | 42.86% | 28.85 | 45.13% |
+| 0.1 | 28.85 | 42.99% | 28.85 | 45.46% |
+| 0.15 | 28.85 | 42.90% | 28.85 | 45.63% |
+| 0.25 | 22 | 43.11% | 28.85 | 45.96% |
+| 0.5 | 22 | 42.94% | 28.85 | 45.94% |
+| 1 | 16 | 39.36% | 28.85 | 44.89% |
+| 2 | 4 | 32.27% | 28.85 | 42.13% |
+
+Neither maximum is below 0.25. The two maxima are unique. With coverage off
+the selected cost is 22 bits. With coverage on it is 28.85 bits. Full grid
+counts, selected profiles and all co-leaders are in `tuning.json`.
+
+Accuracy cells show **Top-1 / Top-5**. All Chinese frozen accuracy and recall
+counts match the preceding round. The selected parameters are the same.
+
+| Track / gold characters | Queries | Pool recall | Legacy | Coverage only | Insertion only | LM | LM + coverage |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| All frozen queries | 30,544 | 64.94% | 41.69% / 56.92% | 43.94% / 57.82% | 41.69% / 56.92% | 43.06% / 58.97% | 45.56% / 59.48% |
+| Whole clause | 8,003 | 47.06% | 30.33% / 43.33% | 33.44% / 44.61% | 30.33% / 43.35% | 31.06% / 44.70% | 34.40% / 45.57% |
+| Whole clause, 1–8 | 4,772 | 55.53% | 37.51% / 51.47% | 40.88% / 53.00% | 37.51% / 51.47% | 37.91% / 52.89% | 41.91% / 53.81% |
+| Whole clause, 9–16 | 2,426 | 42.17% | 24.28% / 38.25% | 27.82% / 39.37% | 24.28% / 38.29% | 25.47% / 39.82% | 28.65% / 40.85% |
+| Whole clause, 17–32 | 766 | 12.14% | 6.27% / 10.97% | 6.53% / 11.23% | 6.27% / 10.97% | 7.70% / 11.36% | 7.57% / 11.49% |
+| Whole clause, 33+ | 39 | 0.00% | 0.00% / 0.00% | 0.00% / 0.00% | 0.00% / 0.00% | 0.00% / 0.00% | 0.00% / 0.00% |
+| Random short span | 8,003 | 71.15% | 47.58% / 62.86% | 49.24% / 63.64% | 47.58% / 62.86% | 47.81% / 64.25% | 50.38% / 64.75% |
+| Random short span, 1–8 | 7,799 | 70.74% | 47.22% / 62.34% | 48.87% / 63.10% | 47.22% / 62.34% | 47.48% / 63.73% | 49.88% / 64.19% |
+| Random short span, 9–16 | 203 | 86.70% | 61.58% / 82.76% | 64.04% / 84.24% | 61.58% / 82.76% | 60.10% / 84.24% | 69.46% / 86.21% |
+| Random short span, 17–32 | 1 | 100.00% | 0.00% / 100.00% | 0.00% / 100.00% | 0.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% |
+| Matched span without context | 7,269 | 71.36% | 44.70% / 61.12% | 46.80% / 61.89% | 44.70% / 61.12% | 45.70% / 62.46% | 47.56% / 62.79% |
+| Matched span without context, 1–8 | 7,117 | 71.04% | 44.30% / 60.64% | 46.41% / 61.42% | 44.30% / 60.64% | 45.27% / 61.99% | 47.07% / 62.29% |
+| Matched span without context, 9–16 | 150 | 86.00% | 63.33% / 83.33% | 65.33% / 84.00% | 63.33% / 83.33% | 65.33% / 84.00% | 70.00% / 86.00% |
+| Matched span without context, 17–32 | 2 | 100.00% | 50.00% / 100.00% | 50.00% / 100.00% | 50.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% |
+| Matched span with context | 7,269 | 71.36% | 44.70% / 61.12% | 46.80% / 61.89% | 44.70% / 61.12% | 48.40% / 65.37% | 50.56% / 65.70% |
+| Matched span with context, 1–8 | 7,117 | 71.04% | 44.30% / 60.64% | 46.41% / 61.42% | 44.30% / 60.64% | 48.03% / 64.99% | 50.13% / 65.28% |
+| Matched span with context, 9–16 | 150 | 86.00% | 63.33% / 83.33% | 65.33% / 84.00% | 63.33% / 83.33% | 65.33% / 83.33% | 70.00% / 85.33% |
+| Matched span with context, 17–32 | 2 | 100.00% | 50.00% / 100.00% | 50.00% / 100.00% | 50.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% |
+| Strict subset | 30,841 | 63.85% | 37.41% / 58.04% | 44.99% / 60.44% | 37.41% / 58.04% | 38.61% / 60.23% | 45.17% / 62.04% |
+
+| P50 / P95 in ms | Legacy | Coverage only | Insertion only | LM | LM + coverage |
+| --- | --- | --- | --- | --- | --- |
+| All frozen queries | 3.48 / 16.56 | 3.57 / 16.67 | 3.57 / 16.64 | 3.98 / 17.24 | 3.98 / 17.22 |
+| Whole clauses | 7.59 / 24.84 | 7.68 / 25.00 | 7.66 / 24.95 | 8.13 / 25.72 | 8.13 / 25.72 |
+| Whole clauses, 1–8 | 4.97 / 10.37 | 5.04 / 10.49 | 5.03 / 10.48 | 5.49 / 11.36 | 5.50 / 11.36 |
+| Whole clauses, 9–16 | 15.21 / 22.90 | 15.30 / 23.00 | 15.29 / 22.98 | 15.76 / 23.89 | 15.76 / 23.88 |
+| Whole clauses, 17–32 | 23.93 / 34.02 | 24.03 / 34.34 | 24.03 / 34.32 | 24.35 / 35.07 | 24.35 / 35.08 |
+| Whole clauses, 33+ | 0.02 / 0.02 | 0.02 / 0.02 | 0.02 / 0.02 | 0.02 / 0.02 | 0.02 / 0.02 |
+| Strict subset | 9.80 / 21.57 | 9.88 / 21.69 | 9.87 / 21.67 | 10.24 / 22.31 | 10.24 / 22.30 |
+
+These are in-process timings from the local Release benchmark with lazy mapping.
+The run shared the machine with other diagnostic work.
+
+### English dictionary audit results
+
+Of 70,666 alphabetic keys, 33,760 admit a two-word split. There are 39,476 splits. The audit enables coverage and uses the legacy English penalty with both LM weights zero.
+
+| Mode | Top-1 is the whole word | Top-1 is different | Split winner | Other English winner | Other winner |
+| --- | --- | --- | --- | --- | --- |
+| English only | 33,383 (98.88%) | 377 (1.12%) | 109 | 268 | 0 |
+| Bilingual | 32,397 (95.96%) | 1,363 (4.04%) | 95 | 211 | 1,057 |
+
+The 200 lowest-ratio words include 105 of the 109 English-only split winners. This concentration supports reviewing the split-frequency imbalance in that group. A two-word decomposition alone is a poor failure predictor across the full dictionary.
+
+All weights and splits are in `english-splits.tsv`. The distinct-word
+review list, with the most extreme split and actual first candidates, is
+in `english-suspects-top200.tsv`. Neither dictionary was changed.
+
+### English insertion grid and validation
+
+Development grid. Cells show **Top-1 / Top-5**. The final column is the
+mean Top-1 used to select the cost.
+
+| English cost (bits) | Original whole | Original prefix | Generated guards | Mean Top-1 |
+| --- | --- | --- | --- | --- |
+| 24 | 96.63% / 99.66% | 31.31% / 72.05% | 98.85% / 100.00% | 75.60% |
+| 28 | 96.97% / 99.66% | 33.00% / 69.70% | 99.39% / 100.00% | 76.45% |
+| 30 | 96.97% / 99.66% | 31.99% / 67.34% | 99.19% / 100.00% | 76.05% |
+| 32 | 96.97% / 99.33% | 31.65% / 67.34% | 98.71% / 99.80% | 75.78% |
+| 33.182 | 96.30% / 99.33% | 30.98% / 65.32% | 98.17% / 99.66% | 75.15% |
+| 34 | 96.30% / 98.65% | 30.64% / 64.31% | 97.90% / 99.66% | 74.95% |
+| 35 | 96.30% / 98.32% | 29.97% / 63.30% | 97.63% / 99.53% | 74.63% |
+| 36 | 96.30% / 97.98% | 29.63% / 63.30% | 97.29% / 99.26% | 74.41% |
+| 37 | 96.30% / 97.98% | 29.63% / 63.30% | 96.82% / 99.12% | 74.25% |
+| 38 | 95.29% / 97.64% | 29.63% / 61.62% | 96.14% / 98.92% | 73.69% |
+| 40 | 93.94% / 97.64% | 27.95% / 61.28% | 95.33% / 98.65% | 72.40% |
+| 42 | 92.93% / 96.97% | 26.94% / 59.60% | 94.04% / 98.10% | 71.30% |
+| 46 | 90.24% / 96.30% | 26.26% / 57.91% | 91.81% / 97.43% | 69.44% |
+| 50 | 87.88% / 95.29% | 25.59% / 57.24% | 90.45% / 97.09% | 67.97% |
+
+The unique selected English cost is 28 bits. The generated guard set has 1,477 development and 961 held-back words. The held-back original benchmark has 203 whole words and the corresponding 203 prefixes.
+
+| Held-back English cost (bits) | Original whole | Original prefix | Generated guards |
+| --- | --- | --- | --- |
+| 33.182 | 98.03% / 100.00% | 35.96% / 70.44% | 97.92% / 99.69% |
+| 28 | 99.51% / 100.00% | 34.48% / 76.85% | 99.69% / 100.00% |
+
+Full original English regression, including its development portion. Both
+providers are enabled and English LM is zero. All accuracy cells are **Top-1 / Top-5**.
+
+| Track / weight | Queries | Pool recall | Legacy | Coverage only | Chinese LM | Chinese LM + coverage | Chinese selected LM + coverage | Coverage + tuned English cost | Selected Chinese LM + coverage + tuned English cost |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Whole | 500 | 100.00% | 92.60% / 98.60% | 97.00% / 99.60% | 87.60% / 97.80% | 95.60% / 99.20% | 99.00% / 99.80% | 98.00% / 99.80% | 98.20% / 100.00% |
+| Whole, 0–9 | 100 | 100.00% | 84.00% / 96.00% | 94.00% / 99.00% | 75.00% / 94.00% | 92.00% / 99.00% | 97.00% / 99.00% | 94.00% / 99.00% | 94.00% / 100.00% |
+| Whole, 10–99 | 100 | 100.00% | 89.00% / 97.00% | 94.00% / 99.00% | 86.00% / 96.00% | 94.00% / 97.00% | 99.00% / 100.00% | 98.00% / 100.00% | 99.00% / 100.00% |
+| Whole, 100–999 | 100 | 100.00% | 94.00% / 100.00% | 99.00% / 100.00% | 89.00% / 99.00% | 97.00% / 100.00% | 99.00% / 100.00% | 98.00% / 100.00% | 98.00% / 100.00% |
+| Whole, 1000–9999 | 100 | 100.00% | 98.00% / 100.00% | 99.00% / 100.00% | 93.00% / 100.00% | 98.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% |
+| Whole, 10000+ | 100 | 100.00% | 98.00% / 100.00% | 99.00% / 100.00% | 95.00% / 100.00% | 97.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% | 100.00% / 100.00% |
+| Prefix | 500 | 100.00% | 19.80% / 54.20% | 33.00% / 67.40% | 15.60% / 48.00% | 30.80% / 63.80% | 35.20% / 73.40% | 33.60% / 72.60% | 35.40% / 75.40% |
+| Prefix, 0–9 | 100 | 100.00% | 10.00% / 39.00% | 27.00% / 60.00% | 8.00% / 33.00% | 23.00% / 58.00% | 28.00% / 66.00% | 27.00% / 63.00% | 27.00% / 65.00% |
+| Prefix, 10–99 | 100 | 100.00% | 19.00% / 39.00% | 27.00% / 52.00% | 15.00% / 35.00% | 25.00% / 52.00% | 28.00% / 55.00% | 27.00% / 53.00% | 28.00% / 55.00% |
+| Prefix, 100–999 | 100 | 100.00% | 18.00% / 54.00% | 29.00% / 68.00% | 18.00% / 49.00% | 28.00% / 62.00% | 30.00% / 72.00% | 25.00% / 72.00% | 26.00% / 75.00% |
+| Prefix, 1000–9999 | 100 | 100.00% | 19.00% / 61.00% | 28.00% / 69.00% | 13.00% / 54.00% | 27.00% / 65.00% | 33.00% / 81.00% | 32.00% / 80.00% | 34.00% / 86.00% |
+| Prefix, 10000+ | 100 | 100.00% | 33.00% / 78.00% | 54.00% / 88.00% | 24.00% / 69.00% | 51.00% / 82.00% | 57.00% / 93.00% | 57.00% / 95.00% | 62.00% / 96.00% |
+
+| English P50 / P95 in ms | Legacy | Coverage only | Chinese LM | Chinese LM + coverage | Chinese selected LM + coverage | Coverage + tuned English cost | Selected Chinese LM + coverage + tuned English cost |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Whole | 1.93 / 9.60 | 1.99 / 9.74 | 2.06 / 9.74 | 2.08 / 9.79 | 2.08 / 9.79 | 1.99 / 9.74 | 2.09 / 9.80 |
+| Prefix | 1.46 / 5.83 | 1.55 / 5.96 | 1.59 / 6.09 | 1.62 / 6.13 | 1.64 / 6.13 | 1.56 / 5.95 | 1.65 / 6.14 |
+
+### Authored probes
+
+| Input | Target | Legacy cost, coverage | Tuned cost, coverage | Tuned cost, both experiments | Tuned result |
+| --- | --- | --- | --- | --- | --- |
+| `goon` | `go on` | `goon` | `go on` | `go on` | Pass |
+| `into` | `into` | `into` | `into` | `into` | Pass |
+| `also` | `also` | `also` | `also` | `also` | Pass |
+| `maybe` | `maybe` | `maybe` | `maybe` | `maybe` | Pass |
+| `cannot` | `cannot` | `can not` | `can not` | `can not` | Fail |
+| `myself` | `myself` | `myself` | `myself` | `myself` | Pass |
+
+Lowering the cost favors English results in bilingual competition and makes
+additional English splits cheaper. It recovers `go on` and leaves
+`cannot` below `can not`. The two words did not drive grid selection.
+
+### Validation
+
+| Step | Swift tests passed | Debug build |
+| --- | --- | --- |
+| Expanded Chinese grid | 453 | Passed |
+| Frozen recall probe | 454 | Passed |
+| English insertion cost and grid | 455 | Passed |
+| Combined evaluation and final integration | 455 | Passed |
+
+Verified SHA-256 equality for the frozen query files, source train and heldout
+texts, both compiled dictionaries, the train-only model and both final binaries.
+The English score test covers a direct word, a split, a mixed path and
+an unaffected Chinese candidate. The recall probe test covers beam-free
+reachability, lexical truncation and input limits. Live host behavior was
+outside these in-process measurements.
+
+## Production KenLM ranking
+
+Debug and Release now use the same preset. It enables full-coverage ordering,
+uses Chinese LM weight 0.25, Chinese insertion cost 28.85 bits, English
+insertion cost 28 bits, English LM weight zero and frequency weight 1. The
+independent English grid selected 28 bits. With the selected Chinese LM and
+coverage active, that choice moves English whole-word Top-1 from 99.00% to
+98.20%, whole-word Top-5 from 99.80% to 100.00%, and prefix Top-5 from 73.40%
+to 75.40% on the train-only benchmark.
+
+The existing install command verifies and installs the full-data model into
+its versioned App Support directory. Start SI after the model is installed
+or updated to pick up the selected version.
+
+```sh
+corpus/.venv/bin/python scripts/install_kenlm_model.py
+```
+
+The app opens the model on a worker at startup after checking the small
+manifest and file stamps. If the model is missing, invalid or still loading,
+coverage and the English insertion cost work with dictionary scores.
+Provisional results and explicit actions that must resolve pending candidates
+also use those dictionary scores. Normal full results use the model when
+available. Secure event input keeps legacy ranking. The old development
+ranking switches and saved preferences are removed.
+
+Automatic prefix confirmation remains opt-in. Candidates within the
+confidence margin under either the legacy or adjusted score must agree on
+the exact prefix boundaries before automatic confirmation.
+
+KenLM can score Chinese candidates using up to three preceding tokens. In
+the train-only paired-span experiment, explicit gold context improved
+Top-1 from 47.56% to 50.56% on 7,269 queries. Production starts from the
+current composition and reads no surrounding host text. The paired result
+does not measure the effects of segmenting live field text.
+
+Validation used the installed model for the full Swift suite. All 458 tests
+passed, and both unsigned Debug and Release app builds succeeded. The model
+and no-model paths were checked separately. Live input-method behavior in
+host apps remains unverified.

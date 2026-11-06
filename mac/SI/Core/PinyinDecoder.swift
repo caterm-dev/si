@@ -19,6 +19,16 @@ public struct PinyinDecoder: Sendable {
         mixed = nil
     }
 
+    #if SWIFT_PACKAGE
+    public enum GoldLatticeProbe: String, Encodable {
+        case inputLimit, outputLimit, inBoundedLattice, lexicalRowLimit, noPath
+    }
+
+    public func probeGoldLattice(for input: String, gold: String) -> GoldLatticeProbe {
+        (chinese ?? .standard).probeGoldLattice(input, gold: gold)
+    }
+    #endif
+
     public func candidates(for input: String) -> [InputCandidate] {
         compositionCandidates(for: input, languages: [.simplifiedChinese], includesPartials: false,
                               allowsVerbatim: false)

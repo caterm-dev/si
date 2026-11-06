@@ -5,6 +5,37 @@ import SICore
 
 @MainActor
 struct LanguageSettingsTests {
+    @Test func productionRankingReplacesDevelopmentPreferencesAndLoadsVerifiedModelOnce() async throws {
+        let name = "SI.ProductionRankingTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(true, forKey: "development.kenLMRanking")
+        defaults.set(false, forKey: "development.fullCoverageFirst")
+        let settings = LanguageSettings(defaults: defaults)
+        let fallback = settings.productionRanking
+        #expect(fallback.fullCoverageFirst && fallback.englishWordInsertionBits == 28)
+        #expect(fallback.languageModelWeight == 0.25 && fallback.wordInsertionBits == 28.85)
+        #expect(fallback.englishLanguageModelWeight == 0 && fallback.frequencyWeight == 1)
+        #expect(fallback.model == nil)
+        #expect(defaults.object(forKey: "development.kenLMRanking") == nil)
+        #expect(defaults.object(forKey: "development.fullCoverageFirst") == nil)
+        let generation = settings.configurationGeneration
+        if let path = ProcessInfo.processInfo.environment["SI_TEST_KENLM_INSTALLATION"] {
+            let root = URL(fileURLWithPath: path)
+            await settings.startRankingModel(at: root)
+            let model = try #require(settings.productionRanking.model)
+            #expect(settings.configurationGeneration == generation + 1)
+            await settings.startRankingModel(at: root)
+            #expect(settings.productionRanking.model === model)
+            #expect(settings.configurationGeneration == generation + 1)
+        } else {
+            let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            await settings.startRankingModel(at: missing)
+            #expect(settings.productionRanking == fallback)
+            #expect(settings.configurationGeneration == generation)
+        }
+    }
+
     @Test func languageSwitchesPersistIndependentlyWithoutChangingDirectInputOrConsent() throws {
         let name = "SI.LanguageSwitchTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))

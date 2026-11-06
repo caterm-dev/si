@@ -147,6 +147,23 @@ struct AutomaticConfirmationTests {
         }
     }
 
+    @Test func bothLegacyAndRerankedCompetitorsCanBlockAutomaticConfirmation() {
+        let boundary = ConfirmationBoundary(sourceCount: 5, outputByteCount: 6)
+        let leader = InputCandidate(text: "你好学习", language: .simplifiedChinese, score: 100,
+                                    confirmationBoundaries: [boundary]).withPresentationScore(100, remembered: false)
+        let legacyCompetitor = InputCandidate(text: "拟好学习", language: .simplifiedChinese, score: 99,
+                                              confirmationBoundaries: [boundary]).withPresentationScore(80, remembered: false)
+        let rerankedCompetitor = InputCandidate(text: "拟好学习", language: .simplifiedChinese, score: 80,
+                                                confirmationBoundaries: [boundary]).withPresentationScore(99, remembered: false)
+        for competitor in [legacyCompetitor, rerankedCompetitor] {
+            #expect(AutomaticConfirmation.prefixes(for: [leader, competitor], input: "nihaoxuexi",
+                                                   learning: LearningProfile(), now: start, context: nil,
+                                                   includesAdjustedScores: true).isEmpty)
+        }
+        #expect(!AutomaticConfirmation.prefixes(for: [leader, rerankedCompetitor], input: "nihaoxuexi",
+                                                learning: LearningProfile(), now: start, context: nil).isEmpty)
+    }
+
     @Test func aPauseAloneCannotAuthorizeAnIsolatedSingleCharacter() {
         var tracker = AutomaticConfirmation()
         tracker.appended(input: "dishiye", atEnd: true, now: start)

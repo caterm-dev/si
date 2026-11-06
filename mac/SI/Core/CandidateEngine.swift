@@ -3,9 +3,12 @@ import Foundation
 public struct CandidateEngine: Sendable {
     private let providers: [any CandidateProvider]?
     public var punctuationCandidatesEnabled: Bool
-    public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false) {
+    public var rankingExperiment: RankingExperiment
+    public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false,
+                rankingExperiment: RankingExperiment = RankingExperiment()) {
         self.providers = providers
         self.punctuationCandidatesEnabled = punctuationCandidatesEnabled
+        self.rankingExperiment = rankingExperiment
         // Creating a deferred client session must not load dictionaries on the main actor.
         // The shared immutable resources initialize when its worker first generates candidates.
     }
@@ -60,6 +63,7 @@ public struct CandidateEngine: Sendable {
                                rankingScore: -$0.cost(typedLength: key.utf8.count) * CandidateScoring.pointsPerBit,
                                hasCompletion: $0.text.lowercased() != key, lexicalTokenCount: 1)
                     .withLanguageBoundary(.english())
+                    .withRankingToken(RankingToken(text: $0.text, language: .english, weight: $0.weight))
             }
         }
         generated += PinyinDecoder.standard.compositionCandidates(for: input, languages: languages,
@@ -120,21 +124,22 @@ public struct CandidateEngine: Sendable {
             best[candidate.id] = (candidate, score)
         }
         let preferredID = applicationMemory.preferredCandidateID(for: input, languages: languages)
-        let merged = best.values
-            .sorted {
-                // Shared lexical/preferences score plus reward for actually matched input.
-                if $0.candidate.isPreferred != $1.candidate.isPreferred { return $0.candidate.isPreferred }
-                let leftSelected = $0.candidate.canLearn && !$0.candidate.isPartial && $0.candidate.id == preferredID
-                let rightSelected = $1.candidate.canLearn && !$1.candidate.isPartial && $1.candidate.id == preferredID
-                if leftSelected != rightSelected { return leftSelected }
-                if $0.score != $1.score { return $0.score > $1.score }
-                return $0.candidate.id < $1.candidate.id
-            }
-            .map { $0.candidate.withPresentationScore($0.score, remembered: $0.candidate.canLearn
-                && !$0.candidate.isPartial && $0.candidate.id == preferredID) }
-        // Never drop an enabled language's candidates because another language matches.
-        // Literal input stays available even with all language providers disabled.
-        return merged + [literalCandidate(for: input)]
+        let candidates = best.values.sorted {
+            if $0.candidate.isPreferred != $1.candidate.isPreferred { return $0.candidate.isPreferred }
+            let leftSelected = $0.candidate.canLearn && !$0.candidate.isPartial && $0.candidate.id == preferredID
+            let rightSelected = $1.candidate.canLearn && !$1.candidate.isPartial && $1.candidate.id == preferredID
+            if leftSelected != rightSelected { return leftSelected }
+            if $0.score != $1.score { return $0.score > $1.score }
+            return $0.candidate.id < $1.candidate.id
+        }.map {
+            $0.candidate.withPresentationScore($0.score, remembered: $0.candidate.canLearn
+                && !$0.candidate.isPartial && $0.candidate.id == preferredID)
+        } + [literalCandidate(for: input)]
+        guard rankingExperiment.isActive || rankingExperiment.fullCoverageFirst
+            || (languages.contains(.english) && rankingExperiment.adjustsEnglishInsertion) else { return candidates }
+        return CandidateRankingPool(candidates: candidates,
+            model: rankingExperiment.isActive ? rankingExperiment.model : nil,
+            scoreEnglish: rankingExperiment.englishLanguageModelWeight != 0).ranked(using: rankingExperiment)
     }
 
     func literalCandidate(for input: String) -> InputCandidate {

@@ -10,9 +10,10 @@ let package = Package(
         .executable(name: "SIBenchmark", targets: ["SIBenchmark"]),
         .executable(name: "SICandidateExport", targets: ["SICandidateExport"]),
     ],
+    dependencies: [.package(path: "Vendor/SIKenLM")],
     targets: [
         .target(name: "SILocalization", path: "mac/SI/Localization", resources: [.process("Resources")]),
-        .target(name: "SICore", path: "mac/SI/Core", resources: [.copy("Resources/Chinese"), .copy("Resources/English")],
+        .target(name: "SICore", dependencies: ["SIKenLM"], path: "mac/SI/Core", resources: [.copy("Resources/Chinese"), .copy("Resources/English")],
                 linkerSettings: [.linkedLibrary("sqlite3")]),
         .target(name: "SIStorage", dependencies: ["SICore"], path: "mac/SI/Storage",
                 linkerSettings: [.linkedLibrary("sqlite3")]),

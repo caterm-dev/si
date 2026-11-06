@@ -29,6 +29,24 @@ final class LanguageSettings {
         configurationGeneration &+= 1
     }
 
+    @ObservationIgnored private var kenLMModel: KenLMModel?
+    @ObservationIgnored private var didStartModelLoad = false
+
+    func startRankingModel(at root: URL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Application Support/SI/KenLM", isDirectory: true)) async {
+        guard !didStartModelLoad else { return }
+        didStartModelLoad = true
+        let load = Task.detached(priority: .utility) { KenLMModel.openInstalled(at: root) }
+        guard let model = await load.value else { return }
+        kenLMModel = model
+        configurationGeneration &+= 1
+    }
+
+    var productionRanking: RankingExperiment {
+        RankingExperiment(model: kenLMModel, languageModelWeight: 0.25,
+                          wordInsertionBits: 28.85, englishWordInsertionBits: 28, fullCoverageFirst: true)
+    }
+
     var punctuationCandidatesEnabled: Bool {
         didSet {
             defaults.set(punctuationCandidatesEnabled, forKey: Self.punctuationCandidatesKey)
@@ -77,8 +95,8 @@ final class LanguageSettings {
         passthroughApplications = Set((defaults.stringArray(forKey: Self.passthroughApplicationsKey) ?? [])
             .filter { !$0.isEmpty })
         defaults.register(defaults: [Self.englishKey: true, Self.chineseKey: true])
-        // Retired AI ranking preferences must not carry into a future design.
-        for key in ["typing.aiComparison", "typing.aiContext", "typing.aiWeight"] {
+        for key in ["typing.aiComparison", "typing.aiContext", "typing.aiWeight",
+                    "development.kenLMRanking", "development.fullCoverageFirst"] {
             defaults.removeObject(forKey: key)
         }
         englishEnabled = defaults.bool(forKey: Self.englishKey)

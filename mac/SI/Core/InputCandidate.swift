@@ -12,6 +12,32 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public var inputScore: Double { rankingScore }
     var languageBoundary: CandidateLanguageBoundary?
     var sourceTrace: CandidateSourceTrace?
+    private var directRankingToken: RankingToken?
+    public private(set) var lmOOVRatio: Double?
+
+    var rankingTokens: [RankingToken] {
+        if let directRankingToken { return [directRankingToken] }
+        var result: [RankingToken] = []
+        var trace = sourceTrace
+        while let node = trace {
+            guard let token = node.rankingToken else { return [] }
+            result.append(token)
+            trace = node.previous
+        }
+        return result.reversed()
+    }
+
+    func withRankingToken(_ token: RankingToken?) -> Self {
+        var result = self
+        result.directRankingToken = token
+        return result
+    }
+
+    func withLMOOVRatio(_ ratio: Double) -> Self {
+        var result = self
+        result.lmOOVRatio = ratio
+        return result
+    }
     private var displaySourceBoundaries: [Int] = []
     /// Runtime provenance for generated Chinese sentence alternatives.
     private(set) var isChineseSentence = false

@@ -27,6 +27,14 @@ enum SIBenchmark {
     }
 
     static func main() throws {
+        if CommandLine.arguments.dropFirst().first == "--kenlm" {
+            try KenLMRankingBenchmark.run(Array(CommandLine.arguments.dropFirst(2)))
+            return
+        }
+        if CommandLine.arguments.dropFirst().first == "--english-ranking" {
+            try EnglishRankingBenchmark.run(Array(CommandLine.arguments.dropFirst(2)))
+            return
+        }
         if CommandLine.arguments.dropFirst().contains("--automatic-confirmation") {
             try AutomaticConfirmationBenchmark.run()
             return

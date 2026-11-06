@@ -14,18 +14,35 @@ public struct CandidateRequest: Sendable {
     fileprivate let applicationMemory: ApplicationMemorySnapshot
 
     public func generate() -> CandidateResult {
+        generate(using: engine)
+    }
+
+    private var dictionaryEngine: CandidateEngine {
+        var engine = engine
+        engine.rankingExperiment.model = nil
+        return engine
+    }
+
+    fileprivate func generateWithoutLanguageModel() -> CandidateResult {
+        generate(using: dictionaryEngine)
+    }
+
+    private func generate(using engine: CandidateEngine) -> CandidateResult {
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context,
                                            includesConfirmationEvidence: automaticConfirmationEnabled,
                                            applicationMemory: applicationMemory)
+        let ranking = engine.rankingExperiment
+        let usesAdjustedScores = ranking.isActive || ranking.adjustsEnglishInsertion
         return CandidateResult(requestID: id, candidates: candidates,
                                confirmationPrefixes: automaticConfirmationEnabled
                                 ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
-                                                                 now: now, context: context) : [])
+                                                                 now: now, context: context,
+                                                                 includesAdjustedScores: usesAdjustedScores) : [])
     }
 
     public func generatePreview() -> CandidateResult {
-        CandidateResult(requestID: id, candidates: engine.previewCandidates(
+        CandidateResult(requestID: id, candidates: dictionaryEngine.previewCandidates(
             for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context,
             applicationMemory: applicationMemory),
             isPreview: true)
@@ -85,7 +102,9 @@ public struct InputSession: Sendable {
                                    contextGeneration: UInt64 = 0, automaticConfirmationEnabled: Bool = false,
                                    configurationGeneration: UInt64 = 0, now: Date = .now,
                                    applicationMemory: ApplicationMemorySnapshot = .empty,
-                                   punctuationCandidatesEnabled: Bool = false) {
+                                   punctuationCandidatesEnabled: Bool = false,
+                                   rankingExperiment: RankingExperiment? = nil) {
+        let ranking = rankingExperiment ?? engine.rankingExperiment
         let languagesChanged = self.languages != languages
         let contextChanged = self.contextGeneration != contextGeneration
         let expired = recentContext.map { now.timeIntervalSince($0.committedAt) >= Self.contextLifetime || now < $0.committedAt } ?? false
@@ -95,6 +114,7 @@ public struct InputSession: Sendable {
                 || self.automaticConfirmationEnabled != automaticConfirmationEnabled
                 || self.configurationGeneration != configurationGeneration
                 || engine.punctuationCandidatesEnabled != punctuationCandidatesEnabled
+                || engine.rankingExperiment != ranking
                 || self.applicationMemory != applicationMemory else { return }
         self.languages = languages
         self.learning = learning
@@ -105,6 +125,7 @@ public struct InputSession: Sendable {
         self.automaticConfirmationEnabled = automaticConfirmationEnabled
         self.configurationGeneration = configurationGeneration
         engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
+        engine.rankingExperiment = ranking
         automaticConfirmation = AutomaticConfirmation()
         if !usesContext || languagesChanged || contextChanged { recentContext = nil }
         refresh(now: now)
@@ -276,9 +297,9 @@ public struct InputSession: Sendable {
         return true
     }
 
-    /// Selection boundaries need current candidates even when background work has not finished.
+    /// Explicit actions need current candidates without synchronously querying the mapped model.
     public mutating func resolveCandidates() {
         guard let request = pendingCandidateRequest else { return }
-        _ = accept(request.generate())
+        _ = accept(request.generateWithoutLanguageModel())
     }
 }

@@ -16,6 +16,7 @@ public struct EnglishCandidateProvider: CandidateProvider {
                            rankingScore: -entry.cost(typedLength: length) * CandidateScoring.pointsPerBit,
                            hasCompletion: entry.length != length, lexicalTokenCount: 1)
                 .withLanguageBoundary(.english())
+                .withRankingToken(RankingToken(text: entry.text, language: .english, weight: entry.weight))
         }
     }
 }

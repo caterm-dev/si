@@ -75,7 +75,7 @@ struct AutomaticConfirmation: Sendable {
 
     /// Runs on the candidate worker. No new decoding, profile scan, host text, or disk access.
     static func prefixes(for candidates: [InputCandidate], input: String, learning: LearningProfile,
-                         now: Date, context: CandidateContext?) -> [Prefix] {
+                         now: Date, context: CandidateContext?, includesAdjustedScores: Bool = false) -> [Prefix] {
         guard input == input.lowercased(), let reading = PinyinInput(input),
               let leader = candidates.first(where: { !$0.isPartial && !$0.isLiteral }),
               leader.language == .simplifiedChinese, !leader.isMixed, !leader.isUserPhrase, !leader.hasLiteralSegments,
@@ -96,8 +96,13 @@ struct AutomaticConfirmation: Sendable {
         }
         let ranking = learning.ranking(for: input, now: now, context: context)
         let threshold = ranking.score(leader) - competitorMargin
+        // Keep any plausible legacy competitor and also check candidates brought close by reranking.
+        let adjustedThreshold = includesAdjustedScores ? leader.presentationScore.map { $0 - competitorMargin } : nil
         let competitors = candidates.filter {
-            !$0.isLiteral && !$0.isPartial && (ranking.score($0) >= threshold || $0.isPreferred)
+            guard !$0.isLiteral, !$0.isPartial else { return false }
+            if ranking.score($0) >= threshold || $0.isPreferred { return true }
+            if let adjustedThreshold, let score = $0.presentationScore { return score >= adjustedThreshold }
+            return false
         }
         var result: [Prefix] = []
         for boundary in leader.confirmationBoundaries where boundary.sourceCount < input.count {

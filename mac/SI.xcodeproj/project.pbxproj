@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		000000000000000000000201 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000203 /* Sparkle */; };
+		000000000000000000000204 /* SIKenLM in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000206 /* SIKenLM */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				000000000000000000000201 /* Sparkle in Frameworks */,
+				000000000000000000000204 /* SIKenLM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,6 +77,7 @@
 			name = SI;
 			packageProductDependencies = (
 				000000000000000000000203 /* Sparkle */,
+				000000000000000000000206 /* SIKenLM */,
 			);
 			productName = SI;
 			productReference = 000000000000000000000120 /* SI.app */;
@@ -107,6 +110,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				000000000000000000000202 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				000000000000000000000205 /* XCLocalSwiftPackageReference "SIKenLM" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -354,7 +358,19 @@
 		};
 /* End XCRemoteSwiftPackageReference section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		000000000000000000000205 /* XCLocalSwiftPackageReference "SIKenLM" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Vendor/SIKenLM;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
+		000000000000000000000206 /* SIKenLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000205 /* XCLocalSwiftPackageReference "SIKenLM" */;
+			productName = SIKenLM;
+		};
 		000000000000000000000203 /* Sparkle */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 000000000000000000000202 /* XCRemoteSwiftPackageReference "Sparkle" */;

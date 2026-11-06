@@ -7,6 +7,7 @@ enum SICandidateExport {
     struct Request: Decodable {
         let id: String
         let input: String
+        let context: [String]?
     }
 
     struct Candidate: Encodable {
@@ -27,9 +28,14 @@ enum SICandidateExport {
     }
 
     static func main() throws {
-        guard CommandLine.arguments.count == 1 else {
+        let arguments = Array(CommandLine.arguments.dropFirst())
+        if arguments.count == 2 && arguments[0] == "--features" {
+            try exportFeatures(modelURL: URL(fileURLWithPath: arguments[1]))
+            return
+        }
+        guard arguments.isEmpty else {
             throw NSError(domain: "SICandidateExport", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Read authored {id,input} JSONL on stdin; emit up to 32 full candidates on stdout.",
+                NSLocalizedDescriptionKey: "Read authored {id,input,context?} JSONL on stdin. Use --features TRAIN_ONLY_MODEL for CSV.",
             ])
         }
         let engine = CandidateEngine()
@@ -57,4 +63,43 @@ enum SICandidateExport {
             FileHandle.standardOutput.write(Data([10]))
         }
     }
+
+    private static func exportFeatures(modelURL: URL) throws {
+        guard let model = try KenLMModel.openBenchmark(modelURL) else {
+            throw NSError(domain: "SICandidateExport", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Expected the pinned train-only clean2 model."
+            ])
+        }
+        let engine = CandidateEngine()
+        let names = ["coverage", "is_full_coverage", "is_full_match", "has_completion", "num_words",
+                     "avg_word_len", "num_single_char_words", "log_freq_sum", "log_freq_min",
+                     "lm_bits", "lm_bits_per_word", "lm_oov_ratio", "input_is_dictionary_word",
+                     "base_score", "language_zh", "language_en", "language_mixed", "language_literal"]
+        let relative = ["rank", "delta_from_best", "delta_from_mean", "zscore"]
+        let header = ["schema", "model_sha256", "query_id", "group_id", "input", "candidate_id", "text", "language"]
+            + names + names.flatMap { name in relative.map { name + "_" + $0 } }
+        print(header.joined(separator: ","))
+        while let line = readLine() {
+            let request = try JSONDecoder().decode(Request.self, from: Data(line.utf8))
+            let all = engine.candidates(for: request.input, languages: [.simplifiedChinese, .english],
+                                        now: Date(timeIntervalSince1970: 0))
+            let pool = CandidateRankingPool(candidates: all, model: model, context: request.context ?? [])
+            let rows = zip(all, pool.features(input: request.input)).sorted {
+                ($0.0.consumedInputCount ?? Int.max, $0.0.id) < ($1.0.consumedInputCount ?? Int.max, $1.0.id)
+            }
+            for (candidate, features) in rows {
+                let group = request.id + (candidate.consumedInputCount.map { "/prefix/\($0)" } ?? "/full")
+                var fields = ["si-rank-v1", model.sha256, request.id, group, request.input,
+                              features.identity, features.text, features.language]
+                fields += names.map { features.values[$0].map { String($0) } ?? "" }
+                for name in names {
+                    if let row = features.relative[name] {
+                        fields += [String(row.rank), String(row.deltaFromBest), String(row.deltaFromMean), String(row.zScore)]
+                    } else { fields += ["", "", "", ""] }
+                }
+                print(fields.map { "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }.joined(separator: ","))
+            }
+        }
+    }
+
 }

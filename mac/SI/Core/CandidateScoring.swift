@@ -22,14 +22,17 @@ enum CandidateScoring {
     static func inputCoverageBonus(for candidate: InputCandidate, spelling: String) -> Double {
         // Verbatim spans are preserved for selection, but are not lexical matches.
         guard !candidate.isLiteral, !candidate.hasLiteralSegments else { return 0 }
-        let length = spelling.unicodeScalars.reduce(0) { count, scalar in
+        return Double(coverageUnitCount(in: spelling)) * inputCoverageWeight
+    }
+
+    static func coverageUnitCount(in spelling: String) -> Int {
+        // Apostrophes and punctuation earn nothing; ü, v and u: each count once.
+        spelling.unicodeScalars.reduce(0) { count, scalar in
             switch scalar.value {
             case 65...90, 97...122, 48...57, 0xFC, 0xDC: count + 1
             default: count
             }
         }
-        // Apostrophes and punctuation earn nothing; ü, v and u: each count once.
-        return Double(length) * inputCoverageWeight
     }
 
     static func wordCost(weight: Int64, isChineseCharacter: Bool = false) -> Double {

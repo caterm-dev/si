@@ -2,13 +2,13 @@
 
 SI processes input locally with no analytics, raw-keystroke logger, or cloud dependency for typing. Independently opted-in Input History can retain each SI submission locally as described below. User-initiated software updates are the only app network feature.
 
-## Model experiments
+## Local language model
 
-The input method uses dictionary-frequency and opted-in Personal Learning ranking.
-It loads no AI model and reads no preceding input-field text. The former AI ranking
-and context switches are removed, and their saved preferences are cleared without
-changing language, Personal Learning or Input History consent. Offline model
-experiments remain separate from typing.
+When a verified KenLM model is installed, the input method scores Chinese
+candidate tokens locally during the current composition. It reads no text
+from the host field or earlier submissions for ranking. It does not query
+KenLM during secure event input. The LM adds no persistent storage or cross-composition state and makes no network requests. Personal Learning and
+Input History retain their independent consent and storage rules.
 
 ## Software update requests
 

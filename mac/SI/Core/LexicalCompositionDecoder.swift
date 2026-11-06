@@ -19,6 +19,7 @@ struct LexicalCompositionDecoder: Sendable {
         var completion = false
         var learningBonus = 0.0
         var contextID = 0
+        var rankingToken: RankingToken? = nil
         var interiorBoundaries: [ConfirmationBoundary] = []
         var syllableSourceCounts: [Int] = []
     }
@@ -223,7 +224,7 @@ struct LexicalCompositionDecoder: Sendable {
                     next.sourceTrace = CandidateSourceTrace(sourceCount: reading.rawBoundaries[edge.end],
                         outputByteCount: next.comparisonText.utf8.count, languages: next.languages, previous: path.sourceTrace,
                         word: edge.text, wordLanguage: edge.languages, lexicalCost: edge.cost,
-                        personal: edge.personal, verbatim: edge.verbatim, rawOutputByteCount: next.text.utf8.count,
+                        personal: edge.personal, verbatim: edge.verbatim, rawOutputByteCount: next.text.utf8.count, rankingToken: edge.rankingToken,
                         interiorBoundaries: edge.interiorBoundaries, syllableSourceCounts: edge.syllableSourceCounts)
                     next.languageBoundary = languageBoundary
                     if includesConfirmationEvidence && !preview && chineseLexicon == nil {
@@ -272,7 +273,8 @@ struct LexicalCompositionDecoder: Sendable {
             results.append(InputCandidate(text: edge.text, language: .simplifiedChinese, score: Int(score),
                                           isUserPhrase: edge.personal, rankingScore: score, hasCompletion: edge.completion,
                                           isPreferred: edge.preferred, lexicalTokenCount: edge.abbreviated ? nil : 1)
-                .withLanguageBoundary(languageBoundary))
+                .withLanguageBoundary(languageBoundary)
+                .withRankingToken(edge.rankingToken))
         }
         for path in paths[count] where eligible(path) {
             results.append(candidate(path))
@@ -362,6 +364,7 @@ struct LexicalCompositionDecoder: Sendable {
                                 cost: CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
                                     + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: reading),
                                 contextID: wordIDs[row.text]!,
+                                rankingToken: RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight),
                                 interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text,
                                     sourceCounts: sourceEnds.dropLast().map { input.rawBoundaries[$0] }),
                                 syllableSourceCounts: sourceEnds.dropLast().map { input.rawBoundaries[$0] }))
@@ -390,7 +393,7 @@ struct LexicalCompositionDecoder: Sendable {
                         for entry in EnglishLexicon.exactMatches(at: next) {
                             let cost = entry.lexicalCost + entry.channelCost(typedLength: end - start)
                             result[start].append(Edge(end: end, text: entry.text(for: style), languages: 2, cost: cost,
-                                                      contextID: 1))
+                                                      contextID: 1, rankingToken: RankingToken(text: entry.text, language: .english, weight: entry.weight)))
                         }
                     }
                 }
@@ -401,7 +404,7 @@ struct LexicalCompositionDecoder: Sendable {
                 for entry in matches {
                     let cost = entry.lexicalCost + entry.channelCost(typedLength: count - start)
                     result[start].append(Edge(end: count, text: entry.text(for: style), languages: 2, cost: cost,
-                                              completion: true, contextID: 1))
+                                              completion: true, contextID: 1, rankingToken: RankingToken(text: entry.text, language: .english, weight: entry.weight)))
                 }
             }
             if learning.hasTokenPreferences {
