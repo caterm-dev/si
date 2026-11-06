@@ -180,6 +180,12 @@ def convert_sources(directory, lock):
                 reading = chinese_reading(code)
                 identity = (text, reading)
             else:
+                identity = text.lower()
+                if identity == 'wolai':
+                    counts['excluded_editorial_english'] += 1
+                    exclusions.append({'line': number, 'text': text, 'code': code,
+                                       'reason': 'SI editorial exclusion: Pinyin for 我来'})
+                    continue
                 # SI uses full alphabetic typing keys, not Rime abbreviation codes.
                 try:
                     reading = dictionary.english_reading(text)
@@ -189,7 +195,6 @@ def convert_sources(directory, lock):
                                        'reason': 'outside SI printable-ASCII/full-key contract'})
                     continue
                 counts['converted_english_code'] += reading != code.lower()
-                identity = text.lower()
             previous = entries.get(identity)
             if previous is not None:
                 counts['merged_duplicate'] += 1
@@ -232,7 +237,7 @@ def prepare_metadata(lock, report, categories):
                            'generated_outputs': report['outputs'],
                            'transformations': 'Tone removal; ü to v; SI English full-text keys; maximum duplicate weight; '
                                               'first source spelling on equal-weight case variants; missing weights zero; numeric N/s suffix prefixes; '
-                                              'exclude private-use outputs and unsupported English forms.',
+                                              'exclude private-use outputs, unsupported English forms and SI editorial English exclusions.',
                            'preserved_categories': categories},
               'attribution': notice, 'attribution_sha256': dictionary.digest((ROOT / notice).read_bytes())}
     meta['upstreams'] = [r for r in meta['upstreams'] if r['id'] != record['id']] + [record]

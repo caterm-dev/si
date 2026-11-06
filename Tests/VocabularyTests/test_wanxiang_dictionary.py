@@ -107,6 +107,17 @@ class WanxiangConversionTests(unittest.TestCase):
         self.run_conversion(check=True)
         self.assertEqual(before, self.snapshot())
 
+    def test_english_editorial_exclusion_does_not_remove_the_chinese_reading(self):
+        self.source('zi', 'chinese', '我来\twǒ lái\t575\n')
+        self.source('en', 'english', 'but\tbut\t427\nwolai\twolai\t1\nWolai\tWolai\t2\n')
+        self.run_conversion()
+        self.assertEqual(dictionary.rows('english')[0], [('but', 'but', 427)])
+        self.assertEqual(dictionary.rows('chinese')[0], [('我来', "wo'lai", 575)])
+        report = json.loads((self.data / 'Wanxiang/conversion-report.json').read_bytes())
+        self.assertEqual(report['sources'][1]['excluded_editorial_english'], 2)
+        self.assertEqual([row['text'] for row in report['sources'][1]['exclusions']], ['wolai', 'Wolai'])
+        self.run_conversion(check=True)
+
     def test_checksum_invalid_reading_or_malformed_second_language_preserve_outputs(self):
         cases = [('不\tbù\t575\n', 'but\tbut\t-1\n'),
                  ('不\tbù\t575\n', 'but\tbut\t9223372036854775808\n'),

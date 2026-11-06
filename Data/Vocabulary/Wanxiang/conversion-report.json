@@ -41,8 +41,9 @@
       "path": "dicts/en.dict.yaml",
       "language": "english",
       "destination": "english/base.csv",
-      "accepted_rows": 73140,
+      "accepted_rows": 73139,
       "converted_english_code": 921,
+      "excluded_editorial_english": 1,
       "excluded_unsupported_english": 19,
       "merged_duplicate": 356,
       "missing_weight": 226,
@@ -162,6 +163,12 @@
           "text": "séance",
           "code": "séance",
           "reason": "outside SI printable-ASCII/full-key contract"
+        },
+        {
+          "line": 70575,
+          "text": "wolai",
+          "code": "wolai",
+          "reason": "SI editorial exclusion: Pinyin for 我来"
         }
       ]
     },
@@ -273,8 +280,8 @@
       "sha256": "967952a5d9da2f87d502e270185a54b1a7bdefafef3eb7809427e790a13ecd85"
     },
     "english/base.csv": {
-      "entries": 72784,
-      "sha256": "4a2047b46987c721e537515ca9e4c26a555f96eef5250b1640a91304294dccf6"
+      "entries": 72783,
+      "sha256": "95a21ef6dc784f73092753f3c8f1440f34f922299573b1b8744d143addad0e42"
     },
     "chinese/diming.csv": {
       "entries": 89420,

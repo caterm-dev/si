@@ -23,9 +23,9 @@ All other normal simplified Chinese dictionaries retain separate SI categories:
 `yixue.csv`. Each maps directly to the same-named upstream dictionary,
 using the upstream stem, without an added prefix. These ten files contain 602,516 rows in total. Their filenames now match the upstream stems (`diming.csv`, for example); source ownership is tracked in metadata rather than inferred from a filename prefix.
 
-The resulting bases contain 1,547,554 Chinese text/reading pairs and 72,784
-supported English forms. After deduplication and preserved local supplements,
-the packaged dictionaries contain 2,141,202 Chinese and 74,337 English entries.
+The resulting bases contain 1,547,554 Chinese text/reading pairs and 72,783
+supported English forms. The initial migration and its local supplements are
+documented in the [verification record](VERIFICATION.md).
 The upstream base alone has about 1.49 million rows: replacing the source does
 not imply a smaller dictionary. Upstream professional, poetry, name/place and
 dialect dictionaries are imported
@@ -69,6 +69,9 @@ including the Radar domain collection's separate CC BY-NC 4.0 terms. Local categ
 - Exclude private-use outputs and English forms outside the existing printable
   ASCII/full-key contract. All 19 excluded English forms, source lines and reasons
   are listed in the report; accented forms are not silently transliterated.
+- Exclude `wolai` and its case variants from the English import because the
+  spelling represents the Pinyin `wǒ lái` (我来). The report records this editorial
+  exclusion separately from unsupported forms.
 - Emit deterministic UTF-8 CSV ordered by reading bytes, then exact text bytes.
   The runtime compiler assigns IDs from the same content order.
 

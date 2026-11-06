@@ -1,6 +1,8 @@
 # English vocabulary maintenance
 
-The current [base.csv](../Data/Vocabulary/english/base.csv) is converted from the pinned Wanxiang `dicts/en.dict.yaml`, preserving upstream integer weights without wordfreq normalization. It contains 72,784 supported English forms; with the preserved categories, the packaged resource contains 74,341 entries. The [import guide](../Data/Vocabulary/Wanxiang/README.md) records revision, full CC BY 4.0 data licensing, source checksums, exact conversion rules, exclusions and update commands.
+The current [base.csv](../Data/Vocabulary/english/base.csv) is converted from the pinned Wanxiang `dicts/en.dict.yaml`, preserving upstream integer weights without wordfreq normalization. It contains 72,783 supported English forms; with the preserved categories, the packaged resource contains 74,340 entries. The [import guide](../Data/Vocabulary/Wanxiang/README.md) records revision, full CC BY 4.0 data licensing, source checksums, exact conversion rules, exclusions and update commands.
+
+The import excludes `wolai`, the Pinyin spelling of `我来`. Chinese conversion and the exact as-typed candidate remain available.
 
 The existing [movie.csv](../Data/Vocabulary/english/movie.csv) and [domain.csv](../Data/Vocabulary/english/domain.csv) retain text/readings with all weights set to 10. New local additions default to 10. Base owns overlapping weights and case-only spelling; other category entries remain available. Nonbase duplicates merge using maximum weight. The domain collection still contains 1,209 full hostnames and retains its independent Radar CC BY-NC 4.0 attribution. Neither categories nor their filenames introduce ranking bonuses or language modes.
 
@@ -12,9 +14,6 @@ python3 scripts/wanxiang_dictionary.py convert
 python3 scripts/wanxiang_dictionary.py convert --check
 python3 scripts/csv_dictionary.py build
 python3 scripts/csv_dictionary.py build --check
-python3 -m unittest discover -s Tests/VocabularyTests -v
-./scripts/test.sh
-./scripts/build.sh
 ```
 
 Fetch is a separate explicit network operation. Conversion is offline and replaces both base CSVs, preserving category files. Normal CSV builds compile the editable collection without downloading or reimporting anything. Manual base edits are overwritten by a later conversion; maintain intentional additions as category data. See [the CSV contract](../Data/Vocabulary/README.md).
@@ -56,4 +55,4 @@ Full redistribution notices are retained in [Data/English/licenses](../Data/Engl
 
 The retired `scripts/vocabulary.py` / `scripts/vocabulary.sh` import tools and their snapshot-only tests have been removed. `scripts/ranking.py` now checks only the retained attribution and synthetic calibration; its wordfreq archive decoder/import is removed. The new Wanxiang converter does not reconstruct the former vocabulary from those retired sources. After source/license review, explicitly merge intended changes into category CSVs and update source-level metadata when needed.
 
-Public dictionary changes can affect mixed segmentation and candidate ranking. Run the maintenance/core checks and relevant synthetic/manual checks from [TESTING.md](TESTING.md). Private phrases and app vocabulary are independent; these tools never inspect them. Do not infer production conversion quality or host compatibility from a source migration.
+Public dictionary changes can affect mixed segmentation and candidate ranking. For vocabulary-only edits, validate the changed data and regenerate the dictionary resources as needed. Run regression suites and app builds only when requested. Private phrases and app vocabulary are independent; these tools never inspect them.

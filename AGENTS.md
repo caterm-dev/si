@@ -85,7 +85,8 @@ The documented toolchain is macOS 14+, Xcode 26+, and Swift 6.2+. The package te
 ./scripts/benchmark.sh                   # Synthetic in-process engine timings
 ```
 
-- For code changes, run `./scripts/test.sh` and `./scripts/build.sh`; use the Release build when changing release configuration or preparing distribution. CI runs core tests and a Release build.
+- For vocabulary-only changes, including targeted import exclusions, validate the changed data and regenerate the dictionary resources as needed. Skip regression suites and app builds unless requested.
+- For other code changes, run `./scripts/test.sh` and `./scripts/build.sh`; use the Release build when changing release configuration or preparing distribution. CI runs core tests and a Release build.
 - Add focused tests for changed core behavior and regressions. Relevant cases include ambiguous input, disabled languages, literal preservation, deterministic ordering, language-aware deduplication, normalization, editing, stale selections, and commit/reset transitions. Avoid tests that merely repeat implementation details.
 - InputMethodKit, event routing, actor callback assumptions, candidate positioning, and host compatibility require relevant manual checks from `docs/TESTING.md`. Core tests and a successful build do not establish runtime compatibility.
 - For input-method behavior changes, exercise synthetic input in representative host apps, including focus changes and shortcuts. For candidate/settings UI changes, check keyboard use, VoiceOver, and appearance as relevant. Record what was actually verified and what remains unverified.

@@ -1,6 +1,6 @@
 # SI-maintained vocabulary
 
-These CSV files are the editable source of both runtime dictionaries. A pinned Wanxiang conversion supplies the two base files: 1,547,554 Chinese text/toneless-reading pairs from `zi`, `jichu` and `duoyin`, and 72,784 supported English forms from `en`. Ten other normal Chinese source dictionaries retain separate categories named after the upstream files (602,516 rows). With the reviewed corpus additions, the merged resources contain 2,141,468 Chinese and 74,341 English entries. See [the source lock, conversion rules and update workflow](Wanxiang/README.md).
+These CSV files are the editable source of both runtime dictionaries. A pinned Wanxiang conversion supplies the two base files: 1,547,554 Chinese text/toneless-reading pairs from `zi`, `jichu` and `duoyin`, and 72,783 supported English forms from `en`. Ten other normal Chinese source dictionaries retain separate categories named after the upstream files (602,516 rows). With the reviewed corpus additions, the merged resources contain 2,141,468 Chinese and 74,340 English entries. See [the source lock, conversion rules and update workflow](Wanxiang/README.md).
 
 The [Chinese corpus review](Corpus/README.md) adds 266 terms in the separate
 [corpus.csv](chinese/corpus.csv), with explicit weights anchored to observed

@@ -29,8 +29,8 @@
       },
       "base": {
         "upstream": "wanxiang-data",
-        "entries": 72784,
-        "sha256": "4a2047b46987c721e537515ca9e4c26a555f96eef5250b1640a91304294dccf6",
+        "entries": 72783,
+        "sha256": "95a21ef6dc784f73092753f3c8f1440f34f922299573b1b8744d143addad0e42",
         "description": "Pinned Wanxiang source weights, without frequency rescaling."
       }
     }
@@ -490,8 +490,8 @@
             "sha256": "967952a5d9da2f87d502e270185a54b1a7bdefafef3eb7809427e790a13ecd85"
           },
           "english/base.csv": {
-            "entries": 72784,
-            "sha256": "4a2047b46987c721e537515ca9e4c26a555f96eef5250b1640a91304294dccf6"
+            "entries": 72783,
+            "sha256": "95a21ef6dc784f73092753f3c8f1440f34f922299573b1b8744d143addad0e42"
           },
           "chinese/diming.csv": {
             "entries": 89420,
@@ -534,7 +534,7 @@
             "sha256": "371146bcc5030a6793675f452e92c1bf21a17bd685b4d93f3089a2c92d6b9e60"
           }
         },
-        "transformations": "Tone removal; ü to v; SI English full-text keys; maximum duplicate weight; first source spelling on equal-weight case variants; missing weights zero; numeric N/s suffix prefixes; exclude private-use outputs and unsupported English forms.",
+        "transformations": "Tone removal; ü to v; SI English full-text keys; maximum duplicate weight; first source spelling on equal-weight case variants; missing weights zero; numeric N/s suffix prefixes; exclude private-use outputs, unsupported English forms and SI editorial English exclusions.",
         "preserved_categories": {
           "chinese/game.csv": "6d818563773304846a88f03a741648e4edfc9c8f25523497ab93fc3574d48368",
           "chinese/geography.csv": "89f8d98a5a2c74917b360637b396a352c592a899b892f57fe51e709cb13e807b",
