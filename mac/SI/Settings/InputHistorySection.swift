@@ -7,14 +7,20 @@ struct InputHistorySection: View {
 
     var body: some View {
         Section {
-            Toggle("Save Input History", isOn: $history.enabled)
+            Toggle(L10n.text(history.savesSentences ? "Save Complete Sentences" : "Save Input History"), isOn: $history.enabled)
                 .disabled(history.isLoading || history.isClearing)
-            Text("Saves each SI submission with its original spelling, submitted text and time. Repeated submissions are separate records. History stays on this Mac until you delete it, without automatic expiry or a record-count limit.")
-                .font(.callout).foregroundStyle(.secondary)
+            if history.savesSentences {
+                Text("In apps you add below, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input.")
+                    .font(.callout).foregroundStyle(.secondary)
+                SentenceHistoryApplications(history: history)
+            } else {
+                Text("Saves each SI submission with its original spelling, submitted text and time. Repeated submissions are separate records. History stays on this Mac until you delete it, without automatic expiry or a record-count limit.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
             HStack {
-                Button("View Input History…") { showsHistory = true }
+                Button(L10n.text(history.savesSentences ? "View Saved Sentences…" : "View Input History…")) { showsHistory = true }
                 InputHistoryExportButton(history: history)
-                Button("Clear Input History…", role: .destructive) { showsClearConfirmation = true }
+                Button(history.clearTitle, role: .destructive) { showsClearConfirmation = true }
                     .disabled(history.isLoading || history.isClearing)
             }
             if history.isLoading { ProgressView("Opening input history…") }
@@ -33,16 +39,20 @@ struct InputHistorySection: View {
                 }
             }
         } header: {
-            Text("Input History")
+            Text(history.sectionTitle)
         } footer: {
-            Text("Off by default and independent of Personal Learning. History can contain private text, including original English input and personal phrases. Secure input and direct-input apps are excluded. Text typed outside SI is not captured. Stored history is not encrypted; other software running as you and backups may access it.")
+            if history.savesSentences {
+                Text("Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted.")
+            } else {
+                Text("Off by default and independent of Personal Learning. History can contain private text, including original English input and personal phrases. Secure input and direct-input apps are excluded. Text typed outside SI is not captured. Stored history is not encrypted; other software running as you and backups may access it.")
+            }
         }
         .sheet(isPresented: $showsHistory) { InputHistoryView(history: history) }
-        .confirmationDialog("Clear all input history?", isPresented: $showsClearConfirmation) {
-            Button("Clear Input History", role: .destructive) { history.clear() }
+        .confirmationDialog(history.clearConfirmationTitle, isPresented: $showsClearConfirmation) {
+            Button(history.clearAction, role: .destructive) { history.clear() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Permanently deletes saved input history and pending unsaved history. Personal Learning and personal phrases are kept.")
+            Text(history.clearMessage)
         }
     }
 }

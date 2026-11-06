@@ -81,11 +81,16 @@ public final class KenLMModel: @unchecked Sendable {
         let mtime_seconds: Int
         let mtime_nanos: Int
 
-        func matches(_ url: URL) -> Bool {
+        static func regularFile(at url: URL) -> stat? {
             var value = stat()
-            return url.path.withCString { lstat($0, &value) } == 0
-                && value.st_mode & S_IFMT == S_IFREG
-                && value.st_size == bytes
+            guard url.path.withCString({ lstat($0, &value) }) == 0,
+                  value.st_mode & S_IFMT == S_IFREG else { return nil }
+            return value
+        }
+
+        func matches(_ url: URL) -> Bool {
+            guard let value = Self.regularFile(at: url) else { return false }
+            return value.st_size == bytes
                 && value.st_mtimespec.tv_sec == mtime_seconds
                 && value.st_mtimespec.tv_nsec == mtime_nanos
         }
@@ -131,27 +136,45 @@ public final class KenLMModel: @unchecked Sendable {
         guard let index = try? Data(contentsOf: root.appendingPathComponent("current.json")),
               let install = try? decoder.decode(Installation.self, from: index),
               install.schema == 1,
-              install.sha256.utf8.count == 64,
-              install.sha256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+              isSHA256(install.sha256),
               install.version.hasPrefix("v1-" + install.sha256 + "-"),
               install.version.utf8.count == 100,
               install.version.suffix(32).utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { return nil }
         let directory = root.appendingPathComponent(install.version, isDirectory: true)
         let model = directory.appendingPathComponent("final.bin")
         let meta = directory.appendingPathComponent("final.meta.json")
-        guard install.model.matches(model), install.metadata.matches(meta),
+        guard install.model.matches(model), install.metadata.matches(meta) else { return nil }
+        return openCompatibleModel(directory, expectedSHA: install.sha256)
+    }
+
+    /// Release packaging hashes the payload before signing it as an app resource.
+    /// Package and archive extraction may change modification times.
+    public static func openBundled(at directory: URL) -> KenLMModel? {
+        openCompatibleModel(directory)
+    }
+
+    private static func isSHA256(_ value: String) -> Bool {
+        value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
+    }
+
+    private static func openCompatibleModel(_ directory: URL, expectedSHA: String? = nil) -> KenLMModel? {
+        let model = directory.appendingPathComponent("final.bin")
+        let meta = directory.appendingPathComponent("final.meta.json")
+        guard let file = Stamp.regularFile(at: model), Stamp.regularFile(at: meta) != nil,
               let bytes = try? Data(contentsOf: meta),
-              let record = try? decoder.decode(Metadata.self, from: bytes),
+              let record = try? JSONDecoder().decode(Metadata.self, from: bytes),
               record.schema_version == 1, record.kenlm.binary_format_version == 5,
               record.cleaning.version == KenLMCleaning.version,
               record.cleaning.module_sha256 == KenLMCleaning.moduleSHA,
               record.cleaning.vectors_sha256 == KenLMCleaning.vectorsSHA,
               record.cleaning.unicode_version == "15.0.0",
               record.cleaning.maximum_scalars == 32, record.cleaning.rare_threshold_exclusive == 5,
-              record.model.binary_sha256 == install.sha256, record.model.binary_bytes == install.model.bytes,
+              isSHA256(record.model.binary_sha256),
+              expectedSHA == nil || record.model.binary_sha256 == expectedSHA,
+              record.model.binary_bytes == file.st_size,
               record.model.order == 4, record.model.a == 22, record.model.prune == [0, 1, 2, 3],
               record.model.probability_bits == 8, record.model.backoff_bits == 8
         else { return nil }
-        return KenLMModel(url: model, sha256: install.sha256)
+        return KenLMModel(url: model, sha256: record.model.binary_sha256)
     }
 }

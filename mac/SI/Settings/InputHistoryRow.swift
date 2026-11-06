@@ -9,8 +9,12 @@ struct InputHistoryRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.createdAt, format: .dateTime.year().month().day().hour().minute().second())
                     .font(.caption).foregroundStyle(.secondary)
-                LabeledContent("Original Input") { Text(entry.input).textSelection(.enabled) }
-                LabeledContent("Submitted Text") { Text(entry.text).textSelection(.enabled) }
+                if entry.input.isEmpty {
+                    Text(entry.text).textSelection(.enabled)
+                } else {
+                    LabeledContent("Original Input") { Text(entry.input).textSelection(.enabled) }
+                    LabeledContent("Submitted Text") { Text(entry.text).textSelection(.enabled) }
+                }
             }
             .accessibilityElement(children: .combine)
             Spacer()

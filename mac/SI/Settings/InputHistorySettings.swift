@@ -11,11 +11,17 @@ import SILocalization
 @Observable
 final class InputHistorySettings {
     static let shared = InputHistorySettings(defaults: SettingsDefaults.shared)
-    private static let enabledKey = "inputHistory.enabled"
+    static let sentences = InputHistorySettings(defaults: SettingsDefaults.shared, kind: .sentences)
+    private static let sentenceAppsKey = "sentenceHistory.applications"
+
+    let kind: InputHistoryStore.Kind
+    private let enabledKey: String
+    var savesSentences: Bool { kind == .sentences }
+    private(set) var sentenceApplications: [String]
 
     var enabled: Bool {
         didSet {
-            defaults.set(enabled, forKey: Self.enabledKey)
+            defaults.set(enabled, forKey: enabledKey)
             if enabled != oldValue { generation &+= 1 }
         }
     }
@@ -50,13 +56,36 @@ final class InputHistorySettings {
     var hasPreviousPage: Bool { !previousCursors.isEmpty }
 
     init(defaults: UserDefaults = .standard, store: InputHistoryStore? = nil, isPreview: Bool = false,
+         kind: InputHistoryStore.Kind = .submissions,
          allowsRecording: @escaping @MainActor () -> Bool = { !IsSecureEventInputEnabled() }) {
+        let enabledKey = kind == .sentences ? "sentenceHistory.enabled" : "inputHistory.enabled"
+        self.kind = kind
+        self.enabledKey = enabledKey
         self.defaults = defaults
         self.store = isPreview ? nil : store ?? InputHistoryStore(
-            url: URL.applicationSupportDirectory.appending(path: "SI/InputHistory/history-v1.sqlite3"))
+            url: URL.applicationSupportDirectory.appending(path: kind.databasePath), kind: kind)
         self.allowsRecording = allowsRecording
-        enabled = !isPreview && defaults.bool(forKey: Self.enabledKey)
+        enabled = !isPreview && defaults.bool(forKey: enabledKey)
+        sentenceApplications = kind == .sentences && !isPreview
+            ? defaults.stringArray(forKey: Self.sentenceAppsKey) ?? [] : []
         if isPreview { isLoading = false; loadSucceeded = true }
+    }
+
+    func setSentenceCapture(_ allowed: Bool, in application: String) {
+        guard savesSentences, !application.isEmpty, sentenceApplications.contains(application) != allowed else { return }
+        if allowed {
+            sentenceApplications.append(application)
+            sentenceApplications.sort()
+        } else {
+            sentenceApplications.removeAll { $0 == application }
+        }
+        defaults.set(sentenceApplications, forKey: Self.sentenceAppsKey)
+        generation &+= 1
+    }
+
+    func canCaptureSentence(in application: String?) -> Bool {
+        guard savesSentences, let application else { return false }
+        return canRecord && sentenceApplications.contains(application)
     }
 
     func start() async {
@@ -81,9 +110,19 @@ final class InputHistorySettings {
     }
 
     func record(_ commit: InputCommit, suffix: String = "", expectedGeneration: UInt64? = nil, now: Date = .now) {
-        guard canRecord, expectedGeneration == nil || expectedGeneration == generation,
-              !commit.input.isEmpty, !(commit.text + suffix).isEmpty, let store else { return }
-        let entry = InputHistoryEntry(commit: commit, suffix: suffix, now: now)
+        guard !savesSentences, canRecord, expectedGeneration == nil || expectedGeneration == generation,
+              !commit.input.isEmpty, !(commit.text + suffix).isEmpty else { return }
+        enqueueEntry(InputHistoryEntry(commit: commit, suffix: suffix, now: now))
+    }
+
+    func recordSentence(_ text: String, in application: String?, expectedGeneration: UInt64, now: Date = .now) {
+        guard expectedGeneration == generation, canCaptureSentence(in: application), SentenceSnapshot.accepts(text) else { return }
+        // Reuse history paging and retry. Snapshot rows carry no spelling or candidate metadata.
+        enqueueEntry(InputHistoryEntry(createdAt: now, input: "", text: text, language: nil, reason: .literal))
+    }
+
+    private func enqueueEntry(_ entry: InputHistoryEntry) {
+        guard let store else { return }
         let epoch = storageGeneration
         enqueue {
             guard epoch == self.storageGeneration else { return }

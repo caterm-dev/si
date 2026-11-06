@@ -6,6 +6,14 @@ SI is a development preview. These scripts build distributables and the user-ini
 
 Requires macOS 14+, Xcode 26+ with Swift 6.2+, and Python 3.9+. No extra Python packages or DMG utilities are needed.
 
+Release packaging also requires the full-data `final.bin` and
+`final.meta.json` under `.build/kenlm-final/`. It checks the cleaning and
+binary metadata, hashes the model as it copies it into
+`SI.app/Contents/Resources/KenLM/`, and signs the staged app with those
+resources in place. The installer package and the Sparkle update ZIP both
+use that app. The bundled model is approximately 405 MiB before compression.
+Model artifacts stay outside Git. See [the model provenance and build record](../README_kenlm_train.md#production-kenlm-ranking).
+
 ```sh
 ./scripts/package-dmg.sh --dry-run
 ./scripts/package-dmg.sh

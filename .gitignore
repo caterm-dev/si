@@ -46,6 +46,7 @@ __pycache__/
 # User-contributed input history and derived private training candidates
 /llm/private-history/
 SI-Input-History*.jsonl
+SI-Sentence-History*.jsonl
 
 # Explicitly staged local neural-model artifacts (including source attribution).
 /mac/SI/Core/Resources/Reranker/*

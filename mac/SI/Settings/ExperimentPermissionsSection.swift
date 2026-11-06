@@ -8,19 +8,19 @@ struct ExperimentPermissionsSection: View {
             LabeledContent("Accessibility") {
                 Text(L10n.text(permissions.accessibilityGranted ? "Allowed" : "Not allowed"))
                     .foregroundStyle(.secondary)
-                Button("Request Accessibility…") { permissions.requestAccessibility() }
+                Button("Open Accessibility Settings…", action: permissions.openAccessibilitySettings)
             }
             LabeledContent("Screen Recording") {
                 Text(L10n.text(permissions.screenRecordingGranted ? "Allowed" : "Not allowed"))
                     .foregroundStyle(.secondary)
-                Button("Request Screen Recording…") { permissions.requestScreenRecording() }
+                Button("Open Screen Recording Settings…", action: permissions.openScreenRecordingSettings)
             }
             Button("Refresh Permission Status") { permissions.refresh() }
         } header: {
             Text("Experimental Permissions")
         } footer: {
-            Text("Request Accessibility and Screen Recording separately for future input-control experiments. Granting permission does not change input behavior or enable Personal Learning or Input History.")
-            Text("These permission actions do not inspect controls or capture images. macOS may require restarting SI after authorization; do not launch a second copy.")
+            Text("To grant either experimental permission, drag SI from the floating panel into the list in System Settings.")
+            Text("These permissions are for future experiments. macOS may require restarting SI after authorization.")
         }
         .task {
             while !Task.isCancelled {

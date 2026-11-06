@@ -390,6 +390,10 @@ def package(args, root, version, output):
     update = output / f"SI-{version}-{args.arch}-update.zip"
     if destination.exists() or destination.with_suffix(".dmg.sha256").exists() or update.exists():
         raise ValueError(f"Output already exists: {destination}; use another --output-dir")
+    model_root = root / ".build/kenlm-final"
+    for filename in ("final.bin", "final.meta.json"):
+        if not args.dry_run and not (model_root / filename).is_file():
+            raise ValueError(f"Release requires the full-data KenLM model: missing {model_root / filename}")
     derived = root / ".build" / f"dmg-{args.arch}"
     architectures = ["arm64", "x86_64"] if args.arch == "universal" else [args.arch]
     build = ["xcodebuild", "-project", root / "mac/SI.xcodeproj", "-scheme", "SI",
@@ -422,6 +426,8 @@ def package(args, root, version, output):
         actual = run(["lipo", "-archs", app / "Contents/MacOS/SI"], args.dry_run, capture=True)
         if not args.dry_run and set(actual.split()) != set(architectures):
             raise ValueError(f"Built app architectures differ: {actual.strip()}")
+        run([sys.executable, "-B", root / "scripts/install_kenlm_model.py",
+             "--bundle-resources", app / "Contents/Resources"], args.dry_run)
         signing = ["codesign", "--force", "--sign", args.sign or "-"]
         if args.sign:
             signing += ["--options", "runtime", "--timestamp"]

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Verify and atomically select a local full-data KenLM model for SI."""
+"""Verify and install or bundle a full-data KenLM model for SI."""
 import argparse
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import uuid
 
@@ -16,7 +17,7 @@ def stamp(path):
     return {"bytes": state.st_size, "mtime_seconds": seconds, "mtime_nanos": nanos}
 
 
-def install(binary, metadata, destination):
+def compatible_metadata(metadata):
     metadata_bytes = metadata.read_bytes()
     data = json.loads(metadata_bytes)
     cleaning = data["cleaning"]
@@ -31,20 +32,30 @@ def install(binary, metadata, destination):
             or model["order"] != 4 or model["a"] != 22 or model["prune"] != [0, 1, 2, 3]
             or model["probability_bits"] != 8 or model["backoff_bits"] != 8):
         raise ValueError("Incompatible full-data model metadata")
+    return metadata_bytes, data
+
+
+def copy_verified_model(binary, target, model):
+    digest = hashlib.sha256()
+    with binary.open("rb") as source, target.open("wb") as output:
+        while chunk := source.read(1024 * 1024):
+            output.write(chunk)
+            digest.update(chunk)
+    sha = digest.hexdigest()
+    if sha != model["binary_sha256"] or target.stat().st_size != model["binary_bytes"]:
+        raise ValueError("Model checksum or size does not match metadata")
+    return sha
+
+
+def install(binary, metadata, destination):
+    metadata_bytes, data = compatible_metadata(metadata)
     destination.mkdir(parents=True, exist_ok=True, mode=0o700)
     with tempfile.TemporaryDirectory(prefix=".install-", dir=destination) as work:
         stage = Path(work)
         payload = stage / "payload"
         payload.mkdir(mode=0o700)
         target = payload / "final.bin"
-        digest = hashlib.sha256()
-        with binary.open("rb") as source, target.open("wb") as output:
-            while chunk := source.read(1024 * 1024):
-                output.write(chunk)
-                digest.update(chunk)
-        sha = digest.hexdigest()
-        if sha != model["binary_sha256"] or target.stat().st_size != model["binary_bytes"]:
-            raise ValueError("Model checksum or size does not match metadata")
+        sha = copy_verified_model(binary, target, data["model"])
         meta = payload / "final.meta.json"
         meta.write_bytes(metadata_bytes)
         target.chmod(0o400)
@@ -59,13 +70,43 @@ def install(binary, metadata, destination):
     return destination / version
 
 
+def bundle(binary, metadata, resources):
+    _, data = compatible_metadata(metadata)
+    destination = resources / "KenLM"
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(f"KenLM resources already exist: {destination}")
+    with tempfile.TemporaryDirectory(prefix=".kenlm-", dir=resources) as work:
+        payload = Path(work) / "KenLM"
+        payload.mkdir()
+        copy_verified_model(binary, payload / "final.bin", data["model"])
+        # The training record contains local paths and command logs. Ship only
+        # compatibility metadata, without relying on timestamps surviving packaging.
+        model_fields = ("binary_sha256", "binary_bytes", "order", "a", "prune", "probability_bits", "backoff_bits")
+        compatibility = {"schema_version": data["schema_version"], "cleaning": data["cleaning"],
+                         "kenlm": {"binary_format_version": data["kenlm"]["binary_format_version"]},
+                         "model": {field: data["model"][field] for field in model_fields}}
+        (payload / "final.meta.json").write_text(json.dumps(compatibility, indent=2) + "\n", encoding="utf-8")
+        shutil.copytree(ROOT / "Vendor/SIKenLM/Notices", payload / "KenLM-Notices")
+        corpus = ROOT / "corpus/chinese"
+        shutil.copytree(corpus / "licenses", payload / "Corpus-Notices/licenses")
+        shutil.copyfile(corpus / "sources.lock.json", payload / "Corpus-Notices/sources.lock.json")
+        payload.rename(destination)
+    return destination
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, default=ROOT / ".build/kenlm-final/final.bin")
     parser.add_argument("--metadata", type=Path, default=ROOT / ".build/kenlm-final/final.meta.json")
-    parser.add_argument("--destination", type=Path, default=Path.home() / "Library/Application Support/SI/KenLM")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--destination", type=Path)
+    mode.add_argument("--bundle-resources", type=Path, help="stage the verified model inside an unsigned app's Resources")
     args = parser.parse_args()
-    print(install(args.model, args.metadata, args.destination))
+    if args.bundle_resources is not None:
+        print(bundle(args.model, args.metadata, args.bundle_resources))
+    else:
+        destination = args.destination or Path.home() / "Library/Application Support/SI/KenLM"
+        print(install(args.model, args.metadata, destination))
 
 
 if __name__ == "__main__":

@@ -12,8 +12,8 @@
   "sources": [
     {
       "path": "chinese/base.csv",
-      "sha256": "a4985ce03e14fce95e0e0760d8a62d3b677bb50e42b4a2cee8c2e001e81f64c8",
-      "rows": 1501057
+      "sha256": "8e746654948e426f40927676549e11151c9728ecd44027f7a9d0146566b48733",
+      "rows": 1501056
     },
     {
       "path": "chinese/corpus.csv",
@@ -67,8 +67,8 @@
     },
     {
       "path": "chinese/phrase/base.csv",
-      "sha256": "d4480d53e9af7c87fc0f693e08c143c1b806c6d5a96640082f9239512f5a63a6",
-      "rows": 46497
+      "sha256": "3efb3dbb73f60df57216768bae1abad7433475936a38b5ef1e464954b63ca002",
+      "rows": 46107
     },
     {
       "path": "chinese/phrase/shici.csv",
@@ -111,6 +111,6 @@
       "rows": 21408
     }
   ],
-  "entries": 2141468,
-  "runtime_sha256": "d1c66332c72b770fc1975255f2abc1364f5e77ab581ac6835bb4cd537ef82dc5"
+  "entries": 2141077,
+  "runtime_sha256": "6762d8a162996d9a981019e4405c11a5159c8770af6062d196da196cfa11844d"
 }

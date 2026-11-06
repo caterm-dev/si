@@ -5,6 +5,21 @@ import SICore
 
 @MainActor
 struct LanguageSettingsTests {
+    @Test func productionRankingLoadsBundledModelWithoutAppSupportInstallation() async throws {
+        guard let path = ProcessInfo.processInfo.environment["SI_TEST_KENLM_BUNDLE"] else { return }
+        let name = "SI.BundledRankingTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = LanguageSettings(defaults: defaults)
+        let missing = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        await settings.startRankingModel(at: missing, bundledAt: URL(fileURLWithPath: path))
+        let model = try #require(settings.productionRanking.model)
+        #expect(settings.configurationGeneration == 1)
+        let index = try #require(model.wordIndex("你好")?.index)
+        let score = try #require(model.advance(model.beginSentence(), wordIndex: index))
+        #expect(score.log10.isFinite)
+    }
+
     @Test func productionRankingReplacesDevelopmentPreferencesAndLoadsVerifiedModelOnce() async throws {
         let name = "SI.ProductionRankingTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))

@@ -45,7 +45,7 @@ locally from its author's official source archive. The complete archive pin,
 binary hashes, compiler/dependency versions and build commands are in
 [the tool lock](corpus/kenlm/source.lock.json). Full upstream license notices are
 retained beside that lock. SI links a [query-only library](Vendor/SIKenLM/README.md)
-for the development experiment. Model files are installed separately.
+for runtime ranking. Release packages stage the model from local build artifacts.
 
 ```sh
 # macOS build dependencies (the current machine already had CMake):
@@ -1130,16 +1130,25 @@ coverage active, that choice moves English whole-word Top-1 from 99.00% to
 98.20%, whole-word Top-5 from 99.80% to 100.00%, and prefix Top-5 from 73.40%
 to 75.40% on the train-only benchmark.
 
-The existing install command verifies and installs the full-data model into
-its versioned App Support directory. Start SI after the model is installed
-or updated to pick up the selected version.
+The DMG installer and Sparkle update ZIP contain the full-data model under
+`SI.app/Contents/Resources/KenLM/`. Packaging verifies the model's SHA-256
+and size before signing the app. It includes the model compatibility record,
+KenLM notices and the pinned corpus source and license notices. The binary
+is the quantized full-data model documented above, trained on the prepared
+LCCC, mC4, Kubernetes, TensorFlow, MDN and Chinese Wikipedia sources. Each
+source retains its own terms in the bundled corpus notices.
+
+The separate install command remains available for source builds. It verifies
+and installs the same model into a versioned App Support directory.
 
 ```sh
 corpus/.venv/bin/python scripts/install_kenlm_model.py
 ```
 
-The app opens the model on a worker at startup after checking the small
-manifest and file stamps. If the model is missing, invalid or still loading,
+The app prefers the bundled model. It checks metadata and file size, then
+opens the signed resource on a worker. The App Support fallback additionally
+checks its installation manifest and file stamps. If the model is missing,
+invalid or still loading,
 coverage and the English insertion cost work with dictionary scores.
 Provisional results and explicit actions that must resolve pending candidates
 also use those dictionary scores. Normal full results use the model when

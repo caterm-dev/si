@@ -9,10 +9,25 @@ import SICore
 /// All SQLite work is actor-isolated. History has no age/count eviction and is never loaded in full.
 public actor InputHistoryStore {
     public enum StoreError: Error { case database, unsupportedVersion, invalidEntry, invalidExportDestination, exportRecordTooLarge }
+    public enum Kind: Sendable {
+        case submissions, sentences
+
+        public var databasePath: String {
+            switch self {
+            case .submissions: "SI/InputHistory/history-v1.sqlite3"
+            case .sentences: "SI/SentenceHistory/sentences-v1.sqlite3"
+            }
+        }
+    }
+
     private let url: URL
+    private let kind: Kind
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-    public init(url: URL) { self.url = url }
+    public init(url: URL, kind: Kind = .submissions) {
+        self.url = url
+        self.kind = kind
+    }
 
     public func prepare() throws {
         try withDatabase { _ in () }
@@ -20,7 +35,9 @@ public actor InputHistoryStore {
 
     /// Stable event IDs make retry after an ambiguous write failure idempotent; repeated typing uses new IDs.
     public func append(_ entries: [InputHistoryEntry]) throws {
-        guard entries.allSatisfy({ !$0.input.isEmpty && !$0.text.isEmpty && $0.createdAt.timeIntervalSince1970.isFinite }) else {
+        guard entries.allSatisfy({ entry in
+            entry.createdAt.timeIntervalSince1970.isFinite && validText(input: entry.input, output: entry.text)
+        }) else {
             throw StoreError.invalidEntry
         }
         try withDatabase { database in
@@ -78,9 +95,13 @@ public actor InputHistoryStore {
     /// A complete, consistent JSONL snapshot. Text stays in one private temporary file until atomic publication.
     public func export(to destination: URL, now: Date = .now) throws -> Int {
         let target = destination.standardizedFileURL.resolvingSymlinksInPath()
-        let source = url.standardizedFileURL.resolvingSymlinksInPath()
-        guard target.pathExtension.lowercased() == "jsonl", target != source,
-              !["-journal", "-wal", "-shm"].contains(where: { target.path == source.path + $0 }) else {
+        let sources = [url, URL.applicationSupportDirectory.appending(path: Kind.submissions.databasePath),
+                       URL.applicationSupportDirectory.appending(path: Kind.sentences.databasePath)]
+        guard target.pathExtension.lowercased() == "jsonl", !sources.contains(where: { source in
+            ["", "-journal", "-wal", "-shm"].contains { suffix in
+                URL(filePath: source.path + suffix).standardizedFileURL.resolvingSymlinksInPath() == target
+            }
+        }) else {
             throw StoreError.invalidExportDestination
         }
         let manager = FileManager.default
@@ -101,8 +122,9 @@ public actor InputHistoryStore {
             try file.write(contentsOf: data)
             if hashed { hash.update(data: data) }
         }
-        try write(["type": "manifest", "format": "si-input-history", "version": 1,
-                   "exported_at_unix": now.timeIntervalSince1970, "scope": "all_saved_history"])
+        try write(["type": "manifest", "format": kind == .sentences ? "si-sentence-history" : "si-input-history",
+                   "version": 1, "exported_at_unix": now.timeIntervalSince1970,
+                   "scope": kind == .sentences ? "all_saved_sentences" : "all_saved_history"])
         let count = try withDatabase { database in
             try execute("BEGIN", database: database)
             defer { try? execute("ROLLBACK", database: database) }
@@ -118,14 +140,19 @@ public actor InputHistoryStore {
                     guard UUID(uuidString: rawID)?.uuidString == rawID,
                           CommitReason(rawValue: text(query, column: 7)) != nil,
                           sqlite3_column_double(query, 2).isFinite,
-                          !text(query, column: 3).isEmpty, !text(query, column: 4).isEmpty,
+                          validText(input: text(query, column: 3), output: text(query, column: 4)),
                           rawLanguage.isEmpty || InputLanguage(rawValue: rawLanguage) != nil,
                           !mixed || rawLanguage == InputLanguage.simplifiedChinese.rawValue else { throw StoreError.invalidEntry }
-                    try write(["type": "entry", "sequence": sqlite3_column_int64(query, 0),
+                    var object: [String: Any] = ["type": "entry", "sequence": sqlite3_column_int64(query, 0),
                         "id": text(query, column: 1), "created_at_unix": sqlite3_column_double(query, 2),
-                        "input": text(query, column: 3), "output": text(query, column: 4),
-                        "language": sqlite3_column_type(query, 5) == SQLITE_NULL ? NSNull() : text(query, column: 5) as Any,
-                        "mixed": sqlite3_column_int(query, 6) != 0, "reason": text(query, column: 7)])
+                        "output": text(query, column: 4)]
+                    if kind == .submissions {
+                        object["input"] = text(query, column: 3)
+                        object["language"] = sqlite3_column_type(query, 5) == SQLITE_NULL ? NSNull() : text(query, column: 5) as Any
+                        object["mixed"] = mixed
+                        object["reason"] = text(query, column: 7)
+                    }
+                    try write(object)
                     count += 1
                 }
             }
@@ -161,6 +188,13 @@ public actor InputHistoryStore {
         }
     }
 
+    private func validText(input: String, output: String) -> Bool {
+        switch kind {
+        case .submissions: !input.isEmpty && !output.isEmpty
+        case .sentences: input.isEmpty && SentenceSnapshot.accepts(output)
+        }
+    }
+
     private func withDatabase<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
         let manager = FileManager.default
         let directory = url.deletingLastPathComponent()
@@ -184,6 +218,13 @@ public actor InputHistoryStore {
             return sqlite3_column_int(query, 0)
         }
         guard version == 0 || version == 1 else { throw StoreError.unsupportedVersion }
+        // Keep the two archive kinds distinguishable even if a file is copied to the other location.
+        let expectedApplicationID: Int32 = kind == .sentences ? 0x53495348 : 0
+        let applicationID = try statement("PRAGMA application_id", database: database) { query in
+            guard sqlite3_step(query) == SQLITE_ROW else { throw StoreError.database }
+            return sqlite3_column_int(query, 0)
+        }
+        guard applicationID == (version == 0 ? 0 : expectedApplicationID) else { throw StoreError.unsupportedVersion }
         let journalMode = try statement("PRAGMA journal_mode", database: database) { query in
             guard sqlite3_step(query) == SQLITE_ROW else { throw StoreError.database }
             return text(query, column: 0)
@@ -201,6 +242,7 @@ public actor InputHistoryStore {
             do {
                 try execute("CREATE TABLE input_history (sequence INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, created_at REAL NOT NULL, input TEXT NOT NULL, output TEXT NOT NULL, language TEXT, mixed INTEGER NOT NULL, reason TEXT NOT NULL)", database: database)
                 try execute("PRAGMA user_version = 1", database: database)
+                if kind == .sentences { try execute("PRAGMA application_id = \(expectedApplicationID)", database: database) }
                 try execute("COMMIT", database: database)
             } catch {
                 try? execute("ROLLBACK", database: database)

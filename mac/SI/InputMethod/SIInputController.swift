@@ -26,6 +26,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var memoryGeneration: UInt64?
     private var memoryLanguageGeneration: UInt64?
     private var sessionContextGeneration: UInt64 = 0
+    private var sentenceSubmissionGeneration: UInt64?
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
         panel.list.onSelect = { [weak self] id in
@@ -65,6 +66,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let previousCandidates = session.candidates
         let previousRequest = session.pendingCandidateRequest?.id
         guard configureSession(for: client) else { return false }
+        if sentenceSubmissionGeneration != nil, IsSecureEventInputEnabled() { sentenceSubmissionGeneration = nil }
         if previousCandidates != session.candidates || previousRequest != session.pendingCandidateRequest?.id { update(client) }
 
         if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
@@ -96,6 +98,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             update(client)
             return true
         case 53: // Escape
+            sentenceSubmissionGeneration = nil
             guard !session.buffer.isEmpty else { session.breakContext(); return false }
             session.reset()
             update(client)
@@ -103,6 +106,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         case 36, 76: // Return / keypad Enter: preserve the original spelling.
             guard !session.buffer.isEmpty else {
                 session.breakContext()
+                if !event.isARepeat, !event.modifierFlags.contains(.shift) { captureSentence(from: client) }
                 return false
             }
             commitLiteral(to: client)
@@ -205,6 +209,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func stopConversionForDirectInput(in client: any IMKTextInput) {
+        sentenceSubmissionGeneration = nil
         let spelling = session.buffer
         session.reset()
         automaticConfirmationTask?.cancel()
@@ -223,6 +228,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private func prepareApplicationMemory(for client: any IMKTextInput) {
         let sameClient = memoryClient.map { ($0 as AnyObject) === (client as AnyObject) } ?? false
         if !sameClient {
+            sentenceSubmissionGeneration = nil
             let identifier = client.bundleIdentifier()
             memoryClient = client
             applicationID = identifier.flatMap { $0.isEmpty ? nil : $0 }
@@ -328,6 +334,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
             candidateAnchor.reset()
             markedTextState.reset()
+            sentenceSubmissionGeneration = nil
             memoryClient = nil
             applicationID = nil
             candidatePanel.claimPresentation()
@@ -338,6 +345,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         commitComposition(sender)
         MainActor.assumeIsolated {
             presentationRevision &+= 1
+            sentenceSubmissionGeneration = nil
             session.breakContext()
             automaticConfirmationTask?.cancel()
             candidatePipeline.invalidate()
@@ -497,6 +505,9 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let history = InputHistorySettings.shared
         let historyGeneration = history.generation
         let recordsHistory = history.canRecord
+        let sentences = InputHistorySettings.sentences
+        let sentenceGeneration = sentences.generation
+        let tracksSentence = sentences.canCaptureSentence(in: app)
         guard insert(commit.text + suffix, into: client) else { return }
         guard app == applicationID else { return }
         guard !LanguageSettings.shared.usesPassthrough(in: app) else {
@@ -504,10 +515,33 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return
         }
         if recordsHistory { history.record(commit, suffix: suffix, expectedGeneration: historyGeneration) }
+        if tracksSentence, sentenceGeneration == sentences.generation, sentences.canCaptureSentence(in: app),
+           (memoryClient as AnyObject?) === (client as AnyObject), !commit.text.isEmpty {
+            sentenceSubmissionGeneration = sentenceGeneration
+        }
         if generation == ApplicationMemorySettings.shared.generation {
             ApplicationMemorySettings.shared.recordVocabulary(commit)
         }
         configureSession(for: client)
         if !session.buffer.isEmpty { update(client) }
+    }
+
+    private func captureSentence(from client: any IMKTextInput) {
+        guard let generation = sentenceSubmissionGeneration else { return }
+        sentenceSubmissionGeneration = nil
+        let history = InputHistorySettings.sentences
+        let app = applicationID
+        let revision = presentationRevision
+        func isCurrent() -> Bool {
+            generation == history.generation && revision == presentationRevision
+                && (memoryClient as AnyObject?) === (client as AnyObject)
+                && app == applicationID && !LanguageSettings.shared.usesPassthrough(in: app)
+                && history.canCaptureSentence(in: app) && session.buffer.isEmpty
+        }
+
+        guard let text = SentenceSnapshotReader.read(isCurrent: isCurrent, selection: { client.selectedRange() },
+                                                     markedRange: { client.markedRange() }, length: { client.length() },
+                                                     textInRange: { client.attributedSubstring(from: $0)?.string }) else { return }
+        history.recordSentence(text, in: app, expectedGeneration: generation)
     }
 }

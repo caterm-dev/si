@@ -23,8 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             async let phrases: Void = UserDictionarySettings.shared.start()
             async let appMemory: Void = ApplicationMemorySettings.shared.start()
             async let history: Void = InputHistorySettings.shared.start()
+            async let sentences: Void = InputHistorySettings.sentences.start()
             async let rankingModel: Void = LanguageSettings.shared.startRankingModel()
-            _ = await (phrases, appMemory, history, rankingModel)
+            _ = await (phrases, appMemory, history, sentences, rankingModel)
         }
         if ProcessInfo.processInfo.arguments.contains("--settings") {
             showSettings()
@@ -43,7 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             async let phrases: Void = UserDictionarySettings.shared.flush()
             async let appMemory: Void = ApplicationMemorySettings.shared.flush()
             async let history: Void = InputHistorySettings.shared.flush()
-            _ = await (phrases, appMemory, history)
+            async let sentences: Void = InputHistorySettings.sentences.flush()
+            _ = await (phrases, appMemory, history, sentences)
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

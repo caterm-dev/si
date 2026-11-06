@@ -36,8 +36,8 @@ Debug and Release use the same ranking. When a verified local KenLM model is
 installed, SI scores Chinese words in the current composition, including
 Chinese segments of mixed candidates. English uses dictionary scoring with its
 own per-word insertion cost. SI reads no surrounding host-field text. The
-model is installed separately and the dictionary supplies results while the
-model is unavailable. See [production ranking and model installation](README_kenlm_train.md#production-kenlm-ranking).
+release DMG and update ZIP include the model inside the app. The dictionary
+supplies results while the model loads. See [production ranking and model packaging](README_kenlm_train.md#production-kenlm-ranking).
 
 ## Input languages
 
@@ -102,9 +102,11 @@ Rules use the InputMethodKit client's application identity, not the foreground p
 
 ## Experimental permissions
 
-**SI Settings → Experimental Permissions** provides separate **Request Accessibility…** and **Request Screen Recording…** actions with current permission status. macOS controls authorization; denied requests open the corresponding Privacy & Security pane. Permission is requested only by these buttons, never automatically while typing. A restart of SI may be required after authorization; do not run built and installed copies together.
+**SI Settings → Experimental Permissions** shows the current permission status and provides separate **Open Accessibility Settings…** and **Open Screen Recording Settings…** buttons. Each opens its Privacy & Security pane and shows a floating panel. Drag SI from the panel into the system list, then enable the permission. You can also click **+** in the system list, press **Shift-Command-G**, go to `~/Library/Input Methods/` and select the installed `SI.app`. After granting permission, refresh the status in SI Settings. If macOS asks for a restart, restart the installed SI.
 
 These permission entry points are available for future input-control experiments. They do not inspect controls, capture images or automatically select input behavior by field. Granting either permission leaves input behavior, enabled languages, Personal Learning and Input History unchanged. Input Monitoring and global event taps are not used. Native permission dialogs still require [manual verification](docs/TESTING.md#experimental-permissions).
+
+Xcode resolves [PermissionFlow 2.11.4](https://github.com/jaywcjlove/PermissionFlow/releases/tag/v2.11.4) on the first app build. Its MIT license permits redistribution with the [included notice](mac/SI/Resources/PermissionFlow-LICENSE.txt).
 
 ## Personal Learning
 
@@ -131,6 +133,12 @@ History includes literal, personal-phrase, punctuation and automatic SI submissi
 The receiver can run `python3 scripts/input_history.py inspect FILE.jsonl`, `restore FILE.jsonl --output NEW.sqlite3`, or `prepare FILE.jsonl --output NEW_DIRECTORY`. Restore validates versions/count/checksum and recreates every event exactly. Training preparation accepts the same export and produces an unsplit candidate CSV plus provenance for review, without modifying existing data or starting training. See [export/restore and training-observation workflow](docs/INPUT_HISTORY_EXPORT.md).
 
 The independent owner-only SQLite database is `~/Library/Application Support/SI/InputHistory/history-v1.sqlite3`. It is not encrypted; private text can be accessible to other software running as you, administrators and backups. I/O stays off the main actor/key-event path. Writes are serialized and transactional, retries do not duplicate a submission, and clear cannot be undone by older pending writes. Open/save failures visibly pause recording; failed writes remain in memory for **Retry Saving History**, and corrupt/unsupported files remain untouched until explicit clear. Normal termination waits for queued writes; forced termination, disk failure or quitting without retry can lose unsaved entries. External backups remain outside SI's deletion controls. See [privacy](docs/PRIVACY.md#input-history) and [manual checks](docs/TESTING.md#input-history).
+
+### Sentence History
+
+In **SI Settings → Sentence History**, enable **Save Complete Sentences** and use **Add Application…** to choose where it may run. This is off by default and independent of Input History. After submitting text with SI in a chosen app, put the caret at the end of a supported single-line input and press Return. SI saves the text the host exposes immediately before receiving Return, including punctuation and any edits, pasted text or pre-existing content in that input. If a composition is still open, the first Return preserves the original spelling as usual. A subsequent Return can capture the line.
+
+SI skips secure and direct input, unknown or partial host ranges, active selections, and empty, multiline or over-1,024-UTF-16-unit text. InputMethodKit support varies by app and field. The record describes the text at Return time, while the host decides what Return does. **View Saved Sentences…** lets you search and delete individual records. **Clear Saved Sentences…** clears the separate local archive. **Export Saved Sentences…** saves all its records to a separate JSONL file at a destination you choose. See [sentence privacy and retention](docs/PRIVACY.md#sentence-history) and [manual checks](docs/TESTING.md#sentence-history).
 
 ## Personal phrases
 

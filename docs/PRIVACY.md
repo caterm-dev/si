@@ -18,9 +18,9 @@ Sparkle retains its ordinary updater preferences and last-check information in t
 
 ## Experimental permissions
 
-**Experimental Permissions** offers separate, user-initiated Accessibility and Screen Recording permission requests. These grants are independent of input languages, Personal Learning and Input History, and do not change input behavior. Startup and typing never prompt for permission. Revocation is available in macOS Privacy & Security.
+**Experimental Permissions** provides separate buttons for the Accessibility and Screen Recording panes in macOS Privacy & Security. The floating panel offers the running SI bundle for the user to drag into the system permission list. The operating system handles grants and revocation. These grants are independent of input languages, Personal Learning and Input History, and do not change input behavior. Startup and typing never prompt for permission.
 
-The permission entry points do not inspect focused controls, read field values or URLs, capture images or perform OCR. There are no focus observers or field-based automatic input rules. Neither permission enables network transfer, Input Monitoring, global event taps or additional retained input data.
+PermissionFlow uses the System Settings window position to place its floating panel. The permission entry points do not inspect focused controls, read field values or URLs, capture images or perform OCR. Neither permission enables network transfer, Input Monitoring, global event taps or additional retained input data.
 
 ## Personal Learning
 
@@ -57,6 +57,12 @@ The system SQLite database uses schema 1, a 0700 directory, 0600 file and DELETE
 Recording is checked around host insertion, with generation checks for off/on changes during callbacks. Secure event input and the independent direct-input app rules suppress recording. Secure event input cannot detect every sensitive field. Cancelled/unconfirmed compositions, host documents/clipboard, standalone passthrough keys, other input sources and text typed in direct-input apps are not captured. There is no global event tap or added permission. Records are not used for candidates, automatic learning/training or remote services. Explicit export and separately permitted offline training preparation are described below.
 
 Open/save failures visibly pause new recording. Failed accepted writes remain in memory for explicit **Retry Saving History**; **Reopen History** retries opening, and explicit clear can recover corrupt/unsupported data. Existing corrupt/unsupported bytes remain untouched until clear. Normal termination waits for queued writes; forced termination, disk failure or quitting with unretried errors may lose unsaved records. External backups and previously deleted filesystem remnants remain outside SI's deletion controls.
+
+## Sentence History
+
+**Save Complete Sentences** is a separate, default-off opt-in. Choose the applications where it may run. On Return after a successful SI insertion in the same active client, with the composition empty and the caret at the end, SI can request at most 1,024 UTF-16 units from the current InputMethodKit text client. The allowlist applies to the whole app. InputMethodKit does not expose the field's role, and Secure Event Input cannot identify every sensitive field. The exact single-line text returned by the client may include pre-existing or pasted content, other edits and punctuation inserted by the host. SI checks secure input, direct input, consent and the client boundary before and between calls, and skips unsupported or incomplete reads. This feature uses the text client directly, without accessing the clipboard or requesting additional permissions.
+
+The independent owner-only, unencrypted `SI/SentenceHistory/sentences-v1.sqlite3` under Application Support retains the exact text, timestamp and event UUID until deleted. Application bundle identifiers are stored only in the allowlist setting. Turning off recording or removing an app stops future capture for that scope and keeps earlier records. Search, per-entry deletion, clear, retry and the normal termination flush follow the same storage rules as Input History. **Export Saved Sentences…** writes all saved sentences and timestamps to one user-selected JSONL file. Exports are unencrypted and stay outside local deletion controls.
 
 ## User-controlled history export and training contributions
 

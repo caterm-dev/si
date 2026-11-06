@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -332,12 +333,55 @@ class ReleaseTests(unittest.TestCase):
 
     def test_dry_run_never_builds_writes_or_uploads(self):
         with patch.object(release, "git", return_value="a" * 40), patch.object(release.subprocess, "run") as run:
-            with contextlib.redirect_stdout(io.StringIO()):
+            with contextlib.redirect_stdout(io.StringIO()) as plan:
                 release.main(["--publish", "--sign", IDENTITY, "--installer-sign", INSTALLER_IDENTITY,
                               "--notarize-profile", "test-notary", "--dry-run",
                               "--output-dir", str(self.directory / "absent")])
             run.assert_not_called()
+        commands = plan.getvalue()
+        stage = commands.index("--bundle-resources")
+        self.assertLess(stage, commands.index("codesign --force"))
+        self.assertLess(stage, commands.index("pkgbuild"))
         self.assertFalse((self.directory / "absent").exists())
+
+    def test_package_requires_kenlm_before_building(self):
+        with patch.object(release, "run") as run:
+            with self.assertRaisesRegex(ValueError, "Release requires the full-data KenLM model"):
+                release.package(self.args, self.directory, "0.1.0", self.directory / "output")
+        run.assert_not_called()
+
+    def test_model_staging_checks_payload_and_omits_training_paths(self):
+        binary = self.directory / "model.bin"
+        binary.write_bytes(b"synthetic model")
+        metadata = self.directory / "model.json"
+        model = {"order": 4, "a": 22, "prune": [0, 1, 2, 3], "probability_bits": 8,
+                 "backoff_bits": 8, "binary_sha256": release.digest(binary).hexdigest(),
+                 "binary_bytes": binary.stat().st_size, "training_command": ["/private/local/fixture"]}
+        metadata.write_text(json.dumps({
+            "schema_version": 1, "kenlm": {"binary_format_version": 5},
+            "corpus": {"source_order": ["train", "heldout"]}, "model": model,
+            "cleaning": {"version": "si-kenlm-cleaning-v1", "unicode_version": "15.0.0",
+                         "maximum_scalars": 32, "rare_threshold_exclusive": 5,
+                         "module_sha256": release.digest(ROOT / "scripts/kenlm_cleaning.py").hexdigest(),
+                         "vectors_sha256": release.digest(ROOT / "Tests/KenLMTests/cleaning_vectors.json").hexdigest()},
+        }))
+        command = [sys.executable, "-B", ROOT / "scripts/install_kenlm_model.py",
+                   "--model", binary, "--metadata", metadata, "--bundle-resources"]
+        resources = self.directory / "Resources"
+        resources.mkdir()
+        release.subprocess.run([*command, resources], check=True, capture_output=True)
+        payload = resources / "KenLM"
+        self.assertEqual((payload / "final.bin").read_bytes(), binary.read_bytes())
+        self.assertNotIn("training_command", json.loads((payload / "final.meta.json").read_text())["model"])
+        self.assertTrue((payload / "Corpus-Notices/sources.lock.json").is_file())
+
+        corrupt = self.directory / "Corrupt"
+        corrupt.mkdir()
+        binary.write_bytes(b"corrupted model")
+        result = release.subprocess.run([*command, corrupt], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Model checksum or size does not match metadata", result.stderr)
+        self.assertEqual(list(corrupt.iterdir()), [])
 
     def test_rejected_notarization_does_not_expose_final_image(self):
         output = self.directory / "failed"
@@ -361,7 +405,8 @@ class ReleaseTests(unittest.TestCase):
             def commands(args, dry=False, capture=False):
                 return "arm64 x86_64" if args[0] == "lipo" else command(args, dry, capture)
 
-            with patch.object(Path, "read_bytes", read_bytes), patch.object(release, "run", side_effect=commands):
+            with patch.object(Path, "read_bytes", read_bytes), patch.object(Path, "is_file", return_value=True), \
+                    patch.object(release, "run", side_effect=commands):
                 with self.assertRaisesRegex(ValueError, "Apple notarization failed"):
                     release.package(self.args, ROOT, "0.1.0", output)
         self.assertFalse((output / self.image.name).exists())

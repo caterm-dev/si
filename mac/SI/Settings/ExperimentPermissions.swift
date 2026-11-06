@@ -2,11 +2,20 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Observation
+import PermissionFlow
 
 @MainActor
 @Observable
 final class ExperimentPermissions {
     static let shared = ExperimentPermissions()
+
+    @ObservationIgnored private lazy var flow = PermissionFlow.makeController(
+        configuration: .init(
+            requiredAppURLs: [Bundle.main.bundleURL],
+            promptForAccessibilityTrust: false,
+            localeIdentifier: Bundle.main.preferredLocalizations.first
+        )
+    )
 
     private(set) var accessibilityGranted = false
     private(set) var screenRecordingGranted = false
@@ -16,21 +25,11 @@ final class ExperimentPermissions {
         screenRecordingGranted = CGPreflightScreenCaptureAccess()
     }
 
-    func requestAccessibility() {
-        // The SDK exports kAXTrustedCheckOptionPrompt as a mutable C global.
-        // Use its verified CFString value without introducing unsafe Swift isolation.
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        accessibilityGranted = AXIsProcessTrustedWithOptions(options)
-        if !accessibilityGranted { openPrivacyPane("Privacy_Accessibility") }
+    func openAccessibilitySettings() {
+        flow.authorize(pane: .accessibility)
     }
 
-    func requestScreenRecording() {
-        screenRecordingGranted = CGRequestScreenCaptureAccess()
-        if !screenRecordingGranted { openPrivacyPane("Privacy_ScreenCapture") }
-    }
-
-    private func openPrivacyPane(_ pane: String) {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") else { return }
-        NSWorkspace.shared.open(url)
+    func openScreenRecordingSettings() {
+        flow.authorize(pane: .screenRecording)
     }
 }

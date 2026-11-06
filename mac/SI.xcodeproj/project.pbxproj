@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		000000000000000000000201 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000203 /* Sparkle */; };
 		000000000000000000000204 /* SIKenLM in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000206 /* SIKenLM */; };
+		000000000000000000000207 /* PermissionFlow in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000209 /* PermissionFlow */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,7 @@
 			files = (
 				000000000000000000000201 /* Sparkle in Frameworks */,
 				000000000000000000000204 /* SIKenLM in Frameworks */,
+				000000000000000000000207 /* PermissionFlow in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +80,7 @@
 			packageProductDependencies = (
 				000000000000000000000203 /* Sparkle */,
 				000000000000000000000206 /* SIKenLM */,
+				000000000000000000000209 /* PermissionFlow */,
 			);
 			productName = SI;
 			productReference = 000000000000000000000120 /* SI.app */;
@@ -111,6 +114,7 @@
 			packageReferences = (
 				000000000000000000000202 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				000000000000000000000205 /* XCLocalSwiftPackageReference "SIKenLM" */,
+				000000000000000000000208 /* XCRemoteSwiftPackageReference "PermissionFlow" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -356,6 +360,11 @@
 			repositoryURL = "https://github.com/sparkle-project/Sparkle";
 			requirement = {kind = exactVersion; version = 2.10.0; };
 		};
+		000000000000000000000208 /* XCRemoteSwiftPackageReference "PermissionFlow" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jaywcjlove/PermissionFlow.git";
+			requirement = {kind = exactVersion; version = 2.11.4; };
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -375,6 +384,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 000000000000000000000202 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		000000000000000000000209 /* PermissionFlow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000208 /* XCRemoteSwiftPackageReference "PermissionFlow" */;
+			productName = PermissionFlow;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

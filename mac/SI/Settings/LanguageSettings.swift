@@ -32,11 +32,16 @@ final class LanguageSettings {
     @ObservationIgnored private var kenLMModel: KenLMModel?
     @ObservationIgnored private var didStartModelLoad = false
 
-    func startRankingModel(at root: URL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/SI/KenLM", isDirectory: true)) async {
+    func startRankingModel(
+        at root: URL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/SI/KenLM", isDirectory: true),
+        bundledAt bundle: URL? = Bundle.main.resourceURL?.appendingPathComponent("KenLM", isDirectory: true)
+    ) async {
         guard !didStartModelLoad else { return }
         didStartModelLoad = true
-        let load = Task.detached(priority: .utility) { KenLMModel.openInstalled(at: root) }
+        let load = Task.detached(priority: .utility) {
+            bundle.flatMap { KenLMModel.openBundled(at: $0) } ?? KenLMModel.openInstalled(at: root)
+        }
         guard let model = await load.value else { return }
         kenLMModel = model
         configurationGeneration &+= 1

@@ -6,6 +6,7 @@ struct SettingsView: View {
     var dictionary: UserDictionarySettings = .shared
     var applicationMemory: ApplicationMemorySettings = .shared
     var inputHistory: InputHistorySettings = .shared
+    var sentenceHistory: InputHistorySettings = .sentences
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -39,6 +40,7 @@ struct SettingsView: View {
                 ExperimentPermissionsSection()
                 ApplicationMemorySection(settings: applicationMemory)
                 InputHistorySection(history: inputHistory)
+                InputHistorySection(history: sentenceHistory)
                 UserDictionarySection(dictionary: dictionary)
                 UpdateSettingsSection(updater: updater)
                 Section("Development Preview") {
@@ -62,5 +64,6 @@ struct SettingsView: View {
     SettingsView(settings: LanguageSettings(defaults: UserDefaults(suiteName: "SI.Preview") ?? .standard), updater: AppUpdater(),
                  dictionary: UserDictionarySettings(isPreview: true),
                  applicationMemory: ApplicationMemorySettings(isPreview: true),
-                 inputHistory: InputHistorySettings(isPreview: true))
+                 inputHistory: InputHistorySettings(isPreview: true),
+                 sentenceHistory: InputHistorySettings(isPreview: true, kind: .sentences))
 }
