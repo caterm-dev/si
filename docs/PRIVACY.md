@@ -1,6 +1,6 @@
 # Personal data and privacy
 
-SI processes input locally with no analytics, raw-keystroke logger, or cloud dependency for typing. Independently opted-in Input History can retain each SI submission locally as described below. User-initiated software updates are the only app network feature.
+SI processes ordinary input locally, with no analytics or raw-keystroke logging. Independently opted-in Input History can retain each SI submission locally. Network features are user-initiated software updates and separately opted-in AI completion.
 
 ## Local language model
 
@@ -18,9 +18,19 @@ Sparkle retains its ordinary updater preferences and last-check information in t
 
 ## Experimental permissions
 
-**Experimental Permissions** provides separate buttons for the Accessibility and Screen Recording panes in macOS Privacy & Security. The floating panel offers the running SI bundle for the user to drag into the system permission list. The operating system handles grants and revocation. These grants are independent of input languages, Personal Learning and Input History, and do not change input behavior. Startup and typing never prompt for permission.
+**Experimental Permissions** provides separate buttons for the Accessibility and Screen Recording panes in macOS Privacy & Security. The floating panel offers the running SI bundle for the user to drag into the system permission list. The operating system handles grants and revocation. These grants are independent of input languages, Personal Learning, Input History and AI completion consent. Startup and typing never prompt for permission.
 
-PermissionFlow uses the System Settings window position to place its floating panel. The permission entry points do not inspect focused controls, read field values or URLs, capture images or perform OCR. Neither permission enables network transfer, Input Monitoring, global event taps or additional retained input data.
+PermissionFlow uses the System Settings window position to place its floating panel. The permission entry points do not inspect focused controls, read field values or URLs, capture images or perform OCR. System permission alone does not enable network transfer, Input Monitoring, global event taps or retained input data.
+
+## AI completion
+
+**Enable AI Completion** defaults to off. Enabling it authorizes manual requests in all apps where SI conversion is active; there is no AI app allowlist. Existing AX completion consent is reset for this screenshot-based feature. Screen Recording authorization is required. On a plain Tab during composition, SI can send current spelling, a whole candidate, available verified IMK text within 1,024 UTF-16 units of each side, and a screenshot of only the current input app's foreground window. A second Tab or click accepts the displayed result. Ordinary typing never starts AI work.
+
+Screenshots may include private messages and other content elsewhere in that window. SI checks secure event input, direct input, client, foreground app and window boundaries around capture and delayed work. Secure event input cannot identify every sensitive field. No AX tree or clipboard content is collected. macOS permission alone never enables AI requests; the AI switch and explicit Tab are both required.
+
+SI keeps screenshot bytes and context transient. Claude Code receives an in-memory base64 image via stdin. OpenAI receives an HTTPS image data URL with `store: false`. Codex requires an owner-only temporary PNG, removed after normal completion or cancellation; forced termination or cleanup failure can leave it in the OS temporary directory. The selected provider applies its own network and retention policies. CLI session persistence is disabled. API keys are stored in Keychain and can be removed in Settings.
+
+Edits and app/window changes invalidate suggestions. Provider, path and key changes disable completion until re-enabled. If Input History is independently enabled, accepted submissions can be retained locally; screenshots and context are not stored in Input History. AI suggestions do not train Personal Learning.
 
 ## Personal Learning
 

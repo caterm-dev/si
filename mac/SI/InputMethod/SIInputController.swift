@@ -20,6 +20,23 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var presentationRevision: UInt64 = 0
     private var candidateAnchor = CandidateAnchor()
     private var explicitlyNavigated = false
+    private struct AIPrediction {
+        let revision: UInt64
+        let settingsGeneration: UInt64
+        let languageGeneration: UInt64
+        let application: String
+        let pid: pid_t
+        let candidate: InputCandidate
+        let field: AICompletionField?
+        let position: AICompletionField.Position?
+        let window: AICompletionScreenshot.Window
+        let selectionID: String?
+        let suffix: String
+    }
+    private var aiRequestID: UUID?
+    private var aiRowPhase: AICompletionActivity.Phase?
+    private var aiTask: Task<Void, Never>?
+    private var aiPrediction: AIPrediction?
     private var automaticConfirmationTask: Task<Void, Never>?
     private weak var memoryClient: (any IMKTextInput)?
     private var applicationID: String?
@@ -29,6 +46,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var sentenceSubmissionGeneration: UInt64?
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
+        panel.onLosePresentation = { [weak self] in self?.invalidateAICompletion() }
         panel.list.onSelect = { [weak self] id in
             guard let self, self.candidatePanel.ownsPresentation, let client = self.client(),
                   self.session.pendingCandidateRequest == nil,
@@ -38,6 +56,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                 return
             }
             self.commitCandidate(candidate, to: client)
+        }
+        panel.list.onSelectPrediction = { [weak self] in
+            guard let self, let client = self.client() else { return }
+            _ = self.acceptAICompletion(to: client)
         }
         panel.list.onMovePage = { [weak self] offset in
             guard let self, self.candidatePanel.ownsPresentation else { return }
@@ -72,6 +94,16 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             commitLiteral(to: client)
             return false
+        }
+
+        if let action = AICompletionTabAction.resolve(keyCode: event.keyCode, modifiers: event.modifierFlags,
+            isRepeat: event.isARepeat, enabled: AICompletionSettings.shared.enabled,
+            composing: !session.buffer.isEmpty, hasSuggestion: aiPrediction != nil, pending: aiTask != nil) {
+            if action == .wait { return true }
+            let revision = presentationRevision
+            if action == .accept, acceptAICompletion(to: client) { return true }
+            guard revision == presentationRevision else { return false }
+            return requestAICompletion(to: client)
         }
 
         if !session.buffer.isEmpty,
@@ -209,6 +241,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func stopConversionForDirectInput(in client: any IMKTextInput) {
+        presentationRevision &+= 1
+        invalidateAICompletion()
         sentenceSubmissionGeneration = nil
         let spelling = session.buffer
         session.reset()
@@ -278,7 +312,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         automaticConfirmationTask?.cancel()
         explicitlyNavigated = true
         selection.setExpanded(expanded)
-        presentCandidates(to: client)
+        updateAISelection(to: client)
     }
 
     private func moveCandidateSelection(_ navigation: CandidateSelection.Navigation, to eventClient: (any IMKTextInput)? = nil) {
@@ -288,7 +322,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         automaticConfirmationTask?.cancel()
         selection.navigate(navigation)
         explicitlyNavigated = true
-        presentCandidates(to: client)
+        updateAISelection(to: client)
     }
 
     private func presentCandidates(to client: any IMKTextInput) {
@@ -315,7 +349,9 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         candidateAnchor = nextAnchor
         guard let caret else { candidatePanel.orderOut(nil); return }
         candidatePanel.show(selection: selection, caret: caret, clientLevel: clientLevel, screens: screens,
-                            isPending: session.pendingCandidateRequest != nil, refreshPendingRows: session.hasCandidatePreview)
+                            isPending: session.pendingCandidateRequest != nil, refreshPendingRows: session.hasCandidatePreview,
+                            prediction: aiPrediction.map { $0.candidate.text + $0.suffix },
+                            predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil)
     }
 
     nonisolated override func commitComposition(_ sender: Any!) {
@@ -331,6 +367,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         super.activateServer(sender)
         MainActor.assumeIsolated {
             presentationRevision &+= 1
+            invalidateAICompletion()
 
             candidateAnchor.reset()
             markedTextState.reset()
@@ -345,6 +382,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         commitComposition(sender)
         MainActor.assumeIsolated {
             presentationRevision &+= 1
+            invalidateAICompletion()
             sentenceSubmissionGeneration = nil
             session.breakContext()
             automaticConfirmationTask?.cancel()
@@ -420,6 +458,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         guard candidatePanel.ownsPresentation else { return }
         presentationRevision &+= 1
         let revision = presentationRevision
+        invalidateAICompletion()
         automaticConfirmationTask?.cancel()
         let sameClient = candidateClient.map { ($0 as AnyObject) === (client as AnyObject) } ?? false
         if !sameClient {
@@ -457,6 +496,186 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
     }
 
+    private func updateAISelection(to client: any IMKTextInput) {
+        presentationRevision &+= 1
+        let revision = presentationRevision
+        invalidateAICompletion()
+        presentCandidates(to: client)
+        guard revision == presentationRevision else { return }
+    }
+
+    private func invalidateAICompletion() {
+        aiTask?.cancel()
+        aiTask = nil
+        aiPrediction = nil
+        aiRowPhase = nil
+        if let aiRequestID { AICompletionActivity.shared.update(.cancelled, requestID: aiRequestID) }
+        aiRequestID = nil
+    }
+
+    private func showAIPhase(_ phase: AICompletionActivity.Phase, requestID: UUID, to client: any IMKTextInput) {
+        guard aiRequestID == requestID else { return }
+        AICompletionActivity.shared.update(phase, requestID: requestID)
+        aiRowPhase = phase
+        presentCandidates(to: client)
+    }
+
+    private func aiContextIsCurrent(revision: UInt64, settingsGeneration: UInt64, languageGeneration: UInt64,
+                                    app: String, pid: pid_t, client: any IMKTextInput) -> Bool {
+        let settings = AICompletionSettings.shared
+        let languages = LanguageSettings.shared
+        let activeClient = self.client()
+        return candidatePanel.ownsPresentation && candidatePanel.isVisible && revision == presentationRevision
+            && (candidateClient as AnyObject?) === (client as AnyObject)
+            && (activeClient as AnyObject?) === (client as AnyObject)
+            && applicationID == app && NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
+            && settings.generation == settingsGeneration && settings.enabled
+            && languages.configurationGeneration == languageGeneration
+            && !languages.usesPassthrough(in: app) && !IsSecureEventInputEnabled()
+    }
+
+    private func aiField(from client: any IMKTextInput, isCurrent: @MainActor () -> Bool) -> AICompletionField? {
+        let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
+        return AICompletionField.read(markedText: marked.text, cursorUTF16Offset: marked.cursorUTF16Offset,
+                                      isCurrent: isCurrent, selection: { client.selectedRange() },
+                                      markedRange: { client.markedRange() }, length: { client.length() },
+                                      text: { client.attributedSubstring(from: $0)?.string })
+    }
+
+    private func aiPosition(from client: any IMKTextInput,
+                            isCurrent: @MainActor () -> Bool) -> AICompletionField.Position? {
+        guard isCurrent() else { return nil }
+        let marked = client.markedRange()
+        guard isCurrent() else { return nil }
+        let selection = client.selectedRange()
+        guard isCurrent() else { return nil }
+        return .init(marked: marked, selection: selection)
+    }
+
+    /// Plain Tab owns this request. Ordinary edits and candidate delivery never start AI work.
+    private func requestAICompletion(to client: any IMKTextInput) -> Bool {
+        let settings = AICompletionSettings.shared
+        guard settings.enabled, !session.buffer.isEmpty, !IsSecureEventInputEnabled(),
+              let app = applicationID, let front = NSWorkspace.shared.frontmostApplication,
+              front.bundleIdentifier == app, !LanguageSettings.shared.usesPassthrough(in: app) else { return false }
+        resolveCandidates(to: client)
+        guard configureSession(for: client), !session.buffer.isEmpty else { return false }
+        session.suspendAutomaticConfirmation()
+        automaticConfirmationTask?.cancel()
+        let activity = AICompletionActivity.shared
+        let requestID = activity.begin(.readingContext)
+        aiRequestID = requestID
+        guard CGPreflightScreenCaptureAccess() else {
+            settings.reportFailure(AICompletionScreenshot.Failure.permissionRequired.message)
+            showAIPhase(.failed, requestID: requestID, to: client)
+            return true
+        }
+        guard session.cursor == session.buffer.count else {
+            showAIPhase(.moveCaretToEnd, requestID: requestID, to: client)
+            return true
+        }
+        guard session.buffer.utf8.count <= 512,
+              let candidate = (currentCandidate?.isPartial == false ? currentCandidate : nil)
+                ?? session.candidates.first(where: { !$0.isPartial }), !candidate.isPunctuation,
+              candidate.text.utf8.count <= 512 else {
+            showAIPhase(.selectWholeCandidate, requestID: requestID, to: client)
+            return true
+        }
+        settings.reportFailure(nil)
+        let input = session.buffer
+        let pid = front.processIdentifier
+        let revision = presentationRevision
+        let windowLevel = Int(client.windowLevel())
+        guard revision == presentationRevision, aiRequestID == requestID else { return true }
+        guard let window = AICompletionScreenshot.frontWindow(pid: pid, level: windowLevel) else {
+            settings.reportFailure(AICompletionScreenshot.Failure.windowNotFound(windowLevel).message)
+            showAIPhase(.failed, requestID: requestID, to: client)
+            return true
+        }
+        let settingsGeneration = settings.generation
+        let languageGeneration = LanguageSettings.shared.configurationGeneration
+        let provider = settings.provider
+        let cliPath = settings.cliPath
+        let selectionID = currentCandidate?.id
+        showAIPhase(.readingContext, requestID: requestID, to: client)
+        guard revision == presentationRevision, aiRequestID == requestID else { return true }
+        aiTask = Task { [weak self, weak client] in
+            guard let self, let client else { return }
+            defer {
+                if self.aiRequestID == requestID { self.aiTask = nil }
+                activity.finishIfPending(requestID: requestID)
+            }
+            @MainActor func isCurrent() -> Bool {
+                !Task.isCancelled && self.aiContextIsCurrent(revision: revision, settingsGeneration: settingsGeneration,
+                    languageGeneration: languageGeneration, app: app, pid: pid, client: client)
+                    && AICompletionScreenshot.frontWindow(pid: pid, level: window.level) == window
+            }
+            do {
+                guard isCurrent() else { return }
+                let field = self.aiField(from: client, isCurrent: isCurrent)
+                let position = self.aiPosition(from: client, isCurrent: isCurrent)
+                guard isCurrent() else { return }
+                let screenshot = try await AICompletionScreenshot.capture(window: window)
+                guard isCurrent() else { return }
+                let key = provider == .openAI ? await AICompletionCredentials.shared.read() : nil
+                guard isCurrent(), self.aiField(from: client, isCurrent: isCurrent) == field, isCurrent(),
+                      self.aiPosition(from: client, isCurrent: isCurrent) == position, isCurrent() else { return }
+                let context = AICompletionContext(currentInput: input, candidate: candidate.text,
+                                                  fieldBefore: field?.before, fieldAfter: field?.after)
+                self.showAIPhase(.predicting, requestID: requestID, to: client)
+                guard isCurrent() else { return }
+                let suffix = try await provider.predict(context, cliPath: cliPath, apiKey: key, screenshot: screenshot.png)
+                guard isCurrent() else { return }
+                guard self.aiField(from: client, isCurrent: isCurrent) == field, isCurrent(),
+                      self.aiPosition(from: client, isCurrent: isCurrent) == position, isCurrent() else {
+                    if isCurrent() { self.showAIPhase(.contextChanged, requestID: requestID, to: client) }
+                    return
+                }
+                settings.reportFailure(nil)
+                guard let suffix else {
+                    self.showAIPhase(.noSuggestion, requestID: requestID, to: client)
+                    return
+                }
+                self.aiPrediction = AIPrediction(revision: revision, settingsGeneration: settingsGeneration,
+                    languageGeneration: languageGeneration, application: app, pid: pid, candidate: candidate,
+                    field: field, position: position, window: window, selectionID: selectionID, suffix: suffix)
+                self.showAIPhase(.ready, requestID: requestID, to: client)
+            } catch {
+                guard isCurrent() else { return }
+                settings.reportFailure((error as? AICompletionScreenshot.Failure)?.message
+                    ?? (error as? AICompletionProvider.Failure)?.message ?? AICompletionProvider.Failure.request.message)
+                self.showAIPhase(.failed, requestID: requestID, to: client)
+            }
+        }
+        return true
+    }
+
+    private func acceptAICompletion(to client: any IMKTextInput) -> Bool {
+        guard let prediction = aiPrediction, configureSession(for: client) else { return false }
+        func isCurrent() -> Bool {
+            aiContextIsCurrent(revision: prediction.revision, settingsGeneration: prediction.settingsGeneration,
+                               languageGeneration: prediction.languageGeneration, app: prediction.application,
+                               pid: prediction.pid, client: client)
+        }
+        guard CGPreflightScreenCaptureAccess(), session.pendingCandidateRequest == nil,
+              currentCandidate?.id == prediction.selectionID,
+              session.candidates.contains(where: { $0 == prediction.candidate }),
+              isCurrent(), aiField(from: client, isCurrent: isCurrent) == prediction.field, isCurrent(),
+              aiPosition(from: client, isCurrent: isCurrent) == prediction.position, isCurrent(),
+              AICompletionScreenshot.frontWindow(pid: prediction.pid, level: prediction.window.level) == prediction.window, isCurrent() else {
+            // Never cancel work or refresh a panel created by a reentrant key.
+            if aiPrediction?.revision == prediction.revision, presentationRevision == prediction.revision,
+               candidatePanel.ownsPresentation, (candidateClient as AnyObject?) === (client as AnyObject) {
+                invalidateAICompletion()
+                presentCandidates(to: client)
+            }
+            return false
+        }
+        let commit = session.commitResult(prediction.candidate, reason: .aiCompletion)
+        apply(commit, suffix: prediction.suffix, to: client)
+        return true
+    }
+
     private func scheduleAutomaticConfirmation() {
         guard session.hasAutomaticPauseCandidate else { return }
         let revision = session.automaticConfirmationRevision
@@ -485,6 +704,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private func insert(_ text: String, into client: any IMKTextInput) -> Bool {
         presentationRevision &+= 1
         let revision = presentationRevision
+        invalidateAICompletion()
         automaticConfirmationTask?.cancel()
         candidatePipeline.invalidate()
         candidatePreviewPipeline.invalidate()

@@ -60,7 +60,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(list(self.user_directory.iterdir()), [])
 
-    def test_running_process_or_query_error_prevents_backup_and_replacement(self):
+    def test_running_process_or_query_error_prevents_replacement(self):
         self.existing_app()
         for status in ("0", "2"):
             with self.subTest(status=status):
@@ -69,7 +69,7 @@ class InstallerTests(unittest.TestCase):
                 self.assertFalse((self.user_directory / "Library/Application Support").exists())
                 self.assertEqual((self.destination / "Contents/synthetic").read_bytes(), b"previous app bytes")
 
-    def test_upgrade_backs_up_current_or_legacy_app_without_removing_it(self):
+    def test_upgrade_preflight_accepts_current_or_legacy_app_without_backup(self):
         for identifier in ("com.caterm.inputmethod.si", "com.caterm.si"):
             with self.subTest(identifier=identifier):
                 if not self.destination.exists():
@@ -78,9 +78,7 @@ class InstallerTests(unittest.TestCase):
                     (self.destination / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": identifier}))
                 result = self.run_preinstall()
                 self.assertEqual(result.returncode, 0, result.stderr)
-                backups = list((self.user_directory / "Library/Application Support/SI/Backups").glob("Installer.*/SI.app"))
-                self.assertTrue(any((app / "Contents/Info.plist").read_bytes() ==
-                                    (self.destination / "Contents/Info.plist").read_bytes() for app in backups))
+                self.assertFalse((self.user_directory / "Library/Application Support").exists())
                 self.assertEqual((self.destination / "Contents/synthetic").read_bytes(), b"previous app bytes")
 
     def test_other_bundle_root_execution_or_symlink_is_rejected(self):
@@ -93,7 +91,7 @@ class InstallerTests(unittest.TestCase):
         self.assertNotEqual(self.run_preinstall().returncode, 0)
         self.assertFalse((self.user_directory / "Library/Application Support").exists())
 
-    def test_restarted_process_after_backup_stops_installation(self):
+    def test_restarted_process_during_preflight_stops_installation(self):
         self.existing_app()
         self.executable(self.bin / "pgrep", '''#!/bin/bash
 if [[ -e "$SI_TEST_MARKER" ]]; then exit 0; fi
@@ -105,13 +103,14 @@ exit 1
         self.assertIn("SI is running", result.stderr)
         self.assertEqual((self.destination / "Contents/synthetic").read_bytes(), b"previous app bytes")
 
-    def test_backup_directory_error_stops_upgrade_without_removing_app(self):
+    def test_old_backup_path_does_not_affect_upgrade(self):
         self.existing_app()
         directory = self.user_directory / "Library/Application Support/SI"
         directory.mkdir(parents=True)
         (directory / "Backups").write_text("synthetic file blocking the directory")
         result = self.run_preinstall()
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((directory / "Backups").read_text(), "synthetic file blocking the directory")
         self.assertEqual((self.destination / "Contents/synthetic").read_bytes(), b"previous app bytes")
 
 

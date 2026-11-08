@@ -189,6 +189,7 @@
 "Accessibility" = "Accessibility";
 "Allowed" = "Allowed";
 "Not allowed" = "Not allowed";
+"Open Settings…" = "Open Settings…";
 "Open Accessibility Settings…" = "Open Accessibility Settings…";
 "Screen Recording" = "Screen Recording";
 "Open Screen Recording Settings…" = "Open Screen Recording Settings…";
@@ -241,3 +242,90 @@
 "System Access" = "System Access";
 "Granting Permissions" = "Granting Permissions";
 "Keyboard Shortcuts" = "Keyboard Shortcuts";
+
+/* AI completion */
+"AI Completion" = "AI Completion";
+"Enable AI Completion" = "Enable AI Completion";
+"When you pause while typing in an allowed app, SI sends your current input, available input-field text, and a limited Accessibility tree to the selected provider. Codex CLI and Claude Code run on this Mac and may send this context to their online services." = "When you pause while typing in an allowed app, SI sends your current input, available input-field text, and a limited Accessibility tree to the selected provider. Codex CLI and Claude Code run on this Mac and may send this context to their online services.";
+"Press Tab or click the AI row to accept a suggestion. Without a suggestion, Tab follows your typing settings." = "Press Tab or click the AI row to accept a suggestion. Without a suggestion, Tab follows your typing settings.";
+"Prediction Provider" = "Prediction Provider";
+"Codex CLI" = "Codex CLI";
+"Claude Code" = "Claude Code";
+"OpenAI API" = "OpenAI API";
+"OpenAI API Key" = "OpenAI API Key";
+"Save Key" = "Save Key";
+"Remove Key" = "Remove Key";
+"Key saved in Keychain" = "Key saved in Keychain";
+"No API key saved" = "No API key saved";
+"CLI Executable" = "CLI Executable";
+"Automatic discovery" = "Automatic discovery";
+"Choose Executable…" = "Choose Executable…";
+"Choose the Installed CLI Executable" = "Choose the Installed CLI Executable";
+"Use Automatic Discovery" = "Use Automatic Discovery";
+"AI Context Access" = "AI Context Access";
+"Only the applications listed here can provide context for AI completion. Add applications you trust with the selected provider." = "Only the applications listed here can provide context for AI completion. Add applications you trust with the selected provider.";
+"Choose an Application for AI Completion" = "Choose an Application for AI Completion";
+"Remove %@ from AI completion" = "Remove %@ from AI completion";
+"Could not update the OpenAI API key in Keychain." = "Could not update the OpenAI API key in Keychain.";
+"AI command not found. Choose the installed executable in Settings." = "AI command not found. Choose the installed executable in Settings.";
+"Add an OpenAI API key in Settings." = "Add an OpenAI API key in Settings.";
+"AI completion request failed. Check the provider and its sign-in or API key." = "AI completion request failed. Check the provider and its sign-in or API key.";
+"The AI provider returned an invalid completion." = "The AI provider returned an invalid completion.";
+"The AI completion request timed out." = "The AI completion request timed out.";
+"Could not read this app’s Accessibility context." = "Could not read this app’s Accessibility context.";
+"AI · Tab   %@" = "AI · Tab   %@";
+"AI completion: %@" = "AI completion: %@";
+"Press Tab to accept AI completion" = "Press Tab to accept AI completion";
+"Accessibility can provide context for opted-in AI completion. macOS may require restarting SI after authorization." = "Accessibility can provide context for opted-in AI completion. macOS may require restarting SI after authorization.";
+
+/* AI Accessibility failures */
+"Allow SI in macOS Accessibility settings, then refresh permission status in SI." = "Allow SI in macOS Accessibility settings, then refresh permission status in SI.";
+"This app could not provide %@ (AX error %ld)." = "This app could not provide %@ (AX error %ld).";
+"This app took too long to verify its focused control. Pause typing and try again." = "This app took too long to verify its focused control. Pause typing and try again.";
+"This app’s focused control exceeds the supported Accessibility depth." = "This app’s focused control exceeds the supported Accessibility depth.";
+"AI completion is unavailable in a secure input field." = "AI completion is unavailable in a secure input field.";
+"The focused control changed while SI was reading Accessibility context. Try again." = "The focused control changed while SI was reading Accessibility context. Try again.";
+"This app returned no readable Accessibility controls." = "This app returned no readable Accessibility controls.";
+
+/* AI completion activity */
+"The current app is not allowed for AI completion." = "The current app is not allowed for AI completion.";
+"Waiting for the input app to become active." = "Waiting for the input app to become active.";
+"AI completion is unavailable during secure input." = "AI completion is unavailable during secure input.";
+"Enable an input language to use AI completion." = "Enable an input language to use AI completion.";
+"Waiting for ordinary candidates…" = "Waiting for ordinary candidates…";
+"Select a complete candidate for AI completion." = "Select a complete candidate for AI completion.";
+"Move to the end of the composition for AI completion." = "Move to the end of the composition for AI completion.";
+"Waiting for a typing pause…" = "Waiting for a typing pause…";
+"Reading app context…" = "Reading app context…";
+"Requesting AI prediction…" = "Requesting AI prediction…";
+"The AI returned no continuation." = "The AI returned no continuation.";
+"AI suggestion ready. Press Tab to accept." = "AI suggestion ready. Press Tab to accept.";
+"App context changed. The suggestion was discarded." = "App context changed. The suggestion was discarded.";
+"Prediction cancelled after an input or focus change." = "Prediction cancelled after an input or focus change.";
+"AI completion failed. See the error below." = "AI completion failed. See the error below.";
+"Last Prediction" = "Last Prediction";
+"No prediction has been attempted yet." = "No prediction has been attempted yet.";
+"AI · %@" = "AI · %@";
+
+/* AI executable path editing */
+"Executable Path" = "Executable Path";
+"CLI not found" = "CLI not found";
+"Edit executable path" = "Edit executable path";
+"Edit Executable Path" = "Edit Executable Path";
+"Enter the full path to your installed CLI executable. You can use ~/ for your home folder." = "Enter the full path to your installed CLI executable. You can use ~/ for your home folder.";
+"Enter an absolute path to an executable file." = "Enter an absolute path to an executable file.";
+"AI command not found. Edit the executable path in Settings." = "AI command not found. Edit the executable path in Settings.";
+
+/* Manually requested screenshot completion */
+"Press Tab while composing to send your current input, available input-field text, and a screenshot of the current window to the selected AI provider. This applies to all apps where SI conversion is active. CLI providers may send this data to their online services." = "Press Tab while composing to send your current input, available input-field text, and a screenshot of the current window to the selected AI provider. This applies to all apps where SI conversion is active. CLI providers may send this data to their online services.";
+"Press Tab to request a prediction, then press Tab again or click the AI row to insert the result. Screen Recording permission is required." = "Press Tab to request a prediction, then press Tab again or click the AI row to insert the result. Screen Recording permission is required.";
+"Allow SI in macOS Screen Recording settings to use AI completion." = "Allow SI in macOS Screen Recording settings to use AI completion.";
+"The current input window could not be captured." = "The current input window could not be captured.";
+"The input window changed. Press Tab to request a new prediction." = "The input window changed. Press Tab to request a new prediction.";
+"The window screenshot could not be prepared for AI completion." = "The window screenshot could not be prepared for AI completion.";
+"Screen Recording allows window screenshots for manually requested AI completion. macOS may require restarting SI after authorization." = "Screen Recording allows window screenshots for manually requested AI completion. macOS may require restarting SI after authorization.";
+
+/* Window capture diagnostics */
+"No visible window was found for the input app (IMK level %ld)." = "No visible window was found for the input app (IMK level %ld).";
+"The input window is visible but macOS did not list it as capturable." = "The input window is visible but macOS did not list it as capturable.";
+"Window capture failed (%@, error %ld)." = "Window capture failed (%@, error %ld).";

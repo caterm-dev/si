@@ -30,7 +30,7 @@ These standard-library commands accept the same ordinary export, run locally, pr
 - `candidates.csv`: `input,target,language` observations (`zh`, `en`, `mixed`), retaining spelling/output as observed and preserving repeats.
 - `provenance.json`: source-archive hash, preparation version, retained/excluded counts, CSV hash, unreviewed status and unassigned splits; no invented license or raw-text samples.
 
-Default candidates include explicit and default candidate confirmations. Automatic confirmations, passthrough/delimiter commits, literal commits and unknown-language rows are excluded. Inputs/targets must meet the current CSV reader's nonempty, 4,096-byte and no-control-character constraints. `--include-literal` additionally admits observed ASCII literal/copy tasks as English. This is an explicit preparation choice, not evidence that a literal Pinyin string was correctly converted. The full restored database still contains every valid exported record, including excluded training observations.
+Default candidates include explicit and default candidate confirmations. Automatic confirmations, AI completions, passthrough/delimiter commits, literal commits and unknown-language rows are excluded. Inputs/targets must meet the current CSV reader's nonempty, 4,096-byte and no-control-character constraints. `--include-literal` additionally admits observed ASCII literal/copy tasks as English. This is an explicit preparation choice, not evidence that a literal Pinyin string was correctly converted. The full restored database still contains every valid exported record, including excluded training observations.
 
 ## Training scope and quality
 

@@ -189,6 +189,7 @@
 "Accessibility" = "辅助功能";
 "Allowed" = "已允许";
 "Not allowed" = "未允许";
+"Open Settings…" = "打开设置…";
 "Open Accessibility Settings…" = "打开辅助功能权限设置…";
 "Screen Recording" = "屏幕录制";
 "Open Screen Recording Settings…" = "打开屏幕录制权限设置…";
@@ -241,3 +242,90 @@
 "System Access" = "系统访问权限";
 "Granting Permissions" = "授权方法";
 "Keyboard Shortcuts" = "键盘快捷键";
+
+/* AI completion */
+"AI Completion" = "AI 补全";
+"Enable AI Completion" = "启用 AI 补全";
+"When you pause while typing in an allowed app, SI sends your current input, available input-field text, and a limited Accessibility tree to the selected provider. Codex CLI and Claude Code run on this Mac and may send this context to their online services." = "当你在已允许的应用中暂停打字时，SI 会将当前输入、可读取的输入框文字和有限的辅助功能树发送给所选服务。Codex CLI 和 Claude Code 在本机运行，可能会将这些内容发送到各自的在线服务。";
+"Press Tab or click the AI row to accept a suggestion. Without a suggestion, Tab follows your typing settings." = "按 Tab 或点击 AI 行可接受建议。没有建议时，Tab 按输入设置处理。";
+"Prediction Provider" = "预测服务";
+"Codex CLI" = "Codex CLI";
+"Claude Code" = "Claude Code";
+"OpenAI API" = "OpenAI API";
+"OpenAI API Key" = "OpenAI API 密钥";
+"Save Key" = "保存密钥";
+"Remove Key" = "移除密钥";
+"Key saved in Keychain" = "密钥已保存在钥匙串";
+"No API key saved" = "尚未保存 API 密钥";
+"CLI Executable" = "CLI 可执行文件";
+"Automatic discovery" = "自动查找";
+"Choose Executable…" = "选取可执行文件…";
+"Choose the Installed CLI Executable" = "选取已安装的 CLI 可执行文件";
+"Use Automatic Discovery" = "使用自动查找";
+"AI Context Access" = "AI 上下文访问权限";
+"Only the applications listed here can provide context for AI completion. Add applications you trust with the selected provider." = "只有此处列出的应用可以为 AI 补全提供上下文。请仅添加你愿意与所选服务共享内容的应用。";
+"Choose an Application for AI Completion" = "为 AI 补全选取应用";
+"Remove %@ from AI completion" = "从 AI 补全中移除 %@";
+"Could not update the OpenAI API key in Keychain." = "无法更新钥匙串中的 OpenAI API 密钥。";
+"AI command not found. Choose the installed executable in Settings." = "找不到 AI 命令。请在设置中选取已安装的可执行文件。";
+"Add an OpenAI API key in Settings." = "请在设置中添加 OpenAI API 密钥。";
+"AI completion request failed. Check the provider and its sign-in or API key." = "AI 补全请求失败。请检查所选服务的登录状态或 API 密钥。";
+"The AI provider returned an invalid completion." = "AI 服务返回了无效的补全。";
+"The AI completion request timed out." = "AI 补全请求已超时。";
+"Could not read this app’s Accessibility context." = "无法读取此应用的辅助功能上下文。";
+"AI · Tab   %@" = "AI · Tab   %@";
+"AI completion: %@" = "AI 补全：%@";
+"Press Tab to accept AI completion" = "按 Tab 接受 AI 补全";
+"Accessibility can provide context for opted-in AI completion. macOS may require restarting SI after authorization." = "辅助功能可为已启用的 AI 补全提供上下文。macOS 可能要求在授权后重新启动 SI。";
+
+/* AI Accessibility failures */
+"Allow SI in macOS Accessibility settings, then refresh permission status in SI." = "请在 macOS 辅助功能设置中允许 SI，然后在 SI 中刷新权限状态。";
+"This app could not provide %@ (AX error %ld)." = "此应用无法提供 %@（AX 错误 %ld）。";
+"This app took too long to verify its focused control. Pause typing and try again." = "此应用验证焦点控件超时。请暂停输入后重试。";
+"This app’s focused control exceeds the supported Accessibility depth." = "此应用的焦点控件超过支持的辅助功能层级深度。";
+"AI completion is unavailable in a secure input field." = "安全输入框中无法使用 AI 补全。";
+"The focused control changed while SI was reading Accessibility context. Try again." = "SI 读取辅助功能上下文时焦点控件发生了变化。请重试。";
+"This app returned no readable Accessibility controls." = "此应用未返回可读取的辅助功能控件。";
+
+/* AI completion activity */
+"The current app is not allowed for AI completion." = "当前应用未获准使用 AI 补全。";
+"Waiting for the input app to become active." = "正在等待输入应用激活。";
+"AI completion is unavailable during secure input." = "安全输入期间无法使用 AI 补全。";
+"Enable an input language to use AI completion." = "请启用一种输入语言以使用 AI 补全。";
+"Waiting for ordinary candidates…" = "正在等待普通候选…";
+"Select a complete candidate for AI completion." = "请选择一个完整候选以使用 AI 补全。";
+"Move to the end of the composition for AI completion." = "请将光标移到当前输入末尾以使用 AI 补全。";
+"Waiting for a typing pause…" = "正在等待输入停顿…";
+"Reading app context…" = "正在读取应用上下文…";
+"Requesting AI prediction…" = "正在请求 AI 预测…";
+"The AI returned no continuation." = "AI 未返回续写建议。";
+"AI suggestion ready. Press Tab to accept." = "AI 建议已就绪，按 Tab 接受。";
+"App context changed. The suggestion was discarded." = "应用上下文已变化，建议已丢弃。";
+"Prediction cancelled after an input or focus change." = "输入或焦点变化，预测已取消。";
+"AI completion failed. See the error below." = "AI 补全失败，请查看下方错误。";
+"Last Prediction" = "最近一次预测";
+"No prediction has been attempted yet." = "尚未尝试预测。";
+"AI · %@" = "AI · %@";
+
+/* AI executable path editing */
+"Executable Path" = "可执行文件路径";
+"CLI not found" = "未找到命令行工具";
+"Edit executable path" = "编辑可执行文件路径";
+"Edit Executable Path" = "编辑可执行文件路径";
+"Enter the full path to your installed CLI executable. You can use ~/ for your home folder." = "请输入已安装命令行工具的完整路径，可使用 ~/ 表示主目录。";
+"Enter an absolute path to an executable file." = "请输入指向可执行文件的绝对路径。";
+"AI command not found. Edit the executable path in Settings." = "找不到 AI 命令，请在设置中编辑可执行文件路径。";
+
+/* Manually requested screenshot completion */
+"Press Tab while composing to send your current input, available input-field text, and a screenshot of the current window to the selected AI provider. This applies to all apps where SI conversion is active. CLI providers may send this data to their online services." = "输入过程中按 Tab，可将当前输入、可读取的输入框文字和当前窗口截图发送给所选 AI 服务。所有使用 SI 转换的应用均可使用。CLI 服务也可能将这些数据发送至其在线服务。";
+"Press Tab to request a prediction, then press Tab again or click the AI row to insert the result. Screen Recording permission is required." = "按 Tab 请求预测，结果出来后再次按 Tab 或点击 AI 行即可插入。此功能需要屏幕录制权限。";
+"Allow SI in macOS Screen Recording settings to use AI completion." = "请在 macOS 屏幕录制设置中允许 SI，以使用 AI 补全。";
+"The current input window could not be captured." = "无法截取当前输入窗口。";
+"The input window changed. Press Tab to request a new prediction." = "输入窗口已变化，请按 Tab 重新请求预测。";
+"The window screenshot could not be prepared for AI completion." = "无法为 AI 补全准备窗口截图。";
+"Screen Recording allows window screenshots for manually requested AI completion. macOS may require restarting SI after authorization." = "屏幕录制权限用于手动请求 AI 补全时截取窗口。macOS 可能要求在授权后重新启动 SI。";
+
+/* Window capture diagnostics */
+"No visible window was found for the input app (IMK level %ld)." = "未找到输入应用的可见窗口（IMK 层级 %ld）。";
+"The input window is visible but macOS did not list it as capturable." = "输入窗口可见，但 macOS 未将其列入可捕获窗口列表。";
+"Window capture failed (%@, error %ld)." = "窗口截图失败（%@，错误 %ld）。";

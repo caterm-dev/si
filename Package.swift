@@ -21,6 +21,7 @@ let package = Package(
                 exclude: ["SIInputController.swift"]),
         .target(name: "SISettings", dependencies: ["SICore", "SIStorage", "SILocalization"], path: "mac/SI/Settings",
                 exclude: ["InputHistoryExportButton.swift", "InputHistorySection.swift", "InputHistoryView.swift", "InputHistoryRow.swift",
+                          "AICompletionSettings.swift", "AICompletionSettingsPage.swift",
                           "SettingsView.swift", "SettingsPage.swift", "SettingsSidebar.swift", "SettingsDetail.swift",
                           "SettingsGroup.swift", "SettingsRow.swift", "TypingSettingsPage.swift", "AboutSettingsPage.swift",
                           "UserDictionarySection.swift", "UserDictionaryView.swift",

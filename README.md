@@ -30,12 +30,12 @@ The window uses one 27-choice ordinary shortlist, including the exact original i
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 
-All input processing is local. SI has no analytics, keystroke logging, or cloud dependency for typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate preferences; Input History can retain each submitted spelling/text pair permanently on this Mac. Nothing is uploaded. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
+Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate preferences; Input History can retain each submitted spelling/text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
 Debug and Release use the same ranking. When a verified local KenLM model is
 installed, SI scores Chinese words in the current composition, including
 Chinese segments of mixed candidates. English uses dictionary scoring with its
-own per-word insertion cost. SI reads no surrounding host-field text. The
+own per-word insertion cost. Ranking uses no surrounding host-field text. The
 release DMG and update ZIP include the model inside the app. The dictionary
 supplies results while the model loads. See [production ranking and model packaging](README_kenlm_train.md#production-kenlm-ranking).
 
@@ -45,7 +45,7 @@ The macOS input-source menu for SI includes independent **English** and **Chines
 
 ## SI Settings
 
-Open **SI Settings…** from the input menu. **Typing** opens first, with language and composition controls. Use the sidebar or search for a setting such as “punctuation”, “export” or “screen recording”. **Personal Data** groups Personal Phrases, Personal Learning, Input History and Sentence History into separate pages. Experimental permissions and software updates are under **System**.
+Open **SI Settings…** from the input menu. **Typing** opens first, with language and composition controls. **AI Completion** is a separate page under **Input**. Use the sidebar or search for a setting such as “punctuation”, “export” or “screen recording”. **Personal Data** groups Personal Phrases, Personal Learning, Input History and Sentence History into separate pages. Experimental permissions and software updates are under **System**.
 
 ## Interface language
 
@@ -104,11 +104,21 @@ In a selected app, SI passes key events to the host without composition, candida
 
 Rules use the InputMethodKit client's application identity, not the foreground process. A browser rule applies to every tab and input field; an editor rule includes its embedded terminal. It cannot distinguish an address from a search in a combined address bar. Application-wide rules need no Accessibility or Input Monitoring permission, and SI remains the selected system input source. Native host behavior still requires the [direct-input manual checks](docs/TESTING.md#direct-input-by-application).
 
+## AI completion
+
+Open **SI Settings → AI Completion**. Select **Codex CLI**, **Claude Code**, or **OpenAI API**. Sign in to the installed CLI first or save your OpenAI API key in SI, which stores it in macOS Keychain. The page displays the resolved executable path. Click **Edit** to enter an absolute path, including paths beginning with `~/`, or choose **Use Automatic Discovery** to restore automatic lookup. Automatic discovery checks the SI process PATH first, common installation directories next, and NVM Node versions when needed. Grant Screen Recording in macOS, then enable **AI Completion**. It works in all apps where SI conversion is active. Existing automatic AX consent does not enable the screenshot feature; re-enable it after upgrading.
+
+While composing, press **Tab** to request a prediction. SI sends the exact spelling, a whole candidate, verified IMK field text within 1,024 UTF-16 units on each side when available, and a screenshot of the current input window. After a result appears, press **Tab** again or click the AI row to insert it. Additional Tab presses while a request is running wait for that request. Ordinary typing never requests predictions. Tab outside composition and with AI disabled follows normal routing.
+
+All three backends receive the image as an attachment and retain the 30-second prediction timeout. Edits, candidate selection and app/window changes invalidate suggestions. Settings shows the latest status. See [privacy](docs/PRIVACY.md#ai-completion) and [host verification](docs/TESTING.md#ai-completion).
+
+Codex CLI and Claude Code receive SI's `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` and `NO_PROXY` environment variables, including lowercase forms, plus custom certificate environment variables. For GUI launches without these variables, SI supplies enabled macOS static HTTP, HTTPS and SOCKS proxies as a fallback. Explicit environment values take priority, including empty values. SI does not load shell startup files; a proxy exported only in `.zshrc` is not automatically available to the input method. PAC/WPAD automatic proxy discovery is not evaluated for CLI requests. The OpenAI API backend uses URLSession's system proxy handling. See [CLI environment details](docs/ARCHITECTURE.md#ai-completion).
+
 ## Experimental permissions
 
-**SI Settings → Permissions** shows the current permission status and provides separate **Open Accessibility Settings…** and **Open Screen Recording Settings…** buttons. Each opens its Privacy & Security pane and shows a floating panel. Drag SI from the panel into the system list, then enable the permission. You can also click **+** in the system list, press **Shift-Command-G**, go to `~/Library/Input Methods/` and select the installed `SI.app`. After granting permission, refresh the status in SI Settings. If macOS asks for a restart, restart the installed SI.
+**SI Settings → Permissions** shows the current status for Accessibility and Screen Recording. Click **Open Settings…** on the row for the permission you want to grant. Each button opens its Privacy & Security pane and shows a floating panel. Drag SI from the panel into the system list, then enable the permission. You can also click **+** in the system list, press **Shift-Command-G**, go to `~/Library/Input Methods/` and select the installed `SI.app`. After granting permission, refresh the status in SI Settings. If macOS asks for a restart, restart the installed SI.
 
-These permission entry points are available for future input-control experiments. They do not inspect controls, capture images or automatically select input behavior by field. Granting either permission leaves input behavior, enabled languages, Personal Learning and Input History unchanged. Input Monitoring and global event taps are not used. Native permission dialogs still require [manual verification](docs/TESTING.md#experimental-permissions).
+Screen Recording is used for independently enabled, manually triggered AI completion. Granting system permission by itself leaves ordinary conversion, enabled languages, Personal Learning and Input History unchanged. Accessibility remains an independent experimental permission action. Input Monitoring and global event taps are not used. Native permission dialogs still require [manual verification](docs/TESTING.md#experimental-permissions).
 
 Xcode resolves [PermissionFlow 2.11.4](https://github.com/jaywcjlove/PermissionFlow/releases/tag/v2.11.4) on the first app build. Its MIT license permits redistribution with the [included notice](mac/SI/Resources/PermissionFlow-LICENSE.txt).
 
@@ -182,7 +192,7 @@ corpora, and require no language-model staging or training.
 
 To work in Xcode, open `mac/SI.xcodeproj` and choose the shared **SI** scheme. The Run action passes `--settings` to show the settings window. Core tests are run through Swift Package Manager using `./scripts/test.sh`; they are not an Xcode test target.
 
-The Xcode project defaults to ad hoc signing for local development. No personal signing team is committed to the project. For distribution, configure your own signing identity and team. The command-line build disables code signing; the installation script applies an ad hoc signature to the local copy.
+The Xcode project defaults to ad hoc signing for local development. No personal signing team is committed to the project. For distribution, configure your own signing identity and team. The command-line build disables code signing. Local installation requires a valid Developer ID Application certificate and its private key in Keychain; the installer signs the staged copy with that identity.
 
 ## Install for local development
 
@@ -190,7 +200,15 @@ The Xcode project defaults to ad hoc signing for local development. No personal 
 ./scripts/install.sh
 ```
 
-This builds the optimized **Release** app, stages and verifies an ad hoc signed copy, and installs it in `~/Library/Input Methods/SI.app`. Use `./scripts/install.sh Debug` only when debugging an installed input method; Debug disables compiler optimization and is not representative of typing performance. The installer then asks macOS to register the bundle and verifies exactly one selectable SI keyboard input source. It does not enable or select SI and never requires `sudo`. Stop any Xcode run first; if the installed SI process is running, select another input source and log out before replacing it.
+This builds the optimized **Release** app, stages and verifies a Developer ID Application signed copy, and replaces `~/Library/Input Methods/SI.app` without retaining an app backup. The previous bundle is held only in temporary staging for rollback if replacement fails, then removed on success. Use `./scripts/install.sh Debug` only when debugging an installed input method; Debug disables compiler optimization and is not representative of typing performance. The installer then asks macOS to register the bundle and verifies exactly one selectable SI keyboard input source. It does not enable or select SI and never requires `sudo`. Stop any Xcode run first; if the installed SI process is running, select another input source and log out before replacing it.
+
+The installer automatically selects a unique valid Developer ID Application identity from Keychain. If multiple identities are available, set `SI_SIGN_IDENTITY` to the same certificate name used for release (or its exact SHA-1 fingerprint):
+
+```sh
+SI_SIGN_IDENTITY='Developer ID Application: Your Name (TEAMID1234)' ./scripts/install.sh
+```
+
+Missing, invalid or ambiguous identities stop installation before building or replacing the app; there is no ad hoc fallback. The same setting applies to `reinstall.sh`. Local installation does not require an Installer certificate, notarization or a timestamp-server request. Keep the signing identity and bundle identifier consistent between local and release installs. Switching from an ad hoc or Apple Development build can require granting Accessibility/Screen Recording again; actual grant retention across updates requires a manual check.
 
 To automatically stop SI and reinstall during development, run:
 
@@ -199,7 +217,7 @@ To automatically stop SI and reinstall during development, run:
 ./scripts/reinstall.sh Debug
 ```
 
-This stops processes named exactly `SI` owned by the current user, waits up to five seconds, and uses SIGKILL if necessary before calling the existing installer. Pending composition or unsaved learning may be lost. The installer's running-process checks, signing, backup, rollback, and registration remain in effect. Select another input source and stop any Xcode run first to avoid SI restarting during the build; if it restarts, installation aborts rather than replacing a running app. The script does not change enabled or selected input sources or force logout.
+This stops processes named exactly `SI` owned by the current user, waits up to five seconds, and uses SIGKILL if necessary before calling the existing installer. Pending composition or unsaved learning may be lost. The installer's running-process checks, signing, temporary rollback, and registration remain in effect. Select another input source and stop any Xcode run first to avoid SI restarting during the build; if it restarts, installation aborts rather than replacing a running app. The script does not change enabled or selected input sources or force logout.
 
 1. After the installer reports `Verified: one selectable SI keyboard input source`, open Keyboard settings. If already open, close and reopen System Settings. Log out and back in only if SI remains missing.
 2. Open **System Settings → Keyboard → Text Input → Edit → +**.
@@ -223,9 +241,9 @@ If installation or discovery fails, retain the installer output and query only S
 xcrun swift scripts/register-input-source.swift --check "$HOME/Library/Input Methods/SI.app"
 ```
 
-The corrected bundle/input-source identifier is `com.caterm.inputmethod.si`. The installer can replace the earlier `com.caterm.si` preview and keeps its backup. Language, punctuation, and learning-consent settings continue using the original `com.caterm.si` preferences domain; personal phrases and learning archives keep their existing locations. If an earlier SI source was manually added, remove its stale entry in Keyboard settings and add the corrected SI source.
+The corrected bundle/input-source identifier is `com.caterm.inputmethod.si`. The installer can replace the earlier `com.caterm.si` preview without retaining an app backup. Language, punctuation, and learning-consent settings continue using the original `com.caterm.si` preferences domain; personal phrases and learning archives keep their existing locations. If an earlier SI source was manually added, remove its stale entry in Keyboard settings and add the corrected SI source.
 
-To uninstall, select another input source, remove SI in Keyboard settings, then move `~/Library/Input Methods/SI.app` to Trash and log out. Installer backups, when present, are stored in `~/Library/Application Support/SI/Backups/` until you remove them.
+To uninstall, select another input source, remove SI in Keyboard settings, then move `~/Library/Input Methods/SI.app` to Trash and log out. Older installer backups, if present in `~/Library/Application Support/SI/Backups/`, can be deleted manually; new installations do not create them.
 
 ## Check for updates
 
@@ -243,7 +261,7 @@ Versions without the updater need one manual installation of an updater-enabled 
 ./scripts/release.sh --no-bump       # Publish/retry the current version without incrementing
 ```
 
-Publication uses Caterm's public R2 bucket and download domain under the separate `si/` prefix. It selects a unique Developer ID Application identity valid under macOS's code-signing policy, then requires a valid Installer identity from that team. It never switches to another team to obtain a complete pair. The defaults are Caterm's `caterm-notary` notarization profile and `caterm-r2` AWS profile. The notarization profile must belong to the selected signing team; flags/environment override the defaults, and ambiguous or missing identities stop publication. A clean committed checkout is required. Open `Install SI.pkg` inside the DMG to install in `~/Library/Input Methods`; the native macOS Installer ends with **Log Out** to finish registration. Save your work, click the button and log back in; a full Mac restart is not required by this installer. Existing apps are backed up and a running SI blocks replacement. See [release configuration, artifacts and retry behavior](docs/RELEASING.md). Adding these scripts does not mean a public release has been published or host compatibility has been verified.
+Publication uses Caterm's public R2 bucket and download domain under the separate `si/` prefix. It selects a unique Developer ID Application identity valid under macOS's code-signing policy, then requires a valid Installer identity from that team. It never switches to another team to obtain a complete pair. The defaults are Caterm's `caterm-notary` notarization profile and `caterm-r2` AWS profile. The notarization profile must belong to the selected signing team; flags/environment override the defaults, and ambiguous or missing identities stop publication. A clean committed checkout is required. Open `Install SI.pkg` inside the DMG to install in `~/Library/Input Methods`; the native macOS Installer ends with **Log Out** to finish registration. Save your work, click the button and log back in; a full Mac restart is not required by this installer. Existing apps are replaced without retaining an app backup, and a running SI blocks replacement. See [release configuration, artifacts and retry behavior](docs/RELEASING.md). Adding these scripts does not mean a public release has been published or host compatibility has been verified.
 
 Each new release increments the last version component (`0.1.0` → `0.1.1`) and internal build number, then commits only the Xcode version file before building. Preflight failures leave versions unchanged; retries of a pending release at the same commit/architecture reuse its version. `--dry-run` prints the planned increment without changing files or Git history. See the release guide for `--no-bump`, retry state and multiple architectures.
 

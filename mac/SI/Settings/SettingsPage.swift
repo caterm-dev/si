@@ -2,6 +2,7 @@ import Foundation
 
 enum SettingsPage: Hashable {
     case typing
+    case aiCompletion
     case directInput
     case phrases
     case learning
@@ -11,7 +12,7 @@ enum SettingsPage: Hashable {
     case about
 
     static let groups: [(title: String, pages: [Self])] = [
-        ("Input", [.typing, .directInput]),
+        ("Input", [.typing, .aiCompletion, .directInput]),
         ("Personal Data", [.phrases, .learning, .inputHistory, .sentenceHistory]),
         ("System", [.permissions, .about])
     ]
@@ -19,6 +20,7 @@ enum SettingsPage: Hashable {
     var title: String {
         switch self {
         case .typing: "Typing"
+        case .aiCompletion: "AI Completion"
         case .directInput: "Direct Input by Application"
         case .phrases: "Personal Phrases"
         case .learning: "Personal Learning"
@@ -40,6 +42,7 @@ enum SettingsPage: Hashable {
     var icon: String {
         switch self {
         case .typing: "keyboard"
+        case .aiCompletion: "sparkles.rectangle.stack"
         case .directInput: "macwindow"
         case .phrases: "text.badge.plus"
         case .learning: "sparkles"
@@ -62,6 +65,7 @@ enum SettingsPage: Hashable {
         case .typing:
             ["Languages", "English", "Chinese (Simplified)", "Automatically confirm stable prefixes",
              "Show punctuation candidates", "Punctuation during composition"] + PunctuationBehavior.allCases.map(\.displayName)
+        case .aiCompletion: ["Enable AI Completion", "Codex CLI", "Claude Code", "OpenAI API Key", "Accessibility"]
         case .directInput: ["Manage Direct Input…", "Applications", "Terminal"]
         case .phrases: ["Manage Personal Phrases…", "Import…", "Export…"]
         case .learning: ["Manage Learning Data…", "Clear All Learning Data…"]

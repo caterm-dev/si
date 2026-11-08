@@ -60,5 +60,5 @@ if si_is_running; then
     fi
 fi
 
-# Keep the installer's process checks, signing, backup, rollback and registration.
+# Keep the installer's process checks, signing, temporary rollback and registration.
 exec "$repo_root/scripts/install.sh" "$configuration"

@@ -343,7 +343,7 @@ def install_readme(root, contents):
         "SI development preview — macOS 14 or later\n\n"
         "1. Save your work, select another input source, and finish any composition.\n"
         "2. Open Install SI.pkg and follow the macOS Installer. It installs SI\n"
-        "   in ~/Library/Input Methods and backs up an existing SI app. If SI is\n"
+        "   in ~/Library/Input Methods, replacing the previous app without a backup. If SI is\n"
         "   running, log out and back in with another source selected, then retry.\n"
         "3. At the end, click Log Out, then log back in to finish registration.\n"
         "   This ends your login session; it does not restart your Mac.\n"
@@ -353,7 +353,7 @@ def install_readme(root, contents):
         "This preview still requires host-app compatibility verification.\n"
         "To uninstall, select another source, remove SI in Keyboard settings, move\n"
         "~/Library/Input Methods/SI.app to Trash, then log out and back in.\n\n"
-        "Source, vocabulary notices and local install/backup tooling:\n"
+        "Source, vocabulary notices and local installation tooling:\n"
         "https://github.com/caterm-dev/si\n"
         "Published releases include corresponding source as SI-<version>-source.tar.gz.\n"
         "SI is licensed under GPLv3; see LICENSE.txt.\n", encoding="utf-8")

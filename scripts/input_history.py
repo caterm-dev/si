@@ -15,7 +15,7 @@ import unicodedata
 import uuid
 
 MAX_LINE_BYTES = 64 * 1024 * 1024 + 1  # Includes the terminating LF.
-REASONS = {"explicitSelection", "defaultAcceptance", "automaticConfirmation", "literal", "focusChange", "passthrough"}
+REASONS = {"explicitSelection", "defaultAcceptance", "automaticConfirmation", "aiCompletion", "literal", "focusChange", "passthrough"}
 SCHEMA = """CREATE TABLE input_history (
 sequence INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE,
 created_at REAL NOT NULL, input TEXT NOT NULL, output TEXT NOT NULL,

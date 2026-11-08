@@ -9,4 +9,4 @@ After logging back in:
 
 For upgrades, your settings, saved phrases and learning preferences are retained. If an older SI source is stale, remove it in Keyboard settings and add SI again.
 
-Previous app backups are kept in ~/Library/Application Support/SI/Backups until you remove them. Selecting languages does not enable personal learning.
+Upgrades replace the previous app without keeping an app backup. Selecting languages does not enable personal learning.

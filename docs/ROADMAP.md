@@ -55,7 +55,8 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] Real-host verification of punctuation, numbers, URLs, identifiers, and code entry.
 - [x] Opt-in direct key passthrough by client application, with searchable application discovery and persistent app rules.
 - [x] Separate explicit Accessibility/Screen Recording permission actions for future experiments, without changing input behavior.
-- [ ] Redesign AI features; native model ranking and input-field context reads are removed.
+- [x] Add manually requested AI completion with bounded IMK field text, a current-window screenshot, a separate candidate row and a second Tab for acceptance.
+- [ ] Verify AI completion with the three live backends, native hosts, and VoiceOver.
 - [ ] Native experimental permission dialogs/revocation and Settings keyboard/VoiceOver verification.
 - [ ] Unified input-control recognition and automatic input behavior; permission authorization currently inspects no controls and captures no images.
 - [ ] Native direct-input switching, pending-composition, shortcut and app-memory verification.

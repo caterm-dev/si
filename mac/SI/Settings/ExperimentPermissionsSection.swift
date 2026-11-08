@@ -9,14 +9,16 @@ struct ExperimentPermissionsSection: View {
                 title: Text("Accessibility"),
                 detail: Text(L10n.text(permissions.accessibilityGranted ? "Allowed" : "Not allowed"))
             ) {
-                Button("Open Accessibility Settings…", action: permissions.openAccessibilitySettings)
+                Button("Open Settings…", action: permissions.openAccessibilitySettings)
+                    .accessibilityLabel("Open Accessibility Settings…")
             }
             Divider()
             SettingsRow(
                 title: Text("Screen Recording"),
                 detail: Text(L10n.text(permissions.screenRecordingGranted ? "Allowed" : "Not allowed"))
             ) {
-                Button("Open Screen Recording Settings…", action: permissions.openScreenRecordingSettings)
+                Button("Open Settings…", action: permissions.openScreenRecordingSettings)
+                    .accessibilityLabel("Open Screen Recording Settings…")
             }
             Divider()
             Button("Refresh Permission Status") { permissions.refresh() }
@@ -24,7 +26,7 @@ struct ExperimentPermissionsSection: View {
         SettingsGroup("Granting Permissions") {
             VStack(alignment: .leading, spacing: 12) {
                 Text("To grant either experimental permission, drag SI from the floating panel into the list in System Settings.")
-                Text("These permissions are for future experiments. macOS may require restarting SI after authorization.")
+                Text("Screen Recording allows window screenshots for manually requested AI completion. macOS may require restarting SI after authorization.")
             }
             .font(.callout)
             .foregroundStyle(.secondary)

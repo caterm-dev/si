@@ -13,6 +13,8 @@ struct SettingsDetail: View {
         switch page {
         case .typing:
             TypingSettingsPage(settings: settings)
+        case .aiCompletion:
+            AICompletionSettingsPage()
         case .directInput:
             ApplicationPassthroughSection(settings: settings)
         case .phrases:

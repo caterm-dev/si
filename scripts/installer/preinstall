@@ -30,11 +30,6 @@ if [[ -e "$destination" ]]; then
         printf 'Refusing to replace an app with a different bundle identifier.\n' >&2
         exit 1
     fi
-    backup_root="$HOME/Library/Application Support/SI/Backups"
-    mkdir -p "$backup_root"
-    backup="$(mktemp -d "$backup_root/Installer.XXXXXX")"
-    /usr/bin/ditto "$destination" "$backup/SI.app"
-    printf 'Previous installation saved at: %s/SI.app\n' "$backup"
 fi
-# A process that restarted while the backup was copied must also stop installation.
+# A process that restarted during preflight must also stop installation.
 ensure_si_stopped

@@ -27,6 +27,39 @@ ensure_si_stopped() {
     esac
 }
 ensure_si_stopped
+# Use the same kind of stable app identity as release packaging. Never fall back
+# to ad hoc signing: its code-hash identity loses privacy grants after rebuilds.
+requested_identity="${SI_SIGN_IDENTITY:-}"
+if ! identities="$(security find-identity -v -p codesigning)"; then
+    printf 'Cannot inspect Keychain signing identities. Installation stopped.\n' >&2
+    exit 1
+fi
+identity_pattern='^[[:space:]]*[0-9]+\)[[:space:]]+([[:xdigit:]]{40})[[:space:]]+"(Developer ID Application: [^"]+ \([A-Z0-9]{10}\))"'
+identity_hashes=()
+identity_names=()
+while IFS= read -r line; do
+    if [[ "$line" =~ $identity_pattern ]]; then
+        hash="${BASH_REMATCH[1]}"
+        name="${BASH_REMATCH[2]}"
+        if [[ -z "$requested_identity" || "$requested_identity" == "$name" || "$requested_identity" == "$hash" ]]; then
+            identity_hashes+=("$hash")
+            identity_names+=("$name")
+        fi
+    fi
+done <<< "$identities"
+if [[ ${#identity_hashes[@]} -eq 0 ]]; then
+    printf 'No matching valid Developer ID Application identity. Install its certificate and private key, or check SI_SIGN_IDENTITY.\n' >&2
+    exit 1
+fi
+if [[ ${#identity_hashes[@]} -ne 1 ]]; then
+    printf 'Multiple valid Developer ID Application identities. Set SI_SIGN_IDENTITY to a certificate name or SHA-1 fingerprint:\n' >&2
+    for ((index = 0; index < ${#identity_hashes[@]}; index++)); do
+        printf '  %s  %s\n' "${identity_hashes[index]}" "${identity_names[index]}" >&2
+    done
+    exit 1
+fi
+signing_identity="${identity_hashes[0]}"
+printf 'Application signing: %s\n' "${identity_names[0]}"
 "$repo_root/scripts/build.sh" "$configuration"
 source_app="$repo_root/.build/xcode/Build/Products/$configuration/SI.app"
 mkdir -p "$(dirname "$destination")"
@@ -36,17 +69,17 @@ trap 'rm -rf "$staging"' EXIT
 # Xcode may emit a separate Debug dylib. Sign nested code before the app bundle.
 for library in "$staging/SI.app/Contents/MacOS/"*.dylib; do
     if [[ -f "$library" ]]; then
-        /usr/bin/codesign --force --sign - "$library"
+        /usr/bin/codesign --force --sign "$signing_identity" --timestamp=none "$library"
     fi
 done
-# Re-sign Sparkle from the inside out for an entirely local ad hoc installation.
+# Re-sign Sparkle from the inside out with the selected app identity.
 sparkle="$staging/SI.app/Contents/Frameworks/Sparkle.framework"
 for component in "$sparkle/Versions/B/XPCServices/Installer.xpc" \
     "$sparkle/Versions/B/XPCServices/Downloader.xpc" "$sparkle/Versions/B/Autoupdate" \
     "$sparkle/Versions/B/Updater.app" "$sparkle"; do
-    /usr/bin/codesign --force --sign - --preserve-metadata=entitlements "$component"
+    /usr/bin/codesign --force --sign "$signing_identity" --timestamp=none --preserve-metadata=entitlements "$component"
 done
-/usr/bin/codesign --force --sign - "$staging/SI.app"
+/usr/bin/codesign --force --sign "$signing_identity" --timestamp=none "$staging/SI.app"
 /usr/bin/codesign --verify --deep --strict "$staging/SI.app"
 ensure_si_stopped
 if [[ -e "$destination" ]]; then
@@ -55,19 +88,17 @@ if [[ -e "$destination" ]]; then
         printf 'Refusing to replace an app with a different bundle identifier: %s\n' "$destination" >&2
         exit 1
     fi
-    backup_root="$HOME/Library/Application Support/SI/Backups"
-    mkdir -p "$backup_root"
-    backup="$backup_root/SI.$(date +%Y%m%d%H%M%S).app"
-    if [[ -e "$backup" ]]; then
-        printf 'Backup already exists: %s\n' "$backup" >&2
-        exit 1
-    fi
-    mv "$destination" "$backup"
+    # Keep the old bundle only until replacement succeeds; the staging trap removes it.
+    previous="$staging/Previous.app"
+    mv "$destination" "$previous"
     if ! mv "$staging/SI.app" "$destination"; then
-        mv "$backup" "$destination"
+        if ! mv "$previous" "$destination"; then
+            # Preserve the only remaining installed copy if rollback also fails.
+            trap - EXIT
+            printf 'Replacement and rollback failed. Recover the previous app from: %s\n' "$previous" >&2
+        fi
         exit 1
     fi
-    printf 'Previous installation saved at: %s\n' "$backup"
 else
     mv "$staging/SI.app" "$destination"
 fi

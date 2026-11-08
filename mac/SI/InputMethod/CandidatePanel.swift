@@ -9,9 +9,13 @@ final class CandidatePanel: NSPanel {
     // client-local. IMK may create several controllers without paired deactivation.
     private static weak var presentationOwner: CandidatePanel?
     var ownsPresentation: Bool { Self.presentationOwner === self }
+    var onLosePresentation: (() -> Void)?
 
     func claimPresentation() {
-        if let previous = Self.presentationOwner, previous !== self { previous.orderOut(nil) }
+        if let previous = Self.presentationOwner, previous !== self {
+            previous.orderOut(nil)
+            previous.onLosePresentation?()
+        }
         Self.presentationOwner = self
     }
 
@@ -38,12 +42,12 @@ final class CandidatePanel: NSPanel {
     }
 
     func show(selection: CandidateSelection, caret: NSRect, clientLevel: Int, screens: [CandidatePlacement.Screen],
-              isPending: Bool = false, refreshPendingRows: Bool = false) {
+              isPending: Bool = false, refreshPendingRows: Bool = false, prediction: String? = nil, predictionStatus: String? = nil) {
         guard ownsPresentation else { return }
         guard !selection.candidates.isEmpty else { orderOut(nil); return }
         // A hidden panel belongs to a finished composition; never retain its old rows.
         if !isVisible && isPending { list.render(selection) }
-        list.render(selection, isPending: isPending, refreshPendingRows: refreshPendingRows)
+        list.render(selection, isPending: isPending, refreshPendingRows: refreshPendingRows, prediction: prediction, predictionStatus: predictionStatus)
         let width = CandidatePlacement.screen(for: caret, screens: screens)?.visibleFrame.width ?? list.preferredSize.width
         let size = list.preferredSize(constrainedTo: max(1, width - 8))
         guard let frame = CandidatePlacement.frame(preferredSize: size, anchor: caret, screens: screens) else {
