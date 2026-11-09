@@ -87,7 +87,7 @@ def provenance(out):
                                  'corpus/chinese/generated/kenlm-words-v2/manifest.json',
                                  'corpus/chinese/kenlm-words-v2.snapshot.json',
                                  'corpus/prepare_raw_text.py', 'corpus/prepare_kenlm_raw.py', 'corpus/tokenize_unigram.py',
-                                 'corpus/prepare.py', 'corpus/clean/chinese.py'],
+                                 'corpus/readers.py', 'corpus/clean/chinese.py'],
               'new_deduplication_or_splitting': False}
     result['recorded_tokenizer_identities']=[{'source':s['id'],**s['identity']} for s in upstream['sources']]
     result['evidence_code_sha256']={path:previous.digest(ROOT/path) for path in result['evidence_files'] if path.endswith('.py')}
@@ -383,7 +383,7 @@ def report(out):
            '### Corpus lineage and full-data mapping','',
            f"The original train.txt comes from **{p['pipeline']}**, then the existing first-occurrence deduplication and seeded block split in kenlm-selection-v1. It **did not** undergo the old non-Han-boundary splitting / 4–96-character Han-fragment filtering. The split manifest points to upstream input SHA-256 `{p['upstream_combined_sha256']}`; the v2 manifest matches the retained snapshot at SHA-256 `{p['upstream_manifest_sha256']}`. Its scope explicitly says: `{p['scope_evidence']}`.", '',
            'Code evidence: corpus/prepare_raw_text.py extracts complete raw lines and bypasses the old Han-only cutter; corpus/prepare_kenlm_raw.py uses the shared unigram tokenizer. The v2 tokenizer retains numbers/English/punctuation, uses NFKC and 。！？.!? sentence boundaries and drops >100-token sentences. The existing split already removed exact duplicates; this final run performs no new deduplication or split.', '',
-           'Specifically, the old cutter is corpus/clean/chinese.py::segments(minimum=4, maximum=96), called by corpus/prepare.py::prepare_source. The v2 extraction instead calls corpus/prepare_raw_text.py::extract/raw_documents, which writes raw text lines without invoking segments. Its mC4/LCCC branches bypass the old prepared-text path. Evidence code hashes and per-source tokenizer identities are retained in corpus-provenance.json.', '',
+           'Specifically, the old cutter is corpus/clean/chinese.py::segments(minimum=4, maximum=96), used by the retired fragment-preparation command (now removed). The v2 extraction instead calls corpus/prepare_raw_text.py::extract/raw_documents, which writes raw text lines without invoking segments. Its mC4/LCCC branches bypass the old prepared-text path. Evidence code hashes and per-source tokenizer identities are retained in corpus-provenance.json.', '',
            'The no-4–96 statement concerns the actual training text rows. Tokenizer dictionary weights reuse the earlier HanLP frequency reference (SHA-256 '+p['tokenizer_frequency_reference']['sha256']+'); that lexical frequency table is not the earlier cleaned training-text bundle and does not cut these raw-derived text rows.', '',
            '| Original source | SHA-256 |','| --- | --- |']
     for name,state in json.loads((out/'input-pin.json').read_text()).items():lines.append(f"| {name}.txt | `{state['sha256']}` |")

@@ -23,11 +23,6 @@ struct InputHistorySection: View {
                     .font(.callout).foregroundStyle(.secondary)
             }
         }
-        if history.savesSentences {
-            SettingsGroup("Allowed Applications") {
-                SentenceHistoryApplications(history: history)
-            }
-        }
         SettingsGroup("Saved Data") {
             HStack {
                 Button(L10n.text(history.savesSentences ? "View Saved Sentences…" : "View Input History…")) { showsHistory = true }
@@ -63,7 +58,7 @@ struct InputHistorySection: View {
 
     private var recordingDescription: Text {
         if history.savesSentences {
-            Text("In apps you add below, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input.")
+            Text("In all apps where SI conversion is active, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input.")
         } else {
             Text("Saves each SI submission with its original spelling, submitted text and time. Repeated submissions are separate records. History stays on this Mac until you delete it, without automatic expiry or a record-count limit.")
         }

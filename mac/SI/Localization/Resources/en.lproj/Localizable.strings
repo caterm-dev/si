@@ -198,7 +198,6 @@
 "To grant either experimental permission, drag SI from the floating panel into the list in System Settings." = "To grant either experimental permission, drag SI from the floating panel into the list in System Settings.";
 
 "These permissions are for future experiments. macOS may require restarting SI after authorization." = "These permissions are for future experiments. macOS may require restarting SI after authorization.";
-"Choose an Application for Sentence Capture" = "Choose an Application for Sentence Capture";
 "Clear Saved Sentences" = "Clear Saved Sentences";
 "Clear Saved Sentences…" = "Clear Saved Sentences…";
 "Clear all saved sentences?" = "Clear all saved sentences?";
@@ -207,11 +206,10 @@
 "Export Saved Sentences" = "Export Saved Sentences";
 "Export Saved Sentences…" = "Export Saved Sentences…";
 "Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies." = "Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies.";
-"In apps you add below, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input." = "In apps you add below, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input.";
+"In all apps where SI conversion is active, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input." = "In all apps where SI conversion is active, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input.";
 "No Saved Sentences" = "No Saved Sentences";
 "Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted." = "Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted.";
 "Permanently deletes saved and pending sentences. Individual SI submissions are kept." = "Permanently deletes saved and pending sentences. Individual SI submissions are kept.";
-"Remove %@ from sentence capture" = "Remove %@ from sentence capture";
 "Remove Application" = "Remove Application";
 "Save Complete Sentences" = "Save Complete Sentences";
 "Search saved sentences" = "Search saved sentences";
@@ -238,7 +236,6 @@
 "Saved Data" = "Saved Data";
 "Legacy Data" = "Legacy Data";
 "Recording" = "Recording";
-"Allowed Applications" = "Allowed Applications";
 "System Access" = "System Access";
 "Granting Permissions" = "Granting Permissions";
 "Keyboard Shortcuts" = "Keyboard Shortcuts";
@@ -329,3 +326,11 @@
 "No visible window was found for the input app (IMK level %ld)." = "No visible window was found for the input app (IMK level %ld).";
 "The input window is visible but macOS did not list it as capturable." = "The input window is visible but macOS did not list it as capturable.";
 "Window capture failed (%@, error %ld)." = "Window capture failed (%@, error %ld).";
+
+// Direct input shortcut
+"Toggle Direct Input Shortcut" = "Toggle Direct Input Shortcut";
+"Record Shortcut…" = "Record Shortcut…";
+"Reset Shortcut" = "Reset Shortcut";
+"While SI is selected, toggle direct input for the current app. The rule is saved for the entire app." = "While SI is selected, toggle direct input for the current app. The rule is saved for the entire app.";
+"Record Direct Input Shortcut" = "Record Direct Input Shortcut";
+"Press a letter, number or punctuation key with Control, Option or Command. Escape cancels." = "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels.";

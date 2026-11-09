@@ -198,7 +198,6 @@
 "To grant either experimental permission, drag SI from the floating panel into the list in System Settings." = "要授予实验权限，请将浮动面板中的 SI 拖入「系统设置」的权限列表。";
 
 "These permissions are for future experiments. macOS may require restarting SI after authorization." = "这些权限供后续实验使用。授权后，macOS 可能要求重新启动 SI。";
-"Choose an Application for Sentence Capture" = "选择允许保存整句的 App";
 "Clear Saved Sentences" = "清空已保存整句";
 "Clear Saved Sentences…" = "清空已保存整句…";
 "Clear all saved sentences?" = "清空所有已保存的整句？";
@@ -207,11 +206,10 @@
 "Export Saved Sentences" = "导出已保存整句";
 "Export Saved Sentences…" = "导出已保存整句…";
 "Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies." = "将所有已保存的整句和时间导出到一个 JSONL 文件。文件可能包含私人文字，SI 不会上传或发送。删除本机记录不会删除已导出的副本。";
-"In apps you add below, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input." = "在下方添加的 App 中，通过 SI 提交文字后，将光标放在末尾并按回车，即可保存受支持的单行输入全文。记录可能包含编辑后的文字、粘贴内容和原有文字。";
+"In all apps where SI conversion is active, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input." = "在所有启用 SI 转换的 App 中，通过 SI 提交文字后，将光标放在末尾并按回车，即可保存受支持的单行输入全文。记录可能包含编辑后的文字、粘贴内容和原有文字。";
 "No Saved Sentences" = "没有已保存的整句";
 "Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted." = "默认关闭。整句记录单独保存在本机，直到你删除。安全输入和直输 App 不会记录。保存的内容未加密。";
 "Permanently deletes saved and pending sentences. Individual SI submissions are kept." = "永久删除已保存和待写入的整句记录。SI 的逐次提交记录会保留。";
-"Remove %@ from sentence capture" = "移除 %@ 的整句保存权限";
 "Remove Application" = "移除应用";
 "Save Complete Sentences" = "保存整句";
 "Search saved sentences" = "搜索已保存整句";
@@ -238,7 +236,6 @@
 "Saved Data" = "已存数据";
 "Legacy Data" = "旧版数据";
 "Recording" = "记录";
-"Allowed Applications" = "允许记录的应用";
 "System Access" = "系统访问权限";
 "Granting Permissions" = "授权方法";
 "Keyboard Shortcuts" = "键盘快捷键";
@@ -329,3 +326,11 @@
 "No visible window was found for the input app (IMK level %ld)." = "未找到输入应用的可见窗口（IMK 层级 %ld）。";
 "The input window is visible but macOS did not list it as capturable." = "输入窗口可见，但 macOS 未将其列入可捕获窗口列表。";
 "Window capture failed (%@, error %ld)." = "窗口截图失败（%@，错误 %ld）。";
+
+// Direct input shortcut
+"Toggle Direct Input Shortcut" = "切换直接输入快捷键";
+"Record Shortcut…" = "录制快捷键…";
+"Reset Shortcut" = "重置快捷键";
+"While SI is selected, toggle direct input for the current app. The rule is saved for the entire app." = "选用 SI 时，切换当前应用的直接输入状态。规则会保存并应用于整个应用。";
+"Record Direct Input Shortcut" = "录制直接输入快捷键";
+"Press a letter, number or punctuation key with Control, Option or Command. Escape cancels." = "按住 Control、Option 或 Command，再按字母、数字或标点键。按 Escape 取消。";

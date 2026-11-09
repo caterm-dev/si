@@ -8,7 +8,7 @@ struct ChineseDecoder: Sendable {
     private static let beam = 32
     private static let spanLimit = 32
     private static let maximumWordSyllables = 7
-    private static let finalPaths = 6
+    private static let finalPaths = 32
     private static let bitsPerNat = 1 / log(2.0)
     private let lexicon: ChineseLexicon
 

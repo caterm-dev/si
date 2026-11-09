@@ -390,7 +390,7 @@ def package(args, root, version, output):
     update = output / f"SI-{version}-{args.arch}-update.zip"
     if destination.exists() or destination.with_suffix(".dmg.sha256").exists() or update.exists():
         raise ValueError(f"Output already exists: {destination}; use another --output-dir")
-    model_root = root / ".build/kenlm-final"
+    model_root = root / ".build/kenlm-raw-text-v2-no-wikipedia-p0012/final"
     for filename in ("final.bin", "final.meta.json"):
         if not args.dry_run and not (model_root / filename).is_file():
             raise ValueError(f"Release requires the full-data KenLM model: missing {model_root / filename}")

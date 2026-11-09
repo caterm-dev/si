@@ -172,7 +172,8 @@ public final class KenLMModel: @unchecked Sendable {
               isSHA256(record.model.binary_sha256),
               expectedSHA == nil || record.model.binary_sha256 == expectedSHA,
               record.model.binary_bytes == file.st_size,
-              record.model.order == 4, record.model.a == 22, record.model.prune == [0, 1, 2, 3],
+              record.model.order == 4, record.model.a == 22,
+              (record.model.prune == [0, 0, 1, 2] || record.model.prune == [0, 1, 2, 3]),
               record.model.probability_bits == 8, record.model.backoff_bits == 8
         else { return nil }
         return KenLMModel(url: model, sha256: record.model.binary_sha256)

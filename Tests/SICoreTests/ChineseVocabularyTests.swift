@@ -175,7 +175,7 @@ struct ChineseVocabularyTests {
         #expect(greeting.hasCompletion && greeting.rankingScore.isFinite)
         #expect(values.contains { !$0.hasCompletion })
         #expect(values.filter { $0.hasCompletion }.count <= 12)
-        #expect(values.filter { !$0.hasCompletion }.count <= 12)
+        #expect(values.filter { !$0.hasCompletion }.count <= 32)
     }
 
     @Test func largeTerminalBatchesMatchAnIndependentExhaustiveRanking() {
@@ -193,12 +193,12 @@ struct ChineseVocabularyTests {
         }
         let exhaustive = combinations.sorted {
             $0.cost == $1.cost ? $0.text < $1.text : $0.cost < $1.cost
-        }.prefix(6)
+        }.prefix(32)
         for order in [entries, Array(entries.reversed())] {
             let result = PinyinDecoder(entries: order).candidates(for: "aa")
             // The heap may choose different equally scored paths when source order
             // changes; every retained result must still have an exhaustive top cost.
-            #expect(result.count == 6 && Set(result.map(\.id)).count == 6)
+            #expect(result.count == 32 && Set(result.map(\.id)).count == 32)
             #expect(result.allSatisfy { candidate in combinations.contains { $0.text == candidate.text } })
             for (candidate, path) in zip(result, exhaustive) { #expect(abs(candidate.rankingScore + path.cost) < 1e-10) }
         }

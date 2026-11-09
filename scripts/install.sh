@@ -66,6 +66,8 @@ mkdir -p "$(dirname "$destination")"
 staging="$(mktemp -d "$(dirname "$destination")/.si-install.XXXXXX")"
 trap 'rm -rf "$staging"' EXIT
 /usr/bin/ditto "$source_app" "$staging/SI.app"
+python3 "$repo_root/scripts/install_kenlm_model.py" \
+    --bundle-resources "$staging/SI.app/Contents/Resources"
 # Xcode may emit a separate Debug dylib. Sign nested code before the app bundle.
 for library in "$staging/SI.app/Contents/MacOS/"*.dylib; do
     if [[ -f "$library" ]]; then

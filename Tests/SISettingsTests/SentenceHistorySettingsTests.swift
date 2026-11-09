@@ -6,6 +6,43 @@ import SIStorage
 
 @MainActor
 struct SentenceHistorySettingsTests {
+    @Test func enabledSentencesCoverAllAppsAndRemoveRetiredAllowlist() async throws {
+        let suite = "si-sentence-apps-tests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        let directory = FileManager.default.temporaryDirectory.appending(path: suite)
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: directory)
+        }
+        defaults.set(["org.example.old"], forKey: "sentenceHistory.applications")
+        let store = InputHistoryStore(url: directory.appending(path: "sentences.sqlite3"), kind: .sentences)
+        let history = InputHistorySettings(defaults: defaults, store: store, kind: .sentences,
+                                           allowsRecording: { true })
+        await history.start()
+        #expect(!history.enabled)
+        #expect(defaults.object(forKey: "sentenceHistory.applications") == nil)
+        #expect(!history.canCaptureSentence(in: "org.example.old"))
+        history.enabled = true
+        #expect(!history.canCaptureSentence(in: nil))
+        #expect(!history.canCaptureSentence(in: ""))
+        for app in ["org.example.old", "org.example.new"] {
+            #expect(history.canCaptureSentence(in: app))
+            history.recordSentence("测试整句。", in: app, expectedGeneration: history.generation)
+        }
+        await history.flush()
+        #expect(try await store.page().entries.count == 2)
+
+        let restored = InputHistorySettings(defaults: defaults, store: store, kind: .sentences,
+                                            allowsRecording: { true })
+        await restored.start()
+        #expect(restored.enabled)
+        #expect(restored.canCaptureSentence(in: "org.example.another"))
+        history.enabled = false
+        history.recordSentence("关闭后不记录。", in: "org.example.new", expectedGeneration: history.generation)
+        await history.flush()
+        #expect(try await store.page().entries.count == 2)
+    }
+
     @Test func sentenceConsentIsIndependentAndExportPreservesOnlyCompleteText() async throws {
         let suite = "si-sentence-history-tests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -27,15 +64,13 @@ struct SentenceHistorySettingsTests {
         submissions.record(InputCommit(input: "nihao", candidate: nil, reason: .literal))
         let app = "org.example.fixture"
         let text = "你好，世界！👩‍💻 "
-        sentences.setSentenceCapture(true, in: app)
         #expect(!sentences.enabled)
         sentences.recordSentence(text, in: app, expectedGeneration: sentences.generation)
         sentences.enabled = true
         let stale = sentences.generation
-        sentences.setSentenceCapture(false, in: app)
-        sentences.setSentenceCapture(true, in: app)
+        sentences.enabled = false
+        sentences.enabled = true
         sentences.recordSentence(text, in: app, expectedGeneration: stale)
-        sentences.recordSentence(text, in: "org.example.other", expectedGeneration: sentences.generation)
         secure = true
         sentences.recordSentence(text, in: app, expectedGeneration: sentences.generation)
         secure = false

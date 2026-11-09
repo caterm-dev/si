@@ -421,7 +421,7 @@ method was installed; live host and spoken VoiceOver checks remain unverified.
 checks that both exact mixed results and mixed completions need a position in the
 first four ranked choices; a lower-scoring mixed result cannot displace a higher
 Chinese sentence. Single-language reachability and exact literal input remain
-protected. The Chinese decoder still emits six base terminal sentences; the
+protected. The Chinese decoder emits up to 32 base terminal sentences; the
 window does not add lower-ranked sentences to fill unused hypothesis slots.
 
 `UnifiedRankingPresentationTests.bufenciMixedCompletionNeedsItsScoreToReachTheRankedHead`
@@ -622,6 +622,12 @@ On an intentionally installed build, open **Direct Input → Manage Direct Input
 In a selected Terminal app, type synthetic `echo SI_TEST_42`, use Space, digits, Tab completion, Return, arrows, Home/End, Delete, Escape and Control shortcuts. Every key must reach the host once, without candidates, automatic spacing or an extra Return to finish composition. Repeat with punctuation candidates and automatic confirmation enabled. Switch to TextEdit and verify ordinary Chinese/English candidates, selection and literal Return still work. A browser rule must apply to both its address bar and page inputs; an editor rule must apply to both editor and embedded terminal. No system input-source selection or Accessibility/Input Monitoring prompt should occur.
 
 Toggle direct input across a pending composition/search or pause timer, then return to the host, use candidate mouse/page/expansion controls if still visible and change focus rapidly. Only the exact pending source spelling may be inserted, once, with no extra space; obsolete candidates/timers must not convert or restore it. Turn direct input off and verify fresh conversion, without stale selection or history. With vocabulary/history independently opted in, confirm direct input adds no app records or incomplete history suffix, including after Return; existing records must remain deletable. Inspect data only with synthetic input. Native host, reentry, VoiceOver and appearance checks remain unverified until performed in a login session.
+
+Verify the default **Control + Shift + I** in TextEdit, a browser, an editor and Terminal with SI selected: toggle on/off with an empty composition and with synthetic pending spelling. Confirm the rule affects only the IMK client app, persists across restart, and matches the Settings manager. Hold the shortcut: only one toggle occurs and no letter/control text reaches the host. Add Option or Command, or release Shift: the default must not match. Caps Lock must not prevent a match. Test focus changes, a pending candidate search and AI prediction; entering direct input inserts exact remaining spelling once, with no suffix or stale candidate/prediction. Secure fields and clients without an identifier must not change rules.
+
+In **Direct Input**, record a custom modified printable key, confirm it replaces the default immediately and survives restart, then reset it. Escape and Cancel preserve the previous shortcut; unmodified/Shift-only keys and repeats cannot be recorded. Check Command combinations, keyboard focus/Tab traversal, VoiceOver labels and light/dark appearance. Verify Settings search finds the shortcut in English and Chinese. System/host-reserved shortcuts may take precedence. These native shortcut and recorder checks require a login session and remain unverified until performed.
+
+On November 9, 2026, the Direct Input shortcut change passed `./scripts/test.sh` (including shortcut matching, recording validation, persistence, reset and app-rule toggles) and `./scripts/build.sh` (Debug, arm64/x86_64), with normal compiler/cache access outside the agent sandbox. `git diff --check` passed. No input method was installed or launched; native host routing, recorder focus, VoiceOver and appearance remain unverified.
 
 On November 4, 2026, the application-language redesign was reverted to the independent Direct Input by Application switch. `./scripts/test.sh` passed all 430 Swift tests and `./scripts/build.sh` built the Debug app successfully, using ordinary compiler/cache access outside the agent sandbox. Documentation links and `git diff --check` passed. No input method was installed or launched, and native host/VoiceOver behavior was not retested.
 
@@ -838,7 +844,9 @@ position. No native-host claim follows from core or offscreen tests.
 
 ## Four leading hypotheses and word selection
 
-Run `./scripts/test.sh --filter 'ChineseSentenceAlternativesTests|FirstWordPrefixTests|SequentialWordSelectionTests|leadingSentenceCanBeClickedAndCommittedInBothLayouts'`. Sentence search still emits six distinct base terminal readings and a separate bounded personalized lane. The window retains constructed hypotheses only from the first four ranked choices and fills its remaining capacity with words rather than additional sentences or multiword fragments. First results and complete words have no per-language reservation. The first four ranked choices may mix hypotheses and words; lower-ranked fragments must not displace words or move ahead of them. Every retained nonliteral choice preserves engine order; explicit pins, language identity and the exact literal remain covered. Fewer than four hypotheses must not be duplicated or backfilled with lower sentences after the word tail. Engine recall of `erbeizuoduo` → `二倍做多` remains tested; its survival in the four-hypothesis window is no longer promised.
+Run `./scripts/test.sh --filter 'ChineseSentenceAlternativesTests|FirstWordPrefixTests|SequentialWordSelectionTests|leadingSentenceCanBeClickedAndCommittedInBothLayouts'`. Sentence search emits up to 32 distinct base terminal readings and a separate bounded personalized lane. The window retains constructed hypotheses only from the first four ranked choices and fills its remaining capacity with words rather than additional sentences or multiword fragments. First results and complete words have no per-language reservation. The first four ranked choices may mix hypotheses and words; lower-ranked fragments must not displace words or move ahead of them. Every retained nonliteral choice preserves engine order; explicit pins, language identity and the exact literal remain covered. Fewer than four hypotheses must not be duplicated or backfilled with lower sentences after the word tail. Engine recall of `zhaojichujuzi` → `找几处句子` is checked with and without explicit syllable separators in preview/full results and Chinese-only/bilingual configurations. Engine recall of `erbeizuoduo` → `二倍做多` remains tested; its survival in the four-hypothesis window is no longer promised.
+
+On November 8, 2026, increasing Chinese terminal retention from six to 32 per lane passed all 484 Swift tests with `./scripts/test.sh --disable-sandbox`, the Debug build with `./scripts/build.sh`, and `git diff --check`. The default test command was blocked by nested SwiftPM sandboxing; the app build required standard compiler/package-cache access outside the workspace sandbox. Regression checks cover preview/full recall of `找几处句子`, deterministic identities, exhaustive ranking costs, canonical deduplication, personalized/base retention and unchanged confirmation evidence. This does not establish semantic ranking quality, latency or live host compatibility. No input method was installed.
 
 `SequentialWordSelectionTests.reportedTitleKeepsItsFirstCharacterSelectableWithExactRemainder` covers `sheguofennudehai` and apostrophe-separated input, Chinese-only/bilingual settings, provisional/full results, both layouts, four leading constructed choices and a word-only tail. Choosing `涉` consumes only `she` (including a following separator when present), keeping the exact remainder editable. `reportedTitleCanBeChosenWordByWordFromTheRenderedPages` completes `涉` → `过` → `愤怒` → `的` → `海`, checking numbered selection, mouse identities and accessibility labels in light/dark compact/expanded views. Set `SI_TITLE_PREFIX_SNAPSHOT_PATH=/tmp/si-title-prefix` to retain its actual first pages. This does not establish title-level semantic accuracy or live host routing.
 
@@ -1054,9 +1062,11 @@ On November 1, 2026, the Input History change passed `./scripts/test.sh --disabl
 
 ### Sentence History
 
-- Verify the switch starts off and the allowed-app list starts empty in a clean preference domain. Verify both stay independent of Input History and Personal Learning. In an explicitly added app with a compatible single-line field, submit synthetic `你好` and `世界` separately with SI, add `！` through the host, edit or paste part of the line, put the caret at the end and press Return. Confirm the exact final text appears as one sentence record and the host receives Return once. Verify the same test with Input History disabled.
-- Repeat in a second app and a browser field. Record which clients support reading the full text and which skip it. Verify the capture is skipped for unsupported/partial ranges, a nonterminal caret, an active selection, multiline text, text longer than 1,024 UTF-16 units, secure input, a direct-input app and an app outside the allowlist. Verify switching fields/apps, cancelling and removing then re-adding an app require another SI submission before capture. Return during an open composition should preserve its existing behavior.
-- With synthetic history, check keyboard access and VoiceOver for the app picker, switch, sentence list, per-entry delete, clear and export. Verify export contains all saved sentences regardless of the list's search/page, preserves trailing spaces and complex emoji and uses a separate filename and format. Cancel the save panel, turn the switch off and reopen settings. Verify clear only deletes sentence records and exported files remain accessible.
+- Verify the switch starts off and no Allowed Applications section or app picker appears. Verify consent stays independent of Input History and Personal Learning. In any conversion-enabled app with a compatible single-line field, submit synthetic `你好` and `世界` separately with SI, add `！` through the host, edit or paste part of the line, put the caret at the end and press Return. Confirm the exact final text appears as one sentence record and the host receives Return once. Verify the same test with Input History disabled.
+- Repeat in a second app and a browser field. Record which clients support reading the full text and which skip it. Verify the capture is skipped for unsupported/partial ranges, a nonterminal caret, an active selection, multiline text, text longer than 1,024 UTF-16 units, secure input, a direct-input app. Verify a second conversion-enabled app can capture without any app setup, including when upgrading from a previously restricted allowlist. Verify switching fields/apps, cancelling and toggling recording off then on require another SI submission before capture. Return during an open composition should preserve its existing behavior.
+- With synthetic history, check keyboard access and VoiceOver for the switch, sentence list, per-entry delete, clear and export. Verify export contains all saved sentences regardless of the list's search/page, preserves trailing spaces and complex emoji and uses a separate filename and format. Cancel the save panel, turn the switch off and reopen settings. Verify clear only deletes sentence records and exported files remain accessible.
+
+On November 8, 2026, removing the Sentence History app allowlist passed all 321 Swift tests with `./scripts/test.sh --disable-sandbox`, the Debug build with `./scripts/build.sh`, localization lint and `git diff --check`. Regression coverage includes recording from previously listed and unlisted apps, retired-key removal, preserved consent, stale-generation rejection and secure-input suppression. Standard compiler/cache access was required outside the workspace sandbox. No input method was installed or real host text recorded. Native host compatibility, Settings keyboard/VoiceOver and appearance remain unverified.
 
 ### Input History export and receiver tools
 
@@ -1295,6 +1305,13 @@ No native installation or user-data collection is part of this offline workflow.
 
 ## Production KenLM ranking
 
+The selected delivery artifact is documented in [the current model record](KENLM_MODEL.md).
+Set `SI_TEST_KENLM_BUNDLE` to a staged `Contents/Resources/KenLM` directory
+when running `scripts/test.sh` to check native `0012` loading, known synthetic
+markers and rejection of unsupported pruning metadata. Script tests verify
+model staging before local-install signing and replacement. Plain builds do
+not themselves embed the model.
+
 See [the production model record](../README_kenlm_train.md#production-kenlm-ranking)
 for the model install command and the train-only benchmark links.
 `SI_TEST_KENLM_INSTALLATION` points the full Swift suite to a versioned test
@@ -1309,3 +1326,38 @@ the missing-model fallback. Check that `biruzhege` retains a selectable
 and number confirmation, delayed full results, cancellations and focus switches
 while the model opens. Check the opt-in automatic confirmation path and secure
 input. Verify candidate order, selection and VoiceOver in both window layouts.
+
+## Complete Chinese text extraction
+
+Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests -v` after
+installing `corpus/requirements.txt` and the existing Parquet pin from
+`corpus/english/requirements.txt`. `test_prepare_raw_text.py` uses synthetic
+SI, LCCC, KdConv, CrossWOZ and OASST1 fixtures to verify t2s conversion without
+source mutation, retained English/numbers/punctuation/repeats, conversation
+and line-range alignment, original split and parent identity, attribution
+checksums, unsafe path rejection, changed inputs and rollback. Current output
+is `prepared/raw-text-v2`; historical fragment `check.py` is not its verifier.
+Local integration can explicitly prepare `--source si`, then check the output
+conversation ranges and raw-file hashes. Reading the dialogue source requires
+its local download manifest and all declared files; no network fetch, training
+or native input-method installation is part of extraction.
+
+On November 8, 2026, all 70 corpus tests, five reranker data-reader tests and
+322 Swift tests passed, and the Debug app build succeeded. SwiftPM/Xcode checks
+were retried outside the restricted sandbox after compiler-cache/nested-sandbox
+access failed. The local SI extraction retained all 10,000 conversations;
+every output conversation was compared against OpenCC t2s of its source, and
+source/code/output hashes, document ranges and resume were checked. Each of
+the four local dialogue formats was sampled for 20 utterances with source
+checksums and metadata validation. The complete dialogue collection and the
+other six archives were not re-extracted, tokenized or trained in this check.
+
+A later full rebuild on November 8, 2026 removed `prepared/raw-text-v1` at the
+user's request and completed all eight sources in `prepared/raw-text-v2`:
+LCCC, mC4, Kubernetes, TensorFlow, MDN, Wikipedia, SI and dialogue. The output
+contains 92,266,944 physical text lines and 4,620,756,751 plaintext bytes.
+Independent streaming verification checked UTF-8/LF, character/line/document
+counts, every document range, source/code/output checksums and dialogue
+metadata. SI retains all 10,000 conversations; dialogue contains 20,264,390
+utterance/message records, including the duplicated LCCC-base source. No
+new tokenization, dataset split or model training was performed.

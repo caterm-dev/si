@@ -8,12 +8,145 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from prepare_raw_text import extract, raw_documents
+from local_sources import snapshot
+from common import digest
 
 
 class RawTextPreparationTests(unittest.TestCase):
+    def local_manifest(self, root, datasets):
+        for dataset in datasets:
+            for entry in dataset['files']:
+                path = root / dataset['id'] / entry['path']
+                entry.update(size=path.stat().st_size, sha256=digest(path))
+        (root / 'download-manifest.json').write_text(json.dumps({
+            'schema_version': 1, 'kind': 'raw-conversation-downloads', 'sources': datasets}))
+        return snapshot('dialogue', root)
+
+    def test_si_keeps_conversations_english_repeats_and_simplifies_only_output(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw = root / 'raw'
+            raw.mkdir()
+            a = raw / 'a.txt'
+            a.write_bytes('我們用 Python tools 2026。\r\n好。\r\n\r\n好。\r\n'.encode())
+            (raw / 'z.txt').write_text('測試。\n')
+            original = a.read_bytes()
+            source = snapshot('si', raw)
+            out = root / 'prepared'
+            result = extract(source, raw, out)
+            self.assertEqual((out / 'text.txt').read_text(),
+                             '我们用 Python tools 2026。\n好。\n\n好。\n\n测试。\n\n')
+            rows = [json.loads(line) for line in (out / 'documents.jsonl').read_text().splitlines()]
+            self.assertEqual([(row['first_line'], row['lines']) for row in rows], [(1, 3), (4, 2), (6, 2)])
+            self.assertEqual([row['path'] for row in rows], ['a.txt', 'a.txt', 'z.txt'])
+            self.assertEqual(rows[1]['source_first_line'], 4)
+            self.assertEqual(result['normalization']['config'], 't2s')
+            self.assertEqual(a.read_bytes(), original)
+            self.assertEqual(extract(source, raw, out), result)
+            with patch('prepare_raw_text.importlib.metadata.version', return_value='changed-version'):
+                with self.assertRaisesRegex(ValueError, 'normalization'):
+                    extract(source, raw, out)
+            (raw / 'new.txt').write_text('新增。')
+            with self.assertRaisesRegex(ValueError, 'changed before'):
+                extract(source, raw, root / 'other')
+            with self.assertRaisesRegex(ValueError, 'different inputs'):
+                extract(snapshot('si', raw), raw, out)
+
+    def test_local_source_change_during_read_rolls_back(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw = root / 'raw'
+            raw.mkdir()
+            path = raw / 'a.txt'
+            path.write_text('測試。\n')
+            source = snapshot('si', raw)
+            def changing_reader(*args):
+                yield 'fixture', '測試。', {}
+                path.write_text('修改後。\n')
+            with patch('prepare_raw_text.raw_documents', changing_reader):
+                with self.assertRaisesRegex(ValueError, 'changed during'):
+                    extract(source, raw, root / 'out')
+            self.assertFalse((root / 'out').exists())
+
+    def test_empty_and_escaping_si_sources_are_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw = root / 'raw'
+            raw.mkdir()
+            with self.assertRaisesRegex(ValueError, 'no TXT'):
+                snapshot('si', raw)
+            (root / 'outside.txt').write_text('合成。')
+            (raw / 'escape.txt').symlink_to(root / 'outside.txt')
+            with self.assertRaisesRegex(ValueError, 'Unsafe'):
+                snapshot('si', raw)
+
+    def test_dialogue_formats_preserve_identity_and_attribution(self):
+        import zipfile
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw = root / 'raw'
+            kd = raw / 'kdconv/data/train.json'
+            kd.parent.mkdir(parents=True)
+            kd.write_text(json.dumps([{'name': 'fixture', 'messages': [
+                {'message': '我們用 API 2026。'}, {'message': '好。'}]}]))
+            cross = raw / 'crosswoz/data/val.json.zip'
+            cross.parent.mkdir(parents=True)
+            with zipfile.ZipFile(cross, 'w') as archive:
+                archive.writestr('val.json', json.dumps({'fixture': {'messages': [
+                    {'content': '換一個。', 'role': 'usr'}, {'content': '沒問題。', 'role': 'sys'}]}}))
+            lccc = raw / 'lccc-base/train.jsonl.gz'
+            lccc.parent.mkdir(parents=True)
+            with gzip.open(lccc, 'wt') as handle:
+                handle.write(json.dumps(['我們 用 Python tools 2017 年 。', '好。', '好。']) + '\n')
+            license = raw / 'licenses/fixture.txt'
+            license.parent.mkdir()
+            license.write_text('Synthetic attribution fixture\n')
+            datasets = [
+                {'id': 'kdconv', 'files': [{'path': 'data/train.json'}], 'documents': [
+                    {'path': 'licenses/fixture.txt', 'size': license.stat().st_size, 'sha256': digest(license)}]},
+                {'id': 'crosswoz', 'files': [{'path': 'data/val.json.zip'}]},
+                {'id': 'lccc-base', 'files': [{'path': 'train.jsonl.gz'}]}]
+            source = self.local_manifest(raw, datasets)
+            output = root / 'out'
+            result = extract(source, raw, output)
+            self.assertEqual((output / 'text.txt').read_text().splitlines(), [
+                '我们用 API 2026。', '好。', '换一个。', '没问题。', '我们用 Python tools 2017 年。', '好。', '好。'])
+            rows = [json.loads(line) for line in (output / 'documents.jsonl').read_text().splitlines()]
+            self.assertEqual(rows[2]['dataset'], 'crosswoz')
+            self.assertEqual(rows[2]['split'], 'val')
+            self.assertEqual(rows[2]['conversation'], 'fixture')
+            self.assertEqual(rows[2]['role'], 'usr')
+            self.assertEqual(rows[-1]['turn'], 2)
+            self.assertIn('attribution/licenses/fixture.txt', result['files'])
+            kd.write_text('[]')
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                snapshot('dialogue', raw)
+
+    def test_oasst_chinese_messages_keep_parent_edges_without_joining_siblings(self):
+        import pyarrow as arrow
+        import pyarrow.parquet as parquet
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / 'raw/oasst1/data/validation-fixture.parquet'
+            path.parent.mkdir(parents=True)
+            rows = [
+                {'message_id': 'root', 'parent_id': None, 'message_tree_id': 'tree', 'lang': 'zh', 'role': 'prompter', 'text': '怎麼用？'},
+                {'message_id': 'a', 'parent_id': 'root', 'message_tree_id': 'tree', 'lang': 'zh', 'role': 'assistant', 'text': '試試 A。'},
+                {'message_id': 'b', 'parent_id': 'root', 'message_tree_id': 'tree', 'lang': 'zh', 'role': 'assistant', 'text': '試試 B。'},
+                {'message_id': 'en', 'parent_id': None, 'message_tree_id': 'other', 'lang': 'en', 'role': 'prompter', 'text': 'English only.'}]
+            parquet.write_table(arrow.Table.from_pylist(rows), path)
+            source = self.local_manifest(root / 'raw', [{'id': 'oasst1', 'files': [{'path': 'data/validation-fixture.parquet'}]}])
+            result = extract(source, root / 'raw', root / 'out')
+            self.assertEqual((root / 'out/text.txt').read_text(), '怎么用？\n试试 A。\n试试 B。\n')
+            origins = [json.loads(line) for line in (root / 'out/documents.jsonl').read_text().splitlines()]
+            self.assertEqual([row['parent_id'] for row in origins], [None, 'root', 'root'])
+            self.assertTrue(all(row['split'] == 'validation' for row in origins))
+            self.assertEqual(result['counts']['non_chinese_messages'], 1)
+
     def test_mc4_keeps_complete_lines_short_english_and_repeated_records(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

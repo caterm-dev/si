@@ -1,5 +1,13 @@
 # Raw Chinese corpus to KenLM input
 
+The measurements and commands below describe frozen six-source runs using
+`raw-text-v1`. The current extractor now writes OpenCC-t2s `raw-text-v2` and
+supports local `si` and `dialogue` sources; see [the current preparation guide](README.md).
+The old prepared `raw-text-v1` directory was deleted on November 8, 2026.
+The commands below remain a historical record; these changes do not regenerate
+this record or extend the existing six-source tokenization/training pipeline
+automatically.
+
 ## Current word-only rebuild (v2)
 
 The current run uses only flat `Data/Vocabulary/chinese/*.csv` text columns

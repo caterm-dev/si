@@ -14,6 +14,23 @@ final class LanguageSettings {
     static let punctuationCandidatesKey = "typing.punctuationCandidates"
     static let automaticConfirmationKey = "typing.automaticConfirmation"
     static let passthroughApplicationsKey = "typing.passthroughApplications"
+    static let directInputShortcutKey = "typing.directInputShortcut"
+    var directInputShortcut: DirectInputShortcut {
+        didSet {
+            if let data = try? JSONEncoder().encode(directInputShortcut) {
+                defaults.set(data, forKey: Self.directInputShortcutKey)
+            }
+        }
+    }
+
+    /// A shortcut can toggle the same persistent rule used by the application manager.
+    @discardableResult
+    func togglePassthrough(for applicationID: String?) -> Bool {
+        guard let applicationID, !applicationID.isEmpty else { return false }
+        setPassthrough(!usesPassthrough(in: applicationID), for: applicationID)
+        return true
+    }
+
     private(set) var configurationGeneration: UInt64 = 0
     private(set) var passthroughApplications: Set<String>
 
@@ -97,6 +114,12 @@ final class LanguageSettings {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        if let data = defaults.data(forKey: Self.directInputShortcutKey),
+           let shortcut = try? JSONDecoder().decode(DirectInputShortcut.self, from: data), shortcut.isValid {
+            directInputShortcut = shortcut
+        } else {
+            directInputShortcut = .default
+        }
         passthroughApplications = Set((defaults.stringArray(forKey: Self.passthroughApplicationsKey) ?? [])
             .filter { !$0.isEmpty })
         defaults.register(defaults: [Self.englishKey: true, Self.chineseKey: true])

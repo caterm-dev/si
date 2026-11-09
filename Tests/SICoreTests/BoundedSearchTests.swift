@@ -22,7 +22,7 @@ struct BoundedSearchTests {
         let decoder = PinyinDecoder(entries: words.map { PinyinLexiconEntry(syllables: ["a"], text: $0) })
         let candidates = decoder.candidates(for: "aa")
         let expected = Set(["豈", "é", "甲"].flatMap { first in ["豈", "é", "甲"].map { first + $0 } })
-        #expect(candidates.count == 6)
+        #expect(candidates.count == expected.count)
         #expect(Set(candidates.map(\.text)).isSubset(of: expected))
         #expect(candidates.first?.text == "éé")
         #expect(Set(candidates.map(\.id)).count == candidates.count)
@@ -54,7 +54,7 @@ struct BoundedSearchTests {
         }
         let expected = distinct.values.sorted {
             $0.cost != $1.cost ? $0.cost < $1.cost : $0.text < $1.text
-        }.prefix(6)
+        }.prefix(32)
         var baseline: [InputCandidate]?
         for order in [words, Array(words.reversed()), Array(words.dropFirst(3)) + Array(words.prefix(3))] {
             let decoder = PinyinDecoder(entries: order.map { PinyinLexiconEntry(syllables: ["a"], text: $0.text, score: $0.score) })

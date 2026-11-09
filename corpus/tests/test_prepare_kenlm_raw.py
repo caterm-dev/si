@@ -2,6 +2,7 @@
 
 import gzip
 import json
+import shutil
 from pathlib import Path
 import sys
 import tempfile
@@ -53,6 +54,16 @@ class RawKenLMPreparationTests(unittest.TestCase):
             self.assertEqual(record['counts']['over_100_tokens'], 1)
             self.assertEqual(record['counts']['sentences_with_digits'], 2)
             self.assertEqual(tokenize_source(source, input_root, output_root, dictionary, 2), record)
+            legacy_root = root / 'legacy-inputs'
+            shutil.copytree(input_root / 'fixture', legacy_root / 'fixture')
+            legacy_manifest = legacy_root / 'fixture/manifest.json'
+            legacy = json.loads(legacy_manifest.read_text())
+            legacy['extraction_contract'] = 'complete-raw-text-lines-v1'
+            legacy['schema_version'] = 1
+            legacy.pop('normalization')
+            legacy_manifest.write_text(json.dumps(legacy))
+            tokenize_source(source, legacy_root, root / 'legacy-outputs', dictionary, 2)
+            self.assertEqual((root / 'legacy-outputs/fixture/text.txt').read_text().splitlines(), lines)
             manifest = finalize([source], input_root, output_root)
             self.assertEqual((output_root / 'kenlm-input.txt').read_text(), '\n'.join(lines) + '\n')
             self.assertEqual(manifest['totals']['sentences'], 3)

@@ -1,5 +1,8 @@
 # KenLM experiments and final model build
 
+For a reusable workflow and lessons from these runs, see
+[the training and candidate ranking guide](docs/KENLM_TRAINING_GUIDE.md).
+
 The offline training experiments use the completed word-side-only tokenization at
 `corpus/chinese/generated/kenlm-words-v2/kenlm-input.txt` (SHA-256
 `92660454982b99a22c815871b3345ed664cd04493ae8c2471aa781540f470f47`).
@@ -477,7 +480,7 @@ The original train.txt comes from **kenlm-words-v2**, then the existing first-oc
 
 Code evidence: corpus/prepare_raw_text.py extracts complete raw lines and bypasses the old Han-only cutter; corpus/prepare_kenlm_raw.py uses the shared unigram tokenizer. The v2 tokenizer retains numbers/English/punctuation, uses NFKC and 。！？.!? sentence boundaries and drops >100-token sentences. The existing split already removed exact duplicates; this final run performs no new deduplication or split.
 
-Specifically, the old cutter is corpus/clean/chinese.py::segments(minimum=4, maximum=96), called by corpus/prepare.py::prepare_source. The v2 extraction instead calls corpus/prepare_raw_text.py::extract/raw_documents, which writes raw text lines without invoking segments. Its mC4/LCCC branches bypass the old prepared-text path. Evidence code hashes and per-source tokenizer identities are retained in corpus-provenance.json.
+Specifically, the old cutter is corpus/clean/chinese.py::segments(minimum=4, maximum=96), used by the retired fragment-preparation command (now removed). The v2 extraction instead calls corpus/prepare_raw_text.py::extract/raw_documents, which writes raw text lines without invoking segments. Its mC4/LCCC branches bypass the old prepared-text path. Evidence code hashes and per-source tokenizer identities are retained in corpus-provenance.json.
 
 The no-4–96 statement concerns the actual training text rows. Tokenizer dictionary weights reuse the earlier HanLP frequency reference (SHA-256 48f2c4be53b998876efcf9f4149f02d3d6c4d0a14cb15b9ee13ef396c7d48b93); that lexical frequency table is not the earlier cleaned training-text bundle and does not cut these raw-derived text rows.
 
@@ -1122,6 +1125,13 @@ outside these in-process measurements.
 
 ## Production KenLM ranking
 
+Current delivery selects the November 9 raw-text-v2 **0012** full-data refit
+without Wikipedia (206.08 MiB). Local installation and release packaging use
+`.build/kenlm-raw-text-v2-no-wikipedia-p0012/final/` and embed the model before
+signing. See [the current model record](docs/KENLM_MODEL.md). The measurements
+below retain the preceding train-only ranking study; they are not new-model
+measurements.
+
 Debug and Release now use the same preset. It enables full-coverage ordering,
 uses Chinese LM weight 0.25, Chinese insertion cost 28.85 bits, English
 insertion cost 28 bits, English LM weight zero and frequency weight 1. The
@@ -1134,8 +1144,10 @@ The DMG installer and Sparkle update ZIP contain the full-data model under
 `SI.app/Contents/Resources/KenLM/`. Packaging verifies the model's SHA-256
 and size before signing the app. It includes the model compatibility record,
 KenLM notices and the pinned corpus source and license notices. The binary
-is the quantized full-data model documented above, trained on the prepared
-LCCC, mC4, Kubernetes, TensorFlow, MDN and Chinese Wikipedia sources. Each
+at the original packaging checkpoint was the quantized full-data model documented above,
+trained on LCCC, mC4, Kubernetes, TensorFlow, MDN and Chinese Wikipedia.
+The current replacement uses the seven non-Wikipedia sources listed in the
+current model record. Each
 source retains its own terms in the bundled corpus notices.
 
 The separate install command remains available for source builds. It verifies

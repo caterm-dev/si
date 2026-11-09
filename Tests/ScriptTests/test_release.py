@@ -354,7 +354,7 @@ class ReleaseTests(unittest.TestCase):
         binary = self.directory / "model.bin"
         binary.write_bytes(b"synthetic model")
         metadata = self.directory / "model.json"
-        model = {"order": 4, "a": 22, "prune": [0, 1, 2, 3], "probability_bits": 8,
+        model = {"order": 4, "a": 22, "prune": [0, 0, 1, 2], "probability_bits": 8,
                  "backoff_bits": 8, "binary_sha256": release.digest(binary).hexdigest(),
                  "binary_bytes": binary.stat().st_size, "training_command": ["/private/local/fixture"]}
         metadata.write_text(json.dumps({
@@ -374,6 +374,20 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual((payload / "final.bin").read_bytes(), binary.read_bytes())
         self.assertNotIn("training_command", json.loads((payload / "final.meta.json").read_text())["model"])
         self.assertTrue((payload / "Corpus-Notices/sources.lock.json").is_file())
+
+        data = json.loads(metadata.read_text())
+        for prune, accepted in (([0, 1, 2, 3], True), ([0, 0, 0, 0], False)):
+            with self.subTest(prune=prune):
+                data["model"]["prune"] = prune
+                metadata.write_text(json.dumps(data))
+                target = self.directory / ("Prune" + "".join(map(str, prune)))
+                target.mkdir()
+                result = release.subprocess.run([*command, target], capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, accepted, result.stderr)
+                if not accepted:
+                    self.assertEqual(list(target.iterdir()), [])
+        data["model"]["prune"] = [0, 0, 1, 2]
+        metadata.write_text(json.dumps(data))
 
         corrupt = self.directory / "Corrupt"
         corrupt.mkdir()

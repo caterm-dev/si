@@ -30,6 +30,12 @@ class LocalInstallTests(unittest.TestCase):
         fixture = fixture.replace("/usr/bin/codesign", '"' + str(self.bin / "codesign") + '"')
         self.executable(self.script, fixture)
         self.executable(scripts / "build.sh", "#!/bin/bash\nexit 0\n")
+        self.executable(scripts / "install_kenlm_model.py", '''from pathlib import Path
+import sys
+destination = Path(sys.argv[sys.argv.index("--bundle-resources") + 1]) / "KenLM"
+destination.mkdir(parents=True)
+(destination / "final.bin").write_bytes(b"synthetic model")
+''')
         self.signing_log = self.root / "signing.jsonl"
         self.executable(self.bin / "codesign", f"#!{sys.executable}\n" + '''
 import json
@@ -85,6 +91,7 @@ exec /bin/mv "$@"
         result = self.run_install()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.destination / "Contents/synthetic").read_bytes(), b"new app")
+        self.assertEqual((self.destination / "Contents/Resources/KenLM/final.bin").read_bytes(), b"synthetic model")
 
     def test_all_nested_code_uses_selected_developer_id(self):
         macos = self.source / "Contents/MacOS"

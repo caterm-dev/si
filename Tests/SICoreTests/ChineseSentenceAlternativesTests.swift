@@ -27,20 +27,34 @@ struct ChineseSentenceAlternativesTests {
         }
     }
 
-    @Test func decoderEmitsSixDistinctBoundedSentencesWithoutChangingEvidenceResults() {
+    @Test func decoderEmitsThirtyTwoDistinctBoundedSentencesWithoutChangingEvidenceResults() {
         let decoder = PinyinDecoder(entries: ["是", "时", "事", "市", "十", "使", "试", "式"].enumerated().map {
             PinyinLexiconEntry(syllables: ["shi"], text: $0.element, upstreamWeight: UInt64(1_000 - $0.offset * 50))
         })
         for preview in [false, true] {
             let plain = decoder.compositionCandidates(for: "shishishi", languages: [.simplifiedChinese], preview: preview)
             let sentences = plain.filter { !$0.isPartial }
-            #expect(sentences.count == 6 && Set(sentences.map(\.id)).count == 6)
+            #expect(sentences.count == 32 && Set(sentences.map(\.id)).count == 32)
             #expect(sentences.allSatisfy { $0.isChineseSentence })
             #expect(plain == decoder.compositionCandidates(for: "shishishi", languages: [.simplifiedChinese], preview: preview))
             let traced = decoder.compositionCandidates(for: "shishishi", languages: [.simplifiedChinese],
                 preview: preview, includesConfirmationEvidence: true)
             #expect(plain.map(\.id) == traced.map(\.id))
             #expect(plain.map(\.rankingScore) == traced.map(\.rankingScore))
+        }
+    }
+
+    @Test func reportedHomophoneSentenceSurvivesBeforeLanguageModelReranking() {
+        let engine = CandidateEngine()
+        for input in ["zhaojichujuzi", "zhao'ji'chu'ju'zi"] {
+            for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
+                for candidates in [engine.previewCandidates(for: input, languages: languages, learning: LearningProfile(),
+                                                            dictionary: UserDictionary(), now: .now, context: nil),
+                                   engine.candidates(for: input, languages: languages)] {
+                    #expect(candidates.contains { $0.text == "找几处句子" && !$0.isPartial })
+                    #expect(candidates.last?.isLiteral == true && candidates.last?.text == input)
+                }
+            }
         }
     }
 
@@ -75,7 +89,7 @@ struct ChineseSentenceAlternativesTests {
             learning: learning, now: now, includesPartials: false)
         #expect(personalized.first?.text == "时时时")
         #expect(base.allSatisfy { original in personalized.contains { $0.id == original.id } })
-        #expect(personalized.count <= 12 && Set(personalized.map(\.id)).count == personalized.count)
+        #expect(personalized.count <= 64 && Set(personalized.map(\.id)).count == personalized.count)
     }
 
     @Test func rankedHeadIncludesWordsWithoutBackfillingLowerHypotheses() {

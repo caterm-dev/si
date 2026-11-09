@@ -84,6 +84,18 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func handleOnMain(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event, event.type == .keyDown, let client = sender as? any IMKTextInput else { return false }
+        // Check before the passthrough guard so the shortcut can restore conversion too.
+        if LanguageSettings.shared.directInputShortcut.matches(keyCode: event.keyCode, modifiers: event.modifierFlags),
+           !IsSecureEventInputEnabled(), let identifier = client.bundleIdentifier(), !identifier.isEmpty {
+            if !event.isARepeat {
+                prepareApplicationMemory(for: client)
+                LanguageSettings.shared.togglePassthrough(for: identifier)
+                _ = configureSession(for: client)
+                session.breakContext()
+                sentenceSubmissionGeneration = nil
+            }
+            return true
+        }
         candidatePanel.claimPresentation()
         let previousCandidates = session.candidates
         let previousRequest = session.pendingCandidateRequest?.id

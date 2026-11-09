@@ -122,7 +122,9 @@ def tokenize_source(source, input_root, output_root, dictionary_path, workers):
     name = source['id']
     prepared = input_root / name
     extraction = json.loads((prepared / 'manifest.json').read_text())
-    if extraction.get('extraction_contract') != 'complete-raw-text-lines-v1' or extraction['source'] != source:
+    if (extraction.get('extraction_contract') not in (
+            'complete-raw-text-lines-v1', 'complete-simplified-text-lines-v2')
+            or extraction['source'] != source):
         raise ValueError('Input is not the complete raw-text extraction: ' + name)
     for file, expected in extraction['files'].items():
         if digest(prepared / file) != expected['sha256']:

@@ -85,7 +85,11 @@ struct TokenLearningTests {
         let alternatives = (0..<30).map {
             PinyinLexiconEntry(syllables: ["xi", "zi"], text: "字" + String(UnicodeScalar(0x4e00 + $0)!), score: 100 - $0)
         }
-        let tiny = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["wo"], text: "我")] + alternatives)
+        // Two leading choices create 60 paths, exceeding the 32-path base beam.
+        let tiny = PinyinDecoder(entries: [
+            PinyinLexiconEntry(syllables: ["wo"], text: "我", score: 100),
+            PinyinLexiconEntry(syllables: ["wo"], text: "窝", score: 99),
+        ] + alternatives)
         let target = try #require(tiny.candidates(for: "xizi").first { $0.text == alternatives.last?.text })
         var profile = LearningProfile()
         for _ in 0..<8 { profile.record(InputCommit(input: "xizi", candidate: target, reason: .explicitSelection), now: now) }

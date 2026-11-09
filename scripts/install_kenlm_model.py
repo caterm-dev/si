@@ -9,6 +9,7 @@ import tempfile
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MODEL_DIRECTORY = ROOT / ".build/kenlm-raw-text-v2-no-wikipedia-p0012/final"
 
 
 def stamp(path):
@@ -29,7 +30,7 @@ def compatible_metadata(metadata):
             or cleaning["vectors_sha256"] != hashlib.sha256((ROOT / "Tests/KenLMTests/cleaning_vectors.json").read_bytes()).hexdigest()
             or cleaning["unicode_version"] != "15.0.0"
             or cleaning["maximum_scalars"] != 32 or cleaning["rare_threshold_exclusive"] != 5
-            or model["order"] != 4 or model["a"] != 22 or model["prune"] != [0, 1, 2, 3]
+            or model["order"] != 4 or model["a"] != 22 or model["prune"] not in ([0, 0, 1, 2], [0, 1, 2, 3])
             or model["probability_bits"] != 8 or model["backoff_bits"] != 8):
         raise ValueError("Incompatible full-data model metadata")
     return metadata_bytes, data
@@ -90,14 +91,34 @@ def bundle(binary, metadata, resources):
         corpus = ROOT / "corpus/chinese"
         shutil.copytree(corpus / "licenses", payload / "Corpus-Notices/licenses")
         shutil.copyfile(corpus / "sources.lock.json", payload / "Corpus-Notices/sources.lock.json")
+        sources = data.get("sources", {}).get("sources", [])
+        if sources:
+            selection = {"sources": [row["source"] for row in sources],
+                         "excluded_sources": data["sources"].get("excluded_sources", [])}
+            (payload / "Corpus-Notices/training-sources.json").write_text(
+                json.dumps(selection, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            for row in sources:
+                if row["id"] != "dialogue":
+                    continue
+                prepared = (ROOT / row["raw_text_directory"]).resolve()
+                if (not prepared.is_relative_to((corpus / "prepared").resolve())
+                        or hashlib.sha256((prepared / "manifest.json").read_bytes()).hexdigest()
+                        != row["identity"]["raw_text_manifest_sha256"]):
+                    raise ValueError("Dialogue attribution does not match model provenance")
+                extraction = json.loads((prepared / "manifest.json").read_bytes())
+                for name, expected in extraction["files"].items():
+                    if name.startswith("attribution/"):
+                        if hashlib.sha256((prepared / name).read_bytes()).hexdigest() != expected["sha256"]:
+                            raise ValueError("Dialogue attribution checksum mismatch")
+                shutil.copytree(prepared / "attribution", payload / "Corpus-Notices/dialogue")
         payload.rename(destination)
     return destination
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", type=Path, default=ROOT / ".build/kenlm-final/final.bin")
-    parser.add_argument("--metadata", type=Path, default=ROOT / ".build/kenlm-final/final.meta.json")
+    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL_DIRECTORY / "final.bin")
+    parser.add_argument("--metadata", type=Path, default=DEFAULT_MODEL_DIRECTORY / "final.meta.json")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--destination", type=Path)
     mode.add_argument("--bundle-resources", type=Path, help="stage the verified model inside an unsigned app's Resources")

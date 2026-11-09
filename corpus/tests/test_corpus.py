@@ -17,7 +17,8 @@ from opencc import OpenCC
 from clean.chinese import markdown_text, segments, web_prose
 from clean.wikipedia import remove_nested, wikitext
 from common import digest, new_directory, verified_archive
-from prepare import documents, prepare_source
+from readers import documents
+from prepare_raw_text import extract
 from check import check
 from wikipedia import INDEX, download, download_ranges, refresh, resolve_latest, verify
 
@@ -45,7 +46,16 @@ class ChineseCorpusTests(unittest.TestCase):
             archive = root / 'input.gz'
             with gzip.open(archive, 'wt', encoding='utf-8') as handle:
                 handle.write(json.dumps(['中文测试内容']) + '\n')
-            result = prepare_source(source, archive, root / 'fixture', self.converter, 0)
+            directory = root / 'fixture'
+            directory.mkdir()
+            (directory / 'text.txt').write_text('中文测试内容\n')
+            (directory / 'origins.jsonl').write_text(json.dumps('row:1/turn:0') + '\n')
+            result = {'source': source, 'counts': {'lines': 1, 'characters': 6},
+                      'stopped_at_limit': False,
+                      'files': {name: {'sha256': digest(directory / name),
+                                       'bytes': (directory / name).stat().st_size}
+                                for name in ('text.txt', 'origins.jsonl')}}
+            (directory / 'manifest.json').write_text(json.dumps(result))
             (root / 'manifest.json').write_text(json.dumps({
                 'source_lock_sha256': digest(lock), 'sources': [result]}))
             with patch('common.LOCK', root / 'nonexistent-current-lock.json'):
@@ -253,30 +263,28 @@ class ChineseCorpusTests(unittest.TestCase):
             self.assertEqual(second['sources'][1]['download_url'],
                              'https://ftp.acc.umu.se/mirror/wikimedia.org/dumps/zhwiki/20261001/fixture.bz2')
 
-    def test_lccc_turns_never_join_and_dedup_is_exact(self):
+    def test_lccc_turns_never_join_and_repeated_turns_are_preserved(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             archive = root / 'dialogues.jsonl.gz'
             with gzip.open(archive, 'wt', encoding='utf-8') as handle:
                 handle.write(json.dumps(['中文 测试 内容', '独立 对话 内容', '中文 测试 内容']) + '\n')
             source = {'id': 'fixture', 'kind': 'lccc'}
-            result = prepare_source(source, archive, root / 'output', self.converter, 0)
-            self.assertEqual((root / 'output/text.txt').read_text(), '中文测试内容\n独立对话内容\n')
-            self.assertEqual(result['counts']['duplicate_segments'], 1)
-            origins = [json.loads(line) for line in (root / 'output/origins.jsonl').read_text().splitlines()]
-            self.assertEqual(origins, ['row:1/turn:0', 'row:1/turn:1'])
+            result = extract(source, archive, root / 'output')
+            self.assertEqual((root / 'output/text.txt').read_text(), '中文测试内容\n独立对话内容\n中文测试内容\n')
+            self.assertEqual(result['counts']['lines'], 3)
+            origins = [json.loads(line) for line in (root / 'output/documents.jsonl').read_text().splitlines()]
+            self.assertEqual([row['origin'] for row in origins], ['row:1/turn:0', 'row:1/turn:1', 'row:1/turn:2'])
 
-    def test_output_limit_counts_unique_post_conversion_characters(self):
+    def test_complete_extraction_has_no_legacy_character_limit(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             archive = root / 'text.gz'
             with gzip.open(archive, 'wt', encoding='utf-8') as handle:
                 handle.write(json.dumps(['中文测试', '中文测试', '另外测试', '不要保留']) + '\n')
-            result = prepare_source({'id': 'fixture', 'kind': 'lccc'}, archive,
-                                    root / 'output', self.converter, 8)
-            self.assertEqual(result['counts']['characters'], 8)
-            self.assertTrue(result['stopped_at_limit'])
-            self.assertEqual((root / 'output/text.txt').read_text(), '中文测试\n另外测试\n')
+            result = extract({'id': 'fixture', 'kind': 'lccc'}, archive, root / 'output')
+            self.assertEqual(result['counts']['characters'], 16)
+            self.assertEqual((root / 'output/text.txt').read_text(), '中文测试\n中文测试\n另外测试\n不要保留\n')
 
     def test_documentation_stays_in_selected_tree_and_order(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -299,8 +307,7 @@ class ChineseCorpusTests(unittest.TestCase):
             output = root / 'bundle'
             with self.assertRaises(ValueError):
                 with new_directory(output) as staged:
-                    prepare_source({'id': 'fixture', 'kind': 'lccc'}, archive,
-                                   staged / 'fixture', self.converter, 0)
+                    extract({'id': 'fixture', 'kind': 'lccc'}, archive, staged / 'fixture')
             self.assertFalse(output.exists())
             self.assertEqual([path.name for path in root.iterdir()], ['bad.gz'])
 

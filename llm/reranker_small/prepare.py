@@ -15,7 +15,7 @@ import unicodedata
 import numpy as np
 
 from corpus.common import CHINESE, LOCK, new_directory, load_sources, verified_archive
-from corpus.prepare import documents
+from corpus.readers import documents
 from corpus.clean.chinese import HAN
 from llm.pinyin_to_text.common import normalized
 from .settings import ROOT, REPO, SPLITS, file_hash, fingerprint, load_config, write_json
@@ -182,7 +182,7 @@ def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw'):
             'tokenizer_digest': tokenizer.digest,
             'code': {str(path.relative_to(REPO)): file_hash(path) for path in
                      [ROOT / 'prepare.py', ROOT / 'tokenizer.py', ROOT / 'settings.py',
-                      REPO / 'corpus/prepare.py', REPO / 'corpus/common.py',
+                      REPO / 'corpus/readers.py', REPO / 'corpus/common.py',
                       REPO / 'corpus/clean/chinese.py', REPO / 'corpus/clean/wikipedia.py']},
             'files': {str(path.relative_to(staged)): file_hash(path)
                       for path in sorted(staged.rglob('*')) if path.is_file()},

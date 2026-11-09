@@ -12,12 +12,10 @@ import SILocalization
 final class InputHistorySettings {
     static let shared = InputHistorySettings(defaults: SettingsDefaults.shared)
     static let sentences = InputHistorySettings(defaults: SettingsDefaults.shared, kind: .sentences)
-    private static let sentenceAppsKey = "sentenceHistory.applications"
 
     let kind: InputHistoryStore.Kind
     private let enabledKey: String
     var savesSentences: Bool { kind == .sentences }
-    private(set) var sentenceApplications: [String]
 
     var enabled: Bool {
         didSet {
@@ -66,26 +64,15 @@ final class InputHistorySettings {
             url: URL.applicationSupportDirectory.appending(path: kind.databasePath), kind: kind)
         self.allowsRecording = allowsRecording
         enabled = !isPreview && defaults.bool(forKey: enabledKey)
-        sentenceApplications = kind == .sentences && !isPreview
-            ? defaults.stringArray(forKey: Self.sentenceAppsKey) ?? [] : []
+        if kind == .sentences && !isPreview {
+            defaults.removeObject(forKey: "sentenceHistory.applications")
+        }
         if isPreview { isLoading = false; loadSucceeded = true }
     }
 
-    func setSentenceCapture(_ allowed: Bool, in application: String) {
-        guard savesSentences, !application.isEmpty, sentenceApplications.contains(application) != allowed else { return }
-        if allowed {
-            sentenceApplications.append(application)
-            sentenceApplications.sort()
-        } else {
-            sentenceApplications.removeAll { $0 == application }
-        }
-        defaults.set(sentenceApplications, forKey: Self.sentenceAppsKey)
-        generation &+= 1
-    }
-
     func canCaptureSentence(in application: String?) -> Bool {
-        guard savesSentences, let application else { return false }
-        return canRecord && sentenceApplications.contains(application)
+        guard savesSentences, let application, !application.isEmpty else { return false }
+        return canRecord
     }
 
     func start() async {

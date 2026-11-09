@@ -7,6 +7,29 @@ struct KenLMModelTests {
     private static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         .deletingLastPathComponent().deletingLastPathComponent()
 
+    @Test func bundledFullDataModelAccepts0012AndRejectsUnsupportedPruning() throws {
+        guard let path = ProcessInfo.processInfo.environment["SI_TEST_KENLM_BUNDLE"] else { return }
+        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        let model = try #require(KenLMModel.openBundled(at: directory))
+        let number = try #require(model.wordIndex("１２.５"))
+        let oov = try #require(model.wordIndex("<oov>"))
+        #expect(number.index != 0 && oov.index != 0 && number.index != oov.index)
+        let score = try #require(model.advance(model.beginSentence(), wordIndex: number.index))
+        #expect(score.log10.isFinite)
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: temp) }
+        try FileManager.default.linkItem(at: directory.appendingPathComponent("final.bin"),
+                                        to: temp.appendingPathComponent("final.bin"))
+        let metadata = try Data(contentsOf: directory.appendingPathComponent("final.meta.json"))
+        var record = try #require(JSONSerialization.jsonObject(with: metadata) as? [String: Any])
+        var fields = try #require(record["model"] as? [String: Any])
+        fields["prune"] = [0, 0, 0, 0]
+        record["model"] = fields
+        try JSONSerialization.data(withJSONObject: record).write(to: temp.appendingPathComponent("final.meta.json"))
+        #expect(KenLMModel.openBundled(at: temp) == nil)
+    }
+
     @Test func trainingCleaningVectorsMatchByteForByte() throws {
         struct Vector: Decodable {
             let line: String
