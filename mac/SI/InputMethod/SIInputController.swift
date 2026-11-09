@@ -780,6 +780,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         if tracksSentence, sentenceGeneration == sentences.generation, sentences.canCaptureSentence(in: app),
            (memoryClient as AnyObject?) === (client as AnyObject), !commit.text.isEmpty {
             sentenceSubmissionGeneration = sentenceGeneration
+            sentences.sentenceCaptureStatus = .waitingForReturn
         }
         if generation == ApplicationMemorySettings.shared.generation {
             ApplicationMemorySettings.shared.recordVocabulary(commit)
@@ -802,8 +803,15 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
 
         guard let text = SentenceSnapshotReader.read(isCurrent: isCurrent, selection: { client.selectedRange() },
-                                                     markedRange: { client.markedRange() }, length: { client.length() },
-                                                     textInRange: { client.attributedSubstring(from: $0)?.string }) else { return }
+                                                     markedRange: { client.markedRange() },
+                                                     textInRange: { client.attributedSubstring(from: $0)?.string },
+                                                     onFailure: {
+                                                         if generation == history.generation, history.enabled {
+                                                             history.sentenceCaptureStatus = .skipped($0)
+                                                         }
+                                                     }) else { return }
+        guard isCurrent() else { return }
         history.recordSentence(text, in: app, expectedGeneration: generation)
+        history.sentenceCaptureStatus = .captured
     }
 }

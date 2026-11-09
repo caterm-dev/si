@@ -14,6 +14,11 @@ struct InputHistorySection: View {
                     .labelsHidden()
                     .disabled(history.isLoading || history.isClearing)
             }
+            if history.savesSentences, history.enabled {
+                Text(history.sentenceCaptureDescription)
+                    .font(.callout).foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
             Divider()
             if history.savesSentences {
                 Text("Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted.")
@@ -58,7 +63,7 @@ struct InputHistorySection: View {
 
     private var recordingDescription: Text {
         if history.savesSentences {
-            Text("In all apps where SI conversion is active, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input.")
+            Text("In all apps where SI conversion is active, press Return after submitting text with SI to save available single-line text before the caret. Completeness is not checked; saved text may be partial and may include edits, pasted text and existing content.")
         } else {
             Text("Saves each SI submission with its original spelling, submitted text and time. Repeated submissions are separate records. History stays on this Mac until you delete it, without automatic expiry or a record-count limit.")
         }

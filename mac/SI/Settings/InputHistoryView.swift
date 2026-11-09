@@ -13,6 +13,11 @@ struct InputHistoryView: View {
                 ? "Each row is the text SI read from the input before passing Return to the app."
                 : "Each row is one SI submission. Prefix selections and automatic confirmations appear separately; text typed outside SI is not included."))
                 .font(.callout).foregroundStyle(.secondary)
+            if history.savesSentences, history.enabled {
+                Text(history.sentenceCaptureDescription)
+                    .font(.callout).foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
             TextField(L10n.text(history.savesSentences ? "Search saved sentences" : "Search history spelling or text"), text: $search)
                 .textFieldStyle(.roundedBorder)
             List(history.entries) { entry in
@@ -23,7 +28,7 @@ struct InputHistoryView: View {
                 else if history.entries.isEmpty {
                     ContentUnavailableView(L10n.text(history.savesSentences ? "No Saved Sentences" : "No Input History"),
                                            systemImage: "clock", description: Text(L10n.text(history.savesSentences
-                                            ? "Enable Save Complete Sentences and add an app to start saving."
+                                            ? "Enable Save Complete Sentences, submit text with SI, then press Return to save available text before the caret. The saved text may be partial."
                                             : "Enable Save Input History to record future SI submissions.")))
                 }
             }

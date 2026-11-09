@@ -202,11 +202,11 @@
 "Clear Saved Sentences…" = "清空已保存整句…";
 "Clear all saved sentences?" = "清空所有已保存的整句？";
 "Each row is the text SI read from the input before passing Return to the app." = "每条记录都是 SI 在把回车键交给 App 前读取的输入文本。";
-"Enable Save Complete Sentences and add an app to start saving." = "开启「保存整句」并添加一个 App，即可开始保存。";
+"Enable Save Complete Sentences, submit text with SI, then press Return to save available text before the caret. The saved text may be partial." = "开启「保存整句」，用 SI 上屏后按回车，即可保存光标前可读取的文本。保存的文本可能不完整。";
 "Export Saved Sentences" = "导出已保存整句";
 "Export Saved Sentences…" = "导出已保存整句…";
 "Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies." = "将所有已保存的整句和时间导出到一个 JSONL 文件。文件可能包含私人文字，SI 不会上传或发送。删除本机记录不会删除已导出的副本。";
-"In all apps where SI conversion is active, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input." = "在所有启用 SI 转换的 App 中，通过 SI 提交文字后，将光标放在末尾并按回车，即可保存受支持的单行输入全文。记录可能包含编辑后的文字、粘贴内容和原有文字。";
+"In all apps where SI conversion is active, press Return after submitting text with SI to save available single-line text before the caret. Completeness is not checked; saved text may be partial and may include edits, pasted text and existing content." = "在启用 SI 转换的 App 中，用 SI 上屏后按回车，可保存光标前能读取的单行文本。不检查完整性；保存的文本可能不完整，也可能包含编辑、粘贴或已有的内容。";
 "No Saved Sentences" = "没有已保存的整句";
 "Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted." = "默认关闭。整句记录单独保存在本机，直到你删除。安全输入和直输 App 不会记录。保存的内容未加密。";
 "Permanently deletes saved and pending sentences. Individual SI submissions are kept." = "永久删除已保存和待写入的整句记录。SI 的逐次提交记录会保留。";
@@ -334,3 +334,13 @@
 "While SI is selected, toggle direct input for the current app. The rule is saved for the entire app." = "选用 SI 时，切换当前应用的直接输入状态。规则会保存并应用于整个应用。";
 "Record Direct Input Shortcut" = "录制直接输入快捷键";
 "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels." = "按住 Control、Option 或 Command，再按字母、数字或标点键。按 Escape 取消。";
+
+"Sentence capture: waiting for an SI submission in the current input." = "整句采集：等待在当前输入框中用 SI 上屏。";
+"Sentence capture: SI submitted text. Press Return to save available text before the caret." = "整句采集：SI 已上屏，按回车保存光标前可读取的文本。";
+"Sentence capture: captured and queued for saving." = "整句采集：已读取并加入保存队列。";
+"Sentence capture skipped: the input client or recording settings changed during the read." = "已跳过整句采集：读取期间输入客户端或记录设置发生变化。";
+"Sentence capture skipped: the app did not provide the caret range." = "已跳过整句采集：App 未提供光标范围。";
+"Sentence capture skipped: select no text and use a nonempty input of at most 1,024 UTF-16 units." = "已跳过整句采集：请取消文本选择，并使用不超过 1,024 个 UTF-16 单元的非空输入。";
+"Sentence capture skipped: the app still reports marked text." = "已跳过整句采集：App 仍报告有未确认的输入文本。";
+"Sentence capture skipped: the input is blank, multiline, contains control characters or exceeds the limit." = "已跳过整句采集：输入为空白、多行、含控制字符或超过长度限制。";
+"Sentence capture skipped: the app did not return text." = "已跳过整句采集：App 未返回文本。";

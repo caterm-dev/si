@@ -1,39 +1,77 @@
 import Foundation
 import Testing
+import SICore
 @testable import SIPresentation
 
 struct SentenceSnapshotReaderTests {
-    @Test func readsExactlyOneCompleteClientRange() {
-        let text = "你好，世界！👩‍💻"
-        let length = text.utf16.count
-        let caret = NSRange(location: length, length: 0)
-        let unmarked = NSRange(location: NSNotFound, length: 0)
+    @Test func savesAvailableTextWithoutRequiringACompleteDocument() {
+        let text = "你好，世界！👩‍💻 "
+        let caret = NSRange(location: text.utf16.count, length: 0)
         let captured = SentenceSnapshotReader.read(isCurrent: { true }, selection: { caret },
-                                                   markedRange: { unmarked }, length: { length }) { range in
-            #expect(range == NSRange(location: 0, length: length))
-            return text
-        }
+            markedRange: { NSRange(location: NSNotFound, length: 0) }, textInRange: { range in
+                #expect(range == NSRange(location: 0, length: caret.location))
+                return text
+            })
         #expect(captured?.utf8.elementsEqual(text.utf8) == true)
-        #expect(SentenceSnapshotReader.read(isCurrent: { true }, selection: { caret }, markedRange: { unmarked },
-                                            length: { length }, textInRange: { _ in "你好" }) == nil)
-        #expect(SentenceSnapshotReader.read(isCurrent: { true }, selection: { caret }, markedRange: { unmarked },
-                                            length: { length + 1 }, textInRange: { _ in
-            Issue.record("The host must not be read when the caret is inside the text.")
-            return text
-        }) == nil)
+        // Hosts may expose only part of the requested prefix, or extra text. Save
+        // their exact available bytes within the independent single-line/size bound.
+        for available in ["你好", text + "世界"] {
+            let result = SentenceSnapshotReader.read(isCurrent: { true }, selection: { caret },
+                markedRange: { NSRange(location: NSNotFound, length: 0) }, textInRange: { _ in available })
+            #expect(result?.utf8.elementsEqual(available.utf8) == true)
+        }
     }
 
-    @Test func hostCallbackCanInvalidateCaptureBeforeAnyTextRead() {
-        var active = true
-        let captured = SentenceSnapshotReader.read(isCurrent: { active }, selection: { NSRange(location: 2, length: 0) },
-                                                   markedRange: { NSRange(location: NSNotFound, length: 0) },
-                                                   length: {
-            active = false
-            return 2
-        }) { _ in
-            Issue.record("A stale client must not be queried.")
-            return "你好"
+    @Test func reportsUnavailableCaretAndText() {
+        var failure: SentenceSnapshot.CaptureFailure?
+        #expect(SentenceSnapshotReader.read(isCurrent: { true },
+            selection: { NSRange(location: NSNotFound, length: 0) },
+            markedRange: { Issue.record("An unknown caret must stop host queries."); return NSRange() },
+            textInRange: { _ in nil }, onFailure: { failure = $0 }) == nil)
+        #expect(failure == .unavailableSelection)
+        #expect(SentenceSnapshotReader.read(isCurrent: { true }, selection: { NSRange(location: 2, length: 0) },
+            markedRange: { NSRange(location: NSNotFound, length: 0) },
+            textInRange: { _ in nil }, onFailure: { failure = $0 }) == nil)
+        #expect(failure == .unavailableText)
+    }
+
+    @Test func retainsSizeSingleLineAndSelectionBounds() {
+        for text in ["", "  ", "你好\n世界", "你好\0", String(repeating: "🙂", count: 513)] {
+            #expect(SentenceSnapshotReader.read(isCurrent: { true }, selection: { NSRange(location: 2, length: 0) },
+                markedRange: { NSRange(location: NSNotFound, length: 0) }, textInRange: { _ in text }) == nil)
         }
-        #expect(captured == nil)
+        for caret in [NSRange(location: 2, length: 1), NSRange(location: 1_025, length: 0)] {
+            #expect(SentenceSnapshotReader.read(isCurrent: { true }, selection: { caret },
+                markedRange: { NSRange(location: NSNotFound, length: 0) }, textInRange: { _ in
+                    Issue.record("An invalid selection must not authorize reading text.")
+                    return "你好"
+                }) == nil)
+        }
+    }
+
+    @Test func revalidatesAfterEveryHostCallback() {
+        for invalidatingCall in 1...4 {
+            var calls = 0
+            var active = true
+            var failure: SentenceSnapshot.CaptureFailure?
+            func callback() {
+                #expect(active)
+                calls += 1
+                if calls == invalidatingCall { active = false }
+            }
+            let result = SentenceSnapshotReader.read(isCurrent: { active }, selection: {
+                callback()
+                return NSRange(location: 2, length: 0)
+            }, markedRange: {
+                callback()
+                return NSRange(location: NSNotFound, length: 0)
+            }, textInRange: { _ in
+                callback()
+                return "你好"
+            }, onFailure: { failure = $0 })
+            #expect(result == nil)
+            #expect(failure == .staleClient)
+            #expect(calls == invalidatingCall)
+        }
     }
 }

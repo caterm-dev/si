@@ -20,9 +20,19 @@ final class InputHistorySettings {
     var enabled: Bool {
         didSet {
             defaults.set(enabled, forKey: enabledKey)
-            if enabled != oldValue { generation &+= 1 }
+            if enabled != oldValue {
+                generation &+= 1
+                sentenceCaptureStatus = nil
+            }
         }
     }
+    // Transient diagnostic codes only; never retain host text or application identity here.
+    enum SentenceCaptureStatus {
+        case waitingForReturn, captured
+        case skipped(SentenceSnapshot.CaptureFailure)
+    }
+    var sentenceCaptureStatus: SentenceCaptureStatus?
+
     private(set) var generation: UInt64 = 0
     private(set) var isLoading = true
     private(set) var isClearing = false
@@ -68,6 +78,25 @@ final class InputHistorySettings {
             defaults.removeObject(forKey: "sentenceHistory.applications")
         }
         if isPreview { isLoading = false; loadSucceeded = true }
+    }
+
+    var sentenceCaptureDescription: String {
+        let message: String
+        switch sentenceCaptureStatus {
+        case nil: message = "Sentence capture: waiting for an SI submission in the current input."
+        case .waitingForReturn: message = "Sentence capture: SI submitted text. Press Return to save available text before the caret."
+        case .captured: message = "Sentence capture: captured and queued for saving."
+        case .skipped(let reason):
+            switch reason {
+            case .staleClient: message = "Sentence capture skipped: the input client or recording settings changed during the read."
+            case .unavailableSelection: message = "Sentence capture skipped: the app did not provide the caret range."
+            case .invalidSelection: message = "Sentence capture skipped: select no text and use a nonempty input of at most 1,024 UTF-16 units."
+            case .markedText: message = "Sentence capture skipped: the app still reports marked text."
+            case .unavailableText: message = "Sentence capture skipped: the app did not return text."
+            case .invalidText: message = "Sentence capture skipped: the input is blank, multiline, contains control characters or exceeds the limit."
+            }
+        }
+        return L10n.text(message)
     }
 
     func canCaptureSentence(in application: String?) -> Bool {
@@ -164,6 +193,7 @@ final class InputHistorySettings {
     func clear() {
         guard !isLoading, !isClearing, let store else { return }
         storageGeneration &+= 1
+        sentenceCaptureStatus = nil
         generation &+= 1
         readGeneration &+= 1
         isClearing = true

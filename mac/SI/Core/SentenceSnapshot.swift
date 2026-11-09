@@ -1,7 +1,16 @@
 import Foundation
 
-/// Bounds for one complete single-line text-client snapshot.
+/// Bounds for one bounded single-line text-client snapshot.
 public enum SentenceSnapshot {
+    public enum CaptureFailure: Equatable, Sendable {
+        case staleClient
+        case unavailableSelection
+        case invalidSelection
+        case markedText
+        case unavailableText
+        case invalidText
+    }
+
     public static let maximumUTF16Length = 1_024
 
     public static func accepts(_ text: String) -> Bool {

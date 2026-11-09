@@ -202,11 +202,11 @@
 "Clear Saved Sentences…" = "Clear Saved Sentences…";
 "Clear all saved sentences?" = "Clear all saved sentences?";
 "Each row is the text SI read from the input before passing Return to the app." = "Each row is the text SI read from the input before passing Return to the app.";
-"Enable Save Complete Sentences and add an app to start saving." = "Enable Save Complete Sentences and add an app to start saving.";
+"Enable Save Complete Sentences, submit text with SI, then press Return to save available text before the caret. The saved text may be partial." = "Enable Save Complete Sentences, submit text with SI, then press Return to save available text before the caret. The saved text may be partial.";
 "Export Saved Sentences" = "Export Saved Sentences";
 "Export Saved Sentences…" = "Export Saved Sentences…";
 "Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies." = "Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies.";
-"In all apps where SI conversion is active, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input." = "In all apps where SI conversion is active, SI can save the complete text of a supported single-line input when you press Return at the end after submitting text with SI. This may include edits, pasted text and text already in the input.";
+"In all apps where SI conversion is active, press Return after submitting text with SI to save available single-line text before the caret. Completeness is not checked; saved text may be partial and may include edits, pasted text and existing content." = "In all apps where SI conversion is active, press Return after submitting text with SI to save available single-line text before the caret. Completeness is not checked; saved text may be partial and may include edits, pasted text and existing content.";
 "No Saved Sentences" = "No Saved Sentences";
 "Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted." = "Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted.";
 "Permanently deletes saved and pending sentences. Individual SI submissions are kept." = "Permanently deletes saved and pending sentences. Individual SI submissions are kept.";
@@ -334,3 +334,13 @@
 "While SI is selected, toggle direct input for the current app. The rule is saved for the entire app." = "While SI is selected, toggle direct input for the current app. The rule is saved for the entire app.";
 "Record Direct Input Shortcut" = "Record Direct Input Shortcut";
 "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels." = "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels.";
+
+"Sentence capture: waiting for an SI submission in the current input." = "Sentence capture: waiting for an SI submission in the current input.";
+"Sentence capture: SI submitted text. Press Return to save available text before the caret." = "Sentence capture: SI submitted text. Press Return to save available text before the caret.";
+"Sentence capture: captured and queued for saving." = "Sentence capture: captured and queued for saving.";
+"Sentence capture skipped: the input client or recording settings changed during the read." = "Sentence capture skipped: the input client or recording settings changed during the read.";
+"Sentence capture skipped: the app did not provide the caret range." = "Sentence capture skipped: the app did not provide the caret range.";
+"Sentence capture skipped: select no text and use a nonempty input of at most 1,024 UTF-16 units." = "Sentence capture skipped: select no text and use a nonempty input of at most 1,024 UTF-16 units.";
+"Sentence capture skipped: the app still reports marked text." = "Sentence capture skipped: the app still reports marked text.";
+"Sentence capture skipped: the input is blank, multiline, contains control characters or exceeds the limit." = "Sentence capture skipped: the input is blank, multiline, contains control characters or exceeds the limit.";
+"Sentence capture skipped: the app did not return text." = "Sentence capture skipped: the app did not return text.";
