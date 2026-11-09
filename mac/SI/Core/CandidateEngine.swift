@@ -17,7 +17,8 @@ public struct CandidateEngine: Sendable {
                            learning: LearningProfile = LearningProfile(), dictionary: UserDictionary = UserDictionary(),
                            now: Date = .now, context: CandidateContext? = nil,
                            includesConfirmationEvidence: Bool = false,
-                           applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
+                           applicationMemory: ApplicationMemorySnapshot = .empty,
+                           languageModelContext: KenLMContext = .empty) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         var generated: [InputCandidate]
         if let providers {
@@ -36,7 +37,8 @@ public struct CandidateEngine: Sendable {
             .filter { !identities.contains($0.id) }
         let merged = merge(generated + saved,
                            input: input, languages: languages, learning: learning,
-                           now: now, context: context, applicationMemory: applicationMemory)
+                           now: now, context: context, applicationMemory: applicationMemory,
+                           languageModelContext: rankingExperiment.isActive ? languageModelContext.tokens : [])
         return merged
     }
 
@@ -101,7 +103,8 @@ public struct CandidateEngine: Sendable {
 
     private func merge(_ generated: [InputCandidate], input: String, languages: Set<InputLanguage>,
                        learning: LearningProfile, now: Date,
-                       context: CandidateContext?, applicationMemory: ApplicationMemorySnapshot) -> [InputCandidate] {
+                       context: CandidateContext?, applicationMemory: ApplicationMemorySnapshot,
+                       languageModelContext: [String] = []) -> [InputCandidate] {
         // Personal entries may share text with a built-in candidate. Keep the stronger derivation.
         var best: [String: (candidate: InputCandidate, score: Double)] = [:]
         best.reserveCapacity(generated.count)
@@ -138,7 +141,7 @@ public struct CandidateEngine: Sendable {
         guard rankingExperiment.isActive || rankingExperiment.fullCoverageFirst
             || (languages.contains(.english) && rankingExperiment.adjustsEnglishInsertion) else { return candidates }
         return CandidateRankingPool(candidates: candidates,
-            model: rankingExperiment.isActive ? rankingExperiment.model : nil,
+            model: rankingExperiment.isActive ? rankingExperiment.model : nil, context: languageModelContext,
             scoreEnglish: rankingExperiment.englishLanguageModelWeight != 0).ranked(using: rankingExperiment)
     }
 

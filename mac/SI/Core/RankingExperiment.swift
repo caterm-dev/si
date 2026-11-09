@@ -70,11 +70,22 @@ struct KenLMScorer {
 
     mutating func score(_ tokens: [RankingToken], language: InputLanguage,
                         context: [String] = []) -> (bits: Double, oovs: Int, count: Int)? {
+        guard let state = state(after: context) else { return nil }
+        return score(tokens, language: language, startingAt: state)
+    }
+
+    mutating func state(after context: [String]) -> KenLMModel.State? {
         var state = model.beginSentence()
         for text in context.suffix(3) {
             guard let word = lookup(text), let step = model.advance(state, wordIndex: word.index) else { return nil }
             state = step.state
         }
+        return state
+    }
+
+    mutating func score(_ tokens: [RankingToken], language: InputLanguage,
+                        startingAt initial: KenLMModel.State) -> (bits: Double, oovs: Int, count: Int)? {
+        var state = initial
         var bits = 0.0
         var oovs = 0
         var count = 0

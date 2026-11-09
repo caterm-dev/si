@@ -1361,3 +1361,38 @@ counts, every document range, source/code/output checksums and dialogue
 metadata. SI retains all 10,000 conversations; dialogue contains 20,264,390
 utterance/message records, including the duplicated LCCC-base source. No
 new tokenization, dataset split or model training was performed.
+
+
+## Bounded host context for KenLM
+
+`KenLMContextReaderTests` checks UTF-16 reads before the entire marked range,
+a caret in the middle of composition, unmarked insertion carets, the 256-unit
+bound, incomplete responses and reentrant client/selection changes.
+`KenLMContextTests` checks three-word limits, punctuation/language/newline
+resets, truncated reads and rejection of stale preview/final results.
+With `SI_TEST_KENLM_BUNDLE` pointing to a verified model bundle, it also compares
+prepared-State scores to independent native incremental scoring, tests that
+candidate branches cannot contaminate each other, checks engine/pool agreement
+and verifies mixed-language state reset. Run the full shared tests and Debug
+build after changes. System word segmentation is not the training tokenizer;
+these checks do not establish a ranking-quality improvement.
+
+On an intentionally installed build, use synthetic text in TextEdit and a
+browser/editor. Type Chinese before a new composition and check candidate
+ordering, then repeat after punctuation/newlines, English, editing preceding
+text, moving the caret and switching fields/apps. Verify prefixes refresh from
+actual inserted host text, leave the exact remainder editable, and never reuse
+an old request. Check unavailable/partial host ranges, secure input, direct-input
+rules, no-model startup, quick Space/number/mouse acceptance and automatic
+confirmation. Verify typing never asks for Accessibility or Screen Recording.
+Live host verification remains pending; do not install or replace the input
+method merely to run package tests.
+
+On November 9, 2026, all 495 Swift tests passed with
+`SI_TEST_KENLM_BUNDLE` set to the selected local `0012` model directory and
+`./scripts/test.sh --disable-sandbox`, including the six new host-context tests
+and the native prepared-State comparison. The Debug app build passed with
+normal Xcode/compiler-cache access outside the restricted workspace sandbox.
+`git diff --check` passed. No input method was installed or launched, no real
+host text was collected, and no ranking-quality or latency improvement was
+measured. Live host checks above remain unverified.

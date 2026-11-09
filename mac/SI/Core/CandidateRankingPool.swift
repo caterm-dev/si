@@ -50,12 +50,16 @@ public struct CandidateRankingPool: Sendable {
                 scoreEnglish: Bool = false) {
         self.model = model
         var scorer = model.map(KenLMScorer.init(model:))
+        // Prepare the prefix once. Each candidate receives an independent value copy.
+        let chineseState = scorer?.state(after: context)
         rows = candidates.map { candidate in
             let tokens = candidate.isUserPhrase || candidate.hasLiteralSegments || candidate.isApplicationVocabulary
                 || candidate.isPunctuation ? [] : candidate.rankingTokens
             let chinese = tokens.filter { $0.language == .simplifiedChinese }
             let english = tokens.filter { $0.language == .english }
-            let zh = chinese.isEmpty ? nil : scorer?.score(tokens, language: .simplifiedChinese, context: context).map(LM.init)
+            let zh = chinese.isEmpty ? nil : chineseState.flatMap {
+                scorer?.score(tokens, language: .simplifiedChinese, startingAt: $0).map(LM.init)
+            }
             let en = !scoreEnglish || english.isEmpty ? nil : scorer?.score(tokens, language: .english).map(LM.init)
             return Row(candidate: candidate, tokens: tokens, chinese: zh, english: en, chineseCount: chinese.count,
                        englishCount: english.count,

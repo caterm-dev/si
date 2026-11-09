@@ -295,7 +295,10 @@ for an exact original-path control.
 LM scoring starts at BOS, resets at language boundaries and scores only the
 consumed lexical tokens. It adds no EOS or hypothetical suffix. Track
 `lm_oov_ratio` among scored candidate tokens. The offline scorer can accept up
-to three explicit preceding tokens. Production ranking reads no host-field text.
+to three explicit preceding tokens. Production can seed the same State from
+up to three system-segmented Chinese words in a bounded IMK host prefix;
+see [the runtime boundary](ARCHITECTURE.md#data-flow). Live segmentation differs
+from the authored gold-token experiment and needs separate quality evaluation.
 
 Coverage A is an independent ordering dimension. After pins and remembered
 choices, whole candidates precede prefixes and longer prefix spans precede

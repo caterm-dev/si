@@ -1173,9 +1173,13 @@ the exact prefix boundaries before automatic confirmation.
 
 KenLM can score Chinese candidates using up to three preceding tokens. In
 the train-only paired-span experiment, explicit gold context improved
-Top-1 from 47.56% to 50.56% on 7,269 queries. Production starts from the
-current composition and reads no surrounding host text. The paired result
-does not measure the effects of segmenting live field text.
+Top-1 from 47.56% to 50.56% on 7,269 queries. Production now supports a
+bounded host prefix through IMK: up to 256 UTF-16 units before the marked range,
+system-segmented on the worker into up to three recent Chinese words. A single
+prepared State is copied for each candidate. Secure/direct input, unreliable
+ranges and punctuation/language boundaries suppress or reset context. Nothing
+is recorded or transmitted. The paired result does not measure the effects
+of segmenting live field text; see [the runtime boundary](docs/PRIVACY.md#local-language-model).
 
 Validation used the installed model for the full Swift suite. All 458 tests
 passed, and both unsigned Debug and Release app builds succeeded. The model

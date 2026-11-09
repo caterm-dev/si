@@ -35,7 +35,12 @@ Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or
 Debug and Release use the same ranking. When a verified local KenLM model is
 installed, SI scores Chinese words in the current composition, including
 Chinese segments of mixed candidates. English uses dictionary scoring with its
-own per-word insertion cost. Ranking uses no surrounding host-field text. The
+own per-word insertion cost. For local Chinese ranking, SI reads at most 256
+UTF-16 units before the current composition through the active IMK client,
+then uses up to three recent Chinese words as context. Punctuation, newlines
+and other-language boundaries reset that context. Secure/direct input and
+unavailable or inconsistent host ranges use context-free ranking. Context
+stays transient and local; it is neither recorded nor learned. The
 release DMG and update ZIP include the model inside the app. The dictionary
 supplies results while the model loads. See [production ranking and model packaging](README_kenlm_train.md#production-kenlm-ranking).
 

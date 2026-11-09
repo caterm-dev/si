@@ -3,7 +3,7 @@ import Foundation
 /// Last host update for one client/composition. Candidate deliveries resend marked
 /// text only when its displayed spelling/segmentation or UTF-16 caret changes.
 struct MarkedTextState {
-    private var text: String?
+    private(set) var text: String?
     private var selection: NSRange?
 
     mutating func shouldSend(_ text: String, selection: NSRange) -> Bool {

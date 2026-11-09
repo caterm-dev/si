@@ -125,7 +125,25 @@ reconfiguration. Previews and synchronous selection fallback use the production
 dictionary scores without querying the model. Secure event input uses legacy
 ranking. Release packaging stages the verified model inside the signed app.
 The loader prefers that resource and retains the App Support model as a fallback
-for source builds. Ranking reads no host text. `LanguageSettings`
+for source builds.
+
+`KenLMContextReader` reads at most 256 UTF-16 units before the marked range
+through the current IMK client, verifies SI's marked text and selection, and
+rechecks eligibility around host calls. It never queries the full document length,
+which the SDK warns can be expensive. Unmarked insertion carets are supported
+for committed-prefix remainders. Unknown/inconsistent ranges, secure input and
+direct input supply no context. `KenLMContext` uses an explicitly Chinese
+`NLTokenizer` on the candidate worker to retain up to three words from the
+trailing Chinese segment. Punctuation, newlines and other languages break that
+segment; the first token of a truncated read is discarded conservatively.
+System segmentation is an approximation to the training unigram tokenizer.
+The pool advances these words once to prepare a native KenLM State, copies it
+for each candidate and scores only consumed candidate tokens. Historical-token
+probabilities, EOS and hypothetical remainders do not contribute to scores.
+Language boundaries still reset the state. Prefix changes invalidate request
+IDs, just like composition edits. Context is transient and does not enter
+learning/history/network paths. No cross-composition draft buffer is retained.
+`LanguageSettings`
 clears the retired AI and development ranking preferences without changing
 languages, direct-input rules or recording consent.
 See [the production model record](../README_kenlm_train.md#production-kenlm-ranking).

@@ -249,6 +249,34 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           applicationMemory: memory,
                           punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
                           rankingExperiment: secureInput ? RankingExperiment() : languages.productionRanking)
+        if let client = eventClient ?? client() { return refreshLanguageModelContext(from: client) }
+        session.setLanguageModelContext(.empty)
+        return true
+    }
+
+    private func refreshLanguageModelContext(from client: any IMKTextInput) -> Bool {
+        let languages = LanguageSettings.shared
+        guard !session.buffer.isEmpty, languages.enabledLanguages.contains(.simplifiedChinese),
+              languages.productionRanking.isActive, !IsSecureEventInputEnabled(),
+              !languages.usesPassthrough(in: applicationID) else {
+            session.setLanguageModelContext(.empty)
+            return true
+        }
+        let revision = presentationRevision
+        let generation = languages.configurationGeneration
+        let contextGeneration = sessionContextGeneration
+        let app = applicationID
+        let isCurrent = {
+            revision == self.presentationRevision && contextGeneration == self.sessionContextGeneration
+                && generation == languages.configurationGeneration && app == self.applicationID
+                && (self.client() as AnyObject?) === (client as AnyObject)
+                && !IsSecureEventInputEnabled() && !languages.usesPassthrough(in: app)
+        }
+        let context = KenLMContextReader.read(markedText: markedTextState.text, isCurrent: isCurrent,
+            selection: { client.selectedRange() }, markedRange: { client.markedRange() },
+            text: { client.attributedSubstring(from: $0)?.string })
+        guard isCurrent() else { return false }
+        session.setLanguageModelContext(context ?? .empty)
         return true
     }
 
@@ -488,6 +516,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         // A nested key, commit or focus callback supersedes this host update.
         guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
+        guard refreshLanguageModelContext(from: client), revision == presentationRevision else { return }
+        selection.update(session.candidates)
         if session.buffer.isEmpty {
             markedTextState.reset()
             candidatePipeline.invalidate()

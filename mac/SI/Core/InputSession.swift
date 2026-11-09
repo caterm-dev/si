@@ -12,6 +12,7 @@ public struct CandidateRequest: Sendable {
     fileprivate let context: CandidateContext?
     fileprivate let automaticConfirmationEnabled: Bool
     fileprivate let applicationMemory: ApplicationMemorySnapshot
+    fileprivate let languageModelContext: KenLMContext
 
     public func generate() -> CandidateResult {
         generate(using: engine)
@@ -31,7 +32,7 @@ public struct CandidateRequest: Sendable {
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context,
                                            includesConfirmationEvidence: automaticConfirmationEnabled,
-                                           applicationMemory: applicationMemory)
+                                           applicationMemory: applicationMemory, languageModelContext: languageModelContext)
         let ranking = engine.rankingExperiment
         let usesAdjustedScores = ranking.isActive || ranking.adjustsEnglishInsertion
         return CandidateResult(requestID: id, candidates: candidates,
@@ -85,6 +86,7 @@ public struct InputSession: Sendable {
     private var learning = LearningProfile()
     private var dictionary = UserDictionary()
     private var applicationMemory: ApplicationMemorySnapshot = .empty
+    private var languageModelContext: KenLMContext = .empty
     private var usesContext = false
     private var recentContext: RecentContext?
     private var contextGeneration: UInt64 = 0
@@ -126,9 +128,19 @@ public struct InputSession: Sendable {
         self.configurationGeneration = configurationGeneration
         engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
         engine.rankingExperiment = ranking
+        if contextChanged || !languages.contains(.simplifiedChinese) || !ranking.isActive {
+            languageModelContext = .empty
+        }
         automaticConfirmation = AutomaticConfirmation()
         if !usesContext || languagesChanged || contextChanged { recentContext = nil }
         refresh(now: now)
+    }
+
+    public mutating func setLanguageModelContext(_ context: KenLMContext) {
+        let context = buffer.isEmpty ? .empty : context
+        guard languageModelContext != context else { return }
+        languageModelContext = context
+        refresh()
     }
 
     public mutating func append(_ text: String, now: Date = .now) {
@@ -240,11 +252,14 @@ public struct InputSession: Sendable {
         pendingCandidateRequest = nil
         hasCandidatePreview = false
         recentContext = nil
+        languageModelContext = .empty
     }
 
     public mutating func breakContext() {
         suspendAutomaticConfirmation()
-        guard recentContext != nil else { return }
+        let hadContext = recentContext != nil || languageModelContext != .empty
+        languageModelContext = .empty
+        guard hadContext else { return }
         recentContext = nil
         refresh()
     }
@@ -273,7 +288,7 @@ public struct InputSession: Sendable {
         let request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
                                        dictionary: dictionary, now: now, context: currentContext(now: now),
                                        automaticConfirmationEnabled: automaticConfirmationEnabled,
-                                       applicationMemory: applicationMemory)
+                                       applicationMemory: applicationMemory, languageModelContext: languageModelContext)
         pendingCandidateRequest = request
         hasCandidatePreview = false
         if candidateGeneration == .synchronous {
