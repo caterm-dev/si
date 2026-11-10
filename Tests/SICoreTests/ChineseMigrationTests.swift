@@ -30,7 +30,7 @@ struct ChineseMigrationTests {
     @Test func packagedDictionaryLoads() {
         #expect(ChineseLexicon.standard.isAvailable)
         let row = ChineseLexicon.standard.exactMatches(["ne"]).first
-        #expect(row?.text == "呢" && row?.weight == 824_128)
+        #expect(row?.text == "呢" && row?.logProbability?.isFinite == true)
     }
 
     @Test func exactNeRemainsAvailableWhileEnglishCompletionsCompeteByScore() {

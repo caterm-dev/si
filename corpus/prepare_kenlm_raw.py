@@ -131,7 +131,7 @@ def tokenize_source(source, input_root, output_root, dictionary_path, workers):
             raise ValueError('Raw-derived input checksum mismatch: ' + name)
     identity = {'raw_text_manifest_sha256': digest(prepared / 'manifest.json'),
                 'tokenizer_sha256': digest(ROOT / 'tokenize_unigram.py'),
-                'dictionary_sha256': digest(dictionary_path), 'sentence_punctuation': BOUNDARIES}
+                'dictionary_sha256': tokenizer.dictionary_digest(dictionary_path), 'sentence_punctuation': BOUNDARIES}
     target = output_root / name
     if target.exists():
         record = json.loads((target / 'manifest.json').read_text())
@@ -158,7 +158,7 @@ def tokenize_source(source, input_root, output_root, dictionary_path, workers):
             raise ValueError('Independent counters disagree with tokenization: ' + name)
         if identity != {'raw_text_manifest_sha256': digest(prepared / 'manifest.json'),
                         'tokenizer_sha256': digest(ROOT / 'tokenize_unigram.py'),
-                        'dictionary_sha256': digest(dictionary_path), 'sentence_punctuation': BOUNDARIES}:
+                        'dictionary_sha256': tokenizer.dictionary_digest(dictionary_path), 'sentence_punctuation': BOUNDARIES}:
             raise ValueError('Inputs/code changed during source processing')
         record = {'schema_version': 1, 'id': name, 'source': source, 'identity': identity,
                   'raw_text_directory': recorded_path(prepared),

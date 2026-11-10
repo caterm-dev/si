@@ -75,6 +75,8 @@ def assign_families(rows):
 
 
 def anchors():
+    if not (HERE / 'lexical.tsv').exists() or not (HERE / 'additional.jsonl').exists():
+        raise ValueError('The chinese-v1 authored sources were retired. Use eval/ranking/test.jsonl; see eval/README.md.')
     result = []
     with (HERE / 'lexical.tsv').open() as handle:
         for family in csv.DictReader(handle, delimiter='\t'):

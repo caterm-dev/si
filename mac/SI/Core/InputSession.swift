@@ -93,6 +93,8 @@ public struct InputSession: Sendable {
     private var automaticConfirmationEnabled = false
     private var configurationGeneration: UInt64 = 0
     private var automaticConfirmation = AutomaticConfirmation()
+    private var compositionLearning = CompositionLearning()
+    private var compositionLearningEnabled = false
 
     public init(engine: CandidateEngine = CandidateEngine(), candidateGeneration: CandidateGeneration = .synchronous) {
         self.engine = engine
@@ -104,9 +106,16 @@ public struct InputSession: Sendable {
                                    contextGeneration: UInt64 = 0, automaticConfirmationEnabled: Bool = false,
                                    configurationGeneration: UInt64 = 0, now: Date = .now,
                                    applicationMemory: ApplicationMemorySnapshot = .empty,
+                                   compositionLearningEnabled: Bool = false,
                                    punctuationCandidatesEnabled: Bool = false,
                                    rankingExperiment: RankingExperiment? = nil) {
         let ranking = rankingExperiment ?? engine.rankingExperiment
+        if self.compositionLearningEnabled != compositionLearningEnabled || self.languages != languages
+            || self.contextGeneration != contextGeneration || self.dictionary != dictionary
+            || self.configurationGeneration != configurationGeneration {
+            compositionLearning.invalidate()
+        }
+        self.compositionLearningEnabled = compositionLearningEnabled
         let languagesChanged = self.languages != languages
         let contextChanged = self.contextGeneration != contextGeneration
         let expired = recentContext.map { now.timeIntervalSince($0.committedAt) >= Self.contextLifetime || now < $0.committedAt } ?? false
@@ -145,6 +154,8 @@ public struct InputSession: Sendable {
 
     public mutating func append(_ text: String, now: Date = .now) {
         guard !text.isEmpty else { return }
+        if buffer.isEmpty { compositionLearning = CompositionLearning() }
+        else { compositionLearning.edited() }
         let wasAtEnd = cursor == buffer.count
         let insertionEnd = cursorUTF16Offset + text.utf16.count
         let index = buffer.index(buffer.startIndex, offsetBy: cursor)
@@ -163,6 +174,7 @@ public struct InputSession: Sendable {
     }
 
     public mutating func deleteBackward() {
+        compositionLearning.edited()
         suspendAutomaticConfirmation()
         guard cursor > 0 else { return }
         let index = buffer.index(buffer.startIndex, offsetBy: cursor - 1)
@@ -172,6 +184,7 @@ public struct InputSession: Sendable {
     }
 
     public mutating func deleteForward() {
+        compositionLearning.edited()
         suspendAutomaticConfirmation()
         guard cursor < buffer.count else { return }
         buffer.remove(at: buffer.index(buffer.startIndex, offsetBy: cursor))
@@ -214,7 +227,9 @@ public struct InputSession: Sendable {
         let result = InputCommit(input: String(buffer.prefix(count)), candidate: validCandidate,
                                  reason: validCandidate == nil ? .literal : reason, context: currentContext(now: now),
                                  remainingInput: remaining)
+        let confirmedFragments = compositionLearning
         reset()
+        compositionLearning = confirmedFragments
         if usesContext, reason.learningWeight > 0, let validCandidate,
            let context = CandidateContext(candidate: validCandidate) {
             recentContext = RecentContext(candidate: context, committedAt: now)
@@ -244,6 +259,7 @@ public struct InputSession: Sendable {
     }
 
     public mutating func reset() {
+        compositionLearning = CompositionLearning()
         automaticConfirmation = AutomaticConfirmation()
         automaticConfirmationRevision &+= 1
         buffer = ""
@@ -256,12 +272,27 @@ public struct InputSession: Sendable {
     }
 
     public mutating func breakContext() {
+        compositionLearning.invalidate()
         suspendAutomaticConfirmation()
         let hadContext = recentContext != nil || languageModelContext != .empty
         languageModelContext = .empty
         guard hadContext else { return }
         recentContext = nil
         refresh()
+    }
+
+    /// Call only after a successful, revalidated host insertion with learning consent.
+    /// The returned value is learning evidence only, never another insertion/history event.
+    public mutating func recordSuccessfulCommit(_ commit: InputCommit) -> InputCommit? {
+        guard compositionLearningEnabled, buffer.utf8.elementsEqual(commit.remainingInput.utf8) else {
+            compositionLearning.invalidate()
+            return nil
+        }
+        return compositionLearning.record(commit)
+    }
+
+    public mutating func discardCompositionLearning() {
+        compositionLearning.invalidate()
     }
 
     /// Inspect the lexical/preferences score plus coverage of the consumed spelling.

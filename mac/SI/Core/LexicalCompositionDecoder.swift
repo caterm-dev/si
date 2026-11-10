@@ -176,7 +176,7 @@ struct LexicalCompositionDecoder: Sendable {
             var options = outgoing[start]
             let needsUnknown = options.contains(where: \.completion)
                 || !options.contains(where: { !$0.abbreviated && !$0.completion })
-            if mayPreserveUnknown && needsUnknown {
+            if mayPreserveUnknown && needsUnknown && EnglishLexicon.unknownCost.isFinite {
                 let ends = anchors.filter { $0 > start } + [count]
                 for end in ends {
                     options.append(Edge(end: end, text: reading.rawText(from: start, to: end), languages: 2,
@@ -361,10 +361,10 @@ struct LexicalCompositionDecoder: Sendable {
                         for row in rows {
                             if wordIDs[row.text] == nil { wordIDs[row.text] = wordIDs.count + 2 }
                             result[start].append(Edge(end: syllable.end, text: row.text, languages: 1,
-                                cost: CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+                                cost: CandidateScoring.wordCost(row, isChineseCharacter: row.reading.count == 1)
                                     + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: reading),
                                 contextID: wordIDs[row.text]!,
-                                rankingToken: RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight),
+                                rankingToken: RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight, logProbability: row.logProbability),
                                 interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text,
                                     sourceCounts: sourceEnds.dropLast().map { input.rawBoundaries[$0] }),
                                 syllableSourceCounts: sourceEnds.dropLast().map { input.rawBoundaries[$0] }))
@@ -393,7 +393,7 @@ struct LexicalCompositionDecoder: Sendable {
                         for entry in EnglishLexicon.exactMatches(at: next) {
                             let cost = entry.lexicalCost + entry.channelCost(typedLength: end - start)
                             result[start].append(Edge(end: end, text: entry.text(for: style), languages: 2, cost: cost,
-                                                      contextID: 1, rankingToken: RankingToken(text: entry.text, language: .english, weight: entry.weight)))
+                                                      contextID: 1, rankingToken: RankingToken(text: entry.text, language: .english, weight: entry.weight, logProbability: entry.logProbability)))
                         }
                     }
                 }
@@ -404,7 +404,7 @@ struct LexicalCompositionDecoder: Sendable {
                 for entry in matches {
                     let cost = entry.lexicalCost + entry.channelCost(typedLength: count - start)
                     result[start].append(Edge(end: count, text: entry.text(for: style), languages: 2, cost: cost,
-                                              completion: true, contextID: 1, rankingToken: RankingToken(text: entry.text, language: .english, weight: entry.weight)))
+                                              completion: true, contextID: 1, rankingToken: RankingToken(text: entry.text, language: .english, weight: entry.weight, logProbability: entry.logProbability)))
                 }
             }
             if learning.hasTokenPreferences {

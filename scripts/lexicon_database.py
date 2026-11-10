@@ -1,15 +1,12 @@
 """Shared SI dictionary schema, weight contract and semantic comparison."""
 
 from itertools import zip_longest
-import json
 from pathlib import Path
 import re
 import sqlite3
 import string
 
-FORMAT_PATH = Path(__file__).resolve().parents[1] / "Data/DictionaryFormat.json"
-_format_document = json.loads(FORMAT_PATH.read_text())
-FORMAT = {key: _format_document[key] for key in ("schema_version", "weight_unit", "reference_mass")}
+FORMAT = {"schema_version": 2, "weight_unit": "si-log10-probability-v2"}
 INITIALS = string.ascii_lowercase
 TABLES = [f"tbl_{bucket}_{initial}" for bucket in [*map(str, range(1, 8)), "others"] for initial in INITIALS]
 
@@ -36,16 +33,14 @@ def table_for(reading, allow_domain=False):
     return f"tbl_{len(units) if len(units) <= 7 else 'others'}_{reading[0]}"
 
 
-def create_schema(connection, unknown_weight=1):
+def create_schema(connection, metadata):
     connection.execute("PRAGMA page_size=4096")
     connection.execute("PRAGMA journal_mode=OFF")
     connection.execute("PRAGMA synchronous=OFF")
-    connection.execute("CREATE TABLE dictionary_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
-    metadata = {key: str(FORMAT[key]) for key in ("schema_version", "weight_unit", "reference_mass")}
-    metadata["unknown_weight"] = str(unknown_weight)
-    connection.executemany("INSERT INTO dictionary_metadata VALUES (?,?)", sorted(metadata.items()))
+    connection.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    connection.executemany("INSERT INTO meta VALUES (?,?)", sorted((k, str(v)) for k, v in metadata.items()))
     for table in TABLES:
-        connection.execute(f"CREATE TABLE {table} (key TEXT, jp TEXT, value TEXT, weight INTEGER NOT NULL)")
+        connection.execute(f"CREATE TABLE {table} (key TEXT, jp TEXT, value TEXT, weight REAL NOT NULL)")
         connection.execute(f"CREATE UNIQUE INDEX identity_{table} ON {table}(key,value)")
 
 
@@ -70,8 +65,8 @@ def same_dictionary(expected, actual, tables=TABLES):
         schema = "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name"
         if left.execute(schema).fetchall() != right.execute(schema).fetchall():
             return False
-        if left.execute("SELECT * FROM dictionary_metadata ORDER BY key").fetchall() != right.execute(
-                "SELECT * FROM dictionary_metadata ORDER BY key").fetchall():
+        if left.execute("SELECT * FROM meta WHERE key != 'built_at' ORDER BY key").fetchall() != right.execute(
+                "SELECT * FROM meta WHERE key != 'built_at' ORDER BY key").fetchall():
             return False
         for table in tables:
             query = f"SELECT rowid,key,jp,value,weight FROM {table} ORDER BY rowid"

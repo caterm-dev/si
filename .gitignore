@@ -16,6 +16,9 @@ build/
 .build/
 .swiftpm/
 
+# Retained KenLM delivery models; survive ordinary .build cleanup.
+/corpus/kenlm/models/
+
 # Local configuration and signing material
 .env
 .env.*
@@ -45,6 +48,12 @@ __pycache__/
 
 # User-contributed input history and derived private training candidates
 /llm/private-history/
+
+# Local evaluation outputs and any explicitly supplied private fixtures
+/eval/requests/
+/eval/predictions/
+/eval/reports/
+/eval/private/
 SI-Input-History*.jsonl
 SI-Sentence-History*.jsonl
 

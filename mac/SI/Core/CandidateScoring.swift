@@ -40,9 +40,26 @@ enum CandidateScoring {
             + (isChineseCharacter ? characterInsertionCost : 0)) / log(2.0)
     }
 
+    /// Normalization already supplies the token prior; do not add the raw-fixture insertion constant.
+    static func wordCost(logProbability: Double, isChineseCharacter: Bool = false) -> Double {
+        (-frequencyWeight * logProbability * log(10.0)
+            + (isChineseCharacter ? characterInsertionCost : 0)) / log(2.0)
+    }
+
+    static func wordCost(_ row: DictionaryLexeme, isChineseCharacter: Bool = false) -> Double {
+        if let logProbability = row.logProbability {
+            return wordCost(logProbability: logProbability, isChineseCharacter: isChineseCharacter)
+        }
+        return wordCost(weight: row.weight, isChineseCharacter: isChineseCharacter)
+    }
+
     /// Charge each English dictionary token, shared by lookup and sentence edges.
     static func englishWordCost(weight: Int64) -> Double {
         wordCost(weight: weight) + englishWordInsertionCost / log(2.0)
+    }
+
+    static func englishWordCost(_ row: DictionaryLexeme) -> Double {
+        wordCost(row) + englishWordInsertionCost / log(2.0)
     }
 
     static func languageCost(previous: Int, next: Int) -> Double {

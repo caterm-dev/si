@@ -7,14 +7,14 @@ struct EnglishVocabularyTests {
         DictionaryResources.url("si-english", extension: "sqlite", languageDirectory: "English"))
     private static let rows = database.allEntries().sorted {
         if $0.key != $1.key { return $0.key < $1.key }
-        return $0.weight == $1.weight ? $0.ordinal < $1.ordinal : $0.weight > $1.weight
+        return $0.frequency == $1.frequency ? $0.ordinal < $1.ordinal : $0.frequency > $1.frequency
     }
     private static let words = rows.map(\.text)
     private static let keys = Dictionary(uniqueKeysWithValues: rows.map { ($0.text, $0.key) })
-    private static let weights = Dictionary(uniqueKeysWithValues: rows.map { ($0.text, Double(max(1, $0.weight))) })
+    private static let logProbabilities = Dictionary(uniqueKeysWithValues: rows.map { ($0.text, $0.logProbability!) })
 
     private func referenceScore(_ word: String, input: String) -> Double {
-        let lexicalScore = (1.05 * log(Self.weights[word]!) - 23) / log(2.0) - 1
+        let lexicalScore = (1.05 * log(10.0) * Self.logProbabilities[word]! - 3) / log(2.0) - 1
         let length = Self.keys[word]!.utf8.count
         let missing = length - input.lowercased().utf8.count
         let normalizer = 16 + (1 - exp2(-Double(length - 1)))

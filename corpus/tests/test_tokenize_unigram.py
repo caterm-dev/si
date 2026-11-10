@@ -11,13 +11,41 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from tokenize_unigram import (MAX_WORDS, UnigramDictionary, line_chunks, load_dictionary,
+from tokenize_unigram import (MAX_WORDS, UnigramDictionary, dictionary_digest, line_chunks, load_dictionary,
                               normalize_line, sentences, tokenize_sentence)
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'tokenize_unigram.py'
 
 
 class UnigramTokenizerTests(unittest.TestCase):
+    def test_current_si_directory_sums_readings_and_uses_full_count_unknown_floor(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'base.csv').write_text("text,reading,weight\n测试,ce'shi,100\n行,xing,50\n行,hang,20\n零,ling,0\nX,ai'ke'si,30\n")
+            (root / 'extra.csv').write_text("text,reading,weight\n测试,ce'shi,100\n")
+            dictionary = load_dictionary(root)
+            self.assertAlmostEqual(dictionary.log_probabilities['测试'], math.log(200 / 300))
+            self.assertAlmostEqual(dictionary.log_probabilities['行'], math.log(70 / 300))
+            self.assertAlmostEqual(dictionary.log_probabilities['零'], math.log(0.5 / 300))
+            self.assertAlmostEqual(dictionary.unknown_log_probability, math.log(0.5 / 300))
+            self.assertNotIn('X', dictionary.log_probabilities)
+            self.assertEqual(dictionary.segment('测试行零新'), ['测试', '行', '零', '新'])
+            before = dictionary_digest(root)
+            (root / 'README.md').write_text('Not a vocabulary input')
+            self.assertEqual(before, dictionary_digest(root))
+            (root / 'extra.csv').write_text("text,reading,weight\n测试,ce'shi,101\n")
+            self.assertNotEqual(before, dictionary_digest(root))
+
+    def test_current_si_directory_rejects_missing_base_and_invalid_counts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaisesRegex(ValueError, 'base.csv'):
+                load_dictionary(root)
+            for count in ('', '-1', '1.5', '0'):
+                (root / 'base.csv').write_text(f'text,reading,weight\n词,ci,{count}\n')
+                with self.subTest(count=count), self.assertRaises(ValueError):
+                    load_dictionary(root)
+
     def setUp(self):
         self.dictionary = UnigramDictionary.from_counts({
             '你好': 100, '世界': 80, '研究': 100, '研究生': 1, '生命': 100, '命': 1, '起源': 100,

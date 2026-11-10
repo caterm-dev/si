@@ -20,6 +20,14 @@ class ReinstallTests(unittest.TestCase):
         scripts.mkdir()
         self.script = scripts / "reinstall.sh"
         shutil.copy2(REPOSITORY / "scripts/reinstall.sh", self.script)
+        (scripts / "install_kenlm_model.py").write_text('''import json, os, sys
+from pathlib import Path
+path = Path(os.environ["SI_TEST_STATE"])
+state = json.loads(path.read_text())
+state["model_checked"] = sys.argv[1:] == ["--verify-only"]
+path.write_text(json.dumps(state))
+sys.exit(state.get("model_status", 0))
+''')
         self.state_path = self.root / "state.json"
         self.bin = self.root / "bin"
         self.bin.mkdir()
@@ -132,6 +140,14 @@ sys.exit(state.get("install_status", 0))
         result, state = self.run_script(install_status=7)
         self.assertEqual(result.returncode, 7)
         self.assertEqual(state["installed"], ["Release"])
+
+    def test_missing_model_does_not_stop_si_or_install(self):
+        result, state = self.run_script(model_status=6)
+        self.assertEqual(result.returncode, 6)
+        self.assertTrue(state['model_checked'])
+        self.assertTrue(state['running'])
+        self.assertEqual(state['signals'], [])
+        self.assertNotIn('installed', state)
 
 
 if __name__ == "__main__":

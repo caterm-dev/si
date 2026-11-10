@@ -178,15 +178,23 @@ extension KenLMRankingTests {
     @Test func coveragePreservesEnglishScoresAndWholeCommitBoundaries() throws {
         let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
-        let fixture = try String(contentsOf: repo.appendingPathComponent("eval/ranking/hard-cases.tsv"), encoding: .utf8)
+        struct Fixture: Decodable {
+            let input: String
+            let references: [String]
+            let origin: String
+        }
+        let fixture = try String(contentsOf: repo.appendingPathComponent("eval/ranking/test.jsonl"), encoding: .utf8)
+        let decoder = JSONDecoder()
+        let hardCases = try fixture.split(separator: "\n").map {
+            try decoder.decode(Fixture.self, from: Data($0.utf8))
+        }.filter { $0.origin == "requested-hard-case" }
+        #expect(hardCases.count == 6)
         let legacy = CandidateEngine()
         let engine = CandidateEngine(rankingExperiment: RankingExperiment(fullCoverageFirst: true))
         let knownMismatches = ["goon": "goon", "cannot": "can not"]
-        for row in fixture.split(separator: "\n") {
-            let fields = row.split(separator: "\t", omittingEmptySubsequences: false)
-            try #require(fields.count == 2 && !fields[0].isEmpty)
-            let input = String(fields[0]), expected = String(fields[1])
-            if expected.isEmpty { continue }
+        for row in hardCases {
+            let input = row.input
+            let expected = try #require(row.references.first)
             for languages: Set<InputLanguage> in [[.english], [.english, .simplifiedChinese]] {
                 var session = InputSession(engine: engine)
                 session.configure(languages: languages)

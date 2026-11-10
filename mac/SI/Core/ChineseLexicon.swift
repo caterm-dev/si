@@ -58,7 +58,7 @@ struct ChineseLexicon: Sendable {
                 result += ranked(keys.flatMap { exact[$0] ?? [] }).prefix(limit)
             }
         }
-        return result.sorted { $0.weight > $1.weight }
+        return result.sorted { $0.frequency > $1.frequency }
     }
 
     func matches(_ segments: [String], limit: Int? = nil) -> [DictionaryLexeme] {
@@ -136,7 +136,7 @@ struct ChineseLexicon: Sendable {
     }
 
     private func ranked(_ values: [DictionaryLexeme]) -> [DictionaryLexeme] {
-        values.sorted { $0.weight == $1.weight ? $0.ordinal < $1.ordinal : $0.weight > $1.weight }
+        values.sorted { $0.frequency == $1.frequency ? $0.ordinal < $1.ordinal : $0.frequency > $1.frequency }
     }
 
     private func uniqueWords(_ values: [DictionaryLexeme]) -> [DictionaryLexeme] {

@@ -29,28 +29,11 @@ class BenchmarkTests(unittest.TestCase):
             self.assertEqual(rows[a]['family_id'], rows[b]['family_id'])
             self.assertEqual(rows[a]['split'], rows[b]['split'])
 
-    def test_frozen_family_splits_actual_decoder_order_and_derivation(self):
-        root = HERE / 'chinese-v1'
-        dev, _, _ = load_suite(root, 'dev')
-        test, _, _ = load_suite(root, 'test')
-        self.assertFalse({r['family_id'] for r in dev} & {r['family_id'] for r in test})
-        cases = dev + test
-        coverage = validate(cases)
-        self.assertGreater(coverage['cases'], 1000)
-        self.assertGreater(coverage['anchors'], 300)
-        self.assertGreaterEqual(len(coverage['categories']), 20)
-        snapshots = {r['input']: r for r in map(json.loads, (root / 'decoder-snapshots.jsonl').read_text().splitlines())}
-        overlaps = {r['anchor_id']: r['overlap'] for r in cases if not r['diagnostic']}
-        regenerated = make_cases(anchors(), snapshots, overlaps) + list(diagnostics())
-        self.assertEqual(sorted(cases, key=lambda r: r['id']), sorted(regenerated, key=lambda r: r['id']))
-        for row in cases:
-            self.assertEqual(row['split'], 'test' if row['diagnostic'] and row['track'] == 'robustness'
-                             else split_for(row['family_id']))
-            if row['track'].startswith('decoder'):
-                self.assertEqual(row['candidate_details'], snapshots[row['input']]['candidates'])
-                self.assertTrue(row['decoder']['literalAvailable'])
-        report = check_readings(anchors(), REPO / 'mac/SI/Core/Resources/Chinese/si-pinyin.sqlite')
-        self.assertGreater(report['candidate_checks'], 600)
+    def test_retired_default_suite_fails_with_current_dataset_guidance(self):
+        with self.assertRaisesRegex(ValueError, 'eval/ranking/test.jsonl'):
+            load_suite(HERE / 'chinese-v1', 'test')
+        with self.assertRaisesRegex(ValueError, 'retired'):
+            anchors()
 
     def test_matcher_suffixes_and_document_local_normalized_overlap(self):
         matcher = Matcher({'abc': {'a'}, 'bc': {'b'}, 'bcd': {'c'}})

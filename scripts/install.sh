@@ -27,6 +27,7 @@ ensure_si_stopped() {
     esac
 }
 ensure_si_stopped
+python3 "$repo_root/scripts/install_kenlm_model.py" --verify-only
 # Use the same kind of stable app identity as release packaging. Never fall back
 # to ad hoc signing: its code-hash identity loses privacy grants after rebuilds.
 requested_identity="${SI_SIGN_IDENTITY:-}"

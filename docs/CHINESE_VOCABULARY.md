@@ -1,10 +1,29 @@
 # Chinese vocabulary maintenance
 
-The current [base.csv](../Data/Vocabulary/chinese/base.csv) is converted from pinned Wanxiang `zi.dict.yaml`, `jichu.dict.yaml` and `duoyin.dict.yaml`. The original import contains 1,547,554 text/toneless-reading pairs; the maintained word-side base now contains 1,501,057 after the [phrase split](../Data/Vocabulary/chinese/phrase/README.md), initially preserving upstream integer weights, with [documented SI editorial adjustments](../Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments). Tone marks are removed from readings, ü becomes `v`, and tone-collapsed duplicate identities retain the maximum source weight. Output text is not normalized. The [import guide](../Data/Vocabulary/Wanxiang/README.md) contains the source lock, CC BY 4.0 data licensing, exact transformations and reproduction/update workflow.
+## Current count-based compiler
+
+Maintain `Data/Chinese/*.csv` with explicit `text,reading,weight` counts.
+Exact duplicate identities sum across all files. Run
+`python3 scripts/csv_dictionary.py build --language chinese` and the same
+command with `--check`. Schema 2 stores log10 probabilities and the computed
+unknown floor in SQLite `meta`; see [the current contract](../README.md#vocabulary-maintenance).
+The legacy source paths, precedence and raw-weight rules below are historical
+and do not describe the current compiler.
+
+## Historical import and review record
+
+The current [base.csv](../Data/Vocabulary/chinese/base.csv) is converted from pinned Wanxiang `zi.dict.yaml`, `jichu.dict.yaml` and `duoyin.dict.yaml`. The original import contains 1,547,554 text/toneless-reading pairs; the maintained word-side base now contains 1,326,683 after the ongoing [phrase split](../Data/Vocabulary/chinese/phrase/README.md), initially preserving upstream integer weights, with [documented SI editorial adjustments](../Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments). Tone marks are removed from readings, ü becomes `v`, and tone-collapsed duplicate identities retain the maximum source weight. Output text is not normalized. The [import guide](../Data/Vocabulary/Wanxiang/README.md) contains the source lock, CC BY 4.0 data licensing, exact transformations and reproduction/update workflow.
+
+During the ongoing word/phrase review, fixed technical terms remain whole on
+the word side, as explicitly confirmed by the user. The
+[term retention review](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-06.json)
+restores complete terms such as `矩阵的秩` and `水的离子积` even though they
+contain 的. Ordinary grammatical descriptions remain in `phrase/`; apply the
+latest explicit term decisions before any future grammatical heuristic.
 
 The seven remaining local nonbase category CSVs retain their text/readings with all weights set to 10. Base owns overlapping weights, including lower or zero weights; categories add missing identities, with maximum-weight merging among nonbase duplicates. Existing movie/domain catalogs and source attribution remain intact. The requested `炼仙丹` now exists in the Wanxiang base with source weight 333, replacing the former SI-authored base weight of 2,916.
 
-Ten other normal upstream dictionaries remain separate categories named after the upstream files, containing 602,516 rows; see the import guide for names and per-file counts. Their weights take precedence over legacy category copies absent from base. With the separate corpus additions, the merged Chinese database has 2,141,468 entries.
+Ten other normal upstream dictionaries remain separate categories named after the upstream files, containing 602,516 rows; see the import guide for names and per-file counts. Their weights take precedence over legacy category copies absent from base. With the separate corpus additions, the merged Chinese database has 2,141,077 entries.
 
 The [HanLP corpus review](../Data/Vocabulary/Corpus/README.md) adds 266 reviewed
 terms in [corpus.csv](../Data/Vocabulary/chinese/corpus.csv) and makes eight

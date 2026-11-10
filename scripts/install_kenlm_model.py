@@ -3,13 +3,16 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL_DIRECTORY = ROOT / ".build/kenlm-raw-text-v2-no-wikipedia-p0012/final"
+MODEL_RELATIVE_DIRECTORY = Path("corpus/kenlm/models/current")
+DEFAULT_MODEL_DIRECTORY = ROOT / MODEL_RELATIVE_DIRECTORY
 
 
 def stamp(path):
@@ -46,6 +49,67 @@ def copy_verified_model(binary, target, model):
     if sha != model["binary_sha256"] or target.stat().st_size != model["binary_bytes"]:
         raise ValueError("Model checksum or size does not match metadata")
     return sha
+
+
+def verify_model(binary, metadata):
+    """Check retained inputs before a build or any attempt to stop SI."""
+    _, data = compatible_metadata(metadata)
+    digest = hashlib.sha256()
+    with binary.open('rb') as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    if digest.hexdigest() != data['model']['binary_sha256'] or binary.stat().st_size != data['model']['binary_bytes']:
+        raise ValueError('Model checksum or size does not match metadata')
+    return data
+
+
+def publish(binary, metadata, store=None):
+    """Retain a verified trained model outside disposable build directories."""
+    store = DEFAULT_MODEL_DIRECTORY.parent if store is None else store
+    metadata_bytes, data = compatible_metadata(metadata)
+    sha = data['model']['binary_sha256']
+    if not re.fullmatch('[0-9a-f]{64}', sha) or data.get('functional_sanity_passed') is not True:
+        raise ValueError('Only a sanity-validated trained model can be published')
+    current = store / 'current'
+    if current.exists() and not current.is_symlink():
+        raise ValueError('Model store current path must be a version pointer')
+    store.mkdir(parents=True, exist_ok=True, mode=0o700)
+    version = store / sha
+    if version.exists():
+        verify_model(binary, metadata)
+        retained = verify_model(version / 'final.bin', version / 'final.meta.json')
+        if retained['model']['binary_sha256'] != sha:
+            raise ValueError('Retained model identity differs')
+    else:
+        with tempfile.TemporaryDirectory(prefix='.publish-', dir=store) as work:
+            payload = Path(work) / 'model'
+            payload.mkdir(mode=0o700)
+            copy_verified_model(binary, payload / 'final.bin', data['model'])
+            (payload / 'final.meta.json').write_bytes(metadata_bytes)
+            reference = metadata.parent / 'sanity/native-reference.json'
+            if reference.is_file():
+                if json.loads(reference.read_text())['model_sha256'] != sha:
+                    raise ValueError('Native reference belongs to a different model')
+                shutil.copyfile(reference, payload / 'native-reference.json')
+            run = metadata.parent.parent
+            for relative in ('input-code-pin.json', 'dictionary-snapshot.json', 'english-dictionary-snapshot.json',
+                             'commands.jsonl', 'selection/block-audit.json', 'final/commands.jsonl',
+                             'final/sanity/results.json', 'final/sanity/pairs.json'):
+                source = run / relative
+                if source.is_file():
+                    target = payload / 'provenance' / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(source, target)
+            for path in payload.rglob('*'):
+                path.chmod(0o700 if path.is_dir() else 0o400)
+            payload.rename(version)
+    pointer = store / ('.current-' + uuid.uuid4().hex)
+    try:
+        pointer.symlink_to(sha)
+        os.replace(pointer, current)
+    finally:
+        pointer.unlink(missing_ok=True)
+    return current
 
 
 def install(binary, metadata, destination):
@@ -122,12 +186,25 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--destination", type=Path)
     mode.add_argument("--bundle-resources", type=Path, help="stage the verified model inside an unsigned app's Resources")
+    mode.add_argument("--verify-only", action="store_true", help="verify model and metadata without changing anything")
+    mode.add_argument("--publish", action="store_true", help="retain a trained model outside .build and select it for delivery")
     args = parser.parse_args()
-    if args.bundle_resources is not None:
-        print(bundle(args.model, args.metadata, args.bundle_resources))
-    else:
-        destination = args.destination or Path.home() / "Library/Application Support/SI/KenLM"
-        print(install(args.model, args.metadata, destination))
+    try:
+        if args.verify_only:
+            print('Verified KenLM: ' + verify_model(args.model, args.metadata)['model']['binary_sha256'])
+        elif args.publish:
+            print(publish(args.model, args.metadata))
+        elif args.bundle_resources is not None:
+            print(bundle(args.model, args.metadata, args.bundle_resources))
+        else:
+            destination = args.destination or Path.home() / "Library/Application Support/SI/KenLM"
+            print(install(args.model, args.metadata, destination))
+    except FileNotFoundError as error:
+        parser.exit(1, f'Missing trained KenLM artifact: {error.filename}\n'
+                    'An app build does not recreate the trained model. Restore a retained model, or run:\n'
+                    '  corpus/.venv/bin/python scripts/retrain_kenlm.py\n')
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        parser.exit(1, f'KenLM model error: {error}\n')
 
 
 if __name__ == "__main__":

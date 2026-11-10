@@ -19,6 +19,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'scripts'))
+from install_kenlm_model import MODEL_RELATIVE_DIRECTORY
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 CHANNEL_CACHE = "no-cache, max-age=0, must-revalidate"
 SPARKLE_VERSION = "2.10.0"
@@ -390,7 +392,7 @@ def package(args, root, version, output):
     update = output / f"SI-{version}-{args.arch}-update.zip"
     if destination.exists() or destination.with_suffix(".dmg.sha256").exists() or update.exists():
         raise ValueError(f"Output already exists: {destination}; use another --output-dir")
-    model_root = root / ".build/kenlm-raw-text-v2-no-wikipedia-p0012/final"
+    model_root = root / MODEL_RELATIVE_DIRECTORY
     for filename in ("final.bin", "final.meta.json"):
         if not args.dry_run and not (model_root / filename).is_file():
             raise ValueError(f"Release requires the full-data KenLM model: missing {model_root / filename}")

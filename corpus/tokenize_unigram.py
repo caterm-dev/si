@@ -6,6 +6,7 @@ from collections import deque
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 from contextlib import ExitStack
 import csv
+import hashlib
 from dataclasses import dataclass
 import io
 import itertools
@@ -88,15 +89,16 @@ class UnigramDictionary:
     lengths_by_initial: dict[str, tuple[int, ...]]
 
     @classmethod
-    def from_counts(cls, counts):
+    def from_counts(cls, counts, unknown_count=None, total_count=None):
         if not counts:
             raise ValueError('Dictionary contains no positive-frequency Han words')
-        log_total = math.log(sum(counts.values()))
-        scores = {word: math.log(count) - log_total for word, count in counts.items()}
+        log_total = math.log(sum(counts.values()) if total_count is None else total_count)
+        scores = {word: math.log(count if count else unknown_count) - log_total for word, count in counts.items()}
         lengths = {}
         for word in scores:
             lengths.setdefault(word[0], set()).add(len(word))
-        return cls(scores, max(map(len, scores)), min(scores.values()) - 5.0,
+        unknown = math.log(unknown_count) - log_total if unknown_count else min(scores.values()) - 5.0
+        return cls(scores, max(map(len, scores)), unknown,
                    {initial: tuple(sorted(values)) for initial, values in lengths.items()})
 
     def segment(self, text):
@@ -129,8 +131,48 @@ class UnigramDictionary:
         return tokens
 
 
+def dictionary_digest(path):
+    """Fingerprint a frozen dictionary file or the complete flat SI CSV collection."""
+    if path.is_file():
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    records = [(item.name, hashlib.sha256(item.read_bytes()).hexdigest())
+               for item in sorted(path.glob('*.csv'))]
+    if not records:
+        raise ValueError('No SI dictionary CSVs found')
+    return hashlib.sha256(json.dumps(records, separators=(',', ':')).encode()).hexdigest()
+
+
+def load_si_dictionary(path):
+    """Read current SI counts directly, summing readings/categories by normalized Han text."""
+    files = sorted(path.glob('*.csv'))
+    if path / 'base.csv' not in files:
+        raise ValueError('SI dictionary directory requires base.csv')
+    counts = {}
+    total_count = 0
+    for source in files:
+        if source.is_symlink():
+            raise ValueError('SI dictionary CSVs must not be symbolic links')
+        with source.open(encoding='utf-8-sig', newline='') as stream:
+            reader = csv.DictReader(stream)
+            if reader.fieldnames != ['text', 'reading', 'weight']:
+                raise ValueError('SI dictionary requires text,reading,weight CSVs')
+            for row in reader:
+                raw_count = row['weight']
+                if not raw_count or not re.fullmatch('[0-9]+', raw_count):
+                    raise ValueError('SI dictionary count must be a nonnegative integer')
+                total_count += int(raw_count)
+                word = normalize_line(row['text']).strip()
+                if HAN.fullmatch(word):
+                    counts[word] = counts.get(word, 0) + int(raw_count)
+    if not counts or sum(counts.values()) <= 0:
+        raise ValueError('SI dictionary contains no positive-count Han vocabulary')
+    return UnigramDictionary.from_counts(counts, unknown_count=0.5, total_count=total_count)
+
+
 def load_dictionary(path):
     """Read text/count CSV/TSV (extra columns allowed), or word/count plain text."""
+    if path.is_dir():
+        return load_si_dictionary(path)
     counts = {}
     with path.open(encoding='utf-8-sig', newline='') as handle:
         first = next((line for line in handle if line.strip() and not line.lstrip().startswith('#')), None)
@@ -281,8 +323,8 @@ class Progress:
 
 
 def run(args):
-    if not args.input.is_file() or not args.dictionary.is_file():
-        raise ValueError('Input and dictionary must be existing regular files')
+    if not args.input.is_file() or not (args.dictionary.is_file() or args.dictionary.is_dir()):
+        raise ValueError('Input must be a regular file; dictionary must be a file or SI CSV directory')
     origin_path = getattr(args, 'output_origins', None)
     targets = [args.output] + ([origin_path] if origin_path is not None else [])
     if len({path.resolve() for path in targets}) != len(targets):
@@ -355,7 +397,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True, help='New UTF-8 output file; never overwrites')
     parser.add_argument('--output-origins', type=Path,
                         help='Optional JSONL [input_line, sentence_index] map, one pair per output sentence')
-    parser.add_argument('--dictionary', type=Path, required=True, help='CSV/TSV text,count or plain word/count pairs')
+    parser.add_argument('--dictionary', type=Path, required=True,
+                        help='SI CSV directory (text,reading,weight), legacy text/count CSV/TSV or word/count pairs')
     parser.add_argument('--workers', type=positive_integer, default=min(8, max(1, (os.cpu_count() or 2) - 1)))
     parser.add_argument('--chunk-lines', type=positive_integer, default=1000)
     parser.add_argument('--chunk-bytes', type=positive_integer, default=1024 * 1024)

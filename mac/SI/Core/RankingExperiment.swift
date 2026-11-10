@@ -59,7 +59,12 @@ struct RankingToken: Equatable, Sendable {
     let language: InputLanguage
     let weight: Int64
 
-    var frequencyBits: Double { 1.05 * log2(Double(max(weight, 1))) }
+    var logProbability: Double? = nil
+
+    var frequencyBits: Double {
+        if let logProbability { return 1.05 * logProbability * log2(10.0) }
+        return 1.05 * log2(Double(max(weight, 1)))
+    }
 }
 
 struct KenLMScorer {

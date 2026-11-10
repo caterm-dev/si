@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "suite": "ranking-20261109-compact-v4",
+  "cases": 120,
+  "seed": 20261109,
+  "test_sha256": "217c78a9985a14ff9c4c797820bd86e6b281d4f74f47051a5cd30fd8818ea68b",
+  "generator_sha256": "b601a5d294ca27c5a02ca6e842728c22abf549d7e4ead9a3a76e98b89f6838c5",
+  "categories": {
+    "cross-language": 2,
+    "daily": 12,
+    "dictionary-weight": 4,
+    "education": 12,
+    "english-segmentation": 6,
+    "english-sentence": 2,
+    "finance": 12,
+    "homophone": 2,
+    "mixed-technical": 10,
+    "ordinal": 6,
+    "prefix-ambiguity": 2,
+    "segmentation": 2,
+    "sentence": 2,
+    "syllable-boundary": 2,
+    "technical-term": 1,
+    "technology": 12,
+    "terminal-retention": 4,
+    "travel": 13,
+    "umlaut-alias": 2,
+    "work": 12
+  },
+  "origins": {
+    "authored-alias": 2,
+    "authored-ordinal": 4,
+    "documented-regression": 22,
+    "requested-hard-case": 6,
+    "seeded-composition": 84,
+    "user-requested-regression": 2
+  },
+  "families": 67,
+  "maximum_cases_per_family": 2,
+  "source": "New SI-authored synthetic fragments/templates plus explicitly requested documented regressions and six hard cases.",
+  "license": "GPL-3.0-only",
+  "limitations": [
+    "Synthetic, AI-assisted labels; no independent human review or representative typing distribution.",
+    "Each semantic/template family has at most two representative cases; this is not natural typing sampling.",
+    "Single test suite, no train/dev split; do not train or select ranking settings against these targets.",
+    "Intended exact outputs measure target availability/rank; other homophones can be valid.",
+    "No model-training overlap audit; no claim of independent heldout quality.",
+    "No frozen candidates, host events, personal data, runtime measurements or measured accuracy included."
+  ]
+}

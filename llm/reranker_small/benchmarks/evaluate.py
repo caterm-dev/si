@@ -19,6 +19,8 @@ def load_suite(root, split):
     if split not in ('dev', 'test'):
         raise ValueError('Select dev or test')
     root = Path(root)
+    if not (root / 'manifest.json').exists():
+        raise ValueError('Legacy frozen suite unavailable. The new query-only suite is eval/ranking/test.jsonl; see eval/README.md.')
     manifest = read_json(root / 'manifest.json')
     if manifest.get('schema_version') != 1:
         raise ValueError('Unsupported challenge manifest')

@@ -52,6 +52,8 @@ enum EnglishLexicon {
         let length: Int
         let id: Int
         let weight: Int64
+        let logProbability: Double?
+        let frequency: Double
         let probability: Double
         let lexicalCost: Double
         private let capitalizedText: String
@@ -64,8 +66,10 @@ enum EnglishLexicon {
             length = row.key.utf8.count
             id = index + 1
             weight = row.weight
-            probability = Double(max(1, row.weight)) / totalWeight
-            lexicalCost = CandidateScoring.englishWordCost(weight: row.weight)
+            logProbability = row.logProbability
+            frequency = row.frequency
+            probability = row.logProbability.map { pow(10.0, $0) } ?? (Double(max(1, row.weight)) / totalWeight)
+            lexicalCost = CandidateScoring.englishWordCost(row)
             capitalizedText = word.prefix(1).uppercased() + word.dropFirst()
             uppercaseText = word.uppercased()
         }
@@ -138,7 +142,7 @@ enum EnglishLexicon {
                 let terminals = range.prefix { keys[$0].count == depth }
                 let terminal = terminals.min {
                     let a = entries[$0], b = entries[$1]
-                    return a.weight == b.weight ? $0 < $1 : a.weight > b.weight
+                    return a.frequency == b.frequency ? $0 < $1 : a.frequency > b.frequency
                 }.map(Int32.init) ?? -1
                 var start = range.lowerBound + terminals.count
                 var mask: UInt64 = 0
@@ -208,21 +212,22 @@ enum EnglishLexicon {
         var previousText = ""
         for row in rows {
             guard let key = reading(for: row.text),
-                  row.reading == [key], row.weight >= 0,
+                  row.reading == [key], row.logProbability?.isFinite == true,
                   key > previous || (key == previous && row.text > previousText) else {
-                return ([], 1, CandidateScoring.wordCost(weight: 1))
+                return ([], 0, .infinity)
             }
             previous = key
             previousText = row.text
         }
-        let unknown = Double(max(1, database.unknownWeight))
-        let total = rows.reduce(unknown) { $0 + Double(max(1, $1.weight)) }
-        // Equal-key variants share a spelling cost; retain their weight order.
-        let entries = rows.enumerated().map { Entry($0.element, index: $0.offset, totalWeight: total) }.sorted {
-            if $0.key != $1.key { return $0.key < $1.key }
-            return $0.weight == $1.weight ? $0.id < $1.id : $0.weight > $1.weight
+        guard database.isAvailable, let unknown = database.unknownLogProbability else {
+            return ([], 0, .infinity)
         }
-        return (entries, unknown / total, CandidateScoring.wordCost(weight: max(1, database.unknownWeight)))
+        // Equal-key variants share a spelling cost; retain their weight order.
+        let entries = rows.enumerated().map { Entry($0.element, index: $0.offset, totalWeight: 1) }.sorted {
+            if $0.key != $1.key { return $0.key < $1.key }
+            return $0.frequency == $1.frequency ? $0.id < $1.id : $0.frequency > $1.frequency
+        }
+        return (entries, pow(10.0, unknown), CandidateScoring.wordCost(logProbability: unknown))
     }()
     static let entries = loaded.entries
     static let words = entries.map(\.text)

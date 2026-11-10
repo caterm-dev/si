@@ -126,22 +126,13 @@ its stage paths consistent. Existing conversion checkpoints cannot resume here.
 
 ## Explicit evaluation, scoring and export
 
-For comparing model sizes or algorithms, use the root [shared evaluation
-registry](../../eval/README.md) and its `eval.adapters small` prediction adapter.
-It owns the canonical ranking data, blind requests and common scoring/report
-protocol. Legacy benchmark data/source paths remain compatibility links; the
-commands below retain their historical model-specific reports and frozen bytes.
-
-The [Chinese ranking challenge](benchmarks/README.md) adds 1,230 cases from 337
-anchors, with family-separated development/test splits, real SICore candidate
-pools and a pinned overlap audit. Run it after training:
-
-```sh
-./llm/reranker_small/scripts/evaluate_suite.sh
-```
-
-Use its development split for tuning; its AI-assisted labels and correlated
-variants are not an independently human-annotated production benchmark.
+The [root ranking dataset](../../eval/README.md) now contains 120 representative query-only
+cases. The old `chinese-v1` suite, compatibility data links and `eval.adapters`
+were retired on November 9, 2026. The new data requires current candidate generation
+and an explicitly adapted model scorer; the old `evaluate_suite.sh` default cannot
+consume it. Standalone model loss evaluation, explicit candidate scoring and
+inference export below remain available. Historical challenge results do not
+apply to the new dataset.
 
 ```sh
 ./llm/reranker_small/scripts/validation.sh

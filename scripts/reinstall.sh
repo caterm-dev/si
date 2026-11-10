@@ -12,6 +12,10 @@ case "$configuration" in
     *) printf 'Usage: %s [Debug|Release]\n' "$0" >&2; exit 2 ;;
 esac
 
+# A build recreates Swift products, not the trained language model. Check it
+# before stopping the input method so missing artifacts cannot interrupt typing.
+python3 "$repo_root/scripts/install_kenlm_model.py" --verify-only
+
 user_id="$(id -u)"
 si_is_running() {
     local status=0

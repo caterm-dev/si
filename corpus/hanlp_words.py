@@ -23,9 +23,9 @@ MODEL = 'https://file.hankcs.com/hanlp/tok/coarse_electra_small_20220616_012050.
 PACKAGES = ('hanlp', 'hanlp-common', 'hanlp-trie', 'torch', 'transformers', 'tokenizers')
 
 
-def configure_cache():
+def configure_cache(cache=CACHE):
     # All downloads and writable caches stay within the ignored corpus workspace.
-    os.environ['HANLP_HOME'] = str(CACHE)
+    os.environ['HANLP_HOME'] = str(cache)
     os.environ['HF_HOME'] = str(ROOT / '.cache' / 'huggingface')
     os.environ['TORCH_HOME'] = str(ROOT / '.cache' / 'torch')
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
@@ -35,17 +35,17 @@ def versions():
     return {name: importlib.metadata.version(name) for name in PACKAGES}
 
 
-def model_files():
-    return {str(p.relative_to(CACHE)): digest(p)
-            for p in sorted(CACHE.rglob('*'))
+def model_files(cache=CACHE):
+    return {str(p.relative_to(cache)): digest(p)
+            for p in sorted(cache.rglob('*'))
             if p.is_file() and p.name != 'model-lock.json' and not p.name.endswith('.downloading')}
 
 
-def fetch():
+def fetch(model=MODEL, cache=CACHE):
     import hanlp
-    hanlp.load(MODEL, devices=-1)
-    write_json(CACHE / 'model-lock.json', {
-        'schema_version': 1, 'url': MODEL, 'packages': versions(), 'files': model_files(),
+    hanlp.load(model, devices=-1)
+    write_json(cache / 'model-lock.json', {
+        'schema_version': 1, 'url': model, 'packages': versions(), 'files': model_files(cache),
         'model_terms': 'HanLP Chinese pretrained models: research/teaching only unless separately specified. '
                        'Model remains a local analysis tool and is not bundled with SI.',
     })
@@ -56,9 +56,12 @@ def no_network(*args, **kwargs):
     raise OSError('Segmentation is offline. Run the explicit fetch command to prepare model assets.')
 
 
-def load_tokenizer(device, threads):
-    lock = json.loads((CACHE / 'model-lock.json').read_text())
-    if lock['url'] != MODEL or lock['packages'] != versions() or lock['files'] != model_files():
+def load_tokenizer(device, threads, model=MODEL, cache=CACHE):
+    lock_path = cache / 'model-lock.json'
+    if not lock_path.is_file():
+        raise ValueError(f'Missing model lock: {lock_path}. Explicitly fetch the selected model first.')
+    lock = json.loads(lock_path.read_text())
+    if lock['url'] != model or lock['packages'] != versions() or lock['files'] != model_files(cache):
         raise ValueError('Model assets/dependencies differ from the fetched lock')
     # Fail closed even if a dependency tries to fetch a missing ancillary asset.
     os.environ['HF_HUB_OFFLINE'] = '1'
@@ -68,7 +71,7 @@ def load_tokenizer(device, threads):
     import hanlp
     import torch
     torch.set_num_threads(threads)
-    tok = hanlp.load(str(CACHE / 'tok' / Path(MODEL).stem), devices=-1)
+    tok = hanlp.load(str(cache / 'tok' / Path(model).stem), devices=-1)
     if device == 'mps' and not torch.backends.mps.is_available():
         raise ValueError('MPS is unavailable; choose --device cpu')
     tok.model.to(torch.device(device))

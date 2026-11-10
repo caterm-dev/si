@@ -1,41 +1,47 @@
 {
-  "schema_version": 2,
-  "source_format": "si-category-csv-v2",
+  "schema_version": 3,
+  "source_format": "si-count-csv-v3",
   "language": "english",
   "dictionary_format": {
-    "schema_version": 1,
-    "weight_unit": "si-wanxiang-weight-v1",
-    "reference_mass": 1
+    "schema_version": 2,
+    "weight_unit": "si-log10-probability-v2"
   },
-  "metadata_sha256": "34fdae15e360128394c5023147a5acfb9ae875863e7b1c192a290c37ece6e1e0",
-  "unknown_weight": 1,
+  "meta": {
+    "schema_version": 2,
+    "weight_unit": "si-log10-probability-v2",
+    "total_n": 69300065,
+    "log_base": "log10",
+    "corpus_version": "sha256:29bc2fa7730401ac9a5ada2894a198391df1ea1c20665b4ff8a6af16256e2683",
+    "built_at": "2026-11-10T08:39:20+00:00",
+    "unk_logp": -8.141763637622514
+  },
   "sources": [
     {
-      "path": "english/base.csv",
+      "path": "English/base.csv",
       "sha256": "95a21ef6dc784f73092753f3c8f1440f34f922299573b1b8744d143addad0e42",
       "rows": 72783
     },
     {
-      "path": "english/common.csv",
-      "sha256": "85f184855c426a5998aebec112e1ea9ffb7660cb36996490433d2998c169e0d1",
+      "path": "English/common.csv",
+      "sha256": "c7fc2c023a96d147241d8b272fa3e50e2f9f7f6aae4bd2b7d1a7f3fc09cce81f",
       "rows": 1
     },
     {
-      "path": "english/domain.csv",
+      "path": "English/domain.csv",
       "sha256": "3186b95860661cda2b8ead06cb3847701a10ca033aebd37a2e20088e9a5de60f",
       "rows": 1199
     },
     {
-      "path": "english/movie.csv",
+      "path": "English/movie.csv",
       "sha256": "74855d54718672d696775c87638959bcec4e7cbbfd41535a67192d086dff9328",
       "rows": 399
     },
     {
-      "path": "english/technology.csv",
+      "path": "English/technology.csv",
       "sha256": "5a494e55b4cb2393649b88a052da8fc88f158bfad21537c368fe1bdd777f32b2",
       "rows": 164
     }
   ],
-  "entries": 74340,
-  "runtime_sha256": "325a15b3266d439517635fb8e5bd439b0b9044c8d8ed7ab12c75612a79a1bdde"
+  "entries": 74374,
+  "runtime_sha256": "38a8ff919f4b70a862949cc8e7f48708ed3b4cbb766c1c7552141ede183c3afd"
 }

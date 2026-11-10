@@ -7,6 +7,8 @@ import csv
 import hashlib
 import io
 import json
+import math
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 import re
@@ -16,10 +18,11 @@ import tempfile
 import lexicon_database as lexicon
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / 'Data/Vocabulary'
+DATA = ROOT / 'Data'
 RESOURCES = ROOT / 'mac/SI/Core/Resources'
 DATABASES = {'chinese': 'si-pinyin.sqlite', 'english': 'si-english.sqlite'}
 COLUMNS = ['text', 'reading', 'weight']
+# Retained for legacy category-authoring tools; compilation always requires explicit counts.
 DEFAULT_NEW_ENTRY_WEIGHT = 10
 DIGIT_READINGS = ('zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine')
 
@@ -56,52 +59,7 @@ def write_atomic(path, content):
 
 
 def category_sources(language):
-    sources = list((DATA / language).glob('*.csv'))
-    if language == 'chinese':
-        directory = DATA / language / 'phrase'
-        if directory.is_symlink():
-            raise ValueError('Phrase directory must not be a symbolic link')
-        sources.extend(directory.glob('*.csv'))
-    return sorted(sources)
-
-
-def metadata():
-    raw = (DATA / 'meta.json').read_bytes()
-    value = json.loads(raw)
-    if value.get('schema_version') != 2 or value.get('dictionary_format') != lexicon.FORMAT:
-        raise ValueError('Unsupported CSV metadata or dictionary format')
-    if set(value.get('languages', {})) != set(DATABASES):
-        raise ValueError('Metadata must describe Chinese and English')
-    if value.get('category_overlap', 'maximum') not in ('maximum', 'base'):
-        raise ValueError('Unsupported category overlap policy')
-    for language, categories in value.get('upstream_categories', {}).items():
-        if (language not in DATABASES or not isinstance(categories, list)
-                or len(categories) != len(set(categories))
-                or any(not re.fullmatch(r'[a-z][a-z0-9_-]*\.csv', name) or name == 'base.csv'
-                       or not any(path.name == name for path in category_sources(language))
-                       for name in categories)):
-            raise ValueError('Invalid authoritative upstream categories')
-    for language in DATABASES:
-        unknown = value['languages'][language].get('unknown_weight')
-        if type(unknown) is not int or not 1 <= unknown <= 2**63 - 1:
-            raise ValueError('Invalid unknown weight: ' + language)
-    upstreams = value.get('upstreams')
-    if not isinstance(upstreams, list) or not upstreams:
-        raise ValueError('Metadata requires upstream provenance')
-    identities = set()
-    for upstream in upstreams:
-        identity = upstream.get('id')
-        if not isinstance(identity, str) or not identity or identity in identities:
-            raise ValueError('Upstream IDs must be nonempty and unique')
-        identities.add(identity)
-        if not isinstance(upstream.get('metadata'), dict) or not upstream['metadata']:
-            raise ValueError('Upstream metadata must be a nonempty inline object')
-        path = Path(upstream['attribution'])
-        if path.is_absolute() or '..' in path.parts:
-            raise ValueError('Provenance paths must stay inside the repository')
-        if digest((ROOT / path).read_bytes()) != upstream['attribution_sha256']:
-            raise ValueError('Provenance checksum mismatch: ' + str(path))
-    return value, digest(raw)
+    return sorted((DATA / language.title()).glob('*.csv'))
 
 
 def integer(value, minimum, field):
@@ -111,13 +69,11 @@ def integer(value, minimum, field):
 
 
 def rows(language):
-    directory = DATA / language
+    directory = DATA / language.title()
     sources = category_sources(language)
     if directory / 'base.csv' not in sources:
         raise ValueError('Missing base.csv: ' + language)
-    configuration = json.loads((DATA / 'meta.json').read_bytes())
-    upstream = set(configuration.get('upstream_categories', {}).get(language, []))
-    records, parsed, base, imported = [], {}, {}, {}
+    records, parsed = [], {}
     for path in sources:
         if path.is_symlink() or not re.fullmatch(r'[a-z][a-z0-9_-]*\.csv', path.name):
             raise ValueError('Invalid category filename: ' + path.name)
@@ -142,39 +98,32 @@ def rows(language):
                         raise ValueError('Domain rows require a full lowercase domain and identical reading')
                 elif reading[0] not in 'abcdefghjklmnopqrstwxyz':
                     raise ValueError('Unsupported Chinese reading')
-                # A blank local weight uses SI's new-entry prior. Imported weights
-                # must stay explicit, including upstream zero/missing-weight rows.
-                weight = (DEFAULT_NEW_ENTRY_WEIGHT if weight == '' and path.name != 'base.csv'
-                          and path.name not in upstream else integer(weight, 0, 'weight'))
+                weight = integer(weight, 0, 'count')
                 identity = (reading, text)
-                # Category overlap must not inflate frequency or choose a file winner.
-                parsed[identity] = max(parsed.get(identity, 0), weight)
-                if path.name == 'base.csv':
-                    base[identity] = max(base.get(identity, 0), weight)
-                elif path.name in upstream:
-                    imported[identity] = max(imported.get(identity, 0), weight)
+                parsed[identity] = parsed.get(identity, 0) + weight
+                if parsed[identity] > 2**63 - 1:
+                    raise ValueError('Merged count exceeds signed 64-bit limit')
                 count += 1
             except ValueError as error:
                 raise ValueError(f'{path}:{reader.line_num}: {error}') from error
         records.append({'path': path.relative_to(DATA).as_posix(), 'sha256': digest(content), 'rows': count})
-    policy = configuration.get('category_overlap', 'maximum')
-    if policy == 'base':
-        # A pinned base owns its weights and canonical English casing. Preserved
-        # category files add identities, without reviving superseded base weights.
-        if language == 'english':
-            base_texts = {text.lower() for _, text in base}
-            parsed = {identity: weight for identity, weight in parsed.items()
-                      if identity[1].lower() not in base_texts}
-        parsed.update(imported)
-        parsed.update(base)
     # Content alone defines tie order: moving/reordering rows or renaming categories
     # cannot alter the effective dictionary. Preserve exact output bytes.
     identities = sorted(parsed, key=lambda pair: (pair[0].encode('utf-8'), pair[1].encode('utf-8')))
     return [(text, reading, parsed[(reading, text)]) for reading, text in identities], records
 
 
-def prepare(language, meta, meta_hash):
+def prepare(language, corpus_version=None):
     entries, sources = rows(language)
+    total_n = sum(weight for _, _, weight in entries)
+    if not 0 < total_n <= 2**63 - 1:
+        raise ValueError('Total count must be positive and fit a signed 64-bit integer: ' + language)
+    log_total = math.log10(total_n)
+    corpus_hash = digest(json.dumps(entries, ensure_ascii=False, separators=(',', ':')).encode())
+    metadata = {**lexicon.FORMAT, 'total_n': total_n, 'log_base': 'log10',
+                'corpus_version': corpus_version or ('sha256:' + corpus_hash),
+                'built_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                'unk_logp': math.log10(0.5) - log_total}
     output = RESOURCES / language.title()
     output.mkdir(parents=True, exist_ok=True)
     descriptor, temporary = tempfile.mkstemp(dir=output, suffix='.sqlite')
@@ -182,23 +131,19 @@ def prepare(language, meta, meta_hash):
     temporary = Path(temporary)
     try:
         with closing(sqlite3.connect(temporary)) as connection:
-            lexicon.create_schema(connection, meta['languages'][language]['unknown_weight'])
+            lexicon.create_schema(connection, metadata)
             for index, (text, reading, weight) in enumerate(entries, 1):
                 table = lexicon.table_for(reading, allow_domain=language == 'english')
                 connection.execute(f'INSERT INTO {table} (rowid,key,jp,value,weight) VALUES (?,?,?,?,?)',
-                                   (index, reading, ''.join(s[0] for s in reading.split("'")), text, weight))
-            if language == 'english':
-                for table in lexicon.TABLES:
-                    if connection.execute(f'SELECT lower(value) FROM {table} GROUP BY lower(value) HAVING count(*)>1 LIMIT 1').fetchone():
-                        raise ValueError('English outputs must have unique casing; edit the existing casing')
+                                   (index, reading, ''.join(s[0] for s in reading.split("'")), text,
+                                    math.log10(weight) - log_total if weight else metadata["unk_logp"]))
             count = lexicon.finish_schema(connection)
             if count == 0:
                 raise ValueError('Dictionary must not be empty: ' + language)
             if connection.execute('PRAGMA integrity_check').fetchone() != ('ok',):
                 raise ValueError('Generated dictionary integrity failure')
-        manifest = {'schema_version': 2, 'source_format': 'si-category-csv-v2', 'language': language,
-                    'dictionary_format': lexicon.FORMAT, 'metadata_sha256': meta_hash,
-                    'unknown_weight': meta['languages'][language]['unknown_weight'],
+        manifest = {'schema_version': 3, 'source_format': 'si-count-csv-v3', 'language': language,
+                    'dictionary_format': lexicon.FORMAT, 'meta': metadata,
                     'sources': sources, 'entries': count, 'runtime_sha256': digest(temporary.read_bytes())}
         return temporary, output / DATABASES[language], output / 'dictionary-manifest.json', manifest
     except BaseException:
@@ -212,18 +157,21 @@ def check_prepared(temporary, target, manifest_path, manifest):
     actual_hash = digest(target.read_bytes())
     if actual_hash != manifest['runtime_sha256'] and not lexicon.same_dictionary(temporary, target):
         raise ValueError('Generated dictionary is out of date; run build')
+    with closing(sqlite3.connect(target.resolve().as_uri() + '?mode=ro&immutable=1', uri=True)) as connection:
+        manifest['meta']['built_at'] = connection.execute("SELECT value FROM meta WHERE key='built_at'").fetchone()[0]
     manifest['runtime_sha256'] = actual_hash
     if not manifest_path.exists() or json.loads(manifest_path.read_text()) != manifest:
         raise ValueError('Generated dictionary manifest is out of date; run build')
 
 
-def build(check=False, language=None):
-    meta, meta_hash = metadata()
+def build(check=False, language=None, corpus_version=None):
+    if corpus_version is not None and not corpus_version.strip():
+        raise ValueError('Corpus version must not be empty')
     prepared = []
     try:
         # Validate and stage every requested language before publishing any output.
         for name in ([language] if language else DATABASES):
-            prepared.append(prepare(name, meta, meta_hash))
+            prepared.append(prepare(name, corpus_version))
         for temporary, target, manifest_path, manifest in prepared:
             if check:
                 check_prepared(temporary, target, manifest_path, manifest)
@@ -243,9 +191,10 @@ def main():
     command = sub.add_parser('build', help='Compile all category CSV files offline')
     command.add_argument('--check', action='store_true', help='Verify without replacing outputs')
     command.add_argument('--language', choices=DATABASES)
+    command.add_argument('--corpus-version', help='Explicit snapshot version; defaults to SHA-256 of effective counts')
     args = parser.parse_args()
     try:
-        build(args.check, args.language)
+        build(args.check, args.language, args.corpus_version)
     except (ValueError, OSError, KeyError, TypeError, UnicodeError, csv.Error, sqlite3.DatabaseError) as error:
         parser.exit(1, f'CSV dictionary error: {error}\n')
 

@@ -129,8 +129,8 @@ struct ChineseVocabularyTests {
         let country = try #require(values.first { $0.text == "国" })
         let pastEntry = try #require(ChineseLexicon.standard.exactMatches(["guo"]).first { $0.text == "过" })
         let countryEntry = try #require(ChineseLexicon.standard.exactMatches(["guo"]).first { $0.text == "国" })
-        #expect(pastEntry.weight == 342_847 && countryEntry.weight == 19_975)
-        #expect(abs(past.rankingScore - country.rankingScore - 1.05 * log2(Double(pastEntry.weight) / Double(countryEntry.weight))) < 1e-12)
+        #expect(pastEntry.logProbability != nil && countryEntry.logProbability != nil)
+        #expect(abs(past.rankingScore - country.rankingScore - 1.05 * log2(10.0) * (pastEntry.frequency - countryEntry.frequency)) < 1e-12)
         #expect(values.first?.text == "过")
         for preview in [false, true] {
             let sentence = PinyinDecoder.standard.compositionCandidates(for: "tianjiaguonameduo",

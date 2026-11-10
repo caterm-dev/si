@@ -1,12 +1,12 @@
-# Ranking evaluation moved
+# Retired frozen-pool challenge
 
-The canonical dataset, authored sources and full construction/evaluation guide
-now live under [eval/ranking/](../../../eval/ranking/README.md).
-Use the [shared evaluation protocol](../../../eval/README.md) to compare small,
-large or algorithmic predictors on the same frozen cases.
+The old `chinese-v1` dataset, authored source files and compatibility links were
+removed at the user's request on November 9, 2026. The replacement is the newly
+authored [5,000-query ranking dataset](../../../eval/README.md). It has no frozen
+pools, old labels or model-specific adapter.
 
-Compatibility links retain `chinese-v1/`, `lexical.tsv` and `additional.jsonl`,
-so the existing builder, tests and `scripts/evaluate_suite.sh` still read the
-same bytes. `example.jsonl` is only a three-case workflow fixture.
-The historical model-specific evaluator/report format remains available; it is
-not the unified prediction/report protocol.
+The builder/evaluator utility functions remain for legacy temporary-fixture tests
+and explicit old-format experiments. Their default dataset/source paths now fail
+with replacement guidance; they cannot evaluate the new query-only data directly.
+Standalone candidate scoring and the small three-row workflow example remain
+model-specific tools, separate from the new ranking test set.

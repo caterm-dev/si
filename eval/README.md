@@ -1,193 +1,92 @@
-# Shared SI evaluation
+# SI ranking evaluation
 
-This directory owns the public, model-independent evaluation data. Small and
-large models, the SICore engine and other algorithms must use the same frozen
-task/suite/split and scoring protocol when comparing results. Model training,
-checkpoints and token-loss/perplexity validation remain under `llm/`.
+The previous ranking/correction/conversion registry, fixtures, frozen candidate
+pools and generated outputs were removed on November 9, 2026. This directory
+now contains one newly authored [120-query ranking test set](ranking/test.jsonl).
+The old `.build/kenlm-ranking/` experiment is separate and is not this dataset.
 
-| Task | Frozen suite | Dev cases | Test cases | Scope |
-| --- | --- | ---: | ---: | --- |
-| [ranking](ranking/README.md) | `chinese-v1` | 299 | 931 | Fixed candidate ordering, contextual contrasts, real decoder pools and robustness |
-| [correction](correction/README.md) | `synthetic-v1` | 25 | 55 | Noisy Pinyin, Hanzi/English/mixed correction and exact-preservation controls |
-| [pinyin_to_hanzi](pinyin_to_hanzi/README.md) | `lexical-v1` | 69 | 64 | Character/short-word conversion, with multiple accepted homophones |
-
-These are constructed regression suites, **not independently reviewed production
-benchmarks**. Ranking's 1,230 cases share 337 anchors and correlated derived
-tracks. Pinyin's 133 input cases represent 142 existing CSV pairs after grouping
-same-input accepted outputs. The dev/test assignments are fixed. Existing test
-results have already been inspected; moving files does not make a fresh holdout.
-Correction is an initial 80-case authored fixture, not broad correction coverage.
-
-## One workflow for every model or algorithm
-
-Run from the repository root. Validation/export/scoring/comparison use Python's
-standard library only; they do not load a model or start training.
-
-```sh
-python3 -m eval validate
-
-# Export model inputs, without reference answers, categories or expected policies.
-python3 -m eval export --task ranking --split dev \
-  --output eval/requests/ranking-dev.json
-
-# A reproducible baseline also demonstrates the prediction-file format.
-python3 -m eval baseline --task ranking --split dev \
-  --output eval/predictions/baseline-dev.json
-python3 -m eval score --task ranking --split dev \
-  --predictions eval/predictions/baseline-dev.json \
-  --output eval/reports/baseline-dev.json
-```
-
-For a large reranker or a new algorithm, read the exported request, run your
-predictor locally, and write a prediction file using the protocol below. No
-small-model checkpoint, tokenizer, architecture or training dataset is required.
-Use `--task correction` or `--task pinyin_to_hanzi` for the other tasks.
-Every command refuses to overwrite an existing output; use a new filename.
-
-The existing model adapters are optional and use the shared PyTorch environment:
-
-```sh
-./llm/.venv/bin/python -m eval.adapters small --task ranking --split dev \
-  --checkpoint llm/reranker_small/runs/small-character-v1/best.pt \
-  --device mps --output eval/predictions/small-dev.json
-python3 -m eval score --task ranking --split dev \
-  --predictions eval/predictions/small-dev.json --output eval/reports/small-dev.json
-
-./llm/.venv/bin/python -m eval.adapters converter --task pinyin_to_hanzi --split dev \
-  --checkpoint llm/pinyin_to_text/runs/small-pinyin-lexical-v1/best.pt \
-  --device mps --beam-size 5 --output eval/predictions/converter-dev.json
-python3 -m eval score --task pinyin_to_hanzi --split dev \
-  --predictions eval/predictions/converter-dev.json --output eval/reports/converter-dev.json
-
-python3 -m eval compare eval/reports/baseline-dev.json eval/reports/small-dev.json \
-  --output eval/reports/ranking-dev-comparison.json
-```
-
-The converter adapter also supports `--task correction`; this only evaluates its
-outputs and does not imply that a particular checkpoint learned correction.
-Its actual generated outputs are evaluated without adding a literal fallback.
-The large model is not implemented yet; its future predictions use exactly the
-same ranking inputs and scorer. The legacy small-model `evaluate_suite.sh`
-command still works through compatibility links to this one canonical dataset.
-Its historical report format remains separate from unified reports.
-
-## Data and prediction protocol (version 1)
-
-Cases are UTF-8 JSONL in `<task>/<suite>/{dev,test}.jsonl`. Shared fields are:
-
-| Field | Meaning |
+| File | Purpose |
 | --- | --- |
-| `id` | Stable unique case ID within a suite |
-| `family_id`, `split` | Related-case grouping and fixed dev/test assignment |
-| `input`, `context` | Original input and preceding context; ranking diagnostics may have null input |
-| `references` | Nonempty list of accepted exact output strings |
-| `track`, `category`, `diagnostic` | Reporting groups and separation of policy diagnostics from quality |
-| `candidates`, `candidate_details` | Ranking-only ordered pool and, when available, language-aware identities |
+| `ranking/test.jsonl` | Exact source spelling and intended accepted outputs, one query per line |
+| `ranking/manifest.json` | Seed, counts, categories, provenance, limitations and file/generator SHA-256 |
 
-To produce predictions, retain `schema_version`, `task`, `suite`, `split` and
-`dataset_sha256` from the exported request; replace `cases` with `predictions`
-and add a `predictor` object. This complete Python example runs on a blind
-request and produces a baseline that can be replaced by a new model:
+All cases enable Chinese and English with empty personal state and no preceding
+context. References are exact complete outputs; a matching prefix is not a hit.
+The data contains no frozen candidates. Generate candidates with the engine
+version being evaluated, keep missing targets in the denominator and distinguish
+retrieval from ranking. Do not insert reference answers into candidate pools.
 
-```python
-import json
+## Contents and provenance
 
-with open('eval/requests/ranking-dev.json', encoding='utf-8') as handle:
-    request = json.load(handle)
-cases = request.pop('cases')
-request['predictor'] = {'name': 'my-algorithm', 'revision': 'v1', 'config': {}}
-request['predictions'] = [
-    {'id': case['id'], 'order': list(range(len(case['candidates']))), 'abstained': False}
-    for case in cases
-]
-with open('eval/predictions/my-algorithm-dev.json', 'x', encoding='utf-8') as handle:
-    json.dump(request, handle, ensure_ascii=False)
-```
+- 22 documented regression queries, including continuous/separated spellings of
+  `找几处句子`, `二倍做多`, `我想按照`, `和上次比`, `现在添加字幕`,
+  `词出现的`, `语料`, `泰国`, `零`, `吗` and a full-sentence query.
+  Page regressions retain only `第二页` and `第七页`, without spelling duplicates.
+- One explicitly requested technical term: `houxuanchi → 候选池`.
+- One explicitly requested sentence: `dajiaxiazhouxiangqubeihaiguzhen → 大家下周想去北海古镇`.
+- Six explicitly requested English hard cases: `goon → go on`, `into`, `also`,
+  `maybe`, `cannot` and `myself`.
+- Four other ordinal examples: `第十一章`, `第三节`, `第四段`, `第六行`.
+- Two source encodings (`ü` and `u:`) of the single target `我想买绿色背包`.
+- Two instances of each of 36 Chinese sentence structures (72 total), two
+  continuous-English examples, and two of each of five mixed structures (10 total).
 
-Ranking predictions use a **complete permutation of zero-based candidate
-indices**. Never deduplicate by text: equal text from different languages keeps
-distinct indices. Do not insert gold answers, retrieve extra candidates, remove
-missing-gold/empty pools, or alter the frozen engine order. An abstaining model
-must set `abstained: true` and retain the original order. Diagnostic policies
-such as context-limit abstention remain visible separately; they reflect the
-original small-model protocol, not a universal context limit for larger models.
+The initial 5,000-row draft was replaced at the user's request because slot and
+number substitutions overwhelmed distinct coverage. The current compact-v4 identity
+contains 67 families, **at most two cases per family**. Changing a subject, time,
+object, tool name or ordinal does not justify a long series. The generator and
+validator enforce this cap; there is no quota-filling loop. Future additions
+should introduce distinct problems rather than restore combinatorial padding.
 
-Correction and Pinyin predictions instead use `{"id": "...", "outputs": ["..."]}`:
-an ordered list of up to 32 distinct exact outputs, or `[]` for no prediction.
-Multiple acceptable reference strings are supported. No case, whitespace,
-punctuation, Unicode normalization or Pinyin alias normalization is applied to
-output scoring. Include the complete output, not a label or explanation.
+The generator's manually authored text/reading fragments and grammar-compatible
+slot pools are new SI-authored material under GPL-3.0-only. No previous eval
+rows, language-model outputs, training CSVs, corpus sentences, host text, private
+history or personal phrases supply these generated targets. The one-time
+replacement audit found zero exact input/reference-pair overlaps with the retired
+public eval suites. Existing maintained dictionary character readings were used
+only to cross-check the 291 distinct authored Han character/reading pairs; no
+candidate reachability filter was applied.
 
-`predictor.name` is required. Record algorithm/code revision, checkpoint SHA-256,
-decoding/scoring configuration and training dataset identity for reproducibility.
-Adapters fill in checkpoint and runtime metadata. Every case must appear exactly
-once; missing/extra/duplicate cases, invalid permutations and mismatched
-dataset/split identities fail scoring rather than silently reducing the denominator.
+Each row has `id`, `input`, `references`, `category`, `origin`, `family`,
+`languages` and `context`. Chinese-only rows also retain canonical per-character
+`syllables` for reviewing spelling alignment. Source aliases and apostrophes
+remain exact bytes in `input`. References preserve English casing and mixed
+language boundary spaces. `family` identifies a shared template or regression;
+it is not a claim of independent sampling. Inspect category/family results as
+well as the overall result.
 
-## Metrics and fair comparisons
+This is a single synthetic regression test set, with AI-assisted labels and no
+independent human annotation or model-corpus overlap audit. Its 120 rows are
+representative synthetic cases, not independent natural typing observations.
+Ambiguous cases record intended targets; other homophones may also be valid.
+Do not train on it or select model/ranking settings against its answers. There
+is no fresh heldout generalization claim, and no runtime accuracy is measured
+merely by validating the data. It does not test host events, learning or latency.
 
-- Ranking: top-1/top-k, MRR, original-order baseline, candidate recall, top-1
-  conditional on gold availability, newly correct/wrong counts and family macro.
-  Keep controlled/decoder/derived tracks separate; there is no pooled ranking
-  headline score. The frozen first-32 decoder protocol differs from the app's
-  27-item shortlist and has retrieval failures even with perfect ordering.
-- Generation: exact top-1/top-k, MRR, family macro and corpus character error
-  rate (Levenshtein over Unicode scalars, choosing each case's reference with
-  minimum normalized distance). Failed/empty predictions count as errors.
-- Correction additionally reports accuracy on cases needing changes and the
-  overcorrection rate on cases whose original text is accepted. The same fields
-  are available for Pinyin, where the unchanged subset may be empty.
-- Diagnostics are excluded from quality groups and reported separately. Reports
-  contain IDs, orders and numeric results, not copies of case or output text.
-- Comparisons require identical task, suite SHA-256, split, full coverage and
-  scorer SHA-256. There is no single combined score across different tasks.
-
-The retained ranking overlap audit applies only to the dataset ID named in its
-provenance. Clean metrics are withheld for another or undeclared training
-dataset. Arbitrary future models must audit their own corpora; the same test
-file alone does not establish absence of leakage. Full results remain available
-and explicitly separate from the audited subset. Correction/Pinyin have no
-general model-corpus overlap audit. Dev is for selecting settings; do not train
-on these suites or choose models/settings against test answers.
-
-## Maintenance, privacy and validation
-
-`catalog.json` registers task defaults and pins each suite manifest SHA-256.
-Manifests pin data, attribution and source bytes; validation reads both splits,
-checks hashes, unique IDs, family separation and generation input/reference
-overlap. Adding coverage or changing a label/pool/split requires a **new suite
-version**, an explicit catalog/default update, provenance and new reports.
-Never refresh frozen decoder pools just because the engine changes. Export
-current-engine predictions separately; it cannot silently replace this pool.
-
-Ranking data was relocated byte-for-byte, retaining its manifest, notices,
-licenses and source snapshots. Pinyin bundles the exact four original held-out
-CSVs with their hashes and provenance. Correction is SI-authored under
-GPL-3.0-only, as is the framework; ranking's derived decoder text retains its
-existing Wanxiang attribution. See per-suite provenance and the repository
-[license](../LICENSE). No new external data, dependency or network access is used.
-
-Keep generated requests/predictions/reports in their ignored directories here.
-`eval/private/` is also ignored; public suites must never contain personal
-phrases, Input History exports, clipboard/host text or private model output.
-No export, inference or evaluation command transmits data or starts training.
+## Validate and evaluate
 
 ```sh
-python3 -m eval validate
-python3 -m unittest discover -s eval/tests -p 'test_*.py' -v
-./llm/.venv/bin/python -m unittest discover -s eval/tests -p 'test_*.py' -v
-./llm/reranker_small/scripts/check.sh -p test_benchmarks.py
+python3 scripts/generate_ranking_eval.py --check
+python3 -m unittest discover -s Tests/RankingEvalTests -v
+
+# Reproduce into a new directory; existing test bytes are never overwritten.
+python3 scripts/generate_ranking_eval.py --output /tmp/si-ranking-reproduction
+
+# Blind requests omit references, categories, syllables and target notes.
+python3 scripts/ranking_eval.py requests --output /tmp/si-ranking-requests.jsonl
+swift build --scratch-path .build/swift --configuration release --product SICandidateExport
+.build/swift/release/SICandidateExport < /tmp/si-ranking-requests.jsonl > /tmp/si-ranking-predictions.jsonl
+python3 scripts/ranking_eval.py score --predictions /tmp/si-ranking-predictions.jsonl \
+  --output /tmp/si-ranking-report.json
 ```
 
-The standard-library run skips optional PyTorch adapter tests if PyTorch is
-unavailable. The shared environment executes real tiny-checkpoint adapter tests.
-Offline results do not verify InputMethodKit routing, native UI or host latency.
-
-Verified on November 3, 2026: all three suites passed integrity validation; all
-13 shared evaluation tests and five legacy ranking tests passed, including real
-tiny-checkpoint adapters. The existing 30,000-step small checkpoint completed
-all 299 dev ranking cases, and the local converter completed all 69 lexical dev
-cases through the unified adapter/scorer. Baseline workflows for all tasks and
-the common report comparison also ran successfully. The repository's 307 Swift
-tests and Debug app build passed. Generated predictions/reports stay ignored;
-no training, installation or host-app verification was performed.
+The existing exporter emits the first 32 eligible complete nonliteral,
+noncompletion candidates from dictionary-only bilingual engine ranking; it does
+not load the production KenLM model, expose the full engine pool or reproduce
+the input window's shortlist. Accordingly the scorer reports **exported-pool
+recall**, Top-1/Top-5 and MRR for that explicit protocol, not full-engine recall
+or native-window accuracy. Empty/missing-gold pools stay in the denominator.
+Reports bind the dataset and prediction hashes; separately record the exact code
+revision, dirty patch, exporter binary and dictionary/model identities with any
+experiment. No old model adapter, frozen-pool comparison or `python -m eval`
+command remains. Model-specific training and token-loss tools stay under `llm/`.

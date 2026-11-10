@@ -1,5 +1,17 @@
 # English vocabulary maintenance
 
+## Current count-based compiler
+
+Maintain `Data/English/*.csv` with explicit `text,reading,weight` counts.
+Exact duplicate identities sum; distinct casing remains available. Run
+`python3 scripts/csv_dictionary.py build --language english` and the same
+command with `--check`. The app reads stored log10 probabilities and the
+computed unknown floor from schema 2; see [the current contract](../README.md#vocabulary-maintenance).
+The legacy source paths, precedence and raw-weight rules below are historical
+and do not describe the current compiler.
+
+## Historical import and review record
+
 The current [base.csv](../Data/Vocabulary/english/base.csv) is converted from the pinned Wanxiang `dicts/en.dict.yaml`, preserving upstream integer weights without wordfreq normalization. It contains 72,783 supported English forms; with the preserved categories, the packaged resource contains 74,340 entries. The [import guide](../Data/Vocabulary/Wanxiang/README.md) records revision, full CC BY 4.0 data licensing, source checksums, exact conversion rules, exclusions and update commands.
 
 The import excludes `wolai`, the Pinyin spelling of `我来`. Chinese conversion and the exact as-typed candidate remain available.

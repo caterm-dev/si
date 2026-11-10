@@ -12,7 +12,17 @@ Thanks for helping build SI. The product principle is simple: users enable langu
 
 The Swift package tests the same core files compiled by the macOS app. Use Swift 6 language mode. Keep language providers independent of AppKit and SwiftUI. Add focused tests for candidate ranking, ambiguity, state transitions, or regressions when behavior changes.
 
-For dictionary changes, edit SI's [categorized CSV collection](Data/Vocabulary/README.md). Chinese entries are grouped into [base and eight domain files](Data/Vocabulary/chinese/README.md), with common/unclassified vocabulary in base; English has base, movie, domain and technology files; see the [movie maintenance guide](Data/Vocabulary/MOVIES.md) for paired titles and typing keys. New categories are separate files. Keep source-level provenance in `Data/Vocabulary/meta.json`, use only text/reading/weight columns, and retain source notices/licenses. Both languages compile to the shared SQLite/weight contract in `Data/DictionaryFormat.json`. For vocabulary-only changes, validate the edited data and regenerate the dictionary resources as needed. Run regression suites and app builds for vocabulary-only changes only when requested. The current bases come from a pinned Wanxiang data revision through `scripts/wanxiang_dictionary.py`; see `Data/Vocabulary/Wanxiang/README.md` for explicit fetch/convert/check commands. Conversion preserves category files, source weights and a reviewable exclusions report. The former English import/frequency tools and data remain removed. `python3 scripts/ranking.py --check` still verifies retained attribution and synthetic calibration without those old wordlists. Private phrases and learning archives are never dictionary inputs. See [Chinese maintenance](docs/CHINESE_VOCABULARY.md) and [English maintenance](docs/ENGLISH_VOCABULARY.md).
+For dictionary changes, edit `Data/Chinese/*.csv` and `Data/English/*.csv`.
+Keep the `text,reading,weight` header and explicit nonnegative integer counts;
+repeated exact identities sum across all files. Compile and check with
+`python3 scripts/csv_dictionary.py build` and `build --check`.
+The shared schema stores log10 probabilities and an explicit unknown floor in
+SQLite metadata; see [vocabulary maintenance](README.md#vocabulary-maintenance).
+Retain source attribution/licenses with the dictionary resources. New external
+sources still require the review below. Private phrases, learning and history
+are never ordinary dictionary inputs. For vocabulary-only changes, validate
+the data and regenerate resources as needed; do not run app regression suites
+or builds unless requested.
 
 ## Training data and Git LFS
 
@@ -23,6 +33,8 @@ Keep prepared datasets, checkpoints, reports and private archives ignored. LFS i
 ## Local corpus and model artifacts
 
 Keep the maintained application dictionary CSV sources in `Data/`, resource manifests and attribution in Git. Generated `.db`, `.sqlite` and `.sqlite3` files and their journal/WAL/shared-memory sidecars are ignored. Rebuild the runtime dictionaries offline with `python3 scripts/csv_dictionary.py build` before building or testing a fresh clone; `scripts/build.sh` and `scripts/test.sh` use these local resources without generating them. In `corpus/` and `llm/`, retain scripts, configurations, dependency pins, source locks, attribution, measured snapshot summaries, authored CSV sources and frozen regression fixtures. The static training CSVs have no general regeneration script and must remain available as source inputs.
+
+Validated KenLM delivery models are retained outside build caches under the ignored `corpus/kenlm/models/` directory. Training publishes a content-addressed version and a `current` pointer; install/release preflight verifies those files. Keep this model store when cleaning `.build`; app compilation does not retrain a model.
 
 Downloaded archives, generated lexical tables, prepared training bundles, virtual environments, caches, checkpoints, exports and reports stay local under the ignored paths. Recreate them with the explicit commands in [the corpus guide](corpus/README.md#download-prepare-and-verify) and each [model guide](llm/README.md). Use a fresh output directory when preparing an immutable bundle. Reviewed corpus metadata referenced by `sources.lock.json` stays tracked so a fresh checkout can validate sources before downloading.
 

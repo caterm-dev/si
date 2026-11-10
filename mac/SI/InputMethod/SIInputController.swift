@@ -247,6 +247,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           automaticConfirmationEnabled: languages.automaticConfirmationEnabled && !secureInput,
                           configurationGeneration: languages.configurationGeneration,
                           applicationMemory: memory,
+                          compositionLearningEnabled: appSettings.usesVocabulary && !secureInput,
                           punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
                           rankingExperiment: secureInput ? RankingExperiment() : languages.productionRanking)
         if let client = eventClient ?? client() { return refreshLanguageModelContext(from: client) }
@@ -373,11 +374,22 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // a value copy so reentry cannot overlap a mutating access to controller state.
         var nextAnchor = candidateAnchor
         let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
-        let caret = nextAnchor.resolve(cursorUTF16Offset: marked.cursorUTF16Offset, markedRange: client.markedRange(),
+        let markedRange = client.markedRange()
+        let caret = nextAnchor.resolve(cursorUTF16Offset: marked.cursorUTF16Offset, markedRange: markedRange,
                                              screens: screens, queryRange: { range in
             var actualRange = NSRange(location: NSNotFound, length: 0)
             let rect = client.firstRect(forCharacterRange: range, actualRange: &actualRange)
             return CandidateAnchor.documentRect(rect, actualRange: actualRange, requestedRange: range)
+        }, isInMarkedRange: { rect in
+            guard markedRange.location >= 0, markedRange.location != NSNotFound,
+                  markedRange.length > 0, markedRange.length != NSNotFound,
+                  markedRange.length <= Int.max - markedRange.location else { return nil }
+            var inMarkedRange: ObjCBool = false
+            // The SDK maps global screen points to document offsets. No host text is read.
+            let index = client.characterIndex(for: NSPoint(x: rect.midX, y: rect.midY),
+                                             tracking: kIMKNearestBoundaryMode, inMarkedRange: &inMarkedRange)
+            guard index >= 0, index != NSNotFound else { return nil }
+            return inMarkedRange.boolValue && index >= markedRange.location && index <= NSMaxRange(markedRange)
         }) { index in
             var rect = NSRect.zero
             // The SDK specifies inline-session-relative UTF-16 indexes, not document offsets.
@@ -763,7 +775,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func apply(_ commit: InputCommit, suffix: String = "", to client: any IMKTextInput) {
         let app = applicationID
-        let generation = ApplicationMemorySettings.shared.generation
+        let memory = ApplicationMemorySettings.shared
+        let generation = memory.generation
+        let contextGeneration = sessionContextGeneration
+        let recordsVocabulary = memory.usesVocabulary && !IsSecureEventInputEnabled()
+        var acceptedLearning = false
+        defer { if !acceptedLearning { session.discardCompositionLearning() } }
         let history = InputHistorySettings.shared
         let historyGeneration = history.generation
         let recordsHistory = history.canRecord
@@ -782,8 +799,14 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             sentenceSubmissionGeneration = sentenceGeneration
             sentences.sentenceCaptureStatus = .waitingForReturn
         }
-        if generation == ApplicationMemorySettings.shared.generation {
-            ApplicationMemorySettings.shared.recordVocabulary(commit)
+        if recordsVocabulary, generation == memory.generation, memory.usesVocabulary, !IsSecureEventInputEnabled(),
+           (memoryClient as AnyObject?) === (client as AnyObject),
+           (self.client() as AnyObject?) === (client as AnyObject), contextGeneration == sessionContextGeneration {
+            // As with individual vocabulary, a final acceptance space is not part of the word.
+            let combined = session.recordSuccessfulCommit(commit)
+            memory.recordVocabulary(commit)
+            if let combined { memory.recordVocabulary(combined) }
+            acceptedLearning = true
         }
         configureSession(for: client)
         if !session.buffer.isEmpty { update(client) }

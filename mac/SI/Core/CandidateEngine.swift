@@ -65,7 +65,7 @@ public struct CandidateEngine: Sendable {
                                rankingScore: -$0.cost(typedLength: key.utf8.count) * CandidateScoring.pointsPerBit,
                                hasCompletion: $0.text.lowercased() != key, lexicalTokenCount: 1)
                     .withLanguageBoundary(.english())
-                    .withRankingToken(RankingToken(text: $0.text, language: .english, weight: $0.weight))
+                    .withRankingToken(RankingToken(text: $0.text, language: .english, weight: $0.weight, logProbability: $0.logProbability))
             }
         }
         generated += PinyinDecoder.standard.compositionCandidates(for: input, languages: languages,

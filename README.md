@@ -20,7 +20,7 @@ Enable **English** and **Chinese (Simplified)** once. SI queries both providers 
 | `iwanttobuild` | `I want to build`, `iwanttobuild` (as typed) |
 | `woxiangyaodeploy` | `我想要 deploy`, `woxiangyaodeploy` (as typed) |
 
-The Chinese path queries exact full readings, syllable prefixes and initials, then constructs sentence candidates with a bounded word lattice. Lexical matches, generated sentences and completions compete by a shared score. Up to 32 complete minimum-syllable cuts share sentence search, so ambiguous boundaries such as `wo / xian / gan / zhao` and `wo / xiang / an / zhao` compete using dictionary frequency and spelling costs; `woxianganzhao` has `我想按照` as its leading complete sentence; prefixes compete separately by their own scores in the merged list. Apostrophes constrain syllable boundaries; prefix choices retain the exact unconsumed source spelling. Sentence search retains up to 32 distinct terminal alternatives per base/personalized lane for downstream ranking; the window still limits constructed results to the first four ranked choices. SI deliberately lowers the extra single-character cost to let dictionary frequency compete more strongly with segmentation structure. The shared lexical cost is `20 - 1.05 × ln(weight)`, with an additional two nats for a single Chinese character or three nats for each English dictionary token (including lookup, completion and English/mixed sentence paths). The frequency coefficient strengthens dictionary-weight differences relative to insertion and spelling costs. These heuristic priors balance dictionary frequency against extra lexical splits; known ordinal ambiguities remain. The residual cost discourages excessive character splitting. This differs from the upstream scoring formula and does not establish MSIME-equivalent quality.
+The Chinese path queries exact full readings, syllable prefixes and initials, then constructs sentence candidates with a bounded word lattice. Lexical matches, generated sentences and completions compete by a shared score. Up to 32 complete minimum-syllable cuts share sentence search, so ambiguous boundaries such as `wo / xian / gan / zhao` and `wo / xiang / an / zhao` compete using dictionary frequency and spelling costs; `woxianganzhao` has `我想按照` as its leading complete sentence; prefixes compete separately by their own scores in the merged list. Apostrophes constrain syllable boundaries; prefix choices retain the exact unconsumed source spelling. Sentence search retains up to 32 distinct terminal alternatives per base/personalized lane for downstream ranking; the window still limits constructed results to the first four ranked choices. SI deliberately lowers the extra single-character cost to let dictionary frequency compete more strongly with segmentation structure. The production lexical cost is `-1.05 × ln(10) × logp`, using the compiled log10 probability, with an additional two nats for a single Chinese character or three nats for each English dictionary token (including lookup, completion and English/mixed sentence paths). The frequency coefficient strengthens dictionary-weight differences relative to insertion and spelling costs. These heuristic priors balance dictionary frequency against extra lexical splits; known ordinal ambiguities remain. The residual cost discourages excessive character splitting. This differs from the upstream scoring formula and does not establish MSIME-equivalent quality.
 
 English word lookup and continuous English segmentation remain available. With both languages enabled, a bounded lexical lattice also joins complete Pinyin words and English words in either direction, including `woxiangyaodeploy` → `我想要 deploy`, preserved English casing, interleaved words and a completed final English word. Adjacent English words keep their word spaces inside mixed candidates too: `helloworldzhongwen` can offer `hello world 中文`. Chinese/English boundaries also insert one space; personal phrases and verbatim paths retain their exact concatenated output. It uses the same packaged dictionaries and relative weight unit; pure Chinese sentences retain their existing decoder. Exact English words and fully lexical English sentences keep their English identity. Chinese, English and mixed whole choices now compete by the same word, spelling and language-transition costs, with opted-in learning bonuses. Full Pinyin syllables and complete English words receive stronger spelling weight than incomplete observations: bilingual `ma` now leads with `吗`, while English completions remain available. This heuristic can favor fully spelled word sequences over an unfinished English word. No language category has a reserved front position. For `ling`, `零` scores above `里 NG`; English completions such as `lingo` remain eligible by score. See [candidate ranking](docs/UNIFIED_RANKING.md). Mixed initials, incomplete Chinese-tail prediction and broad language-boundary detection remain limited. The exact original input remains an explicit candidate, including unknown input and configurations with all languages disabled.
 
@@ -44,10 +44,13 @@ stays transient and local; it is neither recorded nor learned. The
 release DMG and update ZIP include the model inside the app. The dictionary
 supplies results while the model loads. See [production ranking and model packaging](README_kenlm_train.md#production-kenlm-ranking).
 
-The current delivery model uses raw-text-v2 with all seven non-Wikipedia
-sources, clean2 and four-gram pruning `0 0 1 2` (206 MiB). Local installation
-bundles the same verified final model before signing; plain builds still use
-the existing App Support fallback. See [the current model record](docs/KENLM_MODEL.md).
+The current delivery model retokenizes raw-text-v2 with the coarse count dictionary,
+using all seven non-Wikipedia sources, clean2 and four-gram pruning `0 0 1 2`
+(159.78 MiB). Training retains the delivery model under
+`corpus/kenlm/models/current`, outside the disposable `.build` directory.
+Local installation bundles that verified model before signing; plain builds
+still use the existing App Support fallback. Rebuilding Swift does not retrain
+KenLM; `reinstall.sh` checks the retained model before stopping SI. See [the current model record](docs/KENLM_MODEL.md).
 
 The reusable [KenLM training and ranking guide](docs/KENLM_TRAINING_GUIDE.md)
 covers corpus preparation, model selection, candidate diagnostics, parameter
@@ -69,38 +72,45 @@ Interface language is independent of the English/Chinese input-language switches
 
 ## Vocabulary maintenance
 
-Chinese and English base dictionaries now come from a pinned [rime-wanxiang-data](https://github.com/amzxyz/rime-wanxiang-data) revision. The independently written [conversion script](scripts/wanxiang_dictionary.py) imports `zi`, `jichu` and `duoyin` into `chinese/base.csv` (1,547,554 text/reading pairs), and `en` into `english/base.csv` (72,783 supported forms). Base weights retain the upstream integers, without wordfreq normalization or frequency rescaling, except for [documented SI editorial adjustments](Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments). The upstream weights are already transformed ranking values, not raw occurrence counts or probabilities. For `yuliao`, the SI editorial weight for `语料` is 2,500, placing it above `语聊` (2,442) and below `预料` (3,036) before personal preferences. This replacement changes vocabulary, casing and ranking; it does not establish improved conversion quality.
-
-For `taiguo`, the editorial weight of 22,000 ranks `泰国` ahead of `太过`
-(20,909) before personal preferences.
-
-All ten other normal upstream Chinese dictionaries are imported into separate categories named after the upstream files, adding 602,516 category rows. With the reviewed corpus additions, the complete merged resources contain 2,141,468 Chinese and 74,340 English entries. The seven remaining local Chinese categories and the existing English movie/domain categories retain their text/readings with uniform weight 10. The separately removed culture/sports file is not restored. Their entries supplement the base; overlapping identities use the base weight and English casing, so historical category weights cannot overwrite the new source weights. Imported categories retain upstream weights over legacy category copies; duplicates within each tier still merge by maximum weight. Categories remain maintenance groups without language modes or ranking bonuses. The [domain category](Data/Vocabulary/DOMAINS.md) retains its 1,209 full hostnames and separate Radar CC BY-NC 4.0 terms; the [movie catalog](Data/Vocabulary/MOVIES.md) retains its 400 selected films from 2007–2026.
+Edit the `text,reading,weight` CSVs in [Data/Chinese](Data/Chinese/) and
+[Data/English](Data/English/). The `weight` field is an explicit nonnegative
+integer count. Every flat category CSV is compiled; identical exact
+text/reading pairs sum their counts across rows and files. Different readings,
+case variants and byte-distinct outputs remain separate. The offline HanLP
+[migration tool](Data/Chinese/README.md) defaults to coarse segmentation and is
+separate from ordinary compilation.
 
 ```sh
-# Explicit source download, pinned by revision, size and SHA-256:
-python3 scripts/wanxiang_dictionary.py fetch
-# Offline replacement of both bases; preserves preexisting category CSVs:
-python3 scripts/wanxiang_dictionary.py convert
-python3 scripts/wanxiang_dictionary.py convert --check
-# Compile the maintained CSV collection into shared package/app resources:
 python3 scripts/csv_dictionary.py build
 python3 scripts/csv_dictionary.py build --check
+# Optional human-readable corpus snapshot version:
+python3 scripts/csv_dictionary.py build --corpus-version snapshot-v1
 ```
 
-The [phrase and verse collection](Data/Vocabulary/chinese/phrase/README.md) separately
-groups 46,497 clear base phrases and the existing 335,208-row poetry source.
-The remaining word-side Chinese base has 1,501,057 rows. Compilation reads both
-Chinese directories and preserves every effective entry, reading, weight and
-deterministic order. Idioms, names, domain terms and ambiguous entries remain
-conservatively grouped with words.
+Each language has its own `total_n`, the sum of all its CSV counts. SQLite's
+REAL `weight` column stores `log10(count / total_n)`. Zero-count entries use
+`unk_logp = log10(0.5 / total_n)`, which is also stored in the `meta` table
+alongside `total_n`, `log_base`, `corpus_version`, `built_at` (UTC), schema
+version and weight unit. No pseudocount is added to the denominator. Negative
+or blank counts, overflow and an all-zero language are rejected. These
+normalized values derive from maintained dictionary weights; they do not
+establish representative corpus probabilities or improved typing quality.
 
-See the [import scope, exceptions and update workflow](Data/Vocabulary/Wanxiang/README.md). The conversion removes Chinese tones, maps ü to v and merges tone-collapsed duplicates by maximum weight. English retains SI's full-text typing-key contract rather than Rime abbreviations; case variants use the highest source weight with first-source ties. Nineteen unsupported non-ASCII English forms are listed in the conversion report. Missing weights remain zero; 73 malformed numeric suffixes use Rime's numeric-prefix interpretation. Neither the importer nor normal builds read private phrases or Personal Learning.
+Schema 2 uses `si-log10-probability-v2`; app and package reject incompatible
+resources. Runtime scoring reads the stored probabilities and unknown floor,
+converts log10 units to bits and retains existing character, English-token,
+spelling and language-transition adjustments. The former raw-count insertion
+prior remains only for injected library fixtures. Production probabilities
+already include normalization and do not add that prior again.
 
-[Data/Vocabulary](Data/Vocabulary/README.md) contains the editable CSVs and source-level metadata. Normal CSV builds remain offline and do not rerun the upstream conversion. Both runtime databases retain the same SQLite schema and use the versioned `si-wanxiang-weight-v1` contract in `Data/DictionaryFormat.json`; incompatible old resources fail closed. Source pins, full data licensing, conversion checksums and preserved category hashes are retained. Older MSIME, SCOWL, CSpell, Rime Ice and wordfreq records remain historical attribution, not the current base-frequency pipeline. Historical Chinese MSNG tables remain archived outside the app and are not used for runtime scoring. See [Chinese maintenance](docs/CHINESE_VOCABULARY.md) and [English maintenance](docs/ENGLISH_VOCABULARY.md).
-
-The SI-authored [English technology category](Data/Vocabulary/english/technology.csv) contains 164 common AI, software, hardware and networking terms at editorial weight 10. Existing base entries retain their weights and casing, including lowercase `ai`; typing `AI` still produces uppercase `AI`. See [technology maintenance](docs/ENGLISH_VOCABULARY.md#technology-category).
-
-The [HanLP corpus review](Data/Vocabulary/Corpus/README.md) adds **266 reviewed Chinese terms** in the separate [corpus.csv](Data/Vocabulary/chinese/corpus.csv), with [counts/readings for inspection](Data/Vocabulary/Corpus/accepted.csv), and records eight bounded base-weight corrections. It processes all 34,445,051 Han characters in the six existing prepared subsets; these deduplicated observations are not general usage frequencies. New weights are explicit editorial values anchored to existing words, while all earlier local categories keep weight 10. Full source attribution accompanies the dictionary. HanLP is used only for offline analysis and is not included in the input method.
+`corpus_version` defaults to the SHA-256 of ordered, merged text/reading/count
+rows. A custom version still retains individual CSV hashes in the manifest.
+`built_at` records actual generation time; `--check` verifies the published
+snapshot while ignoring a freshly generated comparison timestamp, without
+rewriting outputs. Both languages are staged and validated before publication.
+Generated SQLite files remain ignored; manifests and CSVs remain tracked.
+The packaged source notices/licenses stay under `mac/SI/Core/Resources/`.
+No build reads personal phrases, learning archives or history.
 
 ## Automatic prefix confirmation
 
@@ -142,6 +152,8 @@ Xcode resolves [PermissionFlow 2.11.4](https://github.com/jaywcjlove/PermissionF
 
 Open **SI Settings → Personal Learning** and enable **Enable Personal Learning**. It is off by default. All eligible apps share one vocabulary and aggregate usage/correction counts. A deliberate selection of a nonfirst candidate makes it the first ordinary choice the next time the entire normalized source spelling matches. A later deliberate choice replaces that preference, including across languages. Explicit personal-phrase pins retain priority; other candidates and exact original input remain available. Case and ü/v/u: aliases use existing normalization, while explicit apostrophe boundaries remain distinct. Shorter spellings and longer compositions do not inherit this forced placement. Prefix confirmation records only consumed spelling, never the pending remainder.
 
+When you manually select successive prefixes from one unchanged composition, SI also learns the completed combination after every part has been successfully submitted. For example, selecting `锁` then `成` from `suocheng` retains the individual `suo`/`cheng` entries and adds `suocheng` → `锁成`. Any nonfirst correction in the sequence makes the whole spelling a remembered choice; a sequence of only first choices remains usage-only. Editing the remaining spelling, cancellation, focus/configuration/consent changes, failed insertion, or an excluded fragment interrupts aggregation. Only confirmed fragments are retained transiently in the current client session, within the existing learning size limits. Input History still records the actual separate submissions and receives no synthetic combined row.
+
 Accepting the displayed first candidate by Space, number or mouse only updates usage; it does not increase ranking strength or change the remembered choice. Every three deliberate nonfirst selections also add one frequency-ranking point, up to 32, for whole/prefix and eligible internal-token ranking. This gradual bonus is separate from immediate exact-match placement. Neither strength nor records decay or expire with age. At most 5,000 entries are kept; capacity eviction removes the least recently used entries with deterministic identity ties. Confirming a sentence does not automatically save its component words. Literal, personal/verbatim, punctuation, delimiter and automatic-confirmation commits do not train vocabulary. Existing spelling/output size limits remain 128/512 bytes.
 
 **Manage Learning Data…** supports global search, Forget and clearing learned vocabulary. Forgetting the remembered choice removes its forced placement; clearing does not affect explicit personal phrases. Personal Learning has one global switch, with no per-app pause, filter, deletion or clear controls. Turning learning off, secure input and the separate direct-input rules suppress learned ranking and saved suggestions. No document, URL, recipient or clipboard content is read.
@@ -161,6 +173,8 @@ History includes literal, personal-phrase, punctuation and automatic SI submissi
 **Export Input History…** saves all persisted history as one versioned JSONL file, including records hidden by search. The action opens a save panel directly, with no backup/training distinction or purpose flag. Export never uploads or sends a file. It contains private source/output text and timestamps, and deleting local history does not delete exported copies. Accepted writes finish before export; pending save failures must be resolved first.
 
 The receiver can run `python3 scripts/input_history.py inspect FILE.jsonl`, `restore FILE.jsonl --output NEW.sqlite3`, or `prepare FILE.jsonl --output NEW_DIRECTORY`. Restore validates versions/count/checksum and recreates every event exactly. Training preparation accepts the same export and produces an unsplit candidate CSV plus provenance for review, without modifying existing data or starting training. See [export/restore and training-observation workflow](docs/INPUT_HISTORY_EXPORT.md).
+
+For text-only copies of Input History or Sentence History exports, run `python3 scripts/input_history_to_txt.py`. It converts the JSONL files in `corpus/chinese/raw/input-history/` to adjacent same-name `.txt` files containing only submitted text (`output`), in original order with repeats preserved. You can also pass a file or directory; existing TXT files require `--overwrite`. See [plain-text extraction](docs/INPUT_HISTORY_EXPORT.md#plain-text-extraction).
 
 The independent owner-only SQLite database is `~/Library/Application Support/SI/InputHistory/history-v1.sqlite3`. It is not encrypted; private text can be accessible to other software running as you, administrators and backups. I/O stays off the main actor/key-event path. Writes are serialized and transactional, retries do not duplicate a submission, and clear cannot be undone by older pending writes. Open/save failures visibly pause recording; failed writes remain in memory for **Retry Saving History**, and corrupt/unsupported files remain untouched until explicit clear. Normal termination waits for queued writes; forced termination, disk failure or quitting without retry can lose unsaved entries. External backups remain outside SI's deletion controls. See [privacy](docs/PRIVACY.md#input-history) and [manual checks](docs/TESTING.md#input-history).
 
@@ -318,7 +332,7 @@ Ordinary typing updates marked spelling before searching candidates off the main
 
 The candidate window uses a slim warm-neutral strip, a soft peach selection pill and an orange selected number. Text remains dark in the light appearance, with a coordinated dark palette. Candidate buttons keep numbers close to their text and fit their content rather than stretching across unused space. Small arrow, pin and text symbols distinguish prefix, personal and typed-text sources in both layouts. Punctuation candidates show a small E (English) or C (Chinese) badge immediately after the text in both layouts; the exact original spelling shows A (As Typed). Full language/source details remain in tooltips and accessibility labels. The system Increased Contrast preference adds a stronger outline; page controls appear only when more than one page is available.
 
-The panel anchors below the beginning of the marked composition, using InputMethodKit's inline-session coordinates, and moves above it when space is limited. Document-range coordinates are a fallback only after checking the returned range. A temporary geometry failure can reuse the last valid position in that composition; fresh inline coordinates replace earlier fallbacks, and without reliable geometry the panel stays hidden. Host-specific positioning still requires manual verification.
+The panel anchors below the beginning of the marked composition, using InputMethodKit's inline-session coordinates, and moves above it when space is limited. Where supported, a geometry-only point lookup checks that the position belongs to the current marked text; corroborated document-range coordinates can replace a displaced inline position. Document rectangles also require a matching returned range. Fresh geometry is checked before reusing the last valid position in that composition, so temporary inline failures do not prevent recovery after host reflow. Without reliable geometry the panel stays hidden. Host-specific positioning still requires manual verification.
 
 **Typing → Punctuation during composition** defaults to **Keep Composing**: punctuation and symbols stay in the marked spelling so `example.com`, `user@example.com`, `foo/bar`, and `nihao,world` can be typed and edited as one composition. ASCII period `.` stays editable under every policy, even after candidate navigation; typing it never confirms a candidate or automatically converts it to `。`. With punctuation candidates enabled, an explicit selection can choose `。`. Non-confirming symbols also remain editable in the optional policies. Return commits the exact spelling; Space/numbers/mouse still confirm the current candidate, and Escape cancels the entire composition. Apostrophes retain their Pinyin boundary meaning. Digits remain candidate shortcuts rather than general numeric entry. Tab commits literal spelling and passes through in Keep Composing. **Smart Chinese Punctuation** and **Confirm Candidate** remain optional confirmation policies; saved explicit choices are preserved. They confirm supported punctuation/Tab with existing English, prefix and personal-code safeguards; smart mode converts `,;:!?()[]` after Chinese endings. Unmapped symbols outside composition pass through, and shortcuts preserve the exact spelling. Symbol insertion does not train learning; optional delimiter confirmations do not train either. Quotes are not automatically paired.
 
@@ -336,7 +350,7 @@ mac/Support/           Input-method bundle metadata
 Tests/                 Swift Testing coverage for core, storage, and settings
 scripts/               Build, test, and local installation commands
 docs/                  Architecture, manual checks, and roadmap
-eval/                  Shared frozen ranking, correction and Pinyin-to-Hanzi evaluation
+eval/                  Newly authored 120-query ranking regression dataset
 corpus/                Pinned offline Chinese text, English dialogue and lexical reading resources
 llm/                   Offline spelling-to-text training experiments (not loaded by the app)
 ```
@@ -345,14 +359,22 @@ The Swift package and Xcode app compile the same core source files. There is no 
 
 ## Model training experiments
 
-The [shared evaluation registry](eval/README.md) owns fixed datasets for ranking,
-correction and Pinyin-to-Hanzi conversion, independent of model size or algorithm.
-It provides blind input export, a common prediction format, exact-output scoring,
-integrity/split checks and comparable reports. Small and future large rerankers
-use the same frozen ranking pools; model-specific training/loss evaluation stays
-under `llm/`. Run `python3 -m eval validate` to inspect the registered suites.
+The [ranking evaluation dataset](eval/README.md) contains 120 representative
+queries covering documented Pinyin regressions, English hard cases, source aliases,
+and seeded Chinese, English and mixed sentence combinations. It stores input and
+intended outputs; evaluate the current engine rather than a frozen old candidate
+pool. Run `python3 scripts/generate_ranking_eval.py --check` to verify integrity
+and reproduction. The former ranking/correction/conversion registry was removed.
+These synthetic, correlated cases are regression evidence, not an independent
+production accuracy estimate.
 
-The [model workspace](llm/README.md) separates `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The [small reranker](llm/reranker_small/README.md) supports training a 7.4M character LM from scratch, whole-document preparation, candidate scoring/evaluation and inference export. Its [constructed Chinese challenge](llm/reranker_small/benchmarks/README.md) contains 1,230 cases from 337 anchors, with real decoder pools and separate development/test splits. Independent annotation review remains pending; native neural ranking has been removed pending redesign; the large reranker is planned. The existing conversion framework, data, configs, runs and reports are under `llm/pinyin_to_text/`; the shared Python environment stays at `llm/.venv`.
+The [model workspace](llm/README.md) separates `reranker_small/`, `reranker_large/`
+and `pinyin_to_text/`. Small-model training, standalone candidate scoring and
+inference export remain available; the large reranker is planned. The former
+1,230-case challenge and its compatibility data links have been retired. The
+conversion framework and its own training/loss evaluation remain under
+`llm/pinyin_to_text/`; the shared Python environment stays at `llm/.venv`.
+Native neural ranking remains removed pending redesign.
 
 The independent [corpus workspace](corpus/README.md) prepares pinned public Chinese conversation, web, Wikipedia and technical-documentation text, with per-source licenses, line origins and integrity reports. The complete-text extractor also accepts explicit local SI TXT and dialogue collections, converts extracted text with OpenCC t2s, and preserves repeated occurrences; its new outputs use `prepared/raw-text-v2`. Chinese Wikipedia acquisition resolves the latest complete official article dump and verifies its official checksum before recording the pin. It also exports explicit character/word readings from the maintained vocabulary. The separate [English conversation collection](corpus/english/README.md) acquires PersonaChat/ConvAI2, BST, Topical-Chat, Taskmaster 1/2/3, ABCD, SGD and English OASST1 messages, preserving dialogue/turn identity, data terms and upstream splits. Raw and prepared data stay local and outside Git. These preparation stages do not label sentence Pinyin, change existing training defaults or integrate a model into SI.
 

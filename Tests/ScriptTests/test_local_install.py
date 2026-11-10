@@ -32,6 +32,8 @@ class LocalInstallTests(unittest.TestCase):
         self.executable(scripts / "build.sh", "#!/bin/bash\nexit 0\n")
         self.executable(scripts / "install_kenlm_model.py", '''from pathlib import Path
 import sys
+if "--verify-only" in sys.argv:
+    sys.exit(0)
 destination = Path(sys.argv[sys.argv.index("--bundle-resources") + 1]) / "KenLM"
 destination.mkdir(parents=True)
 (destination / "final.bin").write_bytes(b"synthetic model")

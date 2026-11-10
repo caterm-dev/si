@@ -15,11 +15,20 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common import digest
 from check_word_corrections import count_spans
-from hanlp_words import count_tokens, segment, tokenize_chunk, verify
+from hanlp_words import count_tokens, load_tokenizer, segment, tokenize_chunk, verify
 from review_words import eligibility
 
 
 class HanLPWordCountTests(unittest.TestCase):
+    def test_offline_loader_rejects_missing_or_wrong_model_lock(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            cache = Path(temporary)
+            with self.assertRaisesRegex(ValueError, 'Explicitly fetch'):
+                load_tokenizer('cpu', 1, model='fine.zip', cache=cache)
+            (cache / 'model-lock.json').write_text(json.dumps({'url': 'coarse.zip'}))
+            with self.assertRaisesRegex(ValueError, 'differ from the fetched lock'):
+                load_tokenizer('cpu', 1, model='fine.zip', cache=cache)
+
     def test_surface_evidence_counts_overlaps_without_crossing_fragments(self):
         words = {'测试', '试测', '试文'}
         self.assertEqual(count_spans('测试测试', words), {'测试': 2, '试测': 1})

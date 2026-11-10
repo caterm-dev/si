@@ -11,15 +11,22 @@ sys.path.insert(0, str(ROOT / 'scripts'))
 import csv_dictionary as dictionary
 
 
+def movie_rows(language):
+    rows = []
+    for path in dictionary.category_sources(language):
+        if path.name == 'movie.csv':
+            with path.open() as stream:
+                rows.extend(csv.DictReader(stream))
+    return rows
+
+
 class MovieVocabularyTests(unittest.TestCase):
     def test_catalog_covers_twenty_years_and_both_language_categories(self):
         data = ROOT / 'Data/Vocabulary'
         with (data / 'movie-catalog.csv').open() as stream:
             catalog = list(csv.DictReader(stream))
-        with (data / 'chinese/movie.csv').open() as stream:
-            chinese = list(csv.DictReader(stream))
-        with (data / 'english/movie.csv').open() as stream:
-            english = list(csv.DictReader(stream))
+        chinese = movie_rows('chinese')
+        english = movie_rows('english')
         self.assertEqual({int(row['year']) for row in catalog}, set(range(2007, 2027)))
         self.assertEqual(len({(row['year'], row['chinese']) for row in catalog}), len(catalog))
         zh_texts = {row['text'] for row in chinese}
@@ -36,9 +43,7 @@ class MovieVocabularyTests(unittest.TestCase):
         self.assertEqual(curation['catalog_sha256'], hashlib.sha256((data / 'movie-catalog.csv').read_bytes()).hexdigest())
 
     def test_movie_names_keep_reviewed_polyphonic_and_umlaut_readings(self):
-        path = ROOT / 'Data/Vocabulary/chinese/movie.csv'
-        with path.open() as stream:
-            identities = {(row['text'], row['reading']) for row in csv.DictReader(stream)}
+        identities = {(row['text'], row['reading']) for row in movie_rows('chinese')}
         for text, reading in [('长安三万里', "chang'an'san'wan'li"),
                               ('哪吒之魔童闹海', "ne'zha'zhi'mo'tong'nao'hai"),
                               ('封神第一部：朝歌风云', "feng'shen'di'yi'bu'zhao'ge'feng'yun"),

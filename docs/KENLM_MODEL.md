@@ -1,4 +1,70 @@
-# Current delivery model
+# Current delivery model — coarse vocabulary, November 10, 2026
+
+The current refit resegments all seven raw-text-v2 sources with the coarse
+`Data/Chinese/*.csv` vocabulary. Chinese/English source CSVs are frozen in the
+run. Unigram Viterbi uses the Chinese count total of 1,804,102,196 and a
+0.5-count unknown floor, matching the app's rebuilt SQLite dictionary.
+Chinese dictionary snapshot SHA-256:
+`be1168ed2f136dfe0a35d0e47925e303edb3e9666787cfbec5f4a5b76304b419`.
+No intermediate historical frequency table or HanLP corpus inference is used.
+
+- Sources: LCCC, mC4, Kubernetes, TensorFlow, MDN, SI and Dialogue; Wikipedia excluded.
+- Raw tokenized population: 48,324,791 sentences / 365,230,074 tokens.
+- Exact-line deduplication: 17,762,036 unique lines; 30,562,755 duplicates removed.
+- Final clean2 fit: 17,739,045 sentences / 163,435,423 tokens.
+- Order 4; pruning `0 0 1 2`; trie `-a 22 -q 8 -b 8`.
+- Binary: 167,546,159 bytes (159.78 MiB).
+- SHA-256: `e80394a8b5604e9c715fba23239705199549159c7beacf1e738bb8c1e2e2823d`.
+- Retained model/full metadata: `corpus/kenlm/models/current/`.
+- Working run and signed app: `.build/kenlm-coarse-dictionary-20261110/` and
+  its `app-stage/SI.app`.
+- Signed delivery ZIP: `.build/SI-coarse-vocabulary-20261110.zip`,
+  201,562,477 bytes; SHA-256
+  `62bbb858e70c369f7ad62e12536abe9d44c911cccc9f0fbb390fc7b323204572`.
+
+Train-only heldout PPL including true OOV is 163.508504 with 1,953 true OOV
+tokens. Tokenization changed, so this is not directly comparable to the fine
+model's PPL. Exact-line separation and all 17,763 frozen block routes pass
+independent checks; document/dialogue and near-duplicate independence remain
+unestablished. The final model includes heldout and has no independent heldout
+score. Ranking settings were reused without tuning.
+
+All 20 unchanged natural/reversed sanity pairs pass (median log10 margin per
+token 1.117867); default and lazy scores match. Fifteen native SI model,
+context and Settings tests pass with the actual model. Marker probabilities
+match the pinned KenLM CLI reference. Release build, Developer ID deep/strict
+signature verification and the same checks after ZIP extraction pass.
+Embedded model and Chinese/English SQLite hashes match their source artifacts;
+source/model notices accompany the model. Local installation remains deferred
+at the user's request. No live-host typing or compatibility checks were made.
+
+Reproduce with `corpus/.venv/bin/python scripts/retrain_kenlm.py --run .build/<fresh-run>`.
+Use `--stage tokenize` / `--stage train` for separate stages. The working run
+retains code/tool/dictionary/source pins, origin ranges, mappings, split audits,
+train-only/final models, commands, native references and artifact/delivery audits.
+Generated text, models and reports are ignored. Retained delivery assets stay
+outside `.build` as described below.
+
+For native verification, set `SI_TEST_KENLM_BUNDLE` to the staged app's
+`Contents/Resources/KenLM`, `SI_TEST_KENLM_INSTALLATION` to the run's
+`test-installation`, and `SI_TEST_KENLM_REFERENCE` to
+`corpus/kenlm/models/current/native-reference.json`, then run
+`./scripts/test.sh --disable-sandbox --filter 'KenLMModelTests|KenLMContextTests|LanguageSettingsTests'`.
+
+# Previous delivery model — fine vocabulary, November 10, 2026
+
+The earlier count-dictionary fit used the fine vocabulary snapshot
+`e2e629e1ef1a2e4bb8b708f9860a73c4c549f5910fb3fe1f4c92480de226be5e`.
+Its binary remains under
+`corpus/kenlm/models/6d5652152689cad06ef35c689783f3f1f357a9987a2e612745cd09406ab97f09/`:
+161,309,373 bytes (153.84 MiB). The final fit contained 17,737,492 sentences /
+170,371,865 tokens. Train-only heldout PPL was 133.788260 with 1,629 OOVs;
+all 20 sanity pairs and the native integration checks passed.
+The original working run and ZIP were removed by build-cache cleanup; the
+model was recovered byte-identically and retained separately. This historical
+model is no longer selected by `current`.
+
+# Previous delivery model — November 9, 2026
 
 The selected model is the full-data Chinese KenLM refit from raw-text-v2,
 using LCCC, mC4, Kubernetes, TensorFlow, MDN, SI and Dialogue. Wikipedia is
@@ -56,3 +122,18 @@ the installed app passed strict deep signature verification. Three native
 model tests passed against its actual bundled resources, including loading
 `0012` and rejecting unsupported pruning metadata. Live host typing remains
 unverified.
+## Retained delivery artifacts and build cleanup
+
+Validated training now publishes `final.bin`, full `final.meta.json`, the native
+reference and small provenance records under the ignored
+`corpus/kenlm/models/<binary-sha256>/`. The `current` symlink selects the model
+used by install/release. Previous versions remain until explicitly deleted.
+These are delivery assets, not Swift build caches; keep them when clearing
+`.build`. No model binaries are committed to Git.
+
+`reinstall.sh` verifies the selected model before stopping SI; `install.sh`
+verifies it before building/signing. Both still build Swift normally and embed
+the existing trained model. An app build does not run language-model training.
+Use `python3 scripts/install_kenlm_model.py --verify-only` to check readiness.
+If working, retained and backup copies have all been deleted, explicitly rerun
+`scripts/retrain_kenlm.py`; validated completion publishes the result automatically.

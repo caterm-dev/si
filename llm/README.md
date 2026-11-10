@@ -4,16 +4,15 @@ Each model family owns its configurations, training code, data preparation,
 checkpoints, reports and exports. Native AI ranking and app model loading have been removed pending redesign. Offline models are not loaded
 by the input method.
 
-All model families and non-model algorithms share the root
-[evaluation registry](../eval/README.md): fixed ranking, correction and
-Pinyin-to-Hanzi suites, common predictions/scoring and guarded comparisons.
-Public evaluation data is owned there; this workspace owns training and
-model-specific token-loss evaluation. Existing small-model benchmark data paths
-are compatibility links to the same frozen root files.
+The root [ranking regression dataset](../eval/README.md) now holds 120 representative input/target queries. The previous multi-task registry, adapters, frozen
+candidate pools and compatibility data links were retired on November 9, 2026.
+Training and model-specific token-loss evaluation remain in this workspace.
+The new query-only format requires current candidate export; old frozen-pool
+model evaluation commands cannot consume it directly.
 
 | Directory | Purpose | Current status |
 | --- | --- | --- |
-| [reranker_small/](reranker_small/README.md) | Small candidate language-model scorer. | Offline 7.4M baseline training, scoring/export and a 1,230-case constructed ranking challenge are implemented; native AI ranking is removed pending redesign; independent quality review remains pending. |
+| [reranker_small/](reranker_small/README.md) | Small candidate language-model scorer. | Offline 7.4M baseline training and standalone scoring/export remain implemented; the old ranking challenge is retired; native AI ranking is removed pending redesign; independent quality review remains pending. |
 | [reranker_large/](reranker_large/README.md) | Candidate scoring after a typing pause, and a larger comparison model. | Reserved; training/inference implementation and weights are not created. |
 | [pinyin_to_text/](pinyin_to_text/README.md) | Pinyin/spelling-to-text conversion with the existing encoder-decoder. | Implemented offline framework, retained 19.7M/default and older 0.403B experiments. |
 

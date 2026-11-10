@@ -68,8 +68,17 @@ struct KenLMModelTests {
         let initial = model.beginSentence()
         let step = try #require(model.advance(initial, wordIndex: number.index))
         let next = try #require(model.advance(step.state, wordIndex: unknown.index))
-        #expect(abs(step.log10 - -1.1891373) < 0.000001)
-        #expect(abs(next.log10 - -3.4547102) < 0.000001)
+        struct Reference: Decodable {
+            let model_sha256: String
+            let log10_probabilities: [Double]
+        }
+        let referencePath = try #require(ProcessInfo.processInfo.environment["SI_TEST_KENLM_REFERENCE"])
+        let reference = try JSONDecoder().decode(Reference.self,
+            from: Data(contentsOf: URL(fileURLWithPath: referencePath)))
+        #expect(reference.model_sha256 == model.sha256)
+        try #require(reference.log10_probabilities.count == 2)
+        #expect(abs(step.log10 - reference.log10_probabilities[0]) < 0.000001)
+        #expect(abs(next.log10 - reference.log10_probabilities[1]) < 0.000001)
         let index = try Data(contentsOf: root.appendingPathComponent("current.json"))
         let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: false)

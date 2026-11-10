@@ -139,7 +139,7 @@ def make_mapping(raw_counts, dictionary):
     return cache,output_counts,replacements
 
 
-def prepare(out):
+def prepare(out, inputs=None, dictionary=None, split_manifest=None):
     target = out / 'data'
     if target.exists():
         if not (out / 'full.clean2.txt').exists() and (target / 'full.clean2.txt').exists():
@@ -147,10 +147,12 @@ def prepare(out):
         record = json.loads((target / 'manifest.json').read_text())
         if previous.digest(out / 'full.clean2.txt') != record['cleaned']['sha256']:raise ValueError('Final cleaned data changed')
         return record
-    dictionary = round3.dictionary_words()
+    dictionary = round3.dictionary_words() if dictionary is None else dictionary
+    inputs = INPUTS if inputs is None else inputs
     with previous.staged(target) as stage:
-        raw_counts,parts,raw_sha = merge_and_count(INPUTS, stage / 'full.raw.txt')
-        source_manifest = json.loads((round3.ORIGINAL / 'manifest.json').read_text())['splits']
+        raw_counts,parts,raw_sha = merge_and_count(inputs, stage / 'full.raw.txt')
+        source_manifest = (json.loads((round3.ORIGINAL / 'manifest.json').read_text())['splits']
+                           if split_manifest is None else split_manifest)
         for name,p in zip(('train','heldout'),parts):
             for key in ('sha256','input_lines','input_tokens'):
                 expected_key = {'input_lines':'lines','input_tokens':'tokens'}.get(key,key)
@@ -262,11 +264,12 @@ def parse_sentence_scores(text,expected):
     return rows
 
 
-def sanity(out):
+def sanity(out, tokenizer_dictionary=None, dictionary=None, configs=None):
     target=out/'sanity';target.mkdir(exist_ok=True)
     if (target/'results.json').exists():return json.loads((target/'results.json').read_text())
-    from tokenize_unigram import load_dictionary,normalize_line,tokenize_sentence
-    tokenizer=load_dictionary(TOKENIZER_DICTIONARY)
+    from tokenize_unigram import load_dictionary,normalize_line,tokenize_sentence,dictionary_digest
+    tokenizer_dictionary = TOKENIZER_DICTIONARY if tokenizer_dictionary is None else tokenizer_dictionary
+    tokenizer=load_dictionary(tokenizer_dictionary)
     needed=set();fixture=json.loads(FIXTURE.read_text());pairs=[]
     for text in fixture['good_sentences']:
         words=tokenize_sentence(normalize_line(text),tokenizer)
@@ -278,7 +281,8 @@ def sanity(out):
         for line in stream:
             word,frequency,_,_=line.rstrip('\n').split('\t')
             if word in needed:raw_frequencies[word]=int(frequency)
-    dictionary=round3.dictionary_words();all_lines=[]
+    dictionary=round3.dictionary_words() if dictionary is None else dictionary
+    all_lines=[]
     for p in pairs:
         good=[cleaning.map_token(w,raw_frequencies,dictionary,5)[0] for w in p['source_tokens']]
         bad=reversed_pair(good)
@@ -286,9 +290,9 @@ def sanity(out):
         all_lines.extend((' '.join(good),' '.join(bad)))
     (target/'pairs.txt').write_text('\n'.join(all_lines)+'\n')
     (target/'markers.txt').write_text('<num> <oov>\n')
-    previous.save(target/'pairs.json',{'fixture_sha256':previous.digest(FIXTURE),'tokenizer_dictionary_sha256':previous.digest(TOKENIZER_DICTIONARY),'pairs':pairs})
+    previous.save(target/'pairs.json',{'fixture_sha256':previous.digest(FIXTURE),'tokenizer_dictionary_sha256':dictionary_digest(tokenizer_dictionary),'pairs':pairs})
     results={}
-    for name in CONFIGS:
+    for name in (CONFIGS if configs is None else configs):
         for loading in ('default','lazy') if name=='final' else ('default',):
             label=name+'-'+loading;command=[TOOLS/'query','-v','sentence','-v','summary']
             if loading=='lazy':command+=['-l','lazy']

@@ -2,10 +2,9 @@
 
 This guide covers the converter in the [model workspace](../README.md).
 The sibling small/large reranker directories are separate model families.
-Cross-model candidate evaluation uses the root [shared evaluation registry](../../eval/README.md)
-and its `eval.adapters converter` adapter. Its fixed Pinyin and correction
-cases are independent of a checkpoint's architecture/tokenizer; training loss
-and the historical converter-specific evaluation commands remain here.
+The old root Pinyin/correction suites and `eval.adapters converter` were retired
+on November 9, 2026. The new [root test set](../../eval/README.md) covers ranking
+queries only; converter-specific training, validation and test tools remain here.
 Python dependencies and the existing environment remain shared at `llm/requirements.txt`
 and `llm/.venv`; all converter-specific files and artifacts live here.
 

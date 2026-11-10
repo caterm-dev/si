@@ -1,7 +1,72 @@
 # KenLM experiments and final model build
 
+## Current count-dictionary refit workflow
+
+The current refit follows the coarse vocabulary in `Data/Chinese/`. Use its
+versioned count CSVs directly for unigram Viterbi segmentation. There is no intermediate `build_word_dictionary.py` step and no
+HanLP model runs over the training corpus. Counts sum across readings and
+categories after the tokenizer's existing NFKC normalization. The denominator
+is the complete Chinese CSV count total, including rows outside Han-only
+segmentation. Zero-count known Han terms and unknown characters use the 0.5
+count floor. English, numbers and punctuation retain the existing tokenizer
+rules. The app's SQLite log probabilities are not reused as raw counts.
+
+```sh
+# Existing local raw-text-v2 extractions and pinned KenLM tools are required.
+# A fresh run directory is required when inputs or code change.
+corpus/.venv/bin/python scripts/retrain_kenlm.py \
+  --run .build/kenlm-coarse-dictionary-20261110 --workers 6
+```
+
+The script snapshots the current Chinese/English CSVs, retokenizes LCCC, mC4,
+Kubernetes, TensorFlow, MDN, SI and Dialogue, verifies raw-text lineage, excludes
+Wikipedia, deduplicates exact tokenized lines and freezes the historical
+seeded 1,000-line block train/heldout split. Clean2 mapping uses train counts
+only for the comparison model; the final fit recalculates on train + heldout.
+It keeps four-gram order, pruning `0 0 1 2`, and trie `-a 22 -q 8 -b 8`, using
+the existing pinned tools. `--stage tokenize` and `--stage train` allow separate
+execution. Completed artifacts verify their hashes before resuming.
+
+A smoke fit precedes full training. The train-only model has diagnostic heldout
+PPL; document/dialogue and near-duplicate independence are not established.
+The final model has seen heldout and is checked with the unchanged authored
+natural/reversed sanity fixture plus default/lazy loading equivalence. This
+workflow does not tune ranking weights or infer a typing-quality improvement.
+The working binary/metadata stay in the ignored run directory. After sanity
+validation, training also copies the model and full metadata into the retained,
+Git-ignored `corpus/kenlm/models/<binary-sha256>/` directory and atomically
+updates `corpus/kenlm/models/current`. Installation and release packaging read
+that retained pointer, so deleting `.build` does not delete the delivery model.
+Previous retained versions are preserved until explicitly removed. Model
+replacement is verified separately after training.
+
+```sh
+# Read-only check before rebuilding/reinstalling:
+python3 scripts/install_kenlm_model.py --verify-only
+# Retain an already-trained run without repeating training:
+python3 scripts/install_kenlm_model.py --publish \
+  --model .build/kenlm-coarse-dictionary-20261110/final/final.bin \
+  --metadata .build/kenlm-coarse-dictionary-20261110/final/final.meta.json
+```
+
+`reinstall.sh` checks the model before stopping SI. `install.sh` checks before
+building or signing. Missing/corrupt artifacts stop with a recovery command;
+no old model or empty payload is silently substituted. Swift app builds never
+train KenLM automatically. If both working/retained models and package backups
+are lost, rerun the training command above against the retained raw-text-v2
+inputs. A plain clone also needs a verified model or an explicit training run.
+
+The following sections retain historical experiment records and their original
+input identities; they are not commands for the new count-dictionary run.
+
+
 For a reusable workflow and lessons from these runs, see
 [the training and candidate ranking guide](docs/KENLM_TRAINING_GUIDE.md).
+
+Historical commands below reference the former `eval/ranking/hard-cases.tsv`,
+which was removed on November 9, 2026. Its six explicitly requested targets are
+now included in the new [120-query ranking dataset](eval/README.md). Old ranking
+measurements retain their original data identities and do not describe that set.
 
 The offline training experiments use the completed word-side-only tokenization at
 `corpus/chinese/generated/kenlm-words-v2/kenlm-input.txt` (SHA-256

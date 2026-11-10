@@ -1,5 +1,335 @@
 # Testing SI
 
+## Coarse-vocabulary KenLM refit — November 10, 2026
+
+The current coarse Chinese CSV snapshot is
+`be1168ed2f136dfe0a35d0e47925e303edb3e9666787cfbec5f4a5b76304b419`.
+All seven raw-text-v2 sources were retokenized and independently verified against
+their original inputs: 48,324,791 retained sentences / 365,230,074 tokens.
+Exact-line deduplication retained 17,762,036 lines. Uniqueness, disjointness,
+split hashes and all 17,763 seeded block routes pass independent audits.
+No private input history or new source downloads were used.
+
+The final clean2 fit contains 17,739,045 sentences / 163,435,423 tokens.
+The unchanged four-gram `0 0 1 2`, `-a 22 -q 8 -b 8` model is 167,546,159
+bytes, SHA-256 `e80394a8b5604e9c715fba23239705199549159c7beacf1e738bb8c1e2e2823d`.
+All 20 authored natural/reversed pairs pass; default and lazy scoring match.
+Train-only heldout PPL including true OOV is 163.508504 with 1,953 OOVs.
+Changed tokenization prevents comparison to the fine model's PPL; final training
+includes heldout and does not supply an independent generalization estimate.
+
+The 25 KenLM-tool, 15 tokenizer and eight dictionary-compiler tests pass.
+`csv_dictionary.py build` and `build --check` pass. The app dictionary's Chinese
+total count (1,804,102,196), unknown floor and source snapshot match the corpus
+tokenizer. Release app build and 15 focused native model/context/Settings tests
+pass using the actual new model, temporary versioned installation and native
+CLI reference. No Swift sources were changed for this refit; the full regression
+suite was not rerun. Earlier ranking failures recorded below remain unresolved.
+
+The model and metadata were verified and retained outside `.build`; the previous
+fine model remains available. The signed app embeds the new model, both rebuilt
+SQLite dictionaries and source notices. Deep/strict Developer ID verification
+passes before packaging and after extraction. Embedded model/dictionary hashes
+match. The ZIP is `.build/SI-coarse-vocabulary-20261110.zip` (201,562,477 bytes),
+SHA-256 `62bbb858e70c369f7ad62e12536abe9d44c911cccc9f0fbb390fc7b323204572`.
+Working records and `artifact-audit.json` / `delivery-audit.json` stay under
+`.build/kenlm-coarse-dictionary-20261110/`. Local installation remains deferred;
+no running input method, enabled input sources or live host sessions were changed.
+No live typing, focus, shortcut, accessibility or compatibility checks were made.
+
+## Candidate anchor recovery — November 10, 2026
+
+Candidate placement now uses the IMK geometry-only point-to-document lookup
+to corroborate inline/document rectangles where the host supports it. A known
+unrelated on-screen rectangle is rejected. Fresh document geometry is checked
+before an established inline cache when inline layout temporarily fails;
+repeated uncorroborated document fallbacks do not displace that cache.
+Unknown point-lookup support retains the existing inline compatibility path.
+
+All 20 focused placement/ownership tests pass with
+`./scripts/test.sh --disable-sandbox --filter 'CandidatePlacementTests|CandidatePanelOwnershipTests'`.
+The Debug app builds with `./scripts/build.sh`, including both architectures.
+The full `./scripts/test.sh --disable-sandbox` run still reports the previously
+documented 103 core assertion issues and three candidate-dependent presentation
+issues; all placement tests pass. Storage, Settings and localization tests pass.
+The default SwiftPM sandbox attempt failed with `sandbox_apply: Operation not permitted`;
+the build required normal access to Xcode/Swift package caches. No installation,
+live-host typing/focus/shortcut, display, or VoiceOver checks were performed.
+Synthetic tests do not establish that the reported intermittent native-host
+offset is eliminated. Follow the host positioning checks below on an
+intentionally installed build.
+
+## KenLM retention after build-cache cleanup — November 10, 2026
+
+Deleting `.build` removed the earlier working models and delivered app/ZIP.
+Recovery retokenizes the same seven raw-text-v2 sources with the current count
+dictionary and repeats the fixed four-gram fit. The recovered final binary is
+byte-identical to the previously native-verified model:
+`6d5652152689cad06ef35c689783f3f1f357a9987a2e612745cd09406ab97f09`,
+161,309,373 bytes. The unchanged 20 natural/reversed sanity pairs pass.
+
+Validated training now publishes a separate copy of the model/full metadata,
+native reference and small provenance records under the ignored
+`corpus/kenlm/models/<sha256>/`, selecting it with an atomic `current` symlink.
+The published binary has a separate inode from the build output and resolves
+outside `.build`. `install_kenlm_model.py --verify-only` and model embedding
+into temporary Resources both pass using only the retained default path.
+Install/release now use this retained pointer. No installed app was modified.
+
+The 25 KenLM-tool tests, 28 release-script tests, 10 reinstall tests and nine
+local-install tests pass. Publication regressions actually delete a synthetic
+`.build`, then verify retained bytes, metadata and code pins. Failed checksums
+or sanity validation do not change the selected version. Reinstall preflight
+failure leaves the running SI fixture untouched and never starts installation.
+Missing-model CLI errors explain recovery without a Python traceback. Shell
+syntax checks and `git diff --check` pass. No Swift sources changed in this
+recovery fix, so app/core regression suites were not rerun for it; the recovered
+model matches the previously verified native artifact exactly.
+
+## New count-dictionary KenLM refit — November 10, 2026
+
+`scripts/retrain_kenlm.py` retokenizes all seven existing raw-text-v2 sources
+except Wikipedia using a frozen copy of `Data/Chinese/*.csv`, without the
+historical intermediate frequency table. Tokenization and independent source
+lineage checks cover 41,780,035 input lines, retaining 48,322,544 sentences and
+380,901,375 tokens. The same 0.5-count unknown floor and complete Chinese count
+denominator used by the app dictionary are independently checked.
+
+Exact-line deduplication removes 30,562,091 duplicates. All 17,761 seeded block
+routes and train/heldout hashes are independently verified. The clean2 final fit
+contains 17,737,492 sentences / 170,371,865 tokens and retains the existing
+four-gram `0 0 1 2` pruning and `-a 22 -q 8 -b 8` packing. Source/model hashes,
+mappings, code/tool pins, CLI journals and artifact audits remain under
+`.build/kenlm-dictionary-v3-20261110/`. No private input history is read.
+
+The final binary is 161,309,373 bytes, SHA-256
+`6d5652152689cad06ef35c689783f3f1f357a9987a2e612745cd09406ab97f09`.
+All 20 unchanged natural/reversed sanity pairs pass; default/lazy results are
+identical. Train-only heldout PPL including true OOV is 133.788260 with 1,629
+OOVs. Changed tokenization prevents direct comparison to previous PPL; document,
+dialogue and near-duplicate independence is not established. The final model
+includes heldout, so its sanity scores are not independent evaluation.
+
+The 15 tokenizer, four raw-preparation, 22 KenLM-tool, 28 release-script and nine
+installer-script tests pass. Fifteen Swift model/context/Settings tests pass
+using the actual new bundled model and a temporary versioned installation.
+Native numeric/OOV marker probabilities match the pinned CLI reference,
+replacing the previous model-specific constants in that integration test.
+Release build and Developer ID deep/strict signature verification pass for
+`.build/kenlm-dictionary-v3-20261110/app-stage/SI.app`; embedded model and
+SQLite dictionary hashes match the verified source artifacts.
+
+The supported local installer was attempted and stopped at its running-SI
+guard before modifying the installed application. The user subsequently selected build-package delivery only, deferring local
+installation. No installed copy was launched alongside a built copy,
+and no live-host typing, focus, shortcut or VoiceOver checks were performed.
+The earlier count/probability migration's full-suite ranking failures below
+remain unresolved; these model checks do not establish that suite as passing.
+
+The delivered `.build/SI-new-vocabulary-20261110.zip` is 193,226,062 bytes,
+SHA-256 `c53b3191da2c24b5e33efb26d495c6b78cd2e0f5e04f406433e6a5f587147ce3`.
+After extraction, Developer ID deep/strict signature verification passes with
+normal Keychain trust access, and the embedded model SHA-256 matches the final
+training artifact. The sandboxed trust check could not access the trust setup;
+the normal-access verification passed. A companion `.zip.sha256` and local
+`delivery-audit.json` retain the delivery checks.
+
+## Log10 dictionary format — November 10, 2026
+
+The compiler now consumes `Data/Chinese/*.csv` and `Data/English/*.csv`.
+Exact text/reading counts sum across all files before per-language normalization.
+SQLite schema 2 stores REAL log10 weights and a `meta` table with `total_n`,
+`log_base`, `corpus_version`, `built_at`, `unk_logp` and versioned format keys.
+Zero-count entries use the stored floor without adding mass to the denominator.
+Legacy integer resources are rejected. Runtime lookup, preview, mixed search,
+English unknown spans and KenLM frequency replacement use normalized weights.
+The raw-weight compatibility initializer remains for injected library fixtures.
+
+Eight compiler tests pass, covering formulas, duplicate sums, casing/readings,
+zero counts, timestamps, stale/version checks, invalid inputs, overflow, exact
+Unicode bytes and preservation of outputs when either language is invalid.
+`python3 scripts/csv_dictionary.py build` and `build --check` pass. Independent
+CSV/SQLite checks verify total counts, finite weight ranges and summed
+probabilities (including the documented zero-count floor contribution):
+
+| Language | Entries | total_n | unk_logp |
+| --- | ---: | ---: | ---: |
+| Chinese | 1,020,625 | 1,897,640,948 | -9.579244038816622 |
+| English | 74,374 | 69,300,065 | -8.141763637622514 |
+
+The 14 Swift tests in `DictionaryDatabaseTests` and `EnglishVocabularyTests`
+pass, including stored Double precision, metadata-based missing-word lookup,
+English unknown cost/probability, deterministic concurrent queries and trie
+score/reference checks. The final Debug app build passes. Swift tests required
+`--disable-sandbox` and standard compiler-cache access; the default sandboxed
+test/build attempts were blocked by the environment.
+
+The full suite does **not** pass after the vocabulary/probability migration:
+the 337-test core run reports 103 issues, and the 125-test presentation run
+reports three. Failures include Chinese ordering and sentence/prefix retention
+(`今天就是`, `上次`, `二倍做多`, `找几处句子`), expectations using retired raw
+weights and candidate-dependent presentation/automatic-confirmation fixtures.
+The storage, settings and localization runs pass. Remaining ranking/coverage
+regressions are unresolved; no golden ranking tests were removed or disabled
+to claim success. No input method was installed and no live host, VoiceOver,
+focus-change or shortcut behavior was verified in this run.
+
+## Chinese CSV migration script — November 10, 2026
+
+The migration defaults to the original `COARSE_ELECTRA_SMALL_ZH` again, with an explicit
+`--granularity fine` option. Nine migration tests pass, including the coarse
+default, explicit fine/coarse selection and coarse download-only execution.
+No vocabulary CSV or database was regenerated for this default change.
+Fine assets use their own locked
+`corpus/.cache/hanlp-fine/` directory; existing corpus tools retain coarse
+defaults and the original cache. Prepare a model with
+`scripts/migrate_chinese_vocabulary.py --fetch-model` using the HanLP environment.
+Nine migration tests and eight HanLP-helper tests pass, including model/cache
+selection, download-only execution and rejection of missing/wrong offline locks.
+During the earlier fine-model change, the download was attempted but its upstream redirect to
+`download.hanlp.com` failed TLS hostname verification. Actual fine-model
+segmentation remains unverified in this run; no TLS verification was bypassed,
+no full conversion was run and existing vocabulary CSVs were not replaced.
+
+Earlier coarse-model validation:
+
+`python3 -m unittest discover -s Tests/VocabularyTests -p test_migrate_chinese_vocabulary.py -v`
+passes seven synthetic tests covering base/recursive-phrase selection, excluded
+categories left unread and unchanged, missing-base rejection, per-occurrence weight
+sums, distinct readings, deterministic reruns, supplementary Han characters,
+punctuation/movie aliases, invalid inputs and preservation of prior output on
+failure. Before narrowing the input scope to `base.csv` and `phrase/**/*.csv`,
+all 2,186,074 legacy Chinese CSV rows passed the source/reading alignment
+validator. After narrowing the scope, all 1,882,371 selected rows in `base.csv`,
+`phrase/base.csv` and `phrase/shici.csv` pass that validator. A seven-row synthetic conversion using the existing locked
+local HanLP 2.1.3 model passes, including all four movie aliases and
+`说回家` → `说 / 回家`, with `说` increasing from 1,000 to 1,760.
+
+No full migration was run and no dictionary resources or English CSVs were
+changed. `./scripts/test.sh` was attempted but blocked by nested SwiftPM
+sandboxing (`sandbox_apply: Operation not permitted`). `./scripts/build.sh`
+was attempted but blocked during package resolution by sandbox-denied compiler
+and SwiftPM cache writes. Neither check passed in this run. No host checks or
+installation were performed; this tool does not change input-method behavior.
+
+## Chinese word/phrase classification — November 9
+
+The [phrase review](../Data/Vocabulary/chinese/phrase/README.md) records nineteen
+batches moving 175,685 rows to phrase sources. Review 6 restores 30 rows
+(23 fixed technical terms) under the user's clarified boundary; review 10
+restores 2 lexical personal forms. Review 21 restores 3 rows for 2 complete
+place names; review 23 restores 1 unresolved dialect form.
+The net move is 175,649 rows.
+Each forward batch scans all 18 flat Chinese
+categories for its scope. This remains ongoing semantic classification, not
+proof that every remaining flat entry is a word.
+
+| Audit / complete decisions | Rows | Direction and focus |
+| --- | ---: | --- |
+| [1](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-01.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-01.csv) | 5,253 | To phrase: modified desire/modal, adjective and utterance frames. |
+| [2](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-02.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-02.csv) | 21,492 | To phrase: adverb/predicate combinations and terminal grammatical 的. |
+| [3](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-03.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-03.csv) | 15,747 | To phrase: internal grammatical 的 and reviewed lexical combinations. |
+| [4](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-04.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-04.csv) | 16,018 | To phrase: question/exclamation particles, adverbial 地 and modal/time/conditional combinations. |
+| [5](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-05.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-05.csv) | 40,209 | To phrase: grammatical 了(le), preserving names, lexical function words and dialect morphology. |
+| [6](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-06.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-06.csv) | 30 | Back to words: reviewed fixed technical terms remain whole. |
+| [7](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-07.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-07.csv) | 5,962 | To phrase: passive/agent, expanded 得 and lexical verb combinations. |
+| [8](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-08.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-08.csv) | 6,393 | To phrase: degree and indefinite modifier combinations. |
+| [9](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-09.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-09.csv) | 9,156 | To phrase: pronoun/predicate combinations and 根据省 backfill. |
+| [10](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-10.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-10.csv) | 2 | Back to words: lexical personal forms 你老 and 我等. |
+| [11](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-11.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-11.csv) | 37,702 | To phrase: remaining pronouns with separate predicate/possessive/nominal content. |
+| [12](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-12.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-12.csv) | 186 | To phrase: reviewed verse clauses, including nonbase copies. |
+| [13](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-13.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-13.csv) | 1,039 | To phrase: Reviewed verse clauses and three residual token phrases. |
+| [14](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-14.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-14.csv) | 3,140 | To phrase: Remaining reviewed long verse clauses, with title/lexical/saying deferrals. |
+| [15](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-15.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-15.csv) | 2,486 | To phrase: demonstrative/time/place combinations, with lexical-form guards. |
+| [16](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-16.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-16.csv) | 1,217 | To phrase: reviewed residual token clauses, quantity combinations and truncated verse fragments. |
+| [17](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-17.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-17.csv) | 1,027 | To phrase: Time/frequency and interrogative heads with separate grammatical content. |
+| [18](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-18.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-18.csv) | 2,624 | To phrase: Negative/modal heads with separate content, preserving species and lexical idioms. |
+| [19](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-19.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-19.csv) | 2,677 | To phrase: quantity/distributive frames with separate content; complete terms and names retained. |
+| [20](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-20.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-20.csv) | 1,306 | To phrase: expanded degree modifiers and predicate/complement constructions. |
+| [21](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-21.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-21.csv) | 3 | Back to words: restore complete place names 蛮汉镇 and 蛮会镇. |
+| [22](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-22.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-22.csv) | 2,051 | To phrase: exact reviewed degree/predicate pairs and expanded negative degree predicates. |
+| [23](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-23.json) / [CSV](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-23.csv) | 1 | Back to words pending review: defer dialect form 甚么老过; its interrogative head is not a degree modifier. |
+
+Verification checked the complete source/output hash chain, unchanged
+per-basename source-row multisets, exact text/readings/weights and identical
+effective-dictionary fingerprints through all twenty-three transfers. Rebuilding and
+checking the Chinese resource preserves all 2,141,077 entries and the same
+runtime SQLite bytes as the preexisting resource:
+
+```sh
+python3 scripts/csv_dictionary.py build --language chinese
+python3 scripts/csv_dictionary.py build --check --language chinese
+python3 -m unittest discover -s Tests/VocabularyTests -p test_movies.py -v
+```
+
+These commands passed, including both movie data validations across word and
+phrase locations. Word references were built at verification checkpoints;
+the latest `.build/phrase-review/word-reference-batch23/` excludes every
+currently classified phrase after normalization and includes all 28 restored
+texts. Earlier audit snapshots are historical; reviews 6, 10, 21 and 23 supersede
+earlier term, personal-form, name and dialect placement. Actual segments include `认真 / 地`, `不断 / 地 / 刷新`,
+`可以 / 吃`, `买 / 了 / 东西`, `游戏 / 开始 / 了` and
+`皮肤 / 的 / 颜色`. Fixed terms `矩阵的秩`, `水的离子积`, `绝对地址`
+and `必需氨基酸` remain single tokens. Lexical/name guards including `毛呢`,
+`希望小学`, `孟烦了`, `秦吉了`, `为了` and `罢了` also remain single tokens.
+
+The final checkpoint also verifies `被 / 告知`, `取得 / 成功`,
+`跑 / 得 / 很 / 快`, `很 / 有名`, `更加 / 稳定`, `越来越 / 贵`,
+`你 / 推荐`, `我 / 写` and `根据 / 省`. All nonverse phrase texts are absent
+from the rebuilt Han word reference after normalization; the separate exact-text
+scan across every word and nonverse phrase source reports zero overlaps.
+Reviews 13–14 additionally verify exclusion of the reviewed long verse clauses
+and the residual tokens `过大江`, `遥指杏花村` and `海内存知`. Title and
+lexical/saying deferrals remain explicit; this is not proof that the remaining
+word vocabulary is phrase-free.
+Review 15 checks phrase exclusion and retained lexical demonstrative forms;
+its movie source changes pass both dedicated movie data checks.
+The old 根据省 geography copy is included in review 9's source-row/hash audit.
+`被保险人`, `被动元件`, `被积函数`, `有点儿`, `我爱罗`, `他拉唑帕利`
+and `我行我素` remain single tokens in this check. `他信` remains in the
+word vocabulary but still segments as `他 / 信` with the reused frequencies,
+so retained membership is not a guarantee of a selected segmentation path.
+
+Reviews 17–18 check all selected time/question/negative combinations against
+the latest word reference, including overlapping category rows. All lexical
+forms, complete terms, species and explicit boundary/name deferrals retained
+by these reviews are present. The dedicated movie data checks pass after moving
+`不要抬头`; both movie source locations retain catalog coverage. Sample token
+paths are recorded in the latest review, without treating retained membership as proof
+that every complete term wins the reused-frequency segmentation search.
+
+Review 19 verifies exclusion of its quantity/distributive phrases and retention
+of its complete terms, lexical idioms, species and name/boundary deferrals.
+Overlapping category copies and all readings move together. Both movie data
+checks pass after moving `一张电影票`; no movie catalog identity is removed.
+
+Reviews 20–23 additionally verify selected degree/predicate exclusions, retained
+technical/name controls and the reverse transfers. The restored `蛮汉镇`,
+`蛮会镇` and deferred dialect form `甚么老过` are present in the new reference.
+All readings/category copies and their weights remain intact. No movie rows
+change after review 19; its two dedicated movie validations remain applicable.
+
+The preceding review-15 probe over 4,349 reviewed verse texts found 1,748
+candidate tokens of at least three characters after excluding its retained
+lists. Review 16 moves 1,215 explicitly reviewed phrase texts from that
+inventory, including `入海流`, `共此时`, `君不见` and `鱼戏莲叶`.
+All readings and overlapping source copies move together, totaling 1,217 rows.
+The remaining 533 candidates include legitimate names/terms and unresolved
+boundary items; they are not automatically certified words. Retention checks
+include `王之道`, `谈瀛洲`, `又一村`, `衣帛食肉`, `霓裳羽衣舞` and
+the fixed concepts `恻隐之心`, `辞让之心`, `是非之心`, `羞恶之心`.
+The historical candidate inventory remains at
+`.build/phrase-review/residual-verse-tokens15.json`; review 16 records its
+explicit unselected list. A new checkpoint verifies membership and actual
+sample token paths; it does not establish full corpus segmentation quality.
+
+These checks reuse the prior frequency reference, including its pseudocounts;
+they are not fresh corpus-frequency estimates. `想去` and `被害` remain
+eligible but still split into characters with their old count 1. Full lexical
+classification, frequency review, retokenization and new model fitting remain
+unfinished. No Swift regression suite, app build, installation or host checks
+were run for these vocabulary-only batches.
+
 ## Settings navigation
 
 1. Open **SI Settings…** from the input menu. Confirm **Typing** opens first and shows the language switches and composition controls.
@@ -920,7 +1250,7 @@ Set `SI_CANDIDATE_SNAPSHOT_PATH` to an output PNG path to retain the synthetic o
 
 `SequentialWordSelectionTests` verifies `biruzhege` in Chinese-only/bilingual searches, provisional/full results and both layouts: all retained choices preserve engine-relative order, constructed choices share the four-hypothesis limit, every page number matches its candidate, and choosing `比如` consumes only `biru` (including apostrophe-aware boundaries). The synthetic interleaved head and bilingual `hei` regressions verify that lower-ranked mixed fragments never move ahead of `黑`, and fragments outside the ranked head do not backfill word positions. `FirstWordPrefixTests` covers crowding, the ordinary 27-choice budget with additional character retention, retained language identities/literal, the decoder's independent 24-word pool, consumed-spelling learning and lexical evidence. Offscreen view tests render actual pages in light and dark appearances; set `SI_WORD_SELECTION_SNAPSHOT_PATH=/tmp/si-word-selection` to retain the first/second `biruzhege` pages. These checks do not establish live host routing, VoiceOver or positioning.
 
-`CandidatePlacementTests` checks synthetic host geometry separately: inline-session coordinates taking priority over displaced document geometry, recovery from a cached document fallback, actual-range validation and ambiguous-origin corroboration, UTF-16 offsets after supplementary characters, invalid/unavailable marked ranges and rectangle fallback, fresh geometry after reflow, composition-start queries, caret fallback, composition-local cached coordinates, invalid/missing coordinates, edge clamping, left/above displays, and display removal. It does not exercise InputMethodKit's actual coordinate delivery.
+`CandidatePlacementTests` checks synthetic host geometry separately: inline-session coordinates taking priority over uncorroborated document geometry, point-corroborated recovery from displaced on-screen inline rectangles, rejection of known unrelated rectangles/cache entries, recovery from a cached document fallback, actual-range validation and ambiguous-origin corroboration, UTF-16 offsets after supplementary characters, invalid/unavailable marked ranges and rectangle fallback, fresh document geometry after an established inline anchor fails during reflow, composition-start queries, caret fallback, composition-local cached coordinates, invalid/missing coordinates, edge clamping, left/above displays, and display removal. It does not exercise InputMethodKit's actual coordinate delivery or point-lookup support.
 
 `EnglishVocabularyTests.technologyCategoryAddsTermsAndPreservesBaseCasingAndLiteralInput` covers the SI-authored technology category, including base `ai` versus uppercase input `AI`, new multiword/digit keys, completion, disabled English and exact literal fallback. Category provenance and the CSV checksum are recorded in `Data/Vocabulary/meta.json`.
 
@@ -1011,7 +1341,7 @@ Install with `./scripts/install.sh`, log out and back in if needed, add SI in Ke
 - Close and reopen Settings. Verify language preferences survive a process restart and closing the window does not terminate the input method.
 - Exercise two applications in succession to check that composition state does not leak between clients.
 - Check candidate positioning near screen edges, on multiple displays, in dark mode, and using VoiceOver.
-- In a browser or chat composer, type synthetic `nihaopengyou` at the beginning and after existing text (including an emoji). Verify the compact panel stays directly below the marked start, or above it near the bottom edge, instead of drifting far to the right. Continue until the composition wraps, move Home/End, resize/move the host window, and expand/collapse candidates. Repeat after a prefix commit, Escape, focus changes and a new composition. Check TextEdit too, including a host that lacks document-range geometry if available; legacy inline fallback must still position correctly. Record the host/version and actual result; synthetic geometry tests do not establish this live behavior.
+- In a browser or chat composer, type synthetic `nihaopengyou` at the beginning and after existing text (including an emoji). Verify the compact panel stays directly below the marked start, or above it near the bottom edge, instead of drifting far to the right or near the screen bottom. Continue until the composition wraps, move Home/End, resize/move the host window, and expand/collapse candidates. Repeat quickly to exercise intermittent layout failures: a temporary geometry miss must not prevent subsequent recovery to the current input location. Repeat after a prefix commit, Escape, focus changes and a new composition. Check TextEdit too, including hosts lacking document-range or point-lookup geometry if available; legacy inline fallback must still position correctly. Record the host/version and actual result; synthetic geometry tests do not establish this live behavior.
 - In a browser address field and a plain text field, enter a long synthetic composition such as `nixiangyaoworld`. Verify the panel tracks its beginning rather than jumping to the screen center as input grows. Check Left/Right editing, prefix confirmation, cancellation, and focus changes; a new composition must not reuse another composition's position. Test standard/Retina displays, including a display arranged to the left or above the primary display and insufficient space below the input.
 - Check that normal rows show numbers and candidate text without language descriptions. In the single line, check small arrow/pin/text symbols instead of long metadata labels; expanded prefix rows omit `First N` labels. Tooltips and VoiceOver must still identify exact prefix consumption, candidate language and source. Check that the peach selection pill stays close to its text even when a pending window retains extra width, the selected number is orange, and light/dark/high-contrast text stays readable. Start a composition and verify one horizontal line, numbers 1–6, and an accessible expansion chevron. Press Down Arrow or the chevron to expand to four rows of six choices, navigate to a later candidate, then collapse; the highlighted candidate and Space/mouse/digit confirmation must agree with its new visible number. Page keys must change six-choice collapsed pages or whole 24-choice expanded pages, with digits 1–6 applying to the highlighted row. Expanded page buttons must agree. Check mouse-wheel and horizontal/vertical trackpad gestures, including momentum: the highlighted choice and page must remain unchanged. Expanded multiple pages expose page count/previous/next controls; a single expanded page keeps the collapse control. Check clipped long mixed labels, narrow screens and both system appearances. Finish/cancel or switch focus and verify the next composition starts collapsed. Pending searches must keep the old layout/size and disable expansion/actions.
 - With learning paused, enter `abilit`; confirm complete `ability` remains among the first five through hints/full results and both layouts. Verify Space, digits and mouse commit the word, while exact `abilit` remains reachable.
@@ -1038,6 +1368,14 @@ Use a dedicated synthetic profile on an intentionally installed copy; do not run
 `ApplicationVocabularyLearningTests` covers one-correction exact placement in final/provisional results, normalization/separators, consumed-prefix boundaries, replacement even with equal timestamps, neutral default acceptance, language/mixed identity, explicit pins, no decay/expiry, bounded rewards and exclusion/deletion. `ApplicationMemoryStoreTests` covers schema-1/2/3 merging, retired-field/app-identity removal, old-record retention, restart/permissions, malformed-file preservation and revision-ordered deletion. `ApplicationMemorySettingsTests` covers global snapshots/counts, independent consent, retired-exclusion cleanup, secure-input suppression, deletion, persistence and obsolete-result rejection. `CandidateLearningTests` retains number/mouse/navigation/page confirmation coverage. Core `LearningProfile` fixtures keep the optional historical decay/context API; those fixtures do not enable age expiry or previous-word learning in the app.
 
 On November 1, 2026, `./scripts/test.sh --disable-sandbox` passed all 415 Swift tests (299 core, 90 presentation, 16 settings, seven storage and three localization), and `./scripts/build.sh` passed the Debug app build. Both localization tables passed `plutil -lint`; changed Markdown local targets and `git diff --check` passed. The ordinary test invocation could not start SwiftPM's nested sandbox in this environment, so the documented fallback was used. Xcode required ordinary cache-directory access outside the workspace sandbox. No input method was installed or personal archive changed. Native host behavior, Personal Learning Settings keyboard use, live VoiceOver and appearance remain unverified.
+
+### Continuous manual prefix learning
+
+With Personal Learning enabled, type synthetic `suocheng` and select `锁` then `成`, using Space, number and mouse selection in TextEdit and a browser. Confirm the remainder stays editable after `锁`, the host receives `锁成` once, individual learning entries remain, and a nonfirst correction makes `锁成` the first ordinary candidate on the next exact spelling. An all-first sequence must not gain correction priority. If Input History is independently enabled, confirm it contains the two actual submissions and no synthetic `suocheng` row.
+
+Repeat with an edited remainder, Escape, shortcut/literal commit, automatic confirmation, personal/verbatim/punctuation choices, focus/client changes, consent off/on, learning deletion/clear and secure/direct input. No interrupted sequence may create the combined entry. Check exact apostrophes and ü/u: aliases, delayed candidates, and ordinary Return/Tab routing. These native host, reentry and keyboard/mouse checks remain manual; `CompositionLearningTests` covers the shared state and ranking behavior with synthetic fixtures.
+
+On November 9, 2026, continuous manual prefix learning passed all 507 Swift tests with `./scripts/test.sh --disable-sandbox` and the Debug app build with `./scripts/build.sh`. Regression cases cover correction in either fragment, neutral first choices, individual and whole records, exact-spelling promotion, interrupted/disabled/unacknowledged submissions, exclusions, source boundaries, aliases, mixed identity and exact Unicode output bytes. The default SwiftPM sandbox could not nest in this environment; the documented fallback was used, and Xcode required ordinary cache access. No new build was installed and no personal archive was opened. Native host insertion/reentry, focus and secure-field behavior remain unverified.
 
 ## App vocabulary ranking checks
 
@@ -1075,6 +1413,13 @@ On November 9, 2026, capture diagnostics passed all 326 Swift tests with `./scri
 On November 8, 2026, removing the Sentence History app allowlist passed all 321 Swift tests with `./scripts/test.sh --disable-sandbox`, the Debug build with `./scripts/build.sh`, localization lint and `git diff --check`. Regression coverage includes recording from previously listed and unlisted apps, retired-key removal, preserved consent, stale-generation rejection and secure-input suppression. Standard compiler/cache access was required outside the workspace sandbox. No input method was installed or real host text recorded. Native host compatibility, Settings keyboard/VoiceOver and appearance remain unverified.
 
 ### Input History export and receiver tools
+
+The Python suite below also checks `scripts/input_history_to_txt.py` with
+synthetic Input History and Sentence History exports: output-only extraction,
+original order/repeats, exact Unicode/whitespace/control bytes, empty archives,
+0600 permissions, explicit overwrite, and preservation of existing TXT files
+when checksums, counts, versions or JSONL termination are invalid. This offline
+script does not require an app build or native host checks.
 
 Use synthetic archives and explicit temporary destinations. Verify **Export Input History…** in both the Settings section and history manager. The action must open the save panel directly, disclose private source/output/time and offer no backup/training choice. Cancel the save panel without creating a file or changing recording consent. Choose a JSONL destination and replace an existing export intentionally; failures must preserve it. Test keyboard-only operation, English/Chinese, VoiceOver and both appearances. No network/share action occurs.
 
@@ -1234,28 +1579,57 @@ accidental retention of the configured Token; none was found. `.env` remains
 Git-ignored. No input method installation or native host verification was performed.
 
 
-## Shared offline model and algorithm evaluation
+## Ranking regression dataset
 
-The [root evaluation registry](../eval/README.md) supplies frozen ranking,
-correction and Pinyin-to-Hanzi suites for all model sizes and algorithms:
+The [ranking test set](../eval/README.md) contains 120 representative queries
+across 67 families. The initial 5,000-row draft was reduced at the user's request:
+each semantic/template family now has at most two examples. In particular,
+`想买绿色…` has only two source-encoding examples of one target, and ordinal
+coverage has two page cases plus one each for chapters, sections, paragraphs and
+lines. Other Chinese, English and mixed templates also retain at most two cases;
+changing subjects, dates or nouns cannot expand a family.
+
+The former root ranking/correction/conversion suites, Python registry, adapters
+and local reports were removed on November 9, 2026. Historical measurements
+elsewhere in this document describe their original datasets. The compact suite
+has a new identity and cannot be compared directly with the initial draft.
 
 ```sh
-python3 -m eval validate
-python3 -m unittest discover -s eval/tests -p 'test_*.py' -v
-./llm/.venv/bin/python -m unittest discover -s eval/tests -p 'test_*.py' -v
+python3 scripts/generate_ranking_eval.py --check
+python3 -m unittest discover -s Tests/RankingEvalTests -v
 ./llm/reranker_small/scripts/check.sh -p test_benchmarks.py
 ```
 
-Tests cover fixed data hashes/splits, original multi-reference Pinyin rows,
-missing-gold/empty ranking pools, language-aware index permutations, exact Unicode
-outputs, correction/no-change metrics, full prediction coverage, dataset/scorer
-comparison guards and real tiny-checkpoint adapters. The standard-library run
-skips optional adapters if PyTorch is unavailable; the shared environment runs
-them. The historical ranking builder/evaluator reads compatibility links to the
-same relocated files. Use the registry's export/score/compare commands for new
-cross-model reports; keep model loss/perplexity separate. These constructed
-fixtures have no independent label review, and new training corpora need their
-own overlap audits. No offline check establishes native host compatibility.
+Checks cover reproducible frozen bytes, unique inputs/IDs, representative-family
+caps, documented regressions, six English hard cases, exact source aliases and
+character/syllable alignment. Scoring tests retain empty/missing-gold pools in
+denominators and reject incomplete coverage, repeated IDs, lost literals,
+truncated pools and repeated candidate identities. Equal text from different
+languages keeps its identity; equivalent Unicode bytes are not normalized.
+Legacy utility tests verify that retired default data paths fail with current
+dataset guidance, while explicit old-format temporary fixtures remain supported.
+
+The compact suite has 22 documented regression queries (including two page
+cases), six English hard cases, four other ordinals, two umlaut aliases, 72
+Chinese, two English and ten mixed sentence examples, plus the explicitly
+requested `houxuanchi → 候选池` technical term and
+`dajiaxiazhouxiangqubeihaiguzhen → 大家下周想去北海古镇` sentence. Its 291 distinct authored
+Han character/reading pairs are checked against the maintained character
+dictionary. No candidate-reachability filter chooses examples. These are source
+alignment checks, not semantic label review or quality results.
+
+Use the dataset README for blind-request export and first-32 candidate scoring.
+That protocol excludes prefixes/completions/literals and loads no production
+KenLM model; its recall is exported-pool recall, not full-engine recall or window
+accuracy. Do not train or tune against this single synthetic test set. It does
+not establish representative quality, host compatibility or latency.
+
+On November 9, 2026, compact-v2 reproduced exactly and all four evaluation-tool
+tests passed, including family caps and the green-shopping/ordinal limits. All
+291 authored Han reading pairs matched the dictionary. All 497 shared Swift
+tests passed with `./scripts/test.sh --disable-sandbox`, and the Debug build
+passed with normal compiler-cache access. Blind export covered all 120 queries
+without reference/annotation fields. No native host check was performed.
 
 ## Retired AI comparison and host context
 

@@ -1,5 +1,14 @@
 # KenLM training and candidate ranking guide
 
+The November 10 coarse-vocabulary count-dictionary workflow is now
+`corpus/.venv/bin/python scripts/retrain_kenlm.py --run <fresh-run-directory>`.
+It reads `Data/Chinese/*.csv` directly, retaining full count normalization and
+an explicit unknown floor, snapshots the vocabulary, and reuses the existing
+seven-source raw-text-v2 selection. See the
+[current refit commands](../README_kenlm_train.md#current-count-dictionary-refit-workflow).
+Historical intermediate word-frequency references below describe earlier runs.
+
+
 This guide records SI's training and ranking workflow and explains how to reuse
 it for another corpus, language or model. Commands run from the repository root.
 The command interfaces and production preset were checked on November 8, 2026.
@@ -390,9 +399,15 @@ corpus/.venv/bin/python scripts/diagnose_kenlm_ranking.py summarize-english "$si
   "$si_results/english-guards.jsonl" > "$si_results/english-grid.json"
 "$si_cli" --kenlm english-final "$si_model" "$si_dataset" \
   "$si_results/english-grid.json" "$si_results/tuning.json" > "$si_results/english.json"
-"$si_cli" --kenlm hard "$si_model" "$si_dataset" eval/ranking/hard-cases.tsv \
+"$si_cli" --kenlm hard "$si_model" "$si_dataset" /path/to/explicit-hard-cases.tsv \
   "$si_results/english-grid.json" "$si_results/tuning.json" > "$si_results/hard.json"
 ```
+
+The old root `hard-cases.tsv` was retired with the old evaluation suites. The
+six requested English targets now appear in `eval/ranking/test.jsonl` under
+`origin: requested-hard-case`. The historical `hard` command above still requires
+an explicitly supplied two-column TSV; the new query-only format is documented
+in [the ranking dataset guide](../eval/README.md).
 
 Feature export through `SICandidateExport --features TRAIN_ONLY_MODEL` reads
 explicit JSONL requests and writes absolute and within-span relative features.
@@ -465,7 +480,7 @@ Previews and immediate confirmation fallback use dictionary scores.
 
 Current release and local installation select the raw-text-v2 no-Wikipedia
 `0012` full-data model under
-`.build/kenlm-raw-text-v2-no-wikipedia-p0012/final/` (`final.bin` and
+`corpus/kenlm/models/current/` (`final.bin` and
 `final.meta.json`); see [the current model record](KENLM_MODEL.md). The earlier
 `.build/kenlm-final` population remains a historical artifact. Packaging
 verifies the binary hash, stages the model,

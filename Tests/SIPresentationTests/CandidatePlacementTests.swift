@@ -83,7 +83,7 @@ struct CandidatePlacementTests {
         })
         let frame = try #require(CandidatePlacement.frame(preferredSize: CGSize(width: 610, height: 36),
                                                          anchor: rect, screens: [primary]))
-        #expect(requestedRanges.isEmpty)
+        #expect(requestedRanges == [NSRange(location: start, length: 0)])
         #expect(requestedIndexes == [0])
         #expect(rect.minX == 1324)
         #expect(frame.minX == 826) // The wide card stays on screen beside the right-hand input.
@@ -134,6 +134,60 @@ struct CandidatePlacementTests {
         anchor.reset()
         let cleared = anchor.resolve(cursorUTF16Offset: 18, markedRange: markedRange, screens: [primary],
                                      queryRange: { _ in .zero }) { _ in .zero }
+        #expect(cleared == nil)
+    }
+
+    @Test func inlineFailureAfterHostReflowUsesFreshDocumentGeometryBeforeTheCache() {
+        var anchor = CandidateAnchor()
+        let marked = NSRange(location: 20, length: 7)
+        let old = CGRect(x: 700, y: 100, width: 1, height: 20)
+        let moved = CGRect(x: 110, y: 720, width: 1, height: 20)
+        _ = anchor.resolve(cursorUTF16Offset: 7, markedRange: marked, screens: [primary]) { _ in old }
+        let fresh = anchor.resolve(cursorUTF16Offset: 7, markedRange: marked, screens: [primary],
+                                   queryRange: { _ in moved }) { _ in .zero }
+        #expect(fresh == moved)
+        let cached = anchor.resolve(cursorUTF16Offset: 7, markedRange: marked, screens: [primary]) { _ in .zero }
+        #expect(cached == moved)
+    }
+
+    @Test(arguments: [false, nil] as [Bool?])
+    func corroboratedDocumentGeometryRecoversFromADisplacedOnScreenInlineRectangle(inlineMatch: Bool?) throws {
+        var anchor = CandidateAnchor()
+        let marked = NSRange(location: 20, length: 7)
+        let displaced = CGRect(x: 700, y: 40, width: 1, height: 20)
+        let expected = CGRect(x: 110, y: 720, width: 1, height: 20)
+        let rect = try #require(anchor.resolve(cursorUTF16Offset: 7, markedRange: marked, screens: [primary],
+                                               queryRange: { _ in expected },
+                                               isInMarkedRange: { $0 == expected ? true : inlineMatch }) { _ in displaced })
+        let frame = try #require(CandidatePlacement.frame(preferredSize: CGSize(width: 610, height: 36),
+                                                         anchor: rect, screens: [primary]))
+        #expect(rect == expected)
+        #expect(frame.minX == expected.minX)
+        #expect(frame.maxY == expected.minY - 4)
+    }
+
+    @Test func corroboratedInlineGeometryDoesNotNeedADocumentQuery() {
+        var anchor = CandidateAnchor()
+        let expected = CGRect(x: 110, y: 720, width: 1, height: 20)
+        var queriedDocument = false
+        let rect = anchor.resolve(cursorUTF16Offset: 7, markedRange: NSRange(location: 20, length: 7),
+                                  screens: [primary], queryRange: { _ in
+            queriedDocument = true
+            return CGRect(x: 700, y: 40, width: 1, height: 20)
+        }, isInMarkedRange: { _ in true }) { _ in expected }
+        #expect(rect == expected)
+        #expect(!queriedDocument)
+    }
+
+    @Test func knownUnrelatedGeometryCannotBeReusedFromEitherChannelOrTheCache() {
+        var anchor = CandidateAnchor()
+        let marked = NSRange(location: 20, length: 7)
+        let old = CGRect(x: 700, y: 100, width: 1, height: 20)
+        _ = anchor.resolve(cursorUTF16Offset: 7, markedRange: marked, screens: [primary]) { _ in old }
+        let rect = anchor.resolve(cursorUTF16Offset: 7, markedRange: marked, screens: [primary],
+                                  queryRange: { _ in old }, isInMarkedRange: { _ in false }) { _ in old }
+        #expect(rect == nil)
+        let cleared = anchor.resolve(cursorUTF16Offset: 7, markedRange: marked, screens: [primary]) { _ in .zero }
         #expect(cleared == nil)
     }
 

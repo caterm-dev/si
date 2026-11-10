@@ -32,6 +32,35 @@ These standard-library commands accept the same ordinary export, run locally, pr
 
 Default candidates include explicit and default candidate confirmations. Automatic confirmations, AI completions, passthrough/delimiter commits, literal commits and unknown-language rows are excluded. Inputs/targets must meet the current CSV reader's nonempty, 4,096-byte and no-control-character constraints. `--include-literal` additionally admits observed ASCII literal/copy tasks as English. This is an explicit preparation choice, not evidence that a literal Pinyin string was correctly converted. The full restored database still contains every valid exported record, including excluded training observations.
 
+## Plain-text extraction
+
+```sh
+# All *.jsonl files directly in corpus/chinese/raw/input-history/:
+python3 scripts/input_history_to_txt.py
+# Or select one file or directory:
+python3 scripts/input_history_to_txt.py /private/path/SI-Sentence-History.jsonl
+# Explicitly replace previously generated TXT files:
+python3 scripts/input_history_to_txt.py --overwrite
+```
+
+The converter accepts version-1 `si-input-history` and `si-sentence-history`
+exports. Each source produces a same-name `.txt` beside the JSONL, containing
+only each entry's `output` followed by LF. This is submitted text, not the
+Pinyin/source spelling in `input`. Original order, repeats, Unicode, spaces and
+embedded line breaks are preserved; there are no labels, IDs, timestamps,
+manifest or summary in the TXT. Embedded line breaks can make the TXT line
+count greater than the record count. An empty export creates an empty TXT.
+
+Conversion streams into an owner-only temporary file, checking the export
+envelope/version, entry fields, increasing sequences, record count and exact-byte
+SHA-256 before publishing each 0600 TXT. A failed file leaves no partial TXT and
+preserves an existing destination, including with `--overwrite`. Files in a
+directory are processed independently; earlier completed conversions remain if
+a later file fails. JSONL sources are unchanged and only filenames/counts are
+printed. These text copies remain private local data; the default raw directory
+is Git-ignored. Conversion does not upload data, prepare training splits or run
+training.
+
 ## Training scope and quality
 
 The candidate CSV header matches the existing conversion CSV reader, but this command does **not** append to maintained sources, assign train/validation/test splits, declare redistribution rights, prepare model tensors, or run a model. The current default experiment accepts short Chinese character/word data; English, mixed, longer or code-like observations are outside that preset's scope.

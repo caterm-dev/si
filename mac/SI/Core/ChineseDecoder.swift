@@ -104,7 +104,7 @@ struct ChineseDecoder: Sendable {
                     hasCompletion: completion, lexicalTokenCount: exact || completion ? 1 : nil)
                     .withLanguageBoundary(.chinese())
                     .withSourceTrace(wordTrace(row, typed: typed, input: input))
-                    .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight))
+                    .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight, logProbability: row.logProbability))
                     .withDisplaySourceBoundaries(exact ? [] : displaySourceBoundaries(typed: typed, input: input)))
             }
             guard cutIndex == 0 else { continue }
@@ -134,7 +134,7 @@ struct ChineseDecoder: Sendable {
                                     lexicalTokenCount: full ? 1 : nil)
                                     .withLanguageBoundary(.chinese())
                                     .withSourceTrace(wordTrace(row, typed: prefix.syllables, input: input))
-                                    .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight)))
+                                    .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight, logProbability: row.logProbability)))
                             }
                         }
                     }
@@ -171,7 +171,7 @@ struct ChineseDecoder: Sendable {
                             rankingScore: score, lexicalTokenCount: row.reading == fallback.syllables ? 1 : nil)
                             .withLanguageBoundary(.chinese())
                             .withSourceTrace(wordTrace(row, typed: fallback.syllables, input: input))
-                            .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight))
+                            .withRankingToken(RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight, logProbability: row.logProbability))
                         if candidate.isPartial {
                             if includesPartials { prefixes.append(candidate) }
                         } else {
@@ -378,11 +378,11 @@ struct ChineseDecoder: Sendable {
             let syllableSources = offsets[(start + 1)..<span.end].map { input.rawBoundaries[$0] }
             for row in rows {
                 graph[start].append(Edge(end: span.end, sourceStart: span.sourceStart, sourceEnd: span.sourceEnd, text: row.text,
-                    score: -log(2.0) * (CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+                    score: -log(2.0) * (CandidateScoring.wordCost(row, isChineseCharacter: row.reading.count == 1)
                         + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: span.syllables)), personal: false,
                     tokenBonus: learning.tokenBonus(input: spelling, text: row.text, language: .simplifiedChinese, now: now),
                     letters: span.sourceEnd - span.sourceStart,
-                    rankingToken: RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight),
+                    rankingToken: RankingToken(text: row.text, language: .simplifiedChinese, weight: row.weight, logProbability: row.logProbability),
                     interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text,
                         sourceCounts: syllableSources),
                     syllableSourceCounts: syllableSources))
@@ -550,7 +550,7 @@ struct ChineseDecoder: Sendable {
         }
         return CandidateSourceTrace(sourceCount: input.rawBoundaries[letters.count], outputByteCount: row.text.utf8.count,
             languages: 1, previous: nil, word: row.text, wordLanguage: 1,
-            lexicalCost: CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+            lexicalCost: CandidateScoring.wordCost(row, isChineseCharacter: row.reading.count == 1)
                 + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: typed),
             interiorBoundaries: CandidateSourceTrace.chineseInteriors(text: row.text, sourceCounts: sources),
             syllableSourceCounts: sources)
@@ -566,7 +566,7 @@ struct ChineseDecoder: Sendable {
 
     private func wordScore(_ row: DictionaryLexeme, typed: [String]) -> Double {
         let cost = CandidateScoring.initialLanguageCost
-            + CandidateScoring.wordCost(weight: row.weight, isChineseCharacter: row.reading.count == 1)
+            + CandidateScoring.wordCost(row, isChineseCharacter: row.reading.count == 1)
             + CandidateScoring.chineseSpellingCost(reading: row.reading, typed: typed)
         return -cost
     }
