@@ -4,7 +4,8 @@ Each model family owns its configurations, training code, data preparation,
 checkpoints, reports and exports. Native AI ranking and app model loading have been removed pending redesign. Offline models are not loaded
 by the input method.
 
-The root [ranking regression dataset](../eval/README.md) now holds 120 representative input/target queries. The previous multi-task registry, adapters, frozen
+The root [ranking regression dataset](../eval/README.md) holds authored input/target
+queries. The previous multi-task registry, adapters, frozen
 candidate pools and compatibility data links were retired on November 9, 2026.
 Training and model-specific token-loss evaluation remain in this workspace.
 The new query-only format requires current candidate export; old frozen-pool

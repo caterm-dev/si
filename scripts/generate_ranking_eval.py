@@ -13,7 +13,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 DESTINATION = ROOT / 'eval/ranking'
 SEED = 20261109
-COUNT = 120
+COUNT = 220
 MAX_PER_FAMILY = 2
 
 
@@ -123,6 +123,117 @@ nengxiangbanfayouhuama|能想办法优化吗|neng xiang ban fa you hua ma|senten
 '''
 HARD_CASES = [('goon', 'go on'), ('into', 'into'), ('also', 'also'), ('maybe', 'maybe'), ('cannot', 'cannot'), ('myself', 'myself')]
 
+# Each short case pairs a natural target with a specific source of ambiguity.
+# Families group cases that exercise the same competing readings.
+SHORT_AMBIGUITIES = {
+    'homophone': '''
+shoushi|收拾行李=shou shi xing li|收拾|首饰
+shoushi|试戴首饰=shi dai shou shi|首饰|收拾
+shigong|暂停施工=zan ting shi gong|施工|试工
+shigong|试工三天=shi gong san tian|试工|施工
+zixing|辨认字形=bian ren zi xing|字形|自行
+zixing|自行处理=zi xing chu li|自行|字形
+dizhi|邮寄地址=you ji di zhi|地址|地质
+dizhi|地质勘探=di zhi kan tan|地质|地址
+yiyi|提出异议=ti chu yi yi|异议|意义
+gongshi|检查公式=jian cha gong shi|公式|公示
+gongshi|公示名单=gong shi ming dan|公示|公式
+zhanshi|展示样品=zhan shi yang pin|展示|战事
+zhanshi|战事未停=zhan shi wei ting|战事|展示
+yiqi|扫描仪器=sao miao yi qi|仪器|遗弃
+yiqi|遗弃宠物=yi qi chong wu|遗弃|仪器
+shixiang|提醒事项=ti xing shi xiang|事项|试想
+shixiang|试想一下=shi xiang yi xia|试想|事项
+xianchang|拍摄现场=pai she xian chang|现场|献唱
+xianchang|登台献唱=deng tai xian chang|献唱|现场
+yuyan|编程语言=bian cheng yu yan|语言|预言
+yuyan|预言成真=yu yan cheng zhen|预言|语言
+xieyi|签署协议=qian shu xie yi|协议|谢意
+xieyi|表达谢意=biao da xie yi|谢意|协议
+xianjin|表扬先进=biao yang xian jin|先进|现金
+xianjin|现金支付=xian jin zhi fu|现金|先进
+shuji|订购书籍=ding gou shu ji|书籍|书记
+shuji|支部书记=zhi bu shu ji|书记|书籍
+baoxiao|报销差旅费=bao xiao chai lv fei|报销|报效
+baoxiao|报效祖国=bao xiao zu guo|报效|报销
+tianqi|查看天气=cha kan tian qi|天气|田七
+tianqi|田七炖鸡=tian qi dun ji|田七|天气
+zazhi|借阅杂志=jie yue za zhi|杂志|杂质
+zazhi|滤掉杂质=lv diao za zhi|杂质|杂志
+xingming|填写姓名=tian xie xing ming|姓名|性命
+xingming|保住性命=bao zhu xing ming|性命|姓名
+jianli|更新简历=geng xin jian li|简历|建立
+jianli|建立索引=jian li suo yin|建立|简历
+fuzhi|批量复制=pi liang fu zhi|复制|复职
+fuzhi|申请复职=shen qing fu zhi|复职|复制
+sheji|练习射击=lian xi she ji|射击|涉及
+sheji|涉及隐私=she ji yin si|涉及|射击
+lianxi|尽快联系=jin kuai lian xi|联系|练习
+lianxi|练习发音=lian xi fa yin|练习|联系
+yinxiang|关掉音响=guan diao yin xiang|音响|印象
+yinxiang|留下好印象=liu xia hao yin xiang|印象|音响
+jishi|及时答复=ji shi da fu|及时|计时
+jishi|开始计时=kai shi ji shi|计时|及时
+shiliang|控制食量=kong zhi shi liang|食量|适量
+shiliang|适量加盐=shi liang jia yan|适量|食量
+zuoye|上交作业=shang jiao zuo ye|作业|昨夜
+zuoye|昨夜下雨=zuo ye xia yu|昨夜|作业
+zhixue|及时止血=ji shi zhi xue|止血|治学
+zhixue|严谨治学=yan jin zhi xue|治学|止血
+zhibo|收看直播=shou kan zhi bo|直播|直拨
+zhibo|直拨分机=zhi bo fen ji|直拨|直播
+kaiguan|扳动开关=ban dong kai guan|开关|开馆
+kaiguan|博物馆开馆=bo wu guan kai guan|开馆|开关
+wanju|儿童玩具=er tong wan ju|玩具|婉拒
+wanju|婉拒邀请=wan ju yao qing|婉拒|玩具
+fangzhi|防止泄漏=fang zhi xie lou|防止|纺织
+''',
+    'segmentation': '''
+map|请勿随地吐痰=qing wu sui di tu tan|随地 / 吐痰|地图
+peace-of-mind|重新安装系统=chong xin an zhuang xi tong|重新 / 安装|心安
+esophagus|按时到校=an shi dao xiao|按时 / 到校|食道
+effort|用心学习=yong xin xue xi|用心 / 学习|心血
+reason|书包里有信=shu bao li you xin|里 / 有|理由
+noise|我想升级软件=wo xiang sheng ji ruan jian|想 / 升级|响声
+ordinary|等下一班公交=deng xia yi ban gong jiao|一 / 班|一般
+begging|一起讨论=yi qi tao lun|一起 / 讨论|乞讨
+reality|准时集合=zhun shi ji he|准时 / 集合|实际
+viewpoint|老师教我们画画=lao shi jiao wo men hua hua|老师 / 教|视角
+weather|今天气温很低=jin tian qi wen hen di|今天 / 气温|天气
+fashion|刚开始上课=gang kai shi shang ke|开始 / 上课|时尚
+surroundings|去公司面试=qu gong si mian shi|公司 / 面试|四面
+expert|好好收尾=hao hao shou wei|好好 / 收尾|好手
+time-consuming|免费试用三天=mian fei shi yong san tian|免费 / 试用|费时
+apprentice|上学途中=shang xue tu zhong|上学 / 途中|学徒
+foresee|大雨之后放晴=da yu zhi hou fang qing|大雨 / 之后|预知
+object|周五见面=zhou wu jian mian|周五 / 见面|物件
+weakness|这个问题需要回答=zhe ge wen ti xu yao hui da|问题 / 需要|体虚
+confidant|通知新人入职=tong zhi xin ren ru zhi|通知 / 新人|知心
+construction|开始工作=kai shi gong zuo|开始 / 工作|施工
+famous|记住我的名字=ji zhu wo de ming zi|我的 / 名字|得名
+inner-life|小心路滑=xiao xin lu hua|小心 / 路滑|心路
+friend|刚好有空=gang hao you kong|刚好 / 有空|好友
+peninsula|加班到天亮=jia ban dao tian liang|加班 / 到|半岛
+''',
+    'syllable-boundary': '''
+xian|先别着急=xian bie zhao ji|xian|xi'an (西安)
+xian|西安城墙=xi an cheng qiang|xi'an|xian (先)
+fangan|方案已经定了=fang an yi jing ding le|fang'an|fan'gan (反感)
+fangan|他很反感催促=ta hen fan gan cui cu|fan'gan|fang'an (方案)
+dangan|查阅纸质档案=cha yue zhi zhi dang an|dang'an|dan'gan (单干)
+dangan|准备辞职单干=zhun bei ci zhi dan gan|dan'gan|dang'an (档案)
+qie|企鹅会游泳=qi e hui you yong|qi'e|qie (切)
+yue|余额不足=yu e bu zu|yu'e|yue (月)
+yue|月末结账=yue mo jie zhang|yue|yu'e (余额)
+jie|饥饿难忍=ji e nan ren|ji'e|jie (解)
+jie|结清账单=jie qing zhang dan|jie|ji'e (饥饿)
+piao|穿上旧皮袄=chuan shang jiu pi ao|pi'ao|piao (票)
+piao|票价涨了=piao jia zhang le|piao|pi'ao (皮袄)
+kuai|酷爱下棋=ku ai xia qi|ku'ai|kuai (快)
+kuai|快递到了=kuai di dao le|kuai|ku'ai (酷爱)
+''',
+}
+
 
 def case(name, spelling, references, category, origin, family, syllables=None, note=None):
     row = {'id': name, 'input': spelling, 'references': references, 'category': category,
@@ -138,6 +249,21 @@ def chinese_case(name, pieces, category, family, origin='seeded-composition'):
     text = ''.join(p.text for p in pieces)
     syllables = tuple(s for p in pieces for s in p.syllables)
     return case(name, ''.join(syllables), [text], category, origin, family, syllables)
+
+
+def short_ambiguity_cases():
+    notes = {
+        'homophone': '{alternative} shares the untoned spelling of {span}.',
+        'segmentation': 'The word {alternative} can cross the {span} boundary.',
+        'syllable-boundary': 'The span {span} also allows the reading {alternative}.',
+    }
+    for category, examples in SHORT_AMBIGUITIES.items():
+        for index, line in enumerate(examples.strip().splitlines(), 1):
+            family, source, span, alternative = line.split('|')
+            row = chinese_case(f'short-{category}-{index:02d}', [fragment(source)], category,
+                               f'short-{category}-{family}', 'authored-short-ambiguity')
+            row['note'] = notes[category].format(span=span, alternative=alternative)
+            yield row
 
 
 def generate():
@@ -233,6 +359,7 @@ def generate():
     rows.append(chinese_case('requested-beihai-guzhen',
                              [fragment('大家下周想去北海古镇=da jia xia zhou xiang qu bei hai gu zhen')],
                              'travel', 'requested-beihai-guzhen', 'user-requested-regression'))
+    rows.extend(short_ambiguity_cases())
     validate(rows)
     return rows
 
@@ -267,14 +394,14 @@ def encoded(rows):
 
 def manifest(rows, payload):
     return {
-        'schema_version': 2, 'suite': 'ranking-20261109-compact-v4', 'cases': len(rows), 'seed': SEED,
+        'schema_version': 2, 'suite': 'ranking-20261111-compact-v5', 'cases': len(rows), 'seed': SEED,
         'test_sha256': hashlib.sha256(payload).hexdigest(),
         'generator_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'categories': dict(sorted(Counter(r['category'] for r in rows).items())),
         'origins': dict(sorted(Counter(r['origin'] for r in rows).items())),
         'families': len({r['family'] for r in rows}),
         'maximum_cases_per_family': MAX_PER_FAMILY,
-        'source': 'New SI-authored synthetic fragments/templates plus explicitly requested documented regressions and six hard cases.',
+        'source': 'SI-authored synthetic fragments, templates and short ambiguity cases, plus documented regressions and requested hard cases.',
         'license': 'GPL-3.0-only',
         'limitations': [
             'Synthetic, AI-assisted labels; no independent human review or representative typing distribution.',

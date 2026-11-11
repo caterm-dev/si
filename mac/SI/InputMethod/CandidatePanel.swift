@@ -42,7 +42,8 @@ final class CandidatePanel: NSPanel {
     }
 
     func show(selection: CandidateSelection, caret: NSRect, clientLevel: Int, screens: [CandidatePlacement.Screen],
-              isPending: Bool = false, refreshPendingRows: Bool = false, prediction: String? = nil, predictionStatus: String? = nil) {
+              isPending: Bool = false, refreshPendingRows: Bool = false, prediction: String? = nil, predictionStatus: String? = nil,
+              traceFrame: ((NSRect, NSRect) -> Void)? = nil) {
         guard ownsPresentation else { return }
         guard !selection.candidates.isEmpty else { orderOut(nil); return }
         // A hidden panel belongs to a finished composition; never retain its old rows.
@@ -60,5 +61,6 @@ final class CandidatePanel: NSPanel {
         // the resized window synchronously can expose the old row geometry for a frame.
         list.layoutSubtreeIfNeeded()
         if !isVisible { orderFrontRegardless() }
+        traceFrame?(frame, self.frame)
     }
 }

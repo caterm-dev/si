@@ -1,6 +1,7 @@
 import AppKit
 import InputMethodKit
 import Carbon
+import OSLog
 
 // InputMethodKit resolves this stable Objective-C name from Info.plist.
 @MainActor
@@ -19,6 +20,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var markedTextState = MarkedTextState()
     private var presentationRevision: UInt64 = 0
     private var candidateAnchor = CandidateAnchor()
+    private let tracesCandidateGeometry = ProcessInfo.processInfo.environment["SI_DEBUG_CANDIDATE_GEOMETRY"] == "1"
+    private let geometryLogger = Logger(subsystem: "com.caterm.si", category: "CandidateGeometry")
     private var explicitlyNavigated = false
     private struct AIPrediction {
         let revision: UInt64
@@ -46,7 +49,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var sentenceSubmissionGeneration: UInt64?
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
-        panel.onLosePresentation = { [weak self] in self?.invalidateAICompletion() }
+        panel.onLosePresentation = { [weak self] in
+            guard let self else { return }
+            self.presentationRevision &+= 1
+            self.candidateAnchor.reset()
+            self.invalidateAICompletion()
+        }
         panel.list.onSelect = { [weak self] id in
             guard let self, self.candidatePanel.ownsPresentation, let client = self.client(),
                   self.session.pendingCandidateRequest == nil,
@@ -367,43 +375,35 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func presentCandidates(to client: any IMKTextInput) {
-        guard candidatePanel.ownsPresentation else { return }
+        guard candidatePanel.ownsPresentation, markedTextState.text != nil else { return }
         let revision = presentationRevision
         let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
         // Host geometry calls can synchronously service another IMK event. Resolve on
         // a value copy so reentry cannot overlap a mutating access to controller state.
         var nextAnchor = candidateAnchor
-        let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
-        let markedRange = client.markedRange()
-        let caret = nextAnchor.resolve(cursorUTF16Offset: marked.cursorUTF16Offset, markedRange: markedRange,
-                                             screens: screens, queryRange: { range in
-            var actualRange = NSRange(location: NSNotFound, length: 0)
-            let rect = client.firstRect(forCharacterRange: range, actualRange: &actualRange)
-            return CandidateAnchor.documentRect(rect, actualRange: actualRange, requestedRange: range)
-        }, isInMarkedRange: { rect in
-            guard markedRange.location >= 0, markedRange.location != NSNotFound,
-                  markedRange.length > 0, markedRange.length != NSNotFound,
-                  markedRange.length <= Int.max - markedRange.location else { return nil }
-            var inMarkedRange: ObjCBool = false
-            // The SDK maps global screen points to document offsets. No host text is read.
-            let index = client.characterIndex(for: NSPoint(x: rect.midX, y: rect.midY),
-                                             tracking: kIMKNearestBoundaryMode, inMarkedRange: &inMarkedRange)
-            guard index >= 0, index != NSNotFound else { return nil }
-            return inMarkedRange.boolValue && index >= markedRange.location && index <= NSMaxRange(markedRange)
-        }) { index in
+        let trace: ((String, Int?, CGRect?) -> Void)? = tracesCandidateGeometry ? { [geometryLogger, applicationID] source, index, rect in
+            // Explicit diagnostic mode records geometry only, never spelling/output or key events.
+            geometryLogger.debug("app=\(applicationID ?? "unknown", privacy: .public) revision=\(revision) source=\(source, privacy: .public) index=\(index ?? -1) rect=\(String(describing: rect), privacy: .public)")
+        } : nil
+        let caret = nextAnchor.resolve(screens: screens, trace: trace) {
             var rect = NSRect.zero
-            // The SDK specifies inline-session-relative UTF-16 indexes, not document offsets.
-            _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
+            _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
             return rect
         }
         let clientLevel = Int(client.windowLevel())
         guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
         candidateAnchor = nextAnchor
         guard let caret else { candidatePanel.orderOut(nil); return }
+        let traceFrame: ((NSRect, NSRect) -> Void)? = trace.map { trace in
+            { requested, applied in
+                trace("panel-requested", nil, requested)
+                trace("panel-applied", nil, applied)
+            }
+        }
         candidatePanel.show(selection: selection, caret: caret, clientLevel: clientLevel, screens: screens,
                             isPending: session.pendingCandidateRequest != nil, refreshPendingRows: session.hasCandidatePreview,
                             prediction: aiPrediction.map { $0.candidate.text + $0.suffix },
-                            predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil)
+                            predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil, traceFrame: traceFrame)
     }
 
     nonisolated override func commitComposition(_ sender: Any!) {
@@ -518,6 +518,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             candidateAnchor.reset()
         }
         candidateClient = client
+        if markedTextState.text == nil { candidateAnchor.reset() }
         selection.update(session.candidates)
         explicitlyNavigated = false
         let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
@@ -764,10 +765,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         candidatePreviewPipeline.invalidate()
         candidateClient = nil
         markedTextState.reset()
+        candidateAnchor.reset()
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         guard revision == presentationRevision else { return false }
         selection.update([])
-        candidateAnchor.reset()
         explicitlyNavigated = false
         candidatePanel.orderOut(nil)
         return true

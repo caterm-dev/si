@@ -1,5 +1,111 @@
 # Testing SI
 
+## Fixed composition anchor — November 11, 2026
+
+`CandidatePlacementTests` covers a plausible upper-right host rectangle arriving
+after the composition has acquired a lower-middle anchor. The panel stays near
+the first position and a reset lets a new composition acquire the new position.
+Fixtures also cover invalid initial rectangles, display selection at a boundary,
+disconnected displays and the above/below placement rules.
+
+On an intentionally installed build, verify that typing, wrapping, caret edits
+and paging retain the composition anchor in TextEdit and a browser. Commit,
+cancel or switch focus and verify that the next composition acquires a new
+anchor. With `SI_DEBUG_CANDIDATE_GEOMETRY=1` in the launch environment, compare
+the `selected-inline` or `selected-pinned` rectangle with `panel-requested` and
+`panel-applied` for an observed jump. A scroll or window move during composition
+leaves the fixed anchor in place. Live host behavior remains unverified.
+
+The caret-first and rollback records below describe earlier positioning policies.
+
+## Caret-first positioning and cache scope — November 10, 2026
+
+The requested follow-up replaces the rollback's cache-first behavior with fresh
+caret/start/document checks before cache reuse. A fresh document result can now
+follow host reflow after inline failure. Inline offsets remain session-relative;
+the document fallback queries marked start plus the clamped UTF-16 caret offset,
+so multiline composition no longer deliberately anchors at its first line.
+A marked-start change, including a transition through an unknown range, discards
+old cached geometry. Matching origin defaults, zero-height and at-least-200-point
+rectangles are unavailable. A visible panel with no anchor refreshes current rows
+at its existing frame; a hidden panel stays hidden until valid geometry arrives.
+
+The 20 focused placement/ownership tests pass. The same placement tests report
+24 assertion failures against the restored November 8 positioning implementation.
+Coverage includes caret-first ordering, inline-start fallback, fresh document
+geometry after cached-inline failure/reflow, document UTF-16 boundaries and
+clamping, marked-start changes/unknown transitions, invalid host rectangles,
+origin rejection, cache reset/display removal and inactive-panel refreshes.
+`CandidatePlacement` already subtracts panel height in AppKit coordinates and
+flips above when bottom space is insufficient; its screen-edge tests still pass.
+The reset audit covers composition start, commit, Escape, client/focus changes
+and direct input. Commit now discards anchor state before calling the host.
+
+The opt-in `SI_DEBUG_CANDIDATE_GEOMETRY=1` launch environment enables debug-level
+geometry records in subsystem `com.caterm.si`, category `CandidateGeometry`.
+Records identify application, raw inline/document rectangles, indexes and the
+selected source. No input/candidate text or key events are logged. No diagnostic
+mode, installation or input-method process was started during these checks.
+Mozc-style deferred refresh remains removed.
+
+`./scripts/build.sh` passes. Full `./scripts/test.sh --disable-sandbox` retains
+the same 97 core assertion issues and one marked-text presentation issue as the
+unmodified HEAD baseline; recorded assertion failures match exactly.
+`git diff --check` passes. No installation or native typing was performed.
+Native verification is still required in browsers, editors and TextEdit: synthetic rapid/long typing,
+multiline caret movement, scrolling/window movement, temporary geometry failure,
+Space/number/mouse confirmation, Escape, focus changes, direct input, shortcuts,
+multiple displays, VoiceOver and appearance. Automated geometry fixtures do not
+prove that the reported live-host flash is eliminated.
+
+## Candidate positioning rollback — November 10, 2026
+
+This historical rollback is superseded by the caret/cache policy above.
+
+The user reports that corner flashes persist after the experimental fixes and
+requests removal of the Mozc-inspired deferred presentation. The scheduler,
+coalescing, queued-presentation AI eligibility and scheduler tests are removed.
+Presentation is synchronous again.
+
+History review found these directly relevant changes:
+
+- `90dae8b` (November 10) added point-to-document reverse lookup and changed
+  established-anchor cache handling. A transient inline failure could consult a
+  displaced document fallback instead of retaining the established inline anchor.
+- Subsequent uncommitted document-first/`actualRange` and origin policies in this
+  chat changed source selection further; they are also reverted.
+- `672fe20` (November 9) added bounded KenLM host-context reads. That is a separate
+  host-call change; this rollback retains it. Its causal role has not been verified.
+- Candidate panel rendering itself has not changed since `ad11dcb` (November 8).
+  The AI row added there stays hidden during ordinary typing without AI activity.
+
+`CandidateAnchor.swift` and the controller's `presentCandidates` method now
+exactly match `ad11dcb`, the November 8 snapshot. That positioning implementation
+was last changed in `d95bb34` on October 22. Fresh inline geometry wins; temporary
+inline failures retain an established inline anchor before consulting unrelated
+document geometry. Document rectangles remain strictly range-validated. The
+rollback leaves ranking, learning, history and AI features unchanged.
+
+A synthetic regression seeds a valid inline position, then returns unavailable
+inline geometry with a displaced nonzero document rectangle ten times. It also
+checks subsequent real inline movement and reset. The preceding document-first
+implementation and the committed `90dae8b` anchor each fail with 11 assertion
+issues. All 17 restored placement/ownership tests pass with
+`./scripts/test.sh --disable-sandbox --filter 'CandidatePlacementTests|CandidatePanelOwnershipTests'`.
+`./scripts/build.sh` passes. Full shared tests retain the baseline's 97 core
+assertion issues and one marked-text presentation issue, with identical recorded
+assertion failures. `git diff --check` passes. Reverse-lookup and scheduler tests
+are removed with those reverted contracts; the older placement suite plus the
+new cache regression remain. No installation or process restart occurred.
+
+This establishes a source-selection regression, not native confirmation of the
+user's actual flash. On an intentionally installed build, test rapid synthetic
+browser/TextEdit typing, preview/full delivery, caret editing, focus changes,
+shortcuts, Space/number/mouse confirmation, real host reflow, multiple displays,
+VoiceOver and appearance. If the flash persists with the restored positioning,
+investigate the November 9 host-context calls against the same synthetic host
+case rather than adding another positioning policy.
+
 ## Coarse-vocabulary KenLM refit — November 10, 2026
 
 The current coarse Chinese CSV snapshot is
@@ -39,7 +145,10 @@ No live typing, focus, shortcut, accessibility or compatibility checks were made
 
 ## Candidate anchor recovery — November 10, 2026
 
-Candidate placement now uses the IMK geometry-only point-to-document lookup
+The experimental recovery implementation below is superseded by the positioning
+rollback described above.
+
+Candidate placement used the IMK geometry-only point-to-document lookup
 to corroborate inline/document rectangles where the host supports it. A known
 unrelated on-screen rectangle is rejected. Fresh document geometry is checked
 before an established inline cache when inline layout temporarily fails;
@@ -1250,7 +1359,7 @@ Set `SI_CANDIDATE_SNAPSHOT_PATH` to an output PNG path to retain the synthetic o
 
 `SequentialWordSelectionTests` verifies `biruzhege` in Chinese-only/bilingual searches, provisional/full results and both layouts: all retained choices preserve engine-relative order, constructed choices share the four-hypothesis limit, every page number matches its candidate, and choosing `比如` consumes only `biru` (including apostrophe-aware boundaries). The synthetic interleaved head and bilingual `hei` regressions verify that lower-ranked mixed fragments never move ahead of `黑`, and fragments outside the ranked head do not backfill word positions. `FirstWordPrefixTests` covers crowding, the ordinary 27-choice budget with additional character retention, retained language identities/literal, the decoder's independent 24-word pool, consumed-spelling learning and lexical evidence. Offscreen view tests render actual pages in light and dark appearances; set `SI_WORD_SELECTION_SNAPSHOT_PATH=/tmp/si-word-selection` to retain the first/second `biruzhege` pages. These checks do not establish live host routing, VoiceOver or positioning.
 
-`CandidatePlacementTests` checks synthetic host geometry separately: inline-session coordinates taking priority over uncorroborated document geometry, point-corroborated recovery from displaced on-screen inline rectangles, rejection of known unrelated rectangles/cache entries, recovery from a cached document fallback, actual-range validation and ambiguous-origin corroboration, UTF-16 offsets after supplementary characters, invalid/unavailable marked ranges and rectangle fallback, fresh document geometry after an established inline anchor fails during reflow, composition-start queries, caret fallback, composition-local cached coordinates, invalid/missing coordinates, edge clamping, left/above displays, and display removal. It does not exercise InputMethodKit's actual coordinate delivery or point-lookup support.
+`CandidatePlacementTests` checks fixed composition anchors, recovery after invalid initial geometry, screen selection, edge clamping and display removal. It does not exercise actual InputMethodKit coordinate delivery. `CandidatePanelOwnershipTests` checks that stale controllers cannot display their panels.
 
 `EnglishVocabularyTests.technologyCategoryAddsTermsAndPreservesBaseCasingAndLiteralInput` covers the SI-authored technology category, including base `ai` versus uppercase input `AI`, new multiword/digit keys, completion, disabled English and exact literal fallback. Category provenance and the CSV checksum are recorded in `Data/Vocabulary/meta.json`.
 
@@ -1341,7 +1450,7 @@ Install with `./scripts/install.sh`, log out and back in if needed, add SI in Ke
 - Close and reopen Settings. Verify language preferences survive a process restart and closing the window does not terminate the input method.
 - Exercise two applications in succession to check that composition state does not leak between clients.
 - Check candidate positioning near screen edges, on multiple displays, in dark mode, and using VoiceOver.
-- In a browser or chat composer, type synthetic `nihaopengyou` at the beginning and after existing text (including an emoji). Verify the compact panel stays directly below the marked start, or above it near the bottom edge, instead of drifting far to the right or near the screen bottom. Continue until the composition wraps, move Home/End, resize/move the host window, and expand/collapse candidates. Repeat quickly to exercise intermittent layout failures: a temporary geometry miss must not prevent subsequent recovery to the current input location. Repeat after a prefix commit, Escape, focus changes and a new composition. Check TextEdit too, including hosts lacking document-range or point-lookup geometry if available; legacy inline fallback must still position correctly. Record the host/version and actual result; synthetic geometry tests do not establish this live behavior.
+- In a browser or chat composer, type synthetic `nihaopengyou` at the beginning and after existing text (including an emoji). Verify the compact panel stays directly below the marked start, or above it near the bottom edge, instead of drifting far to the right or near the screen bottom. Continue until the composition wraps, move Home/End, and expand/collapse candidates. The panel should retain the first anchor until the composition ends. Scroll or move the host window and verify that the next composition acquires a fresh anchor. Repeat after a prefix commit, Escape, focus changes and a new composition. Check TextEdit too, including hosts lacking document-range or point-lookup geometry if available; legacy inline fallback must still position correctly. Record the host/version and actual result; synthetic geometry tests do not establish this live behavior.
 - In a browser address field and a plain text field, enter a long synthetic composition such as `nixiangyaoworld`. Verify the panel tracks its beginning rather than jumping to the screen center as input grows. Check Left/Right editing, prefix confirmation, cancellation, and focus changes; a new composition must not reuse another composition's position. Test standard/Retina displays, including a display arranged to the left or above the primary display and insufficient space below the input.
 - Check that normal rows show numbers and candidate text without language descriptions. In the single line, check small arrow/pin/text symbols instead of long metadata labels; expanded prefix rows omit `First N` labels. Tooltips and VoiceOver must still identify exact prefix consumption, candidate language and source. Check that the peach selection pill stays close to its text even when a pending window retains extra width, the selected number is orange, and light/dark/high-contrast text stays readable. Start a composition and verify one horizontal line, numbers 1–6, and an accessible expansion chevron. Press Down Arrow or the chevron to expand to four rows of six choices, navigate to a later candidate, then collapse; the highlighted candidate and Space/mouse/digit confirmation must agree with its new visible number. Page keys must change six-choice collapsed pages or whole 24-choice expanded pages, with digits 1–6 applying to the highlighted row. Expanded page buttons must agree. Check mouse-wheel and horizontal/vertical trackpad gestures, including momentum: the highlighted choice and page must remain unchanged. Expanded multiple pages expose page count/previous/next controls; a single expanded page keeps the collapse control. Check clipped long mixed labels, narrow screens and both system appearances. Finish/cancel or switch focus and verify the next composition starts collapsed. Pending searches must keep the old layout/size and disable expansion/actions.
 - With learning paused, enter `abilit`; confirm complete `ability` remains among the first five through hints/full results and both layouts. Verify Space, digits and mouse commit the word, while exact `abilit` remains reachable.
@@ -1581,9 +1690,8 @@ Git-ignored. No input method installation or native host verification was perfor
 
 ## Ranking regression dataset
 
-The [ranking test set](../eval/README.md) contains 120 representative queries
-across 67 families. The initial 5,000-row draft was reduced at the user's request:
-each semantic/template family now has at most two examples. In particular,
+The [ranking test set](../eval/README.md) contains 220 synthetic queries across
+131 families. Each semantic/template family has at most two examples. In particular,
 `想买绿色…` has only two source-encoding examples of one target, and ordinal
 coverage has two page cases plus one each for chapters, sections, paragraphs and
 lines. Other Chinese, English and mixed templates also retain at most two cases;
@@ -1609,14 +1717,15 @@ languages keeps its identity; equivalent Unicode bytes are not normalized.
 Legacy utility tests verify that retired default data paths fail with current
 dataset guidance, while explicit old-format temporary fixtures remain supported.
 
-The compact suite has 22 documented regression queries (including two page
+The original 120 queries include 22 documented regressions (including two page
 cases), six English hard cases, four other ordinals, two umlaut aliases, 72
 Chinese, two English and ten mixed sentence examples, plus the explicitly
 requested `houxuanchi → 候选池` technical term and
-`dajiaxiazhouxiangqubeihaiguzhen → 大家下周想去北海古镇` sentence. Its 291 distinct authored
-Han character/reading pairs are checked against the maintained character
-dictionary. No candidate-reachability filter chooses examples. These are source
-alignment checks, not semantic label review or quality results.
+`dajiaxiazhouxiangqubeihaiguzhen → 大家下周想去北海古镇` sentence. The 100 appended
+queries cover 60 homophone, 25 cross-word segmentation and 15 syllable-boundary
+cases. Each has a note identifying a competing reading. The new character
+readings and annotated alternatives were checked against the maintained
+dictionary. No candidate-reachability filter chooses examples.
 
 Use the dataset README for blind-request export and first-32 candidate scoring.
 That protocol excludes prefixes/completions/literals and loads no production

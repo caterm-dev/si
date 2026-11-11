@@ -2,7 +2,7 @@
 
 The previous ranking/correction/conversion registry, fixtures, frozen candidate
 pools and generated outputs were removed on November 9, 2026. This directory
-now contains one newly authored [120-query ranking test set](ranking/test.jsonl).
+now contains one authored [220-query ranking test set](ranking/test.jsonl).
 The old `.build/kenlm-ranking/` experiment is separate and is not this dataset.
 
 | File | Purpose |
@@ -30,22 +30,27 @@ retrieval from ranking. Do not insert reference answers into candidate pools.
 - Two source encodings (`ü` and `u:`) of the single target `我想买绿色背包`.
 - Two instances of each of 36 Chinese sentence structures (72 total), two
   continuous-English examples, and two of each of five mixed structures (10 total).
+- 100 authored short Chinese queries of four to eight characters, with 60
+  homophone cases such as `收拾行李` and `试戴首饰`, 25 cross-word segmentation
+  cases such as `用心学习` (`用心 / 学习` and `心血`), and 15 syllable-boundary
+  cases such as `方案已经定了` (`fang'an` and `fan'gan`). Each note identifies
+  a competing reading for a span of the input.
 
 The initial 5,000-row draft was replaced at the user's request because slot and
-number substitutions overwhelmed distinct coverage. The current compact-v4 identity
-contains 67 families, **at most two cases per family**. Changing a subject, time,
+number substitutions overwhelmed distinct coverage. The current compact-v5 identity
+contains 131 families, **at most two cases per family**. Changing a subject, time,
 object, tool name or ordinal does not justify a long series. The generator and
 validator enforce this cap; there is no quota-filling loop. Future additions
 should introduce distinct problems rather than restore combinatorial padding.
 
-The generator's manually authored text/reading fragments and grammar-compatible
-slot pools are new SI-authored material under GPL-3.0-only. No previous eval
+The generator's authored short cases, text/reading fragments and grammar-compatible
+slot pools are SI-authored material under GPL-3.0-only. No retired eval
 rows, language-model outputs, training CSVs, corpus sentences, host text, private
 history or personal phrases supply these generated targets. The one-time
 replacement audit found zero exact input/reference-pair overlaps with the retired
-public eval suites. Existing maintained dictionary character readings were used
-only to cross-check the 291 distinct authored Han character/reading pairs; no
-candidate reachability filter was applied.
+public eval suites for the original 120 rows. The maintained dictionary was used
+to verify character readings and the competing readings documented for the new
+short cases. No candidate reachability filter was applied.
 
 Each row has `id`, `input`, `references`, `category`, `origin`, `family`,
 `languages` and `context`. Chinese-only rows also retain canonical per-character
@@ -56,7 +61,7 @@ it is not a claim of independent sampling. Inspect category/family results as
 well as the overall result.
 
 This is a single synthetic regression test set, with AI-assisted labels and no
-independent human annotation or model-corpus overlap audit. Its 120 rows are
+independent human annotation or model-corpus overlap audit. Its 220 rows are
 representative synthetic cases, not independent natural typing observations.
 Ambiguous cases record intended targets; other homophones may also be valid.
 Do not train on it or select model/ranking settings against its answers. There

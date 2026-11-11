@@ -332,7 +332,7 @@ Ordinary typing updates marked spelling before searching candidates off the main
 
 The candidate window uses a slim warm-neutral strip, a soft peach selection pill and an orange selected number. Text remains dark in the light appearance, with a coordinated dark palette. Candidate buttons keep numbers close to their text and fit their content rather than stretching across unused space. Small arrow, pin and text symbols distinguish prefix, personal and typed-text sources in both layouts. Punctuation candidates show a small E (English) or C (Chinese) badge immediately after the text in both layouts; the exact original spelling shows A (As Typed). Full language/source details remain in tooltips and accessibility labels. The system Increased Contrast preference adds a stronger outline; page controls appear only when more than one page is available.
 
-The panel anchors below the beginning of the marked composition, using InputMethodKit's inline-session coordinates, and moves above it when space is limited. Where supported, a geometry-only point lookup checks that the position belongs to the current marked text; corroborated document-range coordinates can replace a displaced inline position. Document rectangles also require a matching returned range. Fresh geometry is checked before reusing the last valid position in that composition, so temporary inline failures do not prevent recovery after host reflow. Without reliable geometry the panel stays hidden. Host-specific positioning still requires manual verification.
+The candidate panel uses the first valid screen position reported for the start of the composition. It holds that anchor while typing, editing and paging. Committing, cancelling or changing focus lets the next composition pick a new position. The panel appears below the anchor when there is space and flips above near the bottom of a display.
 
 **Typing → Punctuation during composition** defaults to **Keep Composing**: punctuation and symbols stay in the marked spelling so `example.com`, `user@example.com`, `foo/bar`, and `nihao,world` can be typed and edited as one composition. ASCII period `.` stays editable under every policy, even after candidate navigation; typing it never confirms a candidate or automatically converts it to `。`. With punctuation candidates enabled, an explicit selection can choose `。`. Non-confirming symbols also remain editable in the optional policies. Return commits the exact spelling; Space/numbers/mouse still confirm the current candidate, and Escape cancels the entire composition. Apostrophes retain their Pinyin boundary meaning. Digits remain candidate shortcuts rather than general numeric entry. Tab commits literal spelling and passes through in Keep Composing. **Smart Chinese Punctuation** and **Confirm Candidate** remain optional confirmation policies; saved explicit choices are preserved. They confirm supported punctuation/Tab with existing English, prefix and personal-code safeguards; smart mode converts `,;:!?()[]` after Chinese endings. Unmapped symbols outside composition pass through, and shortcuts preserve the exact spelling. Symbol insertion does not train learning; optional delimiter confirmations do not train either. Quotes are not automatically paired.
 
@@ -350,7 +350,7 @@ mac/Support/           Input-method bundle metadata
 Tests/                 Swift Testing coverage for core, storage, and settings
 scripts/               Build, test, and local installation commands
 docs/                  Architecture, manual checks, and roadmap
-eval/                  Newly authored 120-query ranking regression dataset
+eval/                  Authored 220-query ranking regression dataset
 corpus/                Pinned offline Chinese text, English dialogue and lexical reading resources
 llm/                   Offline spelling-to-text training experiments (not loaded by the app)
 ```
@@ -359,11 +359,11 @@ The Swift package and Xcode app compile the same core source files. There is no 
 
 ## Model training experiments
 
-The [ranking evaluation dataset](eval/README.md) contains 120 representative
-queries covering documented Pinyin regressions, English hard cases, source aliases,
-and seeded Chinese, English and mixed sentence combinations. It stores input and
-intended outputs; evaluate the current engine rather than a frozen old candidate
-pool. Run `python3 scripts/generate_ranking_eval.py --check` to verify integrity
+The [ranking evaluation dataset](eval/README.md) contains 220 synthetic queries
+covering documented Pinyin regressions, 100 short Chinese ambiguity cases, English
+hard cases, source aliases, and seeded Chinese, English and mixed sentences.
+It stores inputs and intended outputs for evaluation with candidates from the
+current engine. Run `python3 scripts/generate_ranking_eval.py --check` to verify integrity
 and reproduction. The former ranking/correction/conversion registry was removed.
 These synthetic, correlated cases are regression evidence, not an independent
 production accuracy estimate.

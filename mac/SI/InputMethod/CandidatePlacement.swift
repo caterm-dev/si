@@ -16,8 +16,8 @@ enum CandidatePlacement {
     }
 
     static func screen(for anchor: CGRect, screens: [Screen]) -> Screen? {
-        let center = CGPoint(x: anchor.midX, y: anchor.midY)
-        return screens.first { $0.frame.contains(center) } ?? screens.first { $0.frame.intersects(anchor) }
+        let start = CGPoint(x: anchor.minX, y: anchor.midY)
+        return screens.first { $0.frame.contains(start) } ?? screens.first { $0.frame.intersects(anchor) }
     }
 
     // InputMethodKit and AppKit already supply screen points; never apply a Retina scale here.

@@ -6,7 +6,7 @@ for measuring the quality/cost tradeoff against the
 candidates; the [Pinyin-to-text model](../pinyin_to_text/README.md) remains a
 separate model family.
 
-Use the shared [120-query ranking dataset](../../eval/README.md) for future
+Use the shared [ranking dataset](../../eval/README.md) for future
 candidate experiments. It replaces the old frozen-pool suite and root model
 adapters. Generate current engine candidates, keep unreachable targets in the
 denominator, and record code/dictionary/model identities. Do not train or tune

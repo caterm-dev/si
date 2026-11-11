@@ -65,7 +65,7 @@ For a reusable workflow and lessons from these runs, see
 
 Historical commands below reference the former `eval/ranking/hard-cases.tsv`,
 which was removed on November 9, 2026. Its six explicitly requested targets are
-now included in the new [120-query ranking dataset](eval/README.md). Old ranking
+included in the [ranking dataset](eval/README.md). Old ranking
 measurements retain their original data identities and do not describe that set.
 
 The offline training experiments use the completed word-side-only tokenization at

@@ -34,6 +34,7 @@ struct CandidatePanelOwnershipTests {
                    screens: [CandidatePlacement.Screen(frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
                                                         visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 875))])
         #expect(!stale.isVisible && stale.list.rows.isEmpty)
+        #expect(!active.isVisible && active.list.rows.isEmpty)
         #expect(active.ownsPresentation)
     }
 }

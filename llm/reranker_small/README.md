@@ -126,7 +126,7 @@ its stage paths consistent. Existing conversion checkpoints cannot resume here.
 
 ## Explicit evaluation, scoring and export
 
-The [root ranking dataset](../../eval/README.md) now contains 120 representative query-only
+The [root ranking dataset](../../eval/README.md) contains authored query-only
 cases. The old `chinese-v1` suite, compatibility data links and `eval.adapters`
 were retired on November 9, 2026. The new data requires current candidate generation
 and an explicitly adapted model scorer; the old `evaluate_suite.sh` default cannot
