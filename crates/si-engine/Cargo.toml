@@ -1,0 +1,13 @@
+[package]
+name = "si-engine"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "GPL-3.0-only"
+description = "Platform-independent input method engine for SI"
+publish = false
+
+[dependencies]
+pinyin_pro = "=3.29.4"
+si-gram = { path = "../si-gram" }
+si-lexicon = { path = "../si-lexicon" }

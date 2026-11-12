@@ -7,10 +7,14 @@ Thanks for helping build SI. The product principle is simple: users enable langu
 1. Install Xcode 26 or later and select it as the active developer directory.
 2. Run `python3 scripts/csv_dictionary.py build` to generate both local SQLite dictionaries from the tracked CSV sources, then open `mac/SI.xcodeproj` and choose the shared SI scheme.
    Generate the dictionaries before the first build/test in a fresh clone and after editing vocabulary. No language-model staging is required.
-3. For code changes beyond vocabulary maintenance, run `./scripts/test.sh` and `./scripts/build.sh` before submitting.
+3. For macOS app code changes beyond vocabulary maintenance, run `./scripts/test.sh` and `./scripts/build.sh` before submitting.
 4. For input-method changes, complete the relevant checks in [docs/TESTING.md](docs/TESTING.md).
 
 The Swift package tests the same core files compiled by the macOS app. Use Swift 6 language mode. Keep language providers independent of AppKit and SwiftUI. Add focused tests for candidate ranking, ambiguity, state transitions, or regressions when behavior changes.
+
+For Rust changes, run the [Cargo checks](README.md#rust-engine-workspace).
+Use `si-cli` in the same guide for local Rust lexicon and corpus imports.
+Use synthetic data for the performance benchmark.
 
 For dictionary changes, edit `Data/Chinese/*.csv` and `Data/English/*.csv`.
 Keep the `text,reading,weight` header and explicit nonnegative integer counts;

@@ -33,6 +33,238 @@ Host application key event
   → committed text in the host application
 ```
 
+## Rust resource workflow
+
+`si-cli` parses command-line arguments and prints import summaries.
+`si-engine` owns resource loading, CSV and corpus imports, and snapshot
+compatibility. It uses `si-lexicon` and `si-gram` for storage and lookup.
+The future Swift bridge can load the same artifacts through
+`si_engine::resources::EngineResources`. The current macOS application
+uses the Swift engine and its existing resources.
+
+Lexicon imports accept one or more CSV files or directories, with a caller
+selected lookup index for each. Directory CSVs are visited in filename
+order. The compiler preserves exact text and reading, and sums `weight` for
+repeated rows with the same text, reading, and lookup index. Different
+readings of the same text receive separate IDs and counts. A zero-weight row
+can add an entry with a count of zero. An empty or whitespace-only reading
+fails the entire import and reports the source file and line.
+Incremental imports append new word IDs and retain every existing ID.
+
+Corpus imports stream explicitly selected pre-tokenized UTF-8 files.
+Each nonempty line is a sentence, and whitespace separates tokens.
+Tokens resolve by exact output text when there is one matching reading.
+An ambiguous token requires `text|index|reading`, such as `重|0|chong`;
+an unresolved reading fails the import. Unknown unannotated tokens are
+counted in the summary and break the sequence. No gram crosses an unknown
+token or a line boundary. The pre-tokenized import increments gram counts.
+
+Builds require a new destination. Additions use the existing snapshot and
+apply deltas once per command invocation. Keep source CSVs and tokenized
+corpora separately for reproducibility. A sidecar lock serializes import
+writes to each destination, and the binary snapshot is replaced only
+after the entire import succeeds. Each dictionary has its own file, such
+as `main.silex` or `user.silex`. Pair a gram snapshot with the lexicon that
+assigned its word IDs. Incremental imports preserve existing IDs, so gram
+snapshots remain compatible when words are appended.
+
+The engine reports aggregate corpus progress at file boundaries, periodically
+while reading, and before building and saving gram tables. Byte progress
+uses the current source file's size. The CLI displays progress on stderr
+and the final summary on stdout. The stable sidecar file can remain after
+exit. The OS releases its lock on process exit, including interruption.
+Suspending a process keeps its lock until the process exits.
+
+### Paragraph corpus import
+
+`corpus ingest` reads explicitly supplied UTF-8 text, one paragraph per
+nonempty line. The Rust segmenter indexes exact output spellings and chooses
+the longest match from left to right using UTF-8 byte ranges. Matches end
+at the boundary of a consecutive ASCII letter run. Unlisted runs of at
+least two letters get new word IDs in first-observed order and enter
+English lookup index `1`, preserving exact capitalization with a
+lowercase lookup key. Single ASCII letter tokens and independent runs of
+ASCII digits contribute `<char>` and `<num>` to the n-gram stream,
+respectively. Each run of digits contributes one token. Exact compound
+dictionary matches can include letters or digits. Placeholder IDs are
+stored as unindexed zero-count symbols in the paired lexicon and reused by
+later batches. The importer increments word counts for lexical matches.
+An ambiguous Han match triggers contextual Pinyin conversion for the
+contiguous Han run containing it. The segmenter verifies that the returned
+characters align with the original UTF-8 spans, removes tone marks, and
+compares the full reading with the lexicon, including SI's umlaut aliases.
+It counts the match when the reading identifies exactly one existing entry.
+An unresolved spelling consumes its full match and ends the gram sequence.
+Unknown characters, unmatched punctuation, and paragraph boundaries also
+end a sequence. Horizontal whitespace between tokens preserves adjacency.
+
+The importer opens the specified lexicon and compatible word gram model,
+or initializes missing snapshots. An existing model referencing word IDs
+requires its compatible lexicon. Each batch increments counts in both files
+at their original paths. Both locks stay held during preparation and
+publication. The importer stages each replacement beside its destination,
+then replaces the lexicon, gram model, and review CSV individually by rename.
+Pending records beside the snapshots let the same command finish an
+interrupted publication without recounting the batch. Other writes to
+either snapshot are blocked while its record is pending. Failures before
+publication leave existing snapshot files intact.
+
+The review CSV at `<grams.sigram>.review.csv` groups unmatched and unresolved
+segments from the latest batch by exact text and reason. It includes counts,
+readable candidate keys from the lexicon, and each entry's first source path
+and 1-based line number. It contains only the header when there are no review
+items. Unix output permissions are owner-only. Import summaries contain
+aggregate counts.
+
+The shared Pinyin reader uses the [argsno Rust port of pinyin-pro](https://github.com/argsno/pinyin-pro-rust),
+published on crates.io as `pinyin_pro` 3.29.4 at revision
+`460d4802de044c71dd8305705028b5b60da82abd`. The crate embeds tables
+generated upstream from zh-lx/pinyin-pro's TypeScript reading data.
+SI builds the published crate directly using the Cargo lockfile.
+The [included MIT notice](../crates/si-engine/licenses/pinyin_pro-MIT.txt)
+covers the crate. MIT permits redistribution with the copyright and
+permission notice and is compatible with SI's GPLv3 license. The locked
+regex dependencies also offer MIT licensing. The reader runs locally
+on the supplied corpus text.
+
+### Lexicon CSV snapshots
+
+`lexicon export` writes a full UTF-8 snapshot with the columns
+`kind,id,text,weight,index,reading,key_hex`. A `word` row holds the
+explicit ID, exact text, count, and optional primary reading. An `alias`
+row holds an ID and an additional key without a separate count. Lookup
+keys that cannot be represented as printable UTF-8 use `key_hex`.
+
+`lexicon restore` reads the snapshot into a new `.silex` file. It restores
+word rows in ID order, then binds aliases to those IDs. Word IDs are dense
+ordinals starting at zero. Missing or repeated IDs, repeated word identities,
+and invalid aliases fail before saving. Restoring the same ordered word
+identities preserves compatibility with the existing word gram model.
+
+Export uses an explicit destination and owner-only file permissions on Unix.
+Existing destination files are preserved. Keep personal exports local and
+delete them when no longer needed. The repository ignores files named
+`*.silex.csv`.
+
+### Chinese vocabulary discovery
+
+The offline `corpus build --han` and `corpus add --han` commands count
+overlapping windows of two, three, and four known Han characters. These grams
+use a separate character table keyed by written form for discovery.
+Unknown Han characters, non-Han characters, and line endings break sequences. The Han
+classifier uses the [Unicode 17.0 Unified_Ideograph property](https://www.unicode.org/Public/17.0.0/ucd/PropList.txt)
+plus U+3007. The default corpus commands continue to take whitespace-separated
+tokens.
+
+`lexicon learn` loads the Pinyin index and per-order thresholds from
+[the learning configuration](../config/lexicon-learning.conf). A candidate
+qualifies when its raw count exceeds the optional `force_count` shared
+by all orders, or when it meets both the minimum raw count and the minimum
+prefix share for its order. For
+order N, the share is its raw count divided by the sum of counts of all
+order-N grams with the same first N−1 tokens. The denominator includes
+rows below the count threshold and rows that cannot become entries. The
+comparison includes equality and uses integer arithmetic. Setting the
+percentage to zero disables the share threshold for that order.
+
+The learner requires single Han characters with lowercase ASCII syllable
+keys in the selected full-Pinyin index. It concatenates their exact output
+text and passes the whole new word to the shared `pinyin_pro` reader. The
+reader checks that the syllables align with every original character,
+removes tones and applies SI's umlaut aliases. The learner joins a
+complete reading with apostrophes and adds it to the selected index.
+An incomplete or invalid reading goes to the review CSV with an empty
+`reading` and the original count. The caller can supply the reading and
+import the edited CSV with `lexicon add`.
+
+The qualifying raw count from the gram table becomes the new entry's initial
+count. An existing output in the selected index retains its IDs, counts,
+and keys, including readings supplied through review. Rerunning
+learning adds no duplicate words and can export pending words again. The
+learner writes a fresh numbered CSV beside the lexicon before saving any
+lexicon additions. It holds the lexicon's existing write lock throughout
+and leaves the gram file unchanged. The character model can be retained
+for discovery. To count
+sequences of the learned words for ranking, tokenize the corpus with the
+expanded vocabulary and build a separate word gram model.
+
+The workflow reads only explicitly provided files. Keep the seed inputs to
+rebuild or discard a learned lexicon. Delete the derived snapshot, review
+CSVs, and gram files to remove those local artifacts. Review CSVs use
+owner-only file permissions on Unix. The repository ignores review files
+generated beside `.silex` snapshots. This workflow is independent of the app's
+Personal Learning, Input History and Sentence History.
+
+## Rust lexicon
+
+The standalone Rust workspace includes an editable, language-independent
+lexicon. Callers open each dictionary by path and choose which numbered
+indexes to query within it. An index accepts opaque byte
+keys. Spelling normalization, enabled languages and candidate ranking belong
+to the caller.
+
+Each lexeme consists of exact UTF-8 output text, a primary reading, and its
+lookup index. A word ID is a 32-bit ordinal assigned on first insertion
+within that file. The same ordinal can refer to different words in two files.
+Reimporting the same lexeme increments its checked 64-bit occurrence count
+and retains its ID. An explicit alias can add a lookup key for that ID.
+Text-only lookup resolves a single entry and can enumerate all entries when
+the text has multiple readings. IDs survive compaction and snapshot reload.
+Edit an existing snapshot to preserve its IDs across versions.
+
+Packed snapshots store UTF-8 text, primary readings, and key bytes in
+contiguous buffers.
+Offsets and postings are 32-bit integers. Exact lookup binary searches sorted
+keys and reads their contiguous postings. Prefix lookup starts at the same
+lower bound and streams matching postings in key order. Edits are searchable
+immediately. Compaction folds them into the packed index. File loading
+validates section lengths, UTF-8 boundaries and index order, then keeps the
+packed arrays in memory for queries.
+
+Saving writes one versioned snapshot at a caller-selected path. It replaces
+the previous file after writing and syncing a sibling temporary file, with
+owner-only file permissions on Unix. Use one writer per dictionary file.
+A caller may keep a separate file for user-added words and delete that file
+to remove the entire dictionary. The library does not select a storage path,
+record typing, or manage the installed app's Personal Phrases or Personal
+Learning stores.
+
+The benchmark measures synthetic construction, compaction, file size, warm
+open, exact and prefix lookup, ID lookup and additions to an existing
+dictionary. Reported query percentiles are computed over batch averages.
+
+## Rust gram model
+
+`si-gram` stores raw 64-bit occurrence counts for ordered sequences of two,
+three, or four words. The builder accepts pre-counted grams or counts every
+overlapping window in a pre-tokenized sequence. Call the builder separately
+for each sentence or other boundary. Importers supply tokenization and
+`WordId` values from one lexicon file per model.
+
+The immutable model keeps a sorted key table and a count array for each order.
+A small in-memory directory uses the first word ordinal to narrow each exact
+lookup. For repeated candidate queries, a prepared context borrows the
+contiguous rows for one history and looks up each next word within those
+rows. Both lookup paths allocate no heap memory.
+
+A versioned `.sigram` snapshot uses 16, 20, and 24 bytes per bigram, trigram,
+and four-gram respectively, plus a 28-byte header. CLI-generated gram files
+record a checksum of exact text, primary reading, and lookup index in
+ordinal order through the largest referenced ordinal. The engine uses it
+to detect a mismatch even when two entries share the same text. Appending
+words, changing counts, and adding aliases preserve the pairing.
+Opening the file validates its length, key order, and counts, loads the
+arrays, and rebuilds the lookup directory. The Rust
+benchmark measures snapshot size, warm open, exact hits and misses, and
+queries with prepared histories on synthetic data.
+
+Version 1 and 2 files remain readable. An older dictionary entry with one
+lookup key can recover that key as its primary reading. Entries with
+several keys retain their historical aggregate for lookup. Rebuild from
+the original CSV to recover individual reading counts. Older gram files
+must be paired with their original lexicon. Rebuild old character models
+with `corpus build --han` before adding more character observations.
+
 ## Interface localization
 
 `mac/SI/Localization/Resources/{en,zh-Hans}.lproj/Localizable.strings` provides the same English source keys and Simplified Chinese translations to SwiftUI and AppKit. The app uses the main bundle and native macOS app-language negotiation, with `en` as its development language. SwiftUI literal labels use native localization; `L10n` resolves dynamic labels, errors and format arguments. The package builds the same helper/resources as `SILocalization`, using `Bundle.module` for tests. Language changes take effect on a normal process restart; no extra language preference, input mode or keystroke shortcut is introduced.

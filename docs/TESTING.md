@@ -1307,6 +1307,47 @@ On an intentionally installed build, type synthetic `sheguofennudehai` and `shi`
 
 ## Automated checks
 
+Run `cargo test --locked -p si-cli --test workflow` for the Rust resource
+commands. Synthetic fixtures build character grams from UTF-8 corpus text,
+add a corpus delta, and check all three learned word lengths, exact counts,
+Pinyin lookup, unchanged existing words, and idempotent reruns. They check
+that paragraph import records `行` as `hang` in `银行` and `xing` in
+`行走`, with independent word and gram counts. Single ASCII letters and
+digit runs use stable `<char>` and `<num>` IDs across batches, with
+occurrences counted in the gram model. Paragraph import refreshes
+`<grams.sigram>.review.csv` with grouped unmatched and unresolved segments,
+counts, and source locations. A clean batch publishes a header-only review.
+The fixtures also cover
+sequence boundaries, whole-word Pinyin for learned words such as `重庆`,
+review exports for unresolved readings, import of manually corrected
+readings, preservation of edited exports, and rejection
+of an incompatible gram file before saving.
+
+The learning threshold regression uses all three gram orders and checks
+the exact percentage boundary, the effect of below-threshold rows on
+prefix totals, and independent rejection by count or share. The high-count
+fixture checks that multiple continuations can qualify below the share
+threshold, that equality with the override is insufficient, and that
+unresolved readings still enter review. Invalid
+configuration files fail before writing dictionary changes or review files.
+
+The Rust snapshot tests restore reordered CSV rows, round-trip IDs and
+counts, check primary readings, aliases and binary lookup keys, and reopen
+the original gram model with the restored lexicon. Invalid IDs and aliases
+fail without publishing a snapshot.
+
+The paragraph import tests exercise exact longest matching, mixed-language
+sequences, 2–4 word counts, incremental batches, and boundaries around
+punctuation, unknown characters and ambiguous readings. Tests verify creation
+of missing files, in-place updates with stable word IDs, and preservation of
+both snapshots on malformed input, count overflow, or an incompatible model.
+The engine tests simulate interrupted publication and check that rerunning
+finishes the same batch without recounting it.
+
+Corpus progress tests check file transitions, cumulative counters, final
+publication stages, and reuse of an unlocked sidecar file. The command
+keeps progress on stderr and final summaries on stdout.
+
 For exact-spelling ranking, run `./scripts/test.sh --filter 'CandidateScoringTests|UnifiedRankingTests|SpellingEvidenceTests|UnifiedRankingPresentationTests'`. With both languages enabled and an empty learning profile, check `ma` → `吗`, `ne` → `呢` and exact English `man` in provisional/full results. The `ma` presentation regression checks first-choice numbering, retained English completions/literal and exact commits in both layouts. Finite-channel tests verify normalization and the stronger complete-spelling endpoint; formula fixtures independently check the new weights. Compare `./scripts/benchmark.sh --quality` against the recorded baseline, including unfinished English words and continuous sentence splits.
 
 On an intentionally installed build, repeat `ma`, `ne`, `man`, `togethe` and `performa` in TextEdit and a browser field, with Chinese-only, English-only and bilingual settings as relevant. Check compact/expanded selection with Space, digits and mouse, then Return, Escape, shortcuts and focus changes. Verify normalized umlaut prefix commits still leave the exact remainder editable. Core/offscreen checks do not establish native host routing, VoiceOver or candidate positioning.

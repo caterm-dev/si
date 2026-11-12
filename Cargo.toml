@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/si-benchmark",
+    "crates/si-cli",
+    "crates/si-engine",
+    "crates/si-gram",
+    "crates/si-lexicon",
+]
+resolver = "3"

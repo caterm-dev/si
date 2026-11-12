@@ -16,6 +16,27 @@ build/
 .build/
 .swiftpm/
 
+# Cargo build products
+/target/
+
+# Generated or personal Rust lexicon and gram snapshots and in-progress saves
+*.silex
+.*.silex.*.tmp
+*.silex.lock
+*.silex.ingest-pending/
+*.silex.review-*.csv
+*.silex.review.*.tmp
+*.silex.csv
+*.csv-export.*.tmp
+*.sigram
+.*.sigram.*.tmp
+*.sigram.lock
+*.sigram.ingest-pending/
+*.sigram.review.csv
+*.si-corpus/
+*.si-corpus.lock
+.*.si-corpus.*.tmp/
+
 # Retained KenLM delivery models; survive ordinary .build cleanup.
 /corpus/kenlm/models/
 

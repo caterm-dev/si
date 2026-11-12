@@ -1,0 +1,11 @@
+[package]
+name = "si-benchmark"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+description = "Synthetic performance benchmarks for SI"
+publish = false
+
+[dependencies]
+si-gram = { path = "../si-gram" }
+si-lexicon = { path = "../si-lexicon" }

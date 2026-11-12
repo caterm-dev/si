@@ -27,13 +27,29 @@ Read `README.md`, `CONTRIBUTING.md`, and the relevant sections of `docs/ARCHITEC
 | `mac/SI.xcodeproj/` | macOS app target and shared SI scheme |
 | `Package.swift`, `Tests/` | Shared core/storage/settings models and Swift Testing tests |
 | `Tools/SIBenchmark/` | Synthetic Release-mode candidate-generation measurements |
+| `crates/si-cli/` | Local lexicon and corpus build commands backed by `si-engine` |
+| `crates/si-engine/` | Platform-independent Rust conversion engine under development |
+| `crates/si-lexicon/` | Language-independent lexicon, word IDs, and exact and prefix lookup |
+| `crates/si-gram/` | N-gram occurrence counts and lookup keyed by lexicon word IDs |
+| `crates/si-benchmark/` | Synthetic Rust benchmarks |
 | `scripts/` | Supported build, test, icon-generation, and local-install entry points |
 
-- The Swift package and Xcode app compile the same core files. Do not create a second engine implementation for the app, preview, or tests.
+- While the app uses the Swift engine, the Swift package and Xcode app compile the same Swift core files. Keep the app, Settings preview, and engine tests on the shared conversion implementation.
 - Keep the core independent of AppKit, SwiftUI, InputMethodKit, UserDefaults, and application lifecycle. Providers produce candidates; the engine merges them; `InputSession` owns composition state; the controller adapts host events.
 - Keep composition state per client session. Do not move buffers or candidate selection into process-wide shared state.
 - Persist language preferences through `LanguageSettings`. Do not scatter preference keys or preference reads throughout the core.
 - Prefer small changes within these boundaries over new frameworks, generic infrastructure, or unrelated refactors.
+
+## Rust engine architecture and app integration
+
+The Rust engine is intended to replace the Swift conversion engine in the macOS app. The app currently uses Swift for conversion. Describe Rust capabilities and app integration according to what has shipped or been verified.
+
+- Keep the conversion pipeline in Rust. It owns lexicon and n-gram lookup, input normalization and segmentation, decoding and candidate generation, scoring, and final ranking. Keep any future Transformer scoring or reranking inside the engine and within the existing privacy and responsiveness boundaries.
+- Design for high cohesion and low coupling. Give each module a clear responsibility, keep implementation details private, and expose small, typed interfaces for the data that crosses boundaries. Keep dependencies acyclic. Use Rust modules by default and split out a crate when it needs a distinct dependency boundary or independent reuse.
+- Keep lexicon and n-gram storage independent of decoding and ranking policy. Reuse the word IDs from the paired lexicon file for n-gram lookup. Store each lexicon, including a user lexicon, in a separate file. Keep normalization and source-span mapping together, candidate generation responsible for producing candidate paths, and ranking responsible for combining scores and applying deterministic tie-breaks. Keep pipeline orchestration in `si-engine`.
+- Make scoring components independently testable and replaceable behind narrow interfaces. Future Transformer integration should plug into the engine's scoring or reranking stage, with the existing ranking path available when the model is disabled or unavailable. Keep model-specific dependencies local to that component.
+- Keep the Rust core platform-independent. Integrate it through a thin Swift bridge that translates requests and results and defines ownership, errors, and offset units across the boundary. Swift continues to own InputMethodKit event handling, per-client session lifecycle, marked text, candidate presentation, host commits, settings, and privacy checks. Preserve exact source and output bytes and convert to UTF-16 offsets at the AppKit/InputMethodKit boundary.
+- Before switching the app to Rust, verify the existing product and input-method contracts with synthetic fixtures and the relevant host-app checks in `docs/TESTING.md`. Run the Cargo checks documented in `README.md` for Rust code changes.
 
 ## Input-method correctness
 
