@@ -1307,9 +1307,34 @@ On an intentionally installed build, type synthetic `sheguofennudehai` and `shi`
 
 ## Automated checks
 
+Run `cargo test --locked -p si-engine --test conversion` for the Rust
+spelling-to-candidate API and
+`cargo test --locked -p si-cli --test workflow candidates_` for its CLI.
+The fixtures cover bilingual ambiguity, literal fallback, deterministic
+ordering, exact UTF-8 prefix offsets, apostrophes and umlaut aliases, word
+segmentation, completion and mixed output. They check that contextual
+scores affect paths before the beam limit and that two user models with
+identical unigram counts can rank differently based on their grams.
+These checks use synthetic input and exercise the Rust engine directly.
+
+Run `cargo test --locked -p si-cli --test workflow user_` for the Rust user
+model. The synthetic cases check base-file byte preservation, separate
+profiles and word IDs, exact 2–5 gram counts and sentence boundaries,
+profile-specific learning thresholds, learned-word use in later imports,
+private permissions on Unix, and clear. They also simulate an incomplete
+inactive generation and verify duplicate batch retries and concurrent
+writers leave a consistent pair. These checks cover the Rust library and
+CLI with synthetic input.
+
+The configured-order fixture raises the base from three to four and the
+user from four to five, verifies that only new batches contribute the
+added order, and checks that lowering the user setting preserves existing
+five-grams. The conversion fixture verifies that a five-gram can change the
+top candidate, and the storage tests exercise version 4 checksums and recovery.
+
 Run `cargo test --locked -p si-cli --test workflow` for the Rust resource
 commands. Synthetic fixtures build character grams from UTF-8 corpus text,
-add a corpus delta, and check all three learned word lengths, exact counts,
+add a corpus delta, and check bigram-only learning, exact counts,
 Pinyin lookup, unchanged existing words, and idempotent reruns. They check
 that paragraph import records `行` as `hang` in `银行` and `xing` in
 `行走`, with independent word and gram counts. Single ASCII letters and
@@ -1317,19 +1342,24 @@ digit runs use stable `<char>` and `<num>` IDs across batches, with
 occurrences counted in the gram model. Paragraph import refreshes
 `<grams.sigram>.review.csv` with grouped unmatched and unresolved segments,
 counts, and source locations. A clean batch publishes a header-only review.
+The round-trip fixture edits the exported reading column and checks that
+blank rows are skipped, new readings use the exported count, existing
+readings keep their IDs, and the gram file remains compatible.
 The fixtures also cover
 sequence boundaries, whole-word Pinyin for learned words such as `重庆`,
 review exports for unresolved readings, import of manually corrected
 readings, preservation of edited exports, and rejection
 of an incompatible gram file before saving.
 
-The learning threshold regression uses all three gram orders and checks
-the exact percentage boundary, the effect of below-threshold rows on
-prefix totals, and independent rejection by count or share. The high-count
-fixture checks that multiple continuations can qualify below the share
-threshold, that equality with the override is insufficient, and that
-unresolved readings still enter review. Invalid
-configuration files fail before writing dictionary changes or review files.
+The learning threshold regressions check the minimum sample count, both
+directions, the effect of below-threshold rows on marginals, and inclusive
+comparisons for shares and lift. They also check that multiple continuations
+can qualify and that unresolved readings still enter review. A mixed-order
+fixture verifies that learning skips longer words even when old configs
+include permissive order-3 and order-4 thresholds. The bigram reader test
+checks the lexicon checksum when higher-order rows reference additional IDs.
+Invalid configuration files fail before writing dictionary changes or review
+files.
 
 The Rust snapshot tests restore reordered CSV rows, round-trip IDs and
 counts, check primary readings, aliases and binary lookup keys, and reopen
@@ -1337,7 +1367,7 @@ the original gram model with the restored lexicon. Invalid IDs and aliases
 fail without publishing a snapshot.
 
 The paragraph import tests exercise exact longest matching, mixed-language
-sequences, 2–4 word counts, incremental batches, and boundaries around
+sequences, configured word-gram counts, incremental batches, and boundaries around
 punctuation, unknown characters and ambiguous readings. Tests verify creation
 of missing files, in-place updates with stable word IDs, and preservation of
 both snapshots on malformed input, count overflow, or an incompatible model.

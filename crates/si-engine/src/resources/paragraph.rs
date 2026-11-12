@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use si_gram::GramBuilder;
+use si_gram::{GramBuilder, GramOrder};
 use si_lexicon::{IndexId, Lexicon, WordId};
 
 use super::paragraph_review::ParagraphReview;
@@ -19,6 +19,7 @@ const NUMBER_TOKEN: &str = "<num>";
 pub(super) fn ingest(
     paths: &Paths,
     sources: &[PathBuf],
+    max_order: GramOrder,
     progress: &mut ProgressReporter<'_>,
 ) -> io::Result<ParagraphImport> {
     let (mut lexicon, new_lexicon) = match Lexicon::open(&paths.lexicon) {
@@ -37,6 +38,7 @@ pub(super) fn ingest(
         }
         Err(error) => return Err(error),
     };
+    builder.set_max_order(max_order);
     let mut counts = Observations::new(&lexicon);
     {
         let segmenter = Segmenter::new(&lexicon);
@@ -115,6 +117,7 @@ impl Observations {
             for segment in segmenter.segment(text) {
                 let id = match segment.kind {
                     SegmentKind::Word(id) => id,
+                    SegmentKind::UserWord(_) => unreachable!("base-only segmenter"),
                     SegmentKind::NewEnglishWord => self.pending_id(&text[segment.range])?,
                     SegmentKind::Letter | SegmentKind::Number => {
                         let token = if segment.kind == SegmentKind::Letter {

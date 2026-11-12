@@ -349,7 +349,7 @@ mac/SI/Storage/         Actor-isolated local learning and personal-phrase persis
 mac/Support/           Input-method bundle metadata
 crates/si-cli/          Local Rust lexicon and corpus build commands
 crates/si-engine/       Shared Rust engine and resource imports
-crates/si-gram/         Compact word bigram, trigram, and four-gram counts
+crates/si-gram/         Compact word n-gram counts through order five
 crates/si-lexicon/      Compact, language-independent Rust lexicon
 crates/si-benchmark/    Synthetic Rust performance benchmarks
 Tests/                 Swift Testing coverage for core, storage, and settings
@@ -366,7 +366,7 @@ The Swift package and Xcode app compile the same core source files.
 
 The Rust 2024 workspace includes a language-independent lexicon with stable
 word IDs, editable dictionaries, and exact and prefix lookup. The gram model
-uses those word IDs to count and query ordered sequences of two to four words.
+uses those word IDs to count and query ordered sequences of two to five words.
 Both store raw occurrence counts. The macOS app uses its Swift engine. See
 the [Rust lexicon](docs/ARCHITECTURE.md#rust-lexicon) and
 [Rust gram model](docs/ARCHITECTURE.md#rust-gram-model) for storage details.
@@ -392,8 +392,8 @@ cargo run --release --locked -p si-cli -- corpus build target/si-data/main.silex
 cargo run --release --locked -p si-cli -- corpus add target/si-data/main.silex target/si-data/main.sigram /path/to/new-tokenized.txt
 ```
 
-Lexicon imports use `text,reading,weight` CSV files. Each reading has its own
-word ID and raw count. A blank reading rejects the entire import.
+Ordinary lexicon imports use `text,reading,weight` CSV files. Each reading
+has its own word ID and raw count. A blank reading rejects that import.
 Corpus imports take one pre-tokenized UTF-8 sentence per line, with
 whitespace between tokens. An ambiguous token requires an explicit
 reading in `text|index|reading` form, such as `重|0|chong`.
@@ -402,12 +402,99 @@ snapshot. Import each delta once. See the
 [resource workflow](docs/ARCHITECTURE.md#rust-resource-workflow) for ID and
 count semantics.
 
+[SI configuration](config/si.conf) contains the base and user learning
+thresholds and separate `max_order` values under `[base]` and `[user]`.
+Both default to `4` and accept `2` through `5`. To apply changes without
+rebuilding the CLI, pass `--config` before the command:
+
+```sh
+cargo run --release --locked -p si-cli -- --config config/si.conf corpus add target/si-data/main.silex target/si-data/main.sigram /path/to/new-tokenized.txt
+```
+
+`max_order` controls which orders the next import counts. Changing it retains
+the counts already in the snapshot. Higher orders start accumulating when
+enabled, and ranking uses any available saved orders. The CLI uses bundled
+settings when `--config` is omitted.
+
 Corpus commands report the current file, byte progress, and cumulative record
 and token counts on stderr while they run. The final summary goes to stdout.
 The destination's `.lock` file remains available for future runs. If you
 suspend an import with Ctrl+Z, use `jobs -l` and `fg %<job-number>` in the
 same shell to resume it. To restart it, bring it to the foreground and
 interrupt it with Ctrl+C before starting the new command.
+
+Use the paired lexicon to prune low-count rows from one order of an existing
+gram snapshot. This example removes four-grams observed exactly once.
+
+```sh
+cargo run --release --locked -p si-cli -- corpus prune --order 4 --min-count 2 target/si-data/main.silex target/si-data/main.sigram
+```
+
+The command reports the number of rows removed and atomically replaces the
+gram file in place when rows are removed. It accepts orders `2` through `5`
+for word or Han-character snapshots. Counts equal to the threshold are kept.
+Keep a copy of the full snapshot if you plan to accumulate counts later.
+Subsequent imports start from the counts still present in the snapshot.
+
+#### Convert typed spelling with the Rust engine
+
+`si-cli candidates` reads UTF-8 spelling from standard input, one
+composition per line. For example, after building the base dictionary:
+
+```sh
+printf '%s\n' nihao iwanttobuild woxiangyaodeploy |
+  cargo run --release --locked -p si-cli -- candidates target/si-data/main.silex
+```
+
+Pass `--grams target/si-data/main.sigram` to use a paired base gram
+snapshot and `--user target/si-data/profile.si-user` to include a local user
+model. Both languages are enabled by default. Use `--languages zh-Hans`,
+`--languages en` or `--languages none` to select a different set.
+
+Results are TSV rows with language, consumed UTF-8 bytes, match kind,
+score in bits, and output text. Backslashes and control characters are
+escaped in output text. A blank line ends each result set. Nonempty inputs
+have an original-text row with an empty score. The library's
+[`CandidateEngine`](crates/si-engine/src/conversion.rs) returns these
+candidates as typed values and can be reused across requests.
+
+The decoder handles continuous full Pinyin and English spelling, mixed
+paths, explicit Pinyin apostrophes, umlaut aliases, final-word spelling
+completion and prefix candidates. The macOS app uses its Swift conversion
+path. See [Rust conversion](docs/ARCHITECTURE.md#rust-conversion).
+
+#### Build a local user model
+
+Use a dedicated `.si-user` profile with an existing base lexicon. Supply
+committed text explicitly as UTF-8, one sentence per line. The profile's
+lexicon and word-gram counts use their own IDs and include only observations
+from that profile. The base lexicon helps segment sentences. Its counts and
+the base gram file stay independent.
+
+```sh
+cargo run --release --locked -p si-cli -- user ingest target/si-data/profile.si-user target/si-data/main.silex batch-001 /path/to/sentences.txt
+cargo run --release --locked -p si-cli -- user learn target/si-data/profile.si-user target/si-data/main.silex
+cargo run --release --locked -p si-cli -- user status target/si-data/profile.si-user
+cargo run --release --locked -p si-cli -- user clear target/si-data/profile.si-user
+```
+
+Use `-` instead of a filename to read standard input. Generate an opaque
+batch ID for each set of new observations and reuse that ID when retrying the
+same batch. A distinct batch ID counts repeated sentences as new observations.
+
+`user learn` uses the `[user]` section of [SI configuration](config/si.conf)
+and the profile's Han-character bigrams. The defaults require five
+occurrences, a 30% share in each direction, and lift of at least 2. To set
+different thresholds for a profile, select a configuration with `--config`.
+Learned two-character words enter Pinyin index
+`0` immediately and contribute word grams on subsequent imports.
+
+The profile stores derived words, counts and batch IDs locally. Sentence
+lines and source paths are discarded after processing. On Unix the profile
+directory is owner-only. `user clear` removes its derived data and batch
+IDs. The Rust library entry point is
+[`UserModelStore`](crates/si-engine/src/resources/user.rs).
+See [user model storage](docs/ARCHITECTURE.md#rust-user-model).
 
 #### Import unsegmented paragraphs
 
@@ -438,7 +525,21 @@ want counted. Unlisted Chinese text goes to review.
 The importer refreshes `words.sigram.review.csv` beside `words.sigram`
 with unmatched characters and unresolved readings from the latest batch.
 It includes occurrence counts, available readings, and the first source
-file and line. A batch with no review items produces only the header.
+file and line. Fill the final `reading` column with lowercase, toneless
+Pinyin, using apostrophes between syllables. For an older review CSV, add
+that column after `first_line`. Leave unconfirmed readings blank. Import
+the edited CSV directly into the Pinyin index:
+
+```sh
+cargo run --release --locked -p si-cli -- lexicon add target/si-data/main.silex 0 target/si-data/words.sigram.review.csv
+```
+
+Only completed rows are imported. Each row contributes its `count` to the
+selected reading and preserves its ID if it already exists. Import each
+confirmed row once. The import updates the lexicon only, so gram counts
+from earlier batches stay as recorded. A batch with no review items
+produces only the header.
+
 Every completed import adds its counts, even if the source was imported
 previously. If an import is interrupted while publishing, rerun the same
 command to finish publication without recounting the corpus.
@@ -461,28 +562,28 @@ the same text and primary reading.
 
 Start with a CSV of single Han characters and their full Pinyin readings.
 The `--han` option accepts ordinary UTF-8 text and counts contiguous
-characters. `lexicon learn` checks both the original gram count and the
-share of continuations of the same prefix. Edit
-[the learning configuration](config/lexicon-learning.conf) to select the
-Pinyin index, set both thresholds for each order, and set the optional
-`force_count` for all orders.
+characters. `lexicon learn` reads only the bigram table and proposes
+two-character words using the original count, both shares, and lift. Edit
+[the `[base]` section of SI configuration](config/si.conf) to select the
+Pinyin index and set the four bigram thresholds.
 
 ```sh
 cargo run --release --locked -p si-cli -- lexicon build target/si-data/learned.silex 0 /path/to/han-seed.csv
 cargo run --release --locked -p si-cli -- corpus build --han target/si-data/learned.silex target/si-data/characters.sigram /path/to/corpus.txt
-cargo run --release --locked -p si-cli -- lexicon learn target/si-data/learned.silex target/si-data/characters.sigram config/lexicon-learning.conf
+cargo run --release --locked -p si-cli -- --config config/si.conf lexicon learn target/si-data/learned.silex target/si-data/characters.sigram
 ```
 
-The configuration sets minimum counts of 1,000,000, 500,000 and 250,000 for
-orders 2, 3 and 4, with a 50 percent minimum share at each order. For example,
-`重庆` passes the share check if it accounts for at least half of all
-bigrams beginning with `重`. For a trigram, the comparison uses the first
-two characters. For a four-gram, it uses the first three. A raw count
-strictly greater than `force_count` qualifies even when the count or share
-falls below an order's threshold. Omit `force_count` to use the per-order
-thresholds alone. For every qualifying candidate, `pinyin_pro` reads the
-whole word together. A complete reading is added to the lexicon with the
-original gram count.
+The starting configuration requires at least 40,000 occurrences, at
+least 4 percent in each direction, and 10 times the expected independent
+co-occurrence.
+For `重庆`, the forward share uses all bigrams starting with `重` and the
+backward share uses all bigrams ending with `庆`. Lift divides the
+observed co-occurrence by the expected count from those two marginals.
+Set a share or lift threshold to zero to disable that check. Older
+configurations can still include the order-3 and order-4 settings.
+Corpus commands count through the configured `[base]` maximum order.
+For each qualifying candidate, `pinyin_pro` reads the whole word together.
+A complete reading is added to the lexicon with the original gram count.
 
 Use `corpus add --han` with each new corpus once, then rerun learning to
 add newly qualifying words. Existing words keep their IDs, counts, and readings.

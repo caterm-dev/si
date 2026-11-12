@@ -1,4 +1,4 @@
-//! Raw occurrence counts for ordered sequences of two, three or four words.
+//! Raw occurrence counts for ordered sequences of two to five words.
 //!
 //! ```
 //! use si_gram::GramBuilder;
@@ -28,7 +28,7 @@ use std::io;
 use std::num::NonZeroU64;
 use std::path::Path;
 
-use si_lexicon::{Lexicon, WordId};
+use si_lexicon::{Lexicon, Word, WordId};
 use table::Table;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -41,7 +41,7 @@ pub enum BuildError {
 impl fmt::Display for BuildError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
-            Self::InvalidOrder => "a gram must contain two, three or four words",
+            Self::InvalidOrder => "a gram must contain two to five words",
             Self::CountOverflow => "gram count exceeds u64",
             Self::CapacityExceeded => "gram table exceeds the 32-bit row limit",
         })
@@ -53,9 +53,11 @@ impl std::error::Error for BuildError {}
 /// Accumulates occurrences using ordinals from one dictionary file.
 #[derive(Default)]
 pub struct GramBuilder {
+    max_order: GramOrder,
     bigrams: HashMap<[u32; 2], u64>,
     trigrams: HashMap<[u32; 3], u64>,
     fourgrams: HashMap<[u32; 4], u64>,
+    fivegrams: HashMap<[u32; 5], u64>,
 }
 
 impl GramBuilder {
@@ -63,9 +65,14 @@ impl GramBuilder {
         Self::default()
     }
 
+    /// Set the highest order for future observations. Existing counts are retained.
+    pub fn set_max_order(&mut self, order: GramOrder) {
+        self.max_order = order;
+    }
+
     /// Add a pre-counted gram. A zero count leaves the table unchanged.
     pub fn add(&mut self, words: &[WordId], count: u64) -> Result<(), BuildError> {
-        if !(2..=4).contains(&words.len()) {
+        if !(2..=MAX_ORDER).contains(&words.len()) {
             return Err(BuildError::InvalidOrder);
         }
         if count > 0 {
@@ -78,7 +85,7 @@ impl GramBuilder {
     /// Call separately at each boundary that grams must not cross.
     /// If any count overflows, leave all counts as they were before the call.
     pub fn observe(&mut self, words: &[WordId]) -> Result<(), BuildError> {
-        for order in 2..=4 {
+        for order in 2..=self.max_order as usize {
             for (offset, gram) in words.windows(order).enumerate() {
                 if let Err(error) = self.increment(gram, 1) {
                     for previous_order in 2..=order {
@@ -107,6 +114,7 @@ impl GramBuilder {
             bigrams: Table::from_counts(self.bigrams)?,
             trigrams: Table::from_counts(self.trigrams)?,
             fourgrams: Table::from_counts(self.fourgrams)?,
+            fivegrams: Table::from_counts(self.fivegrams)?,
         })
     }
 
@@ -115,6 +123,7 @@ impl GramBuilder {
             [a, b] => increment(&mut self.bigrams, ordinals([a, b]), count),
             [a, b, c] => increment(&mut self.trigrams, ordinals([a, b, c]), count),
             [a, b, c, d] => increment(&mut self.fourgrams, ordinals([a, b, c, d]), count),
+            [a, b, c, d, e] => increment(&mut self.fivegrams, ordinals([a, b, c, d, e]), count),
             _ => unreachable!("only supported gram orders reach increment"),
         }
     }
@@ -124,6 +133,7 @@ impl GramBuilder {
             [a, b] => decrement(&mut self.bigrams, ordinals([a, b])),
             [a, b, c] => decrement(&mut self.trigrams, ordinals([a, b, c])),
             [a, b, c, d] => decrement(&mut self.fourgrams, ordinals([a, b, c, d])),
+            [a, b, c, d, e] => decrement(&mut self.fivegrams, ordinals([a, b, c, d, e])),
             _ => unreachable!("only supported gram orders reach undo_observation"),
         }
     }
@@ -154,7 +164,81 @@ fn decrement<const N: usize>(counts: &mut HashMap<[u32; N], u64>, key: [u32; N])
     }
 }
 
-/// Immutable counts tied to the lexicon that assigned the word ordinals.
+/// A supported length of a word sequence.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum GramOrder {
+    Bigram = 2,
+    Trigram = 3,
+    #[default]
+    Fourgram = 4,
+    Fivegram = 5,
+}
+
+impl TryFrom<u64> for GramOrder {
+    type Error = BuildError;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        match value {
+            2 => Ok(Self::Bigram),
+            3 => Ok(Self::Trigram),
+            4 => Ok(Self::Fourgram),
+            5 => Ok(Self::Fivegram),
+            _ => Err(BuildError::InvalidOrder),
+        }
+    }
+}
+
+pub const MAX_ORDER: usize = GramOrder::Fivegram as usize;
+
+/// Distinct row counts in ascending order, starting with bigrams.
+pub type GramSizes = [usize; MAX_ORDER - 1];
+
+/// The bigram portion of a saved gram model.
+pub struct BigramModel {
+    word_order: Option<NonZeroU64>,
+    legacy_word_order: bool,
+    surface_tokens: bool,
+    bigrams: Table<2>,
+}
+
+impl BigramModel {
+    /// Read the header and bigram table from a saved model.
+    pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
+        file::open_bigrams(path.as_ref())
+    }
+
+    pub fn uses_surface_tokens(&self) -> bool {
+        self.surface_tokens
+    }
+
+    pub fn bigrams(&self) -> impl ExactSizeIterator<Item = ([WordId; 2], u64)> + Clone + '_ {
+        entries(&self.bigrams)
+    }
+
+    /// Validate the referenced IDs and the saved word-order checksum.
+    pub fn check_lexicon(&self, lexicon: &Lexicon) -> io::Result<()> {
+        let required = required_words(self.bigrams.max_word_ordinal())?;
+        check_word_bounds(lexicon, required)?;
+        if let Some(saved) = self.word_order {
+            // The checksum may include IDs used only by a higher-order table.
+            // Look for the recorded prefix without reading those tables.
+            let prefixes = lexicon.words().scan(WORD_ORDER_HASH_OFFSET, |hash, word| {
+                *hash = hash_word(*hash, word, self.legacy_word_order);
+                Some(*hash)
+            });
+            if !std::iter::once(WORD_ORDER_HASH_OFFSET)
+                .chain(prefixes)
+                .skip(required)
+                .any(|hash| nonzero_hash(hash) == saved)
+            {
+                return Err(word_order_mismatch());
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Compact counts tied to the lexicon that assigned the word ordinals.
 pub struct GramModel {
     word_order: Option<NonZeroU64>,
     legacy_word_order: bool,
@@ -162,16 +246,43 @@ pub struct GramModel {
     bigrams: Table<2>,
     trigrams: Table<3>,
     fourgrams: Table<4>,
+    fivegrams: Table<5>,
 }
 
 impl GramModel {
-    /// Number of distinct bigrams, trigrams and fourgrams, in that order.
-    pub fn sizes(&self) -> [usize; 3] {
+    /// Number of distinct grams at each supported order, starting with bigrams.
+    pub fn sizes(&self) -> GramSizes {
         [
             self.bigrams.keys.len(),
             self.trigrams.keys.len(),
             self.fourgrams.keys.len(),
+            self.fivegrams.keys.len(),
         ]
+    }
+
+    /// Remove rows with counts below `min_count` from one order and return the number removed.
+    /// `lexicon` must assign the model's token IDs, including for surface-token models.
+    pub fn prune(
+        &mut self,
+        lexicon: &Lexicon,
+        order: GramOrder,
+        min_count: u64,
+    ) -> io::Result<usize> {
+        let previous_words = self.validate_word_order(lexicon)?;
+        let removed = match order {
+            GramOrder::Bigram => self.bigrams.prune(min_count),
+            GramOrder::Trigram => self.trigrams.prune(min_count),
+            GramOrder::Fourgram => self.fourgrams.prune(min_count),
+            GramOrder::Fivegram => self.fivegrams.prune(min_count),
+        };
+        if removed > 0 {
+            // Removing the highest ordinal can shorten the checksummed prefix.
+            let words = self.required_words()?;
+            if words != previous_words || self.word_order.is_none() {
+                self.word_order = Some(word_order_checksum(lexicon, words, self.legacy_word_order));
+            }
+        }
+        Ok(removed)
     }
 
     /// Visit bigrams and their raw counts in word-ordinal order.
@@ -189,12 +300,18 @@ impl GramModel {
         entries(&self.fourgrams)
     }
 
+    /// Visit five-grams and their raw counts in word-ordinal order.
+    pub fn fivegrams(&self) -> impl ExactSizeIterator<Item = ([WordId; 5], u64)> + Clone + '_ {
+        entries(&self.fivegrams)
+    }
+
     /// Largest word ordinal referenced anywhere in the model.
     pub fn max_word_ordinal(&self) -> Option<u32> {
         [
             self.bigrams.max_word_ordinal(),
             self.trigrams.max_word_ordinal(),
             self.fourgrams.max_word_ordinal(),
+            self.fivegrams.max_word_ordinal(),
         ]
         .into_iter()
         .flatten()
@@ -228,40 +345,27 @@ impl GramModel {
 
     fn validate_word_order(&self, lexicon: &Lexicon) -> io::Result<usize> {
         let words = self.required_words()?;
-        if words > lexicon.len() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "gram model references words missing from the lexicon snapshot",
-            ));
-        }
+        check_word_bounds(lexicon, words)?;
         if self.word_order.is_some_and(|saved| {
             saved != word_order_checksum(lexicon, words, self.legacy_word_order)
         }) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "gram model word order does not match the lexicon snapshot",
-            ));
+            return Err(word_order_mismatch());
         }
         Ok(words)
     }
 
     fn required_words(&self) -> io::Result<usize> {
-        self.max_word_ordinal().map_or(Ok(0), |ordinal| {
-            (ordinal as usize).checked_add(1).ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "gram word ordinal is out of range",
-                )
-            })
-        })
+        required_words(self.max_word_ordinal())
     }
 
     /// Move existing raw counts back into a builder for incremental imports.
     pub fn into_builder(self) -> GramBuilder {
         GramBuilder {
+            max_order: GramOrder::default(),
             bigrams: self.bigrams.into_counts(),
             trigrams: self.trigrams.into_counts(),
             fourgrams: self.fourgrams.into_counts(),
+            fivegrams: self.fivegrams.into_counts(),
         }
     }
 
@@ -271,11 +375,12 @@ impl GramModel {
             [a, b] => self.bigrams.count(ordinals([a, b])),
             [a, b, c] => self.trigrams.count(ordinals([a, b, c])),
             [a, b, c, d] => self.fourgrams.count(ordinals([a, b, c, d])),
+            [a, b, c, d, e] => self.fivegrams.count(ordinals([a, b, c, d, e])),
             _ => None,
         }
     }
 
-    /// Prepare the observed continuations of a one-, two- or three-word history.
+    /// Prepare the observed continuations of a one- to four-word history.
     /// A prepared context can score several candidates with the same history.
     pub fn context(&self, history: &[WordId]) -> Context<'_> {
         let (keys, counts) = match history {
@@ -290,6 +395,10 @@ impl GramModel {
             [a, b, c] => {
                 let (keys, counts) = self.fourgrams.prefix(ordinals([a, b, c]));
                 (ContextKeys::Fourgram(keys), counts)
+            }
+            [a, b, c, d] => {
+                let (keys, counts) = self.fivegrams.prefix(ordinals([a, b, c, d]));
+                (ContextKeys::Fivegram(keys), counts)
             }
             _ => (ContextKeys::Bigram(&[]), &[][..]),
         };
@@ -307,21 +416,63 @@ impl GramModel {
     }
 }
 
+fn required_words(maximum: Option<u32>) -> io::Result<usize> {
+    maximum.map_or(Ok(0), |ordinal| {
+        (ordinal as usize).checked_add(1).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                "gram word ordinal is out of range",
+            )
+        })
+    })
+}
+
+fn check_word_bounds(lexicon: &Lexicon, required: usize) -> io::Result<()> {
+    if required > lexicon.len() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "gram model references words missing from the lexicon snapshot",
+        ));
+    }
+    Ok(())
+}
+
+fn word_order_mismatch() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::InvalidData,
+        "gram model word order does not match the lexicon snapshot",
+    )
+}
+
+const WORD_ORDER_HASH_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+
 fn word_order_checksum(lexicon: &Lexicon, words: usize, legacy: bool) -> NonZeroU64 {
+    nonzero_hash(
+        lexicon
+            .words()
+            .take(words)
+            .fold(WORD_ORDER_HASH_OFFSET, |hash, word| {
+                hash_word(hash, word, legacy)
+            }),
+    )
+}
+
+fn hash_word(mut hash: u64, word: Word<'_>, legacy: bool) -> u64 {
     // FNV-1a over exact text and the primary reading in ordinal order.
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for word in lexicon.words().take(words) {
-        hash = hash_bytes(hash, word.text.as_bytes());
-        hash = hash_bytes(hash, &[0xff]); // Not a UTF-8 byte.
-        if !legacy {
-            hash = hash_bytes(hash, &[u8::from(word.reading.is_some())]);
-            if let Some(reading) = word.reading {
-                hash = hash_bytes(hash, &reading.index.0.to_le_bytes());
-                hash = hash_bytes(hash, &(reading.key.len() as u32).to_le_bytes());
-                hash = hash_bytes(hash, reading.key);
-            }
+    hash = hash_bytes(hash, word.text.as_bytes());
+    hash = hash_bytes(hash, &[0xff]); // Not a UTF-8 byte.
+    if !legacy {
+        hash = hash_bytes(hash, &[u8::from(word.reading.is_some())]);
+        if let Some(reading) = word.reading {
+            hash = hash_bytes(hash, &reading.index.0.to_le_bytes());
+            hash = hash_bytes(hash, &(reading.key.len() as u32).to_le_bytes());
+            hash = hash_bytes(hash, reading.key);
         }
     }
+    hash
+}
+
+fn nonzero_hash(hash: u64) -> NonZeroU64 {
     NonZeroU64::new(hash).unwrap_or(NonZeroU64::MIN)
 }
 
@@ -346,6 +497,7 @@ enum ContextKeys<'a> {
     Bigram(&'a [[u32; 2]]),
     Trigram(&'a [[u32; 3]]),
     Fourgram(&'a [[u32; 4]]),
+    Fivegram(&'a [[u32; 5]]),
 }
 
 /// A borrowed range of observed continuations for one history.
@@ -360,6 +512,7 @@ impl Context<'_> {
             ContextKeys::Bigram(keys) => keys.binary_search_by_key(&next.0, |key| key[1]),
             ContextKeys::Trigram(keys) => keys.binary_search_by_key(&next.0, |key| key[2]),
             ContextKeys::Fourgram(keys) => keys.binary_search_by_key(&next.0, |key| key[3]),
+            ContextKeys::Fivegram(keys) => keys.binary_search_by_key(&next.0, |key| key[4]),
         };
         index.ok().map(|index| self.counts[index])
     }
@@ -371,6 +524,7 @@ impl Context<'_> {
                 ContextKeys::Bigram(keys) => keys[index][1],
                 ContextKeys::Trigram(keys) => keys[index][2],
                 ContextKeys::Fourgram(keys) => keys[index][3],
+                ContextKeys::Fivegram(keys) => keys[index][4],
             };
             (WordId(ordinal), count)
         })

@@ -10,16 +10,19 @@ mod progress;
 mod review;
 mod snapshot_csv;
 mod source;
+pub mod user;
 
 use std::ffi::OsString;
 use std::fs::{self, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use si_gram::{GramBuilder, GramModel};
+use si_gram::{BigramModel, GramBuilder, GramModel};
 use si_lexicon::{IndexId, Lexicon};
 
-pub use learning_config::LearningConfig;
+pub use si_gram::{GramOrder, GramSizes};
+
+pub use learning_config::{LearningConfig, SiConfig};
 pub use progress::CorpusProgress;
 use progress::ProgressReporter;
 
@@ -63,7 +66,7 @@ pub struct LexiconImport {
 pub struct CorpusImport {
     pub sentences: usize,
     pub unknown_tokens: usize,
-    pub grams: [usize; 3],
+    pub grams: GramSizes,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -75,13 +78,13 @@ pub struct ParagraphImport {
     pub number_placeholders: usize,
     pub unknown_characters: usize,
     pub ambiguous_words: usize,
-    pub grams: [usize; 3],
+    pub grams: GramSizes,
     pub review: Option<LexiconReview>,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct LexiconLearning {
-    /// Number of words added from each order, starting with bigrams.
+    /// Number of words added by order. Learning currently uses only bigrams.
     pub added: [usize; 3],
     pub review: Option<LexiconReview>,
 }
@@ -118,7 +121,7 @@ pub fn restore_lexicon(source: &Path, output: &Path) -> io::Result<LexiconImport
     })
 }
 
-/// Learn Han words with complete Pinyin readings and export unresolved candidates.
+/// Learn two-character Han words and export candidates with unresolved readings.
 pub fn learn_lexicon(
     path: &Path,
     grams: &Path,
@@ -126,7 +129,7 @@ pub fn learn_lexicon(
 ) -> io::Result<LexiconLearning> {
     with_destination(path, true, || {
         let mut lexicon = Lexicon::open(path)?;
-        let model = GramModel::open(grams)?;
+        let model = BigramModel::open(grams)?;
         let characters;
         let surface_tokens = if model.uses_surface_tokens() {
             characters = source::han_lexicon(&lexicon)?;
@@ -139,10 +142,13 @@ pub fn learn_lexicon(
         let mut review = review::ReviewCsv::new(path);
         let added = learn::add_words(&mut lexicon, &model, surface_tokens, config, &mut review)?;
         let review = review.finish()?;
-        if added != [0; 3] {
+        if added != 0 {
             lexicon.save(path)?;
         }
-        Ok(LexiconLearning { added, review })
+        Ok(LexiconLearning {
+            added: [added, 0, 0],
+            review,
+        })
     })
 }
 
@@ -160,6 +166,29 @@ pub fn add_corpus(lexicon: &Path, output: &Path, sources: &[PathBuf]) -> io::Res
     count_corpus_with_progress(lexicon, output, sources, CorpusCountMode::Add, |_| {})
 }
 
+/// Atomically prune one order from an existing corpus snapshot using its paired lexicon.
+pub fn prune_corpus(
+    lexicon: &Path,
+    grams: &Path,
+    order: GramOrder,
+    min_count: u64,
+) -> io::Result<usize> {
+    with_destination(grams, true, || {
+        let lexicon = Lexicon::open(lexicon)?;
+        let mut model = GramModel::open(grams)?;
+        let tokens = if model.uses_surface_tokens() {
+            source::han_lexicon(&lexicon)?
+        } else {
+            lexicon
+        };
+        let removed = model.prune(&tokens, order, min_count)?;
+        if removed > 0 {
+            model.save(grams)?;
+        }
+        Ok(removed)
+    })
+}
+
 /// Segment raw paragraphs and create or update the paired lexicon and gram files.
 pub fn ingest_corpus(
     lexicon: &Path,
@@ -174,6 +203,23 @@ pub fn ingest_corpus_with_progress(
     lexicon: &Path,
     grams: &Path,
     sources: &[PathBuf],
+    notify: impl FnMut(CorpusProgress),
+) -> io::Result<ParagraphImport> {
+    ingest_corpus_with_order(
+        lexicon,
+        grams,
+        sources,
+        SiConfig::default().base_max_order,
+        notify,
+    )
+}
+
+/// Import raw paragraphs with a maximum word-gram order for this batch.
+pub fn ingest_corpus_with_order(
+    lexicon: &Path,
+    grams: &Path,
+    sources: &[PathBuf],
+    max_order: GramOrder,
     mut notify: impl FnMut(CorpusProgress),
 ) -> io::Result<ParagraphImport> {
     require_sources(sources)?;
@@ -187,7 +233,7 @@ pub fn ingest_corpus_with_progress(
         return Ok(report);
     }
     let mut progress = ProgressReporter::new(sources.len(), &mut notify);
-    paragraph::ingest(&paths, sources, &mut progress)
+    paragraph::ingest(&paths, sources, max_order, &mut progress)
 }
 
 /// Build a new gram model from contiguous runs of known Han characters.
@@ -245,6 +291,25 @@ pub fn count_corpus_with_progress(
     output: &Path,
     sources: &[PathBuf],
     mode: CorpusCountMode,
+    notify: impl FnMut(CorpusProgress),
+) -> io::Result<CorpusImport> {
+    count_corpus_with_order(
+        lexicon,
+        output,
+        sources,
+        mode,
+        SiConfig::default().base_max_order,
+        notify,
+    )
+}
+
+/// Count new corpus observations through the selected order and retain saved counts.
+pub fn count_corpus_with_order(
+    lexicon: &Path,
+    output: &Path,
+    sources: &[PathBuf],
+    mode: CorpusCountMode,
+    max_order: GramOrder,
     mut notify: impl FnMut(CorpusProgress),
 ) -> io::Result<CorpusImport> {
     require_sources(sources)?;
@@ -273,6 +338,7 @@ pub fn count_corpus_with_progress(
         } else {
             GramBuilder::new()
         };
+        builder.set_max_order(max_order);
         let mut counts = progress::ProgressCounts::default();
         for input in sources {
             source::read_corpus(input, &lookup, &mut builder, &mut counts, &mut progress)?;

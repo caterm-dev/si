@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use si_lexicon::{Lexicon, WordId};
+use si_lexicon::Reading;
 
 use crate::han;
 use crate::pinyin::{canonical_syllable, read_syllables};
@@ -39,29 +39,24 @@ impl ContextualPinyin {
         self.offsets[0] <= range.start && self.offsets[self.syllables.len()] >= range.end
     }
 
-    pub(super) fn resolve(
-        &self,
-        lexicon: &Lexicon,
-        text: &str,
-        range: Range<usize>,
-    ) -> Option<WordId> {
-        let start = self.offsets.binary_search(&range.start).ok()?;
-        let end = self.offsets.binary_search(&range.end).ok()?;
+    pub(super) fn matches(&self, range: &Range<usize>, reading: Option<Reading<'_>>) -> bool {
+        let (Ok(start), Ok(end)) = (
+            self.offsets.binary_search(&range.start),
+            self.offsets.binary_search(&range.end),
+        ) else {
+            return false;
+        };
         let prediction = &self.syllables[start..end];
         if prediction.iter().any(Option::is_none) {
-            return None;
+            return false;
         }
-        let mut matches = lexicon.words_for_text(&text[range]).filter(|word| {
-            word.reading
-                .and_then(|reading| std::str::from_utf8(reading.key).ok())
-                .is_some_and(|reading| {
-                    reading
-                        .split('\'')
-                        .map(canonical_syllable)
-                        .eq(prediction.iter().flatten().map(String::as_str))
-                })
-        });
-        let id = matches.next()?.id;
-        matches.next().is_none().then_some(id)
+        reading
+            .and_then(|reading| std::str::from_utf8(reading.key).ok())
+            .is_some_and(|reading| {
+                reading
+                    .split('\'')
+                    .map(canonical_syllable)
+                    .eq(prediction.iter().flatten().map(String::as_str))
+            })
     }
 }

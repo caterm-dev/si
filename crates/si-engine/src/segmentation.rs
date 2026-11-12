@@ -4,7 +4,7 @@ mod pinyin;
 
 use std::ops::Range;
 
-use si_lexicon::{Lexicon, WordId};
+use si_lexicon::{Lexicon, Word, WordId};
 
 use self::pinyin::ContextualPinyin;
 use crate::han;
@@ -12,6 +12,7 @@ use crate::han;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SegmentKind {
     Word(WordId),
+    UserWord(WordId),
     NewEnglishWord,
     Letter,
     Number,
@@ -31,14 +32,37 @@ pub struct Segment {
 /// An index over exact output spellings, shared by all paragraphs in one import.
 pub struct Segmenter<'a> {
     lexicon: &'a Lexicon,
-    entries: Vec<(&'a str, WordId)>,
+    user: Option<&'a Lexicon>,
+    entries: Vec<(&'a str, SegmentKind)>,
 }
 
 impl<'a> Segmenter<'a> {
     pub fn new(lexicon: &'a Lexicon) -> Self {
-        let mut entries: Vec<_> = lexicon.words().map(|word| (word.text, word.id)).collect();
+        Self::with_overlay(lexicon, None)
+    }
+
+    pub(crate) fn with_user(lexicon: &'a Lexicon, user: &'a Lexicon) -> Self {
+        Self::with_overlay(lexicon, Some(user))
+    }
+
+    fn with_overlay(lexicon: &'a Lexicon, user: Option<&'a Lexicon>) -> Self {
+        let mut entries: Vec<_> = lexicon
+            .words()
+            .map(|word| (word.text, SegmentKind::Word(word.id)))
+            .collect();
+        if let Some(user) = user {
+            entries.extend(
+                user.words()
+                    .filter(|word| is_user_only(lexicon, *word))
+                    .map(|word| (word.text, SegmentKind::UserWord(word.id))),
+            );
+        }
         entries.sort_unstable_by(|left, right| left.0.cmp(right.0));
-        Self { lexicon, entries }
+        Self {
+            lexicon,
+            user,
+            entries,
+        }
     }
 
     /// Match the longest entry at each position and advance past the entire match.
@@ -72,13 +96,37 @@ impl<'a> Segmenter<'a> {
                     }
                     contextual_pinyin
                         .as_ref()
-                        .and_then(|pinyin| pinyin.resolve(self.lexicon, text, range.clone()))
-                        .map_or(kind, SegmentKind::Word)
+                        .and_then(|pinyin| self.resolve(pinyin, text, &range))
+                        .unwrap_or(kind)
                 } else {
                     kind
                 };
             Some(Segment { range, kind })
         })
+    }
+
+    fn resolve(
+        &self,
+        pinyin: &ContextualPinyin,
+        text: &str,
+        range: &Range<usize>,
+    ) -> Option<SegmentKind> {
+        let surface = &text[range.clone()];
+        let base = self
+            .lexicon
+            .words_for_text(surface)
+            .map(|word| (word, SegmentKind::Word(word.id)));
+        let user = self
+            .user
+            .into_iter()
+            .flat_map(|lexicon| lexicon.words_for_text(surface))
+            .filter(|word| is_user_only(self.lexicon, *word))
+            .map(|word| (word, SegmentKind::UserWord(word.id)));
+        let mut matches = base
+            .chain(user)
+            .filter(|(word, _)| pinyin.matches(range, word.reading));
+        let (_, kind) = matches.next()?;
+        matches.next().is_none().then_some(kind)
     }
 
     fn alphanumeric(&self, text: &str, first: char) -> (usize, SegmentKind) {
@@ -118,7 +166,7 @@ impl<'a> Segmenter<'a> {
             let end_of_range =
                 entries.partition_point(|(word, _)| word[offset..].starts_with(unit));
             entries = &entries[..end_of_range];
-            let Some(&(word, id)) = entries.first() else {
+            let Some(&(word, kind)) = entries.first() else {
                 break;
             };
             let splits_run = text.as_bytes().get(end).is_some_and(|next| {
@@ -127,14 +175,25 @@ impl<'a> Segmenter<'a> {
             });
             if word.len() == end && !splits_run {
                 let multiple = entries.get(1).is_some_and(|(word, _)| word.len() == end);
-                let kind = if multiple || self.lexicon.word(id).unwrap().reading.is_none() {
+                let unresolved = match kind {
+                    SegmentKind::Word(id) => self.lexicon.word(id).unwrap().reading.is_none(),
+                    _ => false,
+                };
+                let kind = if multiple || unresolved {
                     SegmentKind::Ambiguous
                 } else {
-                    SegmentKind::Word(id)
+                    kind
                 };
                 longest = Some((end, kind));
             }
         }
         longest
     }
+}
+
+fn is_user_only(base: &Lexicon, word: Word<'_>) -> bool {
+    word.reading.is_some_and(|reading| {
+        base.find_reading(reading.index, reading.key, word.text)
+            .is_none()
+    })
 }

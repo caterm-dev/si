@@ -1,9 +1,7 @@
 """Snapshot and read explicit local SI text and the pinned Chinese dialogue download."""
 
-import gzip
 import json
 from pathlib import Path
-import re
 import shutil
 import zipfile
 
@@ -12,7 +10,6 @@ if __package__:
 else:
     from common import digest
 
-LCCC_SPACES = re.compile(r'(?<=[\u3400-\u9fff，。！？；：、]) +(?=[\u3400-\u9fff，。！？；：、])')
 DATASETS = {'lccc-base', 'kdconv', 'crosswoz', 'oasst1'}
 CHINESE_LANGUAGES = {'zh', 'zh-cn', 'zh-tw', 'zh-hans', 'zh-hant'}
 
@@ -49,13 +46,17 @@ def snapshot(kind, root):
     value = json.loads(manifest.read_text(encoding='utf-8'))
     if value.get('schema_version') != 1 or value.get('kind') != 'raw-conversation-downloads':
         raise ValueError('Unsupported local dialogue download manifest')
-    datasets = value['sources']
-    if not datasets or len({row['id'] for row in datasets}) != len(datasets):
+    declared = value['sources']
+    if not declared or len({row['id'] for row in declared}) != len(declared):
         raise ValueError('Empty or duplicate dialogue dataset IDs')
+    if any(row['id'] not in DATASETS or not row.get('files') for row in declared):
+        raise ValueError('Unsupported or empty dialogue dataset')
+    # LCCC-base is already extracted by the standalone pinned lccc source.
+    datasets = [row for row in declared if row['id'] != 'lccc-base']
+    if not datasets:
+        raise ValueError('No dialogue datasets remain after excluding LCCC-base')
     files = {'download-manifest.json': fingerprint(root, 'download-manifest.json')}
     for dataset in datasets:
-        if dataset['id'] not in DATASETS or not dataset.get('files'):
-            raise ValueError('Unsupported or empty dialogue dataset')
         for entry in dataset['files']:
             if Path(entry['path']).is_absolute() or '..' in Path(entry['path']).parts:
                 raise ValueError('Unsafe local source path')
@@ -74,7 +75,8 @@ def snapshot(kind, root):
         files['acquisition.json'] = fingerprint(root, 'acquisition.json')
     return {'id': 'dialogue', 'kind': 'dialogue', 'datasets': datasets,
             'files': [files[name] for name in sorted(files)],
-            'selection': 'LCCC/KdConv/CrossWOZ utterances; OASST1 Chinese-language messages only, with original parent IDs. No quality filtering or deduplication.'}
+            'selection': 'KdConv/CrossWOZ utterances and OASST1 Chinese-language messages, with original parent IDs. '
+                         'LCCC-base is extracted separately as lccc. No quality filtering or line deduplication.'}
 
 
 def si_documents(source, root, counts):
@@ -130,19 +132,6 @@ def dialogue_documents(source, root, counts):
                         yield origin, text, {**common, 'message_id': row['message_id'],
                                              'parent_id': row['parent_id'], 'conversation': row['message_tree_id'],
                                              'role': row['role'], 'language': row['lang']}
-                continue
-            if identity == 'lccc-base':
-                # The original release has no preassigned dev/test split.
-                with gzip.open(path, 'rt', encoding='utf-8') as handle:
-                    for index, line in enumerate(handle, 1):
-                        counts['records_read'] += 1
-                        row = json.loads(line)
-                        if not isinstance(row, list):
-                            raise ValueError('Invalid LCCC dialogue row')
-                        for turn, text in enumerate(row):
-                            origin = f'{name}/row:{index}/turn:{turn}'
-                            yield origin, LCCC_SPACES.sub('', require_text(text, origin)), {
-                                **common, 'split': 'train', 'conversation': index, 'turn': turn}
                 continue
             if identity == 'kdconv':
                 conversations = json.loads(path.read_text(encoding='utf-8'))

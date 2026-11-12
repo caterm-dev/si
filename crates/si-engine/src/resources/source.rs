@@ -8,6 +8,7 @@ use si_gram::GramBuilder;
 use si_lexicon::{IndexId, Lexicon, WordId};
 
 use super::LexiconSource;
+use super::paragraph_review;
 use super::progress::{ProgressCounts, ProgressReporter};
 use crate::han;
 
@@ -42,43 +43,60 @@ pub(super) fn read_lexicon(input: &LexiconSource, lexicon: &mut Lexicon) -> io::
 fn read_lexicon_csv(path: &Path, index: IndexId, lexicon: &mut Lexicon) -> io::Result<usize> {
     let mut reader = open_source(path)?;
     let mut buffer = String::new();
-    reader
-        .read_line(&mut buffer)
-        .map_err(|error| bad_line(path, 1, error))?;
-    let header = csv_fields(strip_bom(without_line_ending(&buffer)));
-    if !header.is_some_and(|[text, reading, weight]| {
-        text == "text" && reading == "reading" && weight == "weight"
-    }) {
-        return Err(bad_line(path, 1, "expected CSV header text,reading,weight"));
+    let mut line = 0;
+    read_csv_record(&mut reader, path, &mut line, &mut buffer)?;
+    let header = strip_bom(without_line_ending(&buffer));
+    let is_review = csv_fields::<7>(header).is_some_and(|fields| {
+        fields
+            .iter()
+            .map(|field| field.as_ref())
+            .eq(paragraph_review::HEADER.split(','))
+    });
+    if !is_review
+        && !csv_fields(header).is_some_and(|[text, reading, weight]| {
+            text == "text" && reading == "reading" && weight == "weight"
+        })
+    {
+        return Err(bad_line(
+            path,
+            1,
+            "expected text,reading,weight or an ingest review CSV with a final reading column",
+        ));
     }
 
     let mut rows = 0;
-    loop {
-        buffer.clear();
-        let line = rows + 2;
-        let size = reader
-            .read_line(&mut buffer)
-            .map_err(|error| bad_line(path, line, error))?;
-        if size == 0 {
-            return Ok(rows);
-        }
-        let [text, key, count] = csv_fields(without_line_ending(&buffer))
-            .ok_or_else(|| bad_line(path, line, "expected three valid CSV fields"))?;
+    while let Some(start) = read_csv_record(&mut reader, path, &mut line, &mut buffer)? {
+        let row = without_line_ending(&buffer);
+        let (text, key, count) = if is_review {
+            let [_, text, count, _, _, _, key] = csv_fields(row)
+                .ok_or_else(|| bad_line(path, start, "expected seven valid review CSV fields"))?;
+            if key.trim().is_empty() {
+                continue;
+            }
+            (text, key, count)
+        } else {
+            let [text, key, count] = csv_fields(row)
+                .ok_or_else(|| bad_line(path, start, "expected three valid CSV fields"))?;
+            (text, key, count)
+        };
+        let key = if is_review { key.trim() } else { key.as_ref() };
         if text.trim().is_empty() || text.chars().any(char::is_control) {
-            return Err(bad_line(path, line, "invalid word text"));
+            return Err(bad_line(path, start, "invalid word text"));
         }
         if key.trim().is_empty() {
-            return Err(bad_line(path, line, "missing reading"));
+            return Err(bad_line(path, start, "missing reading"));
         }
         if key.chars().any(char::is_control) {
-            return Err(bad_line(path, line, "invalid reading"));
+            return Err(bad_line(path, start, "invalid reading"));
         }
-        let count = parse_count(&count).ok_or_else(|| bad_line(path, line, "invalid raw count"))?;
+        let count =
+            parse_count(&count).ok_or_else(|| bad_line(path, start, "invalid raw count"))?;
         lexicon
             .add_reading(index, key.as_bytes(), &text, count)
-            .map_err(|error| bad_line(path, line, error))?;
+            .map_err(|error| bad_line(path, start, error))?;
         rows += 1;
     }
+    Ok(rows)
 }
 
 pub(super) enum CorpusLookup<'a> {
@@ -277,6 +295,40 @@ pub(super) fn parse_count(count: &str) -> Option<u64> {
         .all(|byte| byte.is_ascii_digit())
         .then(|| count.parse().ok())
         .flatten()
+}
+
+pub(super) fn read_csv_record(
+    reader: &mut impl BufRead,
+    source: &Path,
+    line: &mut usize,
+    record: &mut String,
+) -> io::Result<Option<usize>> {
+    record.clear();
+    let start = *line + 1;
+    let mut quoted = false;
+    loop {
+        let offset = record.len();
+        if reader
+            .read_line(record)
+            .map_err(|error| bad_line(source, *line + 1, error))?
+            == 0
+        {
+            if quoted {
+                return Err(bad_line(source, start, "unterminated quoted CSV field"));
+            }
+            return Ok(None);
+        }
+        *line += 1;
+        // Escaped quote pairs have no effect on whether the record spans lines.
+        let quotes = record.as_bytes()[offset..]
+            .iter()
+            .filter(|&&byte| byte == b'"')
+            .count();
+        quoted ^= !quotes.is_multiple_of(2);
+        if !quoted {
+            return Ok(Some(start));
+        }
+    }
 }
 
 pub(super) fn csv_fields<const N: usize>(row: &str) -> Option<[Cow<'_, str>; N]> {

@@ -33,6 +33,46 @@ Host application key event
   → committed text in the host application
 ```
 
+## Rust conversion
+
+`CandidateEngine` borrows a loaded base resource pair and an optional
+loaded user pair. It indexes both lexicons once and searches them on every
+request for the enabled languages. Lookup index 0 is full Pinyin and
+index 1 is English. Base and user entries share statistical evidence only
+when exact output bytes, primary reading and lookup index agree. Every
+gram lookup uses the IDs of its own lexicon. A newly loaded user snapshot
+can be used by constructing a new engine.
+
+Input normalization maps spelling to UTF-8 grapheme boundaries in the
+original input. The
+[`unicode-segmentation` 1.13.3 crate](https://github.com/unicode-rs/unicode-segmentation)
+implements UAX #29 and is distributed under MIT or Apache-2.0. Pinyin
+apostrophes constrain syllable cuts and belong to the preceding syllable
+for prefix consumption. Umlaut aliases share a spelling but consume their
+own bytes. English uses case-insensitive lookup with typed capitalization
+applied to output. Constructed paths join Chinese words directly and
+insert a space at English word boundaries. Unrecognized spans stop that
+path. An exact literal is available for every nonempty input.
+
+Conversion uses a word lattice with up to 24 paths per input position,
+language combination and scoring lane. The base lane preserves dictionary
+paths when user evidence is enabled. Exact direct dictionary matches
+bypass the beam. Constructed paths are bounded to the first 128 normalized
+units and 4,096 output bytes. Final completions can extend up to eight
+spelling units, with up to 32 direct completions per language. Composed
+prefixes retain up to two distinct outputs per lane and span.
+
+Each edge adds a unigram or smoothed gram log probability in bits and
+pays explicit spelling, token and language-transition costs. User
+unigrams interpolate with the base prior. Base and user gram evidence is
+interpolated from short to long histories during search, and a language
+change resets the history. User evidence is bounded. Scores are heuristic
+and use only the source consumed by each path. Whole results sort ahead of
+prefixes, longer prefixes precede shorter ones, and score and stable
+identity break ties within a span. The engine retains distinct languages
+for identical output and keeps the exact literal last. Rust scoring runs
+independently of the macOS app's Swift/KenLM ranking.
+
 ## Rust resource workflow
 
 `si-cli` parses command-line arguments and prints import summaries.
@@ -67,6 +107,13 @@ after the entire import succeeds. Each dictionary has its own file, such
 as `main.silex` or `user.silex`. Pair a gram snapshot with the lexicon that
 assigned its word IDs. Incremental imports preserve existing IDs, so gram
 snapshots remain compatible when words are appended.
+
+[SI configuration](../config/si.conf) selects independent maximum counting
+orders and vocabulary thresholds for base and user resources. Base corpus
+commands use `[base]`, and user word-gram imports use `[user]`. Each import
+counts new observations from order two through the selected maximum. It
+preserves existing rows at every order when the setting changes. Paragraph
+recovery publishes the staged result using the original batch's counts.
 
 The engine reports aggregate corpus progress at file boundaries, periodically
 while reading, and before building and saving gram tables. Byte progress
@@ -112,9 +159,12 @@ publication leave existing snapshot files intact.
 The review CSV at `<grams.sigram>.review.csv` groups unmatched and unresolved
 segments from the latest batch by exact text and reason. It includes counts,
 readable candidate keys from the lexicon, and each entry's first source path
-and 1-based line number. It contains only the header when there are no review
-items. Unix output permissions are owner-only. Import summaries contain
-aggregate counts.
+and 1-based line number. The final `reading` column is blank on export.
+`lexicon add` imports completed rows from this format and uses `count`
+as the reading's count delta. It skips blank readings and leaves previously
+counted grams intact. The review contains only the header when there are
+no review items. Unix output permissions are owner-only. Import summaries
+contain aggregate counts.
 
 The shared Pinyin reader uses the [argsno Rust port of pinyin-pro](https://github.com/argsno/pinyin-pro-rust),
 published on crates.io as `pinyin_pro` 3.29.4 at revision
@@ -149,23 +199,26 @@ delete them when no longer needed. The repository ignores files named
 ### Chinese vocabulary discovery
 
 The offline `corpus build --han` and `corpus add --han` commands count
-overlapping windows of two, three, and four known Han characters. These grams
+overlapping windows of known Han characters through the base maximum order. These grams
 use a separate character table keyed by written form for discovery.
 Unknown Han characters, non-Han characters, and line endings break sequences. The Han
 classifier uses the [Unicode 17.0 Unified_Ideograph property](https://www.unicode.org/Public/17.0.0/ucd/PropList.txt)
 plus U+3007. The default corpus commands continue to take whitespace-separated
 tokens.
 
-`lexicon learn` loads the Pinyin index and per-order thresholds from
-[the learning configuration](../config/lexicon-learning.conf). A candidate
-qualifies when its raw count exceeds the optional `force_count` shared
-by all orders, or when it meets both the minimum raw count and the minimum
-prefix share for its order. For
-order N, the share is its raw count divided by the sum of counts of all
-order-N grams with the same first N−1 tokens. The denominator includes
-rows below the count threshold and rows that cannot become entries. The
-comparison includes equality and uses integer arithmetic. Setting the
-percentage to zero disables the share threshold for that order.
+`lexicon learn` reads the bigram table and validates the lexicon's
+word-order checksum. It loads the Pinyin index and bigram thresholds from
+[the `[base]` section of SI configuration](../config/si.conf). Each
+candidate must meet the raw count floor. For a pair `L | R`, let `C`
+be its count, `A` the sum of bigram counts starting with `L`, `B` the
+sum of bigram counts ending with `R`, and `T` the total bigram count.
+The forward share is `C/A`, the backward share is `C/B`, and lift is
+`(C × T)/(A × B)`.
+Each pair must meet all enabled thresholds. Denominators include
+rows below the count floor and rows that cannot become entries. The
+learner accumulates the marginals for candidates in a second pass over
+the bigram table. Comparisons are exact and inclusive. A zero share or
+lift threshold disables that check.
 
 The learner requires single Han characters with lowercase ASCII syllable
 keys in the selected full-Pinyin index. It concatenates their exact output
@@ -194,6 +247,38 @@ CSVs, and gram files to remove those local artifacts. Review CSVs use
 owner-only file permissions on Unix. The repository ignores review files
 generated beside `.silex` snapshots. This workflow is independent of the app's
 Personal Learning, Input History and Sentence History.
+
+## Rust user model
+
+`UserModelStore` takes explicitly supplied sentences and a read-only base
+lexicon. One forward maximum-matching index combines the base lexicon and
+the user's current entries. Identical text, lookup index and primary reading
+resolve to one lexeme. Contextual Pinyin disambiguates known Han readings.
+The profile allocates its own word IDs and increments only its own counts,
+including for matches found in the base. New English runs preserve case and
+use lowercase lookup keys in index 1. A Han character outside both lexicons
+uses a derived reading when available. Spaces preserve word adjacency.
+Punctuation, numbers and unresolved text end a word-gram sequence, as does
+each sentence boundary.
+
+An independent Han-character bigram table tracks adjacent characters
+regardless of word boundaries. User learning applies its own occurrence,
+directional-share and lift thresholds, skips existing Chinese words, and
+adds two-character words with complete Pinyin readings. A newly learned word
+starts with its observed character-pair count and participates in later
+segmentation. Earlier word grams retain the segmentation used when imported.
+Base and user snapshots can be loaded together as independent
+`EngineResources`, each with its own lexicon-to-gram ID mapping.
+
+The profile serializes updates with a stable lock. It writes the paired
+lexicon and gram snapshots, character evidence and batch receipts into an
+inactive generation. One atomic pointer change publishes the generation.
+Readers load the selected pair under the same lock. An interrupted write
+leaves either the previous generation or the fully published generation
+readable. A repeat batch ID prevents recounting, and the next update
+removes any inactive generation. Clear publishes an empty profile and
+deletes both generations. Only derived words, counts and opaque batch IDs
+are retained. The `.si-user` directory is ignored by Git.
 
 ## Rust lexicon
 
@@ -235,20 +320,22 @@ dictionary. Reported query percentiles are computed over batch averages.
 
 ## Rust gram model
 
-`si-gram` stores raw 64-bit occurrence counts for ordered sequences of two,
-three, or four words. The builder accepts pre-counted grams or counts every
+`si-gram` stores raw 64-bit occurrence counts for ordered sequences of two
+through five words. The builder accepts pre-counted grams or counts every
 overlapping window in a pre-tokenized sequence. Call the builder separately
 for each sentence or other boundary. Importers supply tokenization and
 `WordId` values from one lexicon file per model.
 
-The immutable model keeps a sorted key table and a count array for each order.
+The model keeps a sorted key table and a count array for each order.
 A small in-memory directory uses the first word ordinal to narrow each exact
 lookup. For repeated candidate queries, a prepared context borrows the
 contiguous rows for one history and looks up each next word within those
 rows. Both lookup paths allocate no heap memory.
 
-A versioned `.sigram` snapshot uses 16, 20, and 24 bytes per bigram, trigram,
-and four-gram respectively, plus a 28-byte header. CLI-generated gram files
+A `.sigram` snapshot uses four bytes per word ID and eight bytes per count.
+Version 4 stores the highest serialized order and the row count at each
+order in its header. Snapshots with five-grams use version 4, and snapshots
+through order four retain the earlier layout. CLI-generated gram files
 record a checksum of exact text, primary reading, and lookup index in
 ordinal order through the largest referenced ordinal. The engine uses it
 to detect a mismatch even when two entries share the same text. Appending
@@ -258,7 +345,13 @@ arrays, and rebuilds the lookup directory. The Rust
 benchmark measures snapshot size, warm open, exact hits and misses, and
 queries with prepared histories on synthetic data.
 
-Version 1 and 2 files remain readable. An older dictionary entry with one
+Offline pruning filters rows below a caller-supplied count in one order.
+It validates the paired lexicon before filtering, rebuilds the affected
+lookup directory, and refreshes the pairing checksum if the referenced
+lexicon prefix shrinks. The engine uses the corpus writer lock and existing
+snapshot replacement path to publish the result.
+
+Version 1, 2, and 3 files remain readable. An older dictionary entry with one
 lookup key can recover that key as its primary reading. Entries with
 several keys retain their historical aggregate for lookup. Rebuild from
 the original CSV to recover individual reading counts. Older gram files

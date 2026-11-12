@@ -1,22 +1,21 @@
 use std::collections::HashMap;
 use std::io;
 
-use si_gram::GramModel;
+use si_gram::BigramModel;
 use si_lexicon::{IndexId, Lexicon, WordId};
 
 use super::LearningConfig;
-use super::learning_config::OrderThreshold;
 use super::review::ReviewCsv;
 use crate::han;
 use crate::pinyin::word_reading;
 
 pub(super) fn add_words(
     lexicon: &mut Lexicon,
-    model: &GramModel,
+    model: &BigramModel,
     surface_tokens: Option<&Lexicon>,
     config: &LearningConfig,
     review: &mut ReviewCsv,
-) -> io::Result<[usize; 3]> {
+) -> io::Result<usize> {
     let index = config.pinyin_index;
     let mut characters = HashMap::new();
     for (key, word) in lexicon.prefix(index, b"") {
@@ -50,11 +49,7 @@ pub(super) fn add_words(
         index,
         review,
     };
-    Ok([
-        learner.add_order(model.bigrams(), config.orders[0])?,
-        learner.add_order(model.trigrams(), config.orders[1])?,
-        learner.add_order(model.fourgrams(), config.orders[2])?,
-    ])
+    learner.add_bigrams(model, config)
 }
 
 struct Learner<'a> {
@@ -65,29 +60,15 @@ struct Learner<'a> {
 }
 
 impl Learner<'_> {
-    fn add_order<const N: usize>(
-        &mut self,
-        grams: impl Iterator<Item = ([WordId; N], u64)> + Clone,
-        threshold: OrderThreshold,
-    ) -> io::Result<usize> {
+    fn add_bigrams(&mut self, model: &BigramModel, config: &LearningConfig) -> io::Result<usize> {
+        let candidates = qualifying_bigrams(model.bigrams(), config, |words| {
+            words.iter().all(|word| self.characters.contains_key(word))
+        });
         let mut added = 0;
         let mut text = String::new();
-        let mut grams = grams.peekable();
-        while let Some((first, _)) = grams.peek().copied() {
-            let same_prefix = |(words, _): &([WordId; N], u64)| words[..N - 1] == first[..N - 1];
-            // Sorted gram rows place every continuation of this prefix together.
-            // Count even the rows that do not qualify as dictionary candidates.
-            let prefix_total = grams
-                .clone()
-                .take_while(same_prefix)
-                .map(|(_, count)| u128::from(count))
-                .sum();
-            while let Some((words, count)) = grams.next_if(same_prefix) {
-                if threshold.qualifies(count, prefix_total)
-                    && self.add_candidate(&words, count, &mut text)?
-                {
-                    added += 1;
-                }
+        for (words, count) in candidates {
+            if self.add_candidate(&words, count, &mut text)? {
+                added += 1;
             }
         }
         Ok(added)
@@ -121,4 +102,38 @@ impl Learner<'_> {
             .map_err(io::Error::other)?;
         Ok(true)
     }
+}
+
+pub(super) fn qualifying_bigrams(
+    bigrams: impl Iterator<Item = ([WordId; 2], u64)> + Clone,
+    config: &LearningConfig,
+    eligible: impl Fn([WordId; 2]) -> bool,
+) -> Vec<([WordId; 2], u64)> {
+    let mut candidates = Vec::new();
+    let mut left_counts = HashMap::new();
+    let mut right_counts = HashMap::new();
+    let mut total = 0;
+    for (words, count) in bigrams.clone() {
+        total += u128::from(count);
+        if count >= config.min_count && eligible(words) {
+            candidates.push((words, count));
+            left_counts.entry(words[0]).or_insert(0);
+            right_counts.entry(words[1]).or_insert(0);
+        }
+    }
+    if !candidates.is_empty() {
+        // Include low-frequency rows and other tokens in each marginal.
+        for ([left, right], count) in bigrams {
+            if let Some(total) = left_counts.get_mut(&left) {
+                *total += u128::from(count);
+            }
+            if let Some(total) = right_counts.get_mut(&right) {
+                *total += u128::from(count);
+            }
+        }
+        candidates.retain(|&([left, right], count)| {
+            config.qualifies(count, left_counts[&left], right_counts[&right], total)
+        });
+    }
+    candidates
 }

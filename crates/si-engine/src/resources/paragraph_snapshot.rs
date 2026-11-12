@@ -266,7 +266,7 @@ fn encode_sources(sources: &[PathBuf]) -> io::Result<Vec<u8>> {
 }
 
 fn encode_report(report: &ParagraphImport, review_rows: usize) -> Vec<u8> {
-    let [two, three, four] = report.grams;
+    let [two, three, four, five] = report.grams;
     [
         report.paragraphs,
         report.matched_words,
@@ -281,6 +281,7 @@ fn encode_report(report: &ParagraphImport, review_rows: usize) -> Vec<u8> {
         review_rows,
     ]
     .into_iter()
+    .chain((five != 0).then_some(five))
     .map(|value| value.to_string())
     .collect::<Vec<_>>()
     .join(" ")
@@ -307,9 +308,15 @@ fn decode_report(bytes: &[u8], review: &Path) -> io::Result<ParagraphImport> {
         three,
         four,
         rows,
+        extra @ ..,
     ] = values.as_slice()
     else {
         return Err(invalid());
+    };
+    let five = match extra {
+        [] => 0,
+        [five] => *five,
+        _ => return Err(invalid()),
     };
     Ok(ParagraphImport {
         paragraphs: *paragraphs,
@@ -319,7 +326,7 @@ fn decode_report(bytes: &[u8], review: &Path) -> io::Result<ParagraphImport> {
         number_placeholders: *number_placeholders,
         unknown_characters: *unknown_characters,
         ambiguous_words: *ambiguous_words,
-        grams: [*two, *three, *four],
+        grams: [*two, *three, *four, five],
         review: Some(LexiconReview {
             path: review.to_owned(),
             rows: *rows,
@@ -399,6 +406,8 @@ mod tests {
             let second = lexicon.add_reading(IndexId(1), b"test", "TEST", 1).unwrap();
             let mut builder = GramBuilder::new();
             builder.observe(&[first, second]).unwrap();
+            let fivegram = [first, second, first, second, first];
+            builder.add(&fivegram, 3).unwrap();
             let mut model = builder.finish().unwrap();
             model.bind_lexicon(&lexicon)?;
             let report = ParagraphImport {
@@ -449,6 +458,7 @@ mod tests {
             let saved = EngineResources::open(&paths.lexicon, Some(&paths.grams))?;
             assert_eq!(saved.lexicon().word(first).unwrap().count, 2);
             assert_eq!(saved.grams().unwrap().count(&[first, second]), Some(1));
+            assert_eq!(saved.grams().unwrap().count(&fivegram), Some(3));
         }
         Ok(())
     }

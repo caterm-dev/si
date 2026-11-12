@@ -1,26 +1,37 @@
+mod candidates;
+
 use std::env;
 use std::ffi::{OsStr, OsString};
-use std::io;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
 use std::path::Path;
 use std::process::ExitCode;
 use std::str::FromStr;
 
 use si_engine::IndexId;
+use si_engine::resources::user::{UserLearningConfig, UserModelStore};
 use si_engine::resources::{
-    self, CorpusCountMode, CorpusImport, CorpusProgress, LearningConfig, LexiconImport,
-    LexiconLearning, LexiconSource, ParagraphImport,
+    self, CorpusCountMode, CorpusImport, CorpusProgress, EngineResources, GramOrder, GramSizes,
+    LearningConfig, LexiconImport, LexiconLearning, LexiconSource, ParagraphImport, SiConfig,
 };
 
 const USAGE: &str = "\
 Usage:
+  si-cli [--config <si.conf>] <command> ...
   si-cli lexicon build <output.silex> <index> <csv-or-dir> [<index> <csv-or-dir> ...]
   si-cli lexicon add   <output.silex> <index> <csv-or-dir> [<index> <csv-or-dir> ...]
   si-cli lexicon export <lexicon.silex> <output.csv>
   si-cli lexicon restore <source.csv> <output.silex>
-  si-cli lexicon learn <lexicon.silex> <grams.sigram> <learning.conf>
+  si-cli lexicon learn <lexicon.silex> <grams.sigram> [<si.conf>]
   si-cli corpus build  [--han] <lexicon.silex> <output.sigram> <source.txt> [<source.txt> ...]
   si-cli corpus add    [--han] <lexicon.silex> <output.sigram> <source.txt> [<source.txt> ...]
-  si-cli corpus ingest <lexicon.silex> <grams.sigram> <source.txt> [<source.txt> ...]";
+  si-cli corpus ingest <lexicon.silex> <grams.sigram> <source.txt> [<source.txt> ...]
+  si-cli corpus prune  --order <2|3|4|5> --min-count <count> <lexicon.silex> <grams.sigram>
+  si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--languages <zh-Hans,en|zh-Hans|en|none>]
+  si-cli user ingest <profile.si-user> <base.silex> <batch-id> <sentences.txt|->
+  si-cli user learn  <profile.si-user> <base.silex> [<si.conf>]
+  si-cli user status <profile.si-user>
+  si-cli user clear  <profile.si-user>";
 
 fn main() -> ExitCode {
     let args: Vec<_> = env::args_os().skip(1).collect();
@@ -28,7 +39,15 @@ fn main() -> ExitCode {
         println!("{USAGE}");
         return ExitCode::SUCCESS;
     }
-    let Some(result) = run(&args) else {
+    let (config, args) = match args.as_slice() {
+        [flag, path, args @ ..] if flag == "--config" => (SiConfig::open(Path::new(path)), args),
+        _ => (Ok(SiConfig::default()), args.as_slice()),
+    };
+    let result = match config {
+        Ok(config) => run(args, &config),
+        Err(error) => Some(Err(error)),
+    };
+    let Some(result) = result else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
@@ -41,8 +60,11 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(args: &[OsString]) -> Option<io::Result<()>> {
+fn run(args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
     match args {
+        [scope, base, options @ ..] if scope == "candidates" => {
+            candidates::run(Path::new(base), options)
+        }
         [scope, action, output, inputs @ ..]
             if scope == "lexicon" && (action == "build" || action == "add") =>
         {
@@ -62,22 +84,139 @@ fn run(args: &[OsString]) -> Option<io::Result<()>> {
         [scope, action, source, output] if scope == "lexicon" && action == "restore" => Some(
             resources::restore_lexicon(Path::new(source), Path::new(output)).map(print_lexicon),
         ),
-        [scope, action, lexicon, grams, config] if scope == "lexicon" && action == "learn" => Some(
-            LearningConfig::open(Path::new(config))
-                .and_then(|config| {
-                    resources::learn_lexicon(Path::new(lexicon), Path::new(grams), &config)
-                })
-                .map(print_learning),
-        ),
-        [scope, action, inputs @ ..] if scope == "corpus" && action == "ingest" => {
-            ingest_corpus(inputs)
+        [scope, action, lexicon, grams, path @ ..]
+            if scope == "lexicon" && action == "learn" && path.len() <= 1 =>
+        {
+            Some((|| {
+                let custom = path
+                    .first()
+                    .map(|path| LearningConfig::open(Path::new(path)))
+                    .transpose()?;
+                resources::learn_lexicon(
+                    Path::new(lexicon),
+                    Path::new(grams),
+                    custom.as_ref().unwrap_or(&config.base_learning),
+                )
+                .map(print_learning)
+            })())
         }
-        [scope, action, inputs @ ..] if scope == "corpus" => run_corpus(action, inputs),
+        [scope, action, inputs @ ..] if scope == "corpus" && action == "ingest" => {
+            ingest_corpus(inputs, config.base_max_order)
+        }
+        [scope, action, inputs @ ..] if scope == "corpus" && action == "prune" => {
+            prune_corpus(inputs)
+        }
+        [scope, action, inputs @ ..] if scope == "corpus" => {
+            run_corpus(action, inputs, config.base_max_order)
+        }
+        [scope, action, profile, inputs @ ..] if scope == "user" => {
+            run_user(action, profile, inputs, config)
+        }
         _ => None,
     }
 }
 
-fn ingest_corpus(inputs: &[OsString]) -> Option<io::Result<()>> {
+fn run_user(
+    action: &OsStr,
+    profile: &OsStr,
+    inputs: &[OsString],
+    config: &SiConfig,
+) -> Option<io::Result<()>> {
+    let store = UserModelStore::new(Path::new(profile));
+    match (action.to_str()?, inputs) {
+        ("ingest", [base, batch, source]) => Some(ingest_user(
+            &store,
+            base,
+            batch.to_str()?,
+            source,
+            config.user_max_order,
+        )),
+        ("learn", [base, path @ ..]) if path.len() <= 1 => Some((|| {
+            let base = EngineResources::open(Path::new(base), None)?;
+            let custom = path
+                .first()
+                .map(|path| UserLearningConfig::open(Path::new(path)))
+                .transpose()?;
+            let report = store.learn(
+                base.lexicon(),
+                custom.as_ref().unwrap_or(&config.user_learning),
+            )?;
+            println!(
+                "Added {} user words. Skipped {} unresolved readings.",
+                report.added_words, report.unresolved_readings
+            );
+            Ok(())
+        })()),
+        ("status", []) => Some(store.load().map(|model| {
+            let Some(model) = model else {
+                println!("User profile is empty.");
+                return;
+            };
+            let grams = gram_summary(model.grams().expect("user word grams").sizes());
+            println!("User model has {} words, {grams}.", model.lexicon().len());
+        })),
+        ("clear", []) => Some(store.clear().map(|()| println!("Cleared the user model."))),
+        _ => None,
+    }
+}
+
+fn ingest_user(
+    store: &UserModelStore,
+    base: &OsStr,
+    batch_id: &str,
+    source: &OsStr,
+    max_order: GramOrder,
+) -> io::Result<()> {
+    let base = EngineResources::open(Path::new(base), None)?;
+    let report = if source == "-" {
+        store.ingest_with_order(
+            base.lexicon(),
+            batch_id,
+            io::stdin().lock().lines(),
+            max_order,
+        )?
+    } else {
+        let reader = BufReader::new(File::open(Path::new(source))?);
+        store.ingest_with_order(base.lexicon(), batch_id, reader.lines(), max_order)?
+    };
+    if report.already_applied {
+        println!("Batch was already applied.");
+    } else {
+        println!(
+            "Imported {} sentences with {} matched words and {} skipped spans.",
+            report.sentences, report.matched_words, report.skipped_spans
+        );
+    }
+    println!(
+        "User model has {} words, {}.",
+        report.words,
+        gram_summary(report.grams)
+    );
+    Ok(())
+}
+
+fn prune_corpus(inputs: &[OsString]) -> Option<io::Result<()>> {
+    let [order_flag, order, count_flag, min_count, lexicon, grams] = inputs else {
+        return None;
+    };
+    if order_flag != "--order" || count_flag != "--min-count" {
+        return None;
+    }
+    let order_number = number::<u64>(order)?;
+    let order = GramOrder::try_from(order_number).ok()?;
+    let min_count = number(min_count)?;
+    Some(
+        resources::prune_corpus(Path::new(lexicon), Path::new(grams), order, min_count).map(
+            |removed| {
+                println!(
+                    "Removed {removed} order-{order_number} rows with counts below {min_count}."
+                )
+            },
+        ),
+    )
+}
+
+fn ingest_corpus(inputs: &[OsString], max_order: GramOrder) -> Option<io::Result<()>> {
     let [lexicon, grams, sources @ ..] = inputs else {
         return None;
     };
@@ -86,17 +225,18 @@ fn ingest_corpus(inputs: &[OsString]) -> Option<io::Result<()>> {
     }
     let sources = sources.iter().map(Into::into).collect::<Vec<_>>();
     Some(
-        resources::ingest_corpus_with_progress(
+        resources::ingest_corpus_with_order(
             Path::new(lexicon),
             Path::new(grams),
             &sources,
+            max_order,
             print_corpus_progress,
         )
         .map(print_paragraphs),
     )
 }
 
-fn run_corpus(action: &OsStr, inputs: &[OsString]) -> Option<io::Result<()>> {
+fn run_corpus(action: &OsStr, inputs: &[OsString], max_order: GramOrder) -> Option<io::Result<()>> {
     let han = inputs.first().is_some_and(|input| input == "--han");
     let [lexicon, output, sources @ ..] = &inputs[usize::from(han)..] else {
         return None;
@@ -113,11 +253,12 @@ fn run_corpus(action: &OsStr, inputs: &[OsString]) -> Option<io::Result<()>> {
     };
     let sources = sources.iter().map(Into::into).collect::<Vec<_>>();
     Some(
-        resources::count_corpus_with_progress(
+        resources::count_corpus_with_order(
             Path::new(lexicon),
             Path::new(output),
             &sources,
             mode,
+            max_order,
             print_corpus_progress,
         )
         .map(print_corpus),
@@ -152,10 +293,7 @@ fn print_lexicon(report: LexiconImport) {
 }
 
 fn print_learning(report: LexiconLearning) {
-    let [two, three, four] = report.added;
-    println!(
-        "Added {two} two-character, {three} three-character, and {four} four-character words."
-    );
+    println!("Added {} two-character words.", report.added[0]);
     if let Some(review) = report.review {
         println!(
             "Exported {} candidates for reading review to {}.",
@@ -166,11 +304,21 @@ fn print_learning(report: LexiconLearning) {
 }
 
 fn print_corpus(report: CorpusImport) {
-    let [two, three, four] = report.grams;
     println!(
-        "Read {} sentences and skipped {} unknown tokens. Model has {two} bigrams, {three} trigrams, and {four} four-grams.",
-        report.sentences, report.unknown_tokens
+        "Read {} sentences and skipped {} unknown tokens. Model has {}.",
+        report.sentences,
+        report.unknown_tokens,
+        gram_summary(report.grams)
     );
+}
+
+fn gram_summary([two, three, four, five]: GramSizes) -> String {
+    let tail = if five == 0 {
+        format!("and {four} four-grams")
+    } else {
+        format!("{four} four-grams, and {five} five-grams")
+    };
+    format!("{two} bigrams, {three} trigrams, {tail}")
 }
 
 fn print_corpus_progress(progress: CorpusProgress) {
@@ -209,7 +357,6 @@ fn print_corpus_progress(progress: CorpusProgress) {
 }
 
 fn print_paragraphs(report: ParagraphImport) {
-    let [two, three, four] = report.grams;
     println!(
         "Imported {} paragraphs with {} matched words. Skipped {} unknown characters and {} unresolved matches.",
         report.paragraphs, report.matched_words, report.unknown_characters, report.ambiguous_words
@@ -219,7 +366,7 @@ fn print_paragraphs(report: ParagraphImport) {
         "Counted {} <char> and {} <num> placeholders in the token stream.",
         report.letter_placeholders, report.number_placeholders
     );
-    println!("Model has {two} bigrams, {three} trigrams, and {four} four-grams.");
+    println!("Model has {}.", gram_summary(report.grams));
     if let Some(review) = report.review {
         println!(
             "Exported {} entries for manual review to {}.",

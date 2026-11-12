@@ -1,11 +1,444 @@
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use si_engine::IndexId;
 use si_engine::resources::EngineResources;
+use si_engine::resources::user::UserModelStore;
+
+#[test]
+fn user_and_base_imports_apply_independent_orders_to_new_batches() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    let config = include_str!("../../../config/si.conf");
+    scratch.write(
+        "si.conf",
+        &config.replace("[base]\nmax_order = 4", "[base]\nmax_order = 3"),
+    )?;
+    scratch.write("words.csv", "text,reading,weight\nalpha,alpha,1\nbeta,beta,1\ngamma,gamma,1\ndelta,delta,1\nepsilon,epsilon,1\n")?;
+    scratch.write("words.txt", "alpha beta gamma delta epsilon\n")?;
+    scratch.run(&["lexicon", "build", "base.silex", "1", "words.csv"])?;
+    scratch.run(&[
+        "--config",
+        "si.conf",
+        "corpus",
+        "build",
+        "base.silex",
+        "base.sigram",
+        "words.txt",
+    ])?;
+    scratch.run(&[
+        "--config",
+        "si.conf",
+        "corpus",
+        "ingest",
+        "base.silex",
+        "paragraphs.sigram",
+        "words.txt",
+    ])?;
+    let mut user_ingest = [
+        "--config",
+        "si.conf",
+        "user",
+        "ingest",
+        "profile.si-user",
+        "base.silex",
+        "first",
+        "words.txt",
+    ];
+    scratch.run(&user_ingest)?;
+
+    let base_lexicon = scratch.0.join("base.silex");
+    let base_grams = scratch.0.join("base.sigram");
+    let profile = UserModelStore::new(scratch.0.join("profile.si-user"));
+    let base = EngineResources::open(&base_lexicon, Some(&base_grams))?;
+    assert_eq!(base.grams().unwrap().sizes(), [4, 3, 0, 0]);
+    assert_eq!(
+        profile.load()?.unwrap().grams().unwrap().sizes(),
+        [4, 3, 2, 0]
+    );
+
+    scratch.write(
+        "si.conf",
+        &config.replace("[user]\nmax_order = 4", "[user]\nmax_order = 5"),
+    )?;
+    scratch.run(&[
+        "--config",
+        "si.conf",
+        "corpus",
+        "add",
+        "base.silex",
+        "base.sigram",
+        "words.txt",
+    ])?;
+    scratch.run(&[
+        "--config",
+        "si.conf",
+        "corpus",
+        "ingest",
+        "base.silex",
+        "paragraphs.sigram",
+        "words.txt",
+    ])?;
+    let duplicate = scratch.run(&user_ingest)?;
+    assert!(String::from_utf8_lossy(&duplicate.stdout).contains("Batch was already applied"));
+    user_ingest[6] = "second";
+    let output = scratch.run(&user_ingest)?;
+    assert!(String::from_utf8_lossy(&output.stdout).contains("1 five-grams"));
+
+    for path in [base_grams, scratch.0.join("paragraphs.sigram")] {
+        let base = EngineResources::open(&base_lexicon, Some(&path))?;
+        let words = ["alpha", "beta", "gamma", "delta", "epsilon"]
+            .map(|word| base.lexicon().find_word(word).unwrap());
+        let grams = base.grams().unwrap();
+        assert_eq!(grams.count(&words[..3]), Some(2));
+        assert_eq!(grams.count(&words[..4]), Some(1));
+        assert_eq!(grams.count(&words), None);
+    }
+
+    scratch.write("si.conf", config)?;
+    user_ingest[6] = "third";
+    scratch.run(&user_ingest)?;
+    let user = profile.load()?.unwrap();
+    let words = ["alpha", "beta", "gamma", "delta", "epsilon"]
+        .map(|word| user.lexicon().find_word(word).unwrap());
+    let grams = user.grams().unwrap();
+    assert_eq!(grams.count(&words[..4]), Some(3));
+    assert_eq!(grams.count(&words), Some(1));
+
+    scratch.write(
+        "si.conf",
+        &config.replace("[user]\nmax_order = 4", "[user]\nmax_order = 6"),
+    )?;
+    user_ingest[6] = "invalid";
+    let error = scratch.command(&user_ingest).output()?;
+    assert!(!error.status.success());
+    assert!(
+        String::from_utf8_lossy(&error.stderr).contains("max_order must be an integer in 2..=5")
+    );
+    assert_eq!(
+        profile.load()?.unwrap().grams().unwrap().count(&words[..4]),
+        Some(3)
+    );
+    Ok(())
+}
+
+#[test]
+fn candidates_stream_queries_with_optional_base_grams_and_user_profile() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write("zh.csv", "text,reading,weight\n和,he,15\n好,hao,10\n")?;
+    scratch.write("en.csv", "text,reading,weight\nhe,he,20\n")?;
+    scratch.write("base.txt", "和 好\n")?;
+    scratch.write("user.txt", "Beacon\n")?;
+    scratch.run(&[
+        "lexicon",
+        "build",
+        "base.silex",
+        "0",
+        "zh.csv",
+        "1",
+        "en.csv",
+    ])?;
+    scratch.run(&["corpus", "build", "base.silex", "base.sigram", "base.txt"])?;
+    scratch.run(&[
+        "user",
+        "ingest",
+        "profile.si-user",
+        "base.silex",
+        "query",
+        "user.txt",
+    ])?;
+    let mut child = scratch
+        .command(&[
+            "candidates",
+            "base.silex",
+            "--grams",
+            "base.sigram",
+            "--user",
+            "profile.si-user",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    child.stdin.take().unwrap().write_all(b"he\nbeacon\n\n")?;
+    let output = child.wait_with_output()?;
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let stdout = String::from_utf8(output.stdout).map_err(io::Error::other)?;
+    let (first, rest) = stdout.split_once("\n\n").unwrap();
+    assert!(
+        first
+            .lines()
+            .any(|row| row.starts_with("zh-Hans\t2\texact\t") && row.ends_with("\t和"))
+    );
+    assert!(
+        first
+            .lines()
+            .any(|row| row.starts_with("en\t2\texact\t") && row.ends_with("\the"))
+    );
+    assert!(first.ends_with("literal\t2\tliteral\t\the"));
+    let (second, empty) = rest.split_once("\n\n").unwrap();
+    assert!(
+        second
+            .lines()
+            .any(|row| row.starts_with("en\t6\texact\t") && row.ends_with("\tBeacon"))
+    );
+    assert!(second.ends_with("literal\t6\tliteral\t\tbeacon"));
+    assert_eq!(empty, "\n");
+    Ok(())
+}
+
+#[test]
+fn user_sentences_grow_an_independent_model_and_learn_words() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "base.csv",
+        "text,reading,weight\n白茶,bai'cha,900\n鹤,he,600\n云,yun,500\n",
+    )?;
+    scratch.write("base.txt", "云 鹤 白茶\n")?;
+    scratch.run(&["lexicon", "build", "base.silex", "0", "base.csv"])?;
+    scratch.run(&["corpus", "build", "base.silex", "base.sigram", "base.txt"])?;
+    let base_lexicon = fs::read(scratch.0.join("base.silex"))?;
+    let base_grams = fs::read(scratch.0.join("base.sigram"))?;
+
+    let profile = "profile.si-user";
+    let store = UserModelStore::new(scratch.0.join(profile));
+    assert!(store.load()?.is_none());
+    scratch.write("sentences.txt", &"云鹤 Beacon Rust Beta。白茶\n".repeat(5))?;
+    let ingest = [
+        "user",
+        "ingest",
+        profile,
+        "base.silex",
+        "batch-1",
+        "sentences.txt",
+    ];
+    let first = scratch.run(&ingest)?;
+    assert!(String::from_utf8_lossy(&first.stdout).contains("Imported 5 sentences"));
+    assert!(first.stderr.is_empty());
+    assert!(!String::from_utf8_lossy(&first.stdout).contains("Beacon"));
+    assert!(String::from_utf8_lossy(&scratch.run(&ingest)?.stdout).contains("already applied"));
+
+    let initial = store.load()?.unwrap();
+    let lexicon = initial.lexicon();
+    let cloud = lexicon.find_word("云").unwrap();
+    let crane = lexicon.find_word("鹤").unwrap();
+    let beacon = lexicon.find_word("Beacon").unwrap();
+    let rust = lexicon.find_word("Rust").unwrap();
+    let beta = lexicon.find_word("Beta").unwrap();
+    let tea = lexicon.find_word("白茶").unwrap();
+    assert_ne!(
+        cloud,
+        si_engine::resources::EngineResources::open(&scratch.0.join("base.silex"), None,)?
+            .lexicon()
+            .find_word("云")
+            .unwrap()
+    );
+    assert_eq!(lexicon.word(cloud).unwrap().count, 5);
+    assert_eq!(
+        lexicon.exact(IndexId(1), b"beacon").next().unwrap().text,
+        "Beacon"
+    );
+    let grams = initial.grams().unwrap();
+    assert_eq!(grams.count(&[cloud, crane]), Some(5));
+    assert_eq!(grams.count(&[cloud, crane, beacon]), Some(5));
+    assert_eq!(grams.count(&[crane, beacon, rust, beta]), Some(5));
+    assert_eq!(grams.count(&[beta, tea]), None);
+    assert_eq!(grams.count(&[tea, cloud]), None);
+    assert!(lexicon.find_word("云鹤").is_none());
+
+    let learn = ["user", "learn", profile, "base.silex"];
+    assert!(String::from_utf8_lossy(&scratch.run(&learn)?.stdout).contains("Added 1 user words"));
+    let learned = store.load()?.unwrap();
+    let word = learned
+        .lexicon()
+        .exact(IndexId(0), b"yun'he")
+        .next()
+        .unwrap();
+    assert_eq!((word.text, word.count), ("云鹤", 5));
+    assert_eq!(learned.grams().unwrap().count(&[word.id, beacon]), None);
+    assert!(String::from_utf8_lossy(&scratch.run(&learn)?.stdout).contains("Added 0 user words"));
+
+    scratch.write("sentences.txt", "云鹤 Beacon\n")?;
+    scratch.run(&[
+        "user",
+        "ingest",
+        profile,
+        "base.silex",
+        "batch-2",
+        "sentences.txt",
+    ])?;
+    let updated = store.load()?.unwrap();
+    assert_eq!(updated.lexicon().word(word.id).unwrap().count, 6);
+    assert_eq!(updated.grams().unwrap().count(&[word.id, beacon]), Some(1));
+    assert_eq!(updated.grams().unwrap().count(&[cloud, crane]), Some(5));
+    assert_eq!(fs::read(scratch.0.join("base.silex"))?, base_lexicon);
+    assert_eq!(fs::read(scratch.0.join("base.sigram"))?, base_grams);
+
+    let other = "other.si-user";
+    scratch.write("sentences.txt", "云鹤\n")?;
+    scratch.run(&[
+        "user",
+        "ingest",
+        other,
+        "base.silex",
+        "batch-1",
+        "sentences.txt",
+    ])?;
+    scratch.run(&["user", "learn", other, "base.silex"])?;
+    let other_store = UserModelStore::new(scratch.0.join(other));
+    assert!(
+        other_store
+            .load()?
+            .unwrap()
+            .lexicon()
+            .find_word("云鹤")
+            .is_none()
+    );
+    scratch.learning_config(0, 1, 100, 100, 0)?;
+    scratch.run(&["user", "learn", other, "base.silex", "learning.conf"])?;
+    assert_eq!(
+        other_store
+            .load()?
+            .unwrap()
+            .lexicon()
+            .exact(IndexId(0), b"yun'he")
+            .next()
+            .unwrap()
+            .count,
+        1
+    );
+
+    scratch.run(&["user", "clear", profile])?;
+    assert!(store.load()?.is_none());
+    assert!(other_store.load()?.is_some());
+    for slot in ["snapshot-a", "snapshot-b"] {
+        assert!(!scratch.0.join(profile).join(slot).exists());
+    }
+    assert!(
+        String::from_utf8_lossy(&scratch.run(&["user", "status", profile])?.stdout)
+            .contains("profile is empty")
+    );
+    let mut stdin_import = scratch
+        .command(&["user", "ingest", profile, "base.silex", "batch-1", "-"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .spawn()?;
+    stdin_import
+        .stdin
+        .take()
+        .unwrap()
+        .write_all("云鹤\n".as_bytes())?;
+    assert!(stdin_import.wait()?.success());
+    let restarted = store.load()?.unwrap();
+    assert_eq!(restarted.lexicon().len(), 2);
+    assert_eq!(restarted.grams().unwrap().sizes(), [1, 0, 0, 0]);
+    Ok(())
+}
+
+#[test]
+fn user_ingest_retries_and_concurrent_updates_publish_one_consistent_pair() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write("base.csv", "text,reading,weight\n乙,yi,1\n甲,jia,1\n")?;
+    scratch.run(&["lexicon", "build", "base.silex", "0", "base.csv"])?;
+    let store = UserModelStore::new(scratch.0.join("profile.si-user"));
+    let base = EngineResources::open(&scratch.0.join("base.silex"), None)?;
+    assert!(
+        store
+            .ingest(
+                base.lexicon(),
+                "retry",
+                [
+                    Ok("甲乙"),
+                    Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "failed synthetic read"
+                    )),
+                ]
+            )
+            .is_err()
+    );
+    assert!(store.load()?.is_none());
+    store.ingest(base.lexicon(), "retry", [Ok("甲乙")])?;
+
+    // An interrupted writer can leave a partial inactive slot and pointer.
+    let directory = scratch.0.join("profile.si-user");
+    fs::create_dir(directory.join("snapshot-b"))?;
+    fs::write(directory.join("snapshot-b/user.silex"), b"incomplete")?;
+    fs::write(directory.join("current.next"), b"b\n")?;
+    let loaded = store.load()?.unwrap();
+    assert_eq!(
+        loaded
+            .lexicon()
+            .word(loaded.lexicon().find_word("甲").unwrap())
+            .unwrap()
+            .count,
+        1
+    );
+    let retry = store.ingest::<&str>(
+        base.lexicon(),
+        "retry",
+        std::iter::from_fn(|| panic!("retried batch must not be read")),
+    )?;
+    assert!(retry.already_applied);
+    assert!(!directory.join("snapshot-b").exists());
+    assert!(!directory.join("current.next").exists());
+
+    scratch.write("more.txt", "甲乙\n")?;
+    let mut children = ["second", "third", "third"].map(|batch| {
+        scratch
+            .command(&[
+                "user",
+                "ingest",
+                "profile.si-user",
+                "base.silex",
+                batch,
+                "more.txt",
+            ])
+            .stdout(Stdio::null())
+            .spawn()
+            .unwrap()
+    });
+    for child in &mut children {
+        assert!(child.wait()?.success());
+    }
+    let model = store.load()?.unwrap();
+    let first = model.lexicon().find_word("甲").unwrap();
+    let second = model.lexicon().find_word("乙").unwrap();
+    assert_eq!(model.lexicon().word(first).unwrap().count, 3);
+    assert_eq!(model.grams().unwrap().count(&[first, second]), Some(3));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            fs::metadata(&directory)?.permissions().mode() & 0o777,
+            0o700
+        );
+        let snapshot = match fs::read(directory.join("current"))?.as_slice() {
+            b"a\n" => "snapshot-a",
+            b"b\n" => "snapshot-b",
+            _ => panic!("missing active snapshot"),
+        };
+        for file in [
+            "batches",
+            "user.silex",
+            "user.sigram",
+            "characters.silex",
+            "characters.sigram",
+        ] {
+            assert_eq!(
+                fs::metadata(directory.join(snapshot).join(file))?
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600
+            );
+        }
+    }
+    Ok(())
+}
 
 #[test]
 fn corpus_progress_is_cumulative_across_files_and_keeps_stdout_for_the_summary() -> io::Result<()> {
@@ -64,7 +497,8 @@ fn corpus_progress_is_cumulative_across_files_and_keeps_stdout_for_the_summary()
 }
 
 #[test]
-fn learning_force_count_accepts_multiple_frequent_continuations() -> io::Result<()> {
+fn learning_association_accepts_multiple_continuations_and_preserves_review_counts()
+-> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(
         "seed.csv",
@@ -92,7 +526,7 @@ fn learning_force_count_accepts_multiple_frequent_continuations() -> io::Result<
         "chars.sigram",
         "corpus.txt",
     ])?;
-    scratch.learning_config(0, [9; 3], [50; 3])?;
+    scratch.learning_config(0, 9, 30, 50, 2)?;
     let command = [
         "lexicon",
         "learn",
@@ -105,17 +539,11 @@ fn learning_force_count_accepts_multiple_frequent_continuations() -> io::Result<
     scratch.run(&command)?;
     assert_eq!(fs::read(&path)?, before);
 
-    let config = fs::read_to_string(scratch.0.join("learning.conf"))?;
-    scratch.write("learning.conf", &format!("{config}force_count = 5\n"))?;
+    scratch.learning_config(0, 6, 30, 50, 2)?;
     scratch.run(&command)?;
     let resources = EngineResources::open(&path, None)?;
     let lexicon = resources.lexicon();
-    for (key, text, count) in [
-        ("zai'zhe", "在这", 7),
-        ("zai'na", "在那", 6),
-        ("shen'hai'tan", "深海探", 6),
-        ("shen'hai'tan'ce", "深海探测", 6),
-    ] {
+    for (key, text, count) in [("zai'zhe", "在这", 7), ("zai'na", "在那", 6)] {
         let word = lexicon.exact(IndexId(0), key.as_bytes()).next().unwrap();
         assert_eq!((word.text, word.count), (text, count));
     }
@@ -129,15 +557,14 @@ fn learning_force_count_accepts_multiple_frequent_continuations() -> io::Result<
 }
 
 #[test]
-fn learning_requires_both_count_and_same_order_prefix_share() -> io::Result<()> {
+fn learning_checks_both_directions_on_bigrams() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(
         "seed.csv",
         concat!(
             "text,reading,weight\n重,chong,1\n重,zhong,1\n庆,qing,1\n心,xin,1\n力,li,1\n",
             "江,jiang,1\n海,hai,1\n山,shan,1\n水,shui,1\n白,bai,1\n云,yun,1\n",
-            "深,shen,1\n探,tan,1\n测,ce,1\n明,ming,1\n查,cha,1\n观,guan,1\n",
-            "青,qing,1\n绿,lv,1\n树,shu,1\n"
+            "青,qing,1\n",
         ),
     )?;
     let mut corpus = String::new();
@@ -149,12 +576,8 @@ fn learning_requires_both_count_and_same_order_prefix_share() -> io::Result<()> 
         ("江山\n", 3),
         ("江水\n", 2),
         ("白云\n", 3),
-        ("深海探测\n", 6),
-        ("深海探明\n", 4),
-        ("深海探查\n", 2),
-        ("深海观测\n", 3),
-        ("青山绿水\n", 5),
-        ("青山绿树\n", 3),
+        ("白山\n", 4),
+        ("青山\n", 7),
     ] {
         corpus.push_str(&text.repeat(count));
     }
@@ -168,7 +591,7 @@ fn learning_requires_both_count_and_same_order_prefix_share() -> io::Result<()> 
         "chars.sigram",
         "corpus.txt",
     ])?;
-    scratch.learning_config(5, [4, 6, 5], [50, 80, 60])?;
+    scratch.learning_config(5, 4, 50, 50, 0)?;
     let learn = [
         "lexicon",
         "learn",
@@ -184,14 +607,10 @@ fn learning_requires_both_count_and_same_order_prefix_share() -> io::Result<()> 
     let resources = EngineResources::open(&path, None)?;
     let lexicon = resources.lexicon();
     assert!(!scratch.0.join("seed.silex.review-1.csv").exists());
-    for text in ["重心", "江海", "白云", "海探测", "深海探测"] {
+    for text in ["重心", "江海", "白云", "白山"] {
         assert!(lexicon.find_word(text).is_none(), "{text}");
     }
-    for (key, expected_count) in [
-        ("chong'qing", 6),
-        ("shen'hai'tan", 12),
-        ("qing'shan'lv'shui", 5),
-    ] {
+    for (key, expected_count) in [("chong'qing", 6), ("qing'shan", 7)] {
         let word = lexicon.exact(IndexId(5), key.as_bytes()).next().unwrap();
         assert_eq!(word.count, expected_count);
     }
@@ -201,19 +620,30 @@ fn learning_requires_both_count_and_same_order_prefix_share() -> io::Result<()> 
     let learned = fs::read(&path)?;
     for (invalid, expected) in [
         (
-            valid.replace("min_prefix_percent_2 = 50", "min_prefix_percent_2 = 101"),
-            "min_prefix_percent_2",
+            valid.replace("min_forward_percent_2 = 50", "min_forward_percent_2 = 101"),
+            "min_forward_percent_2",
         ),
         (
-            valid.replace("min_count_3 = 6\n", ""),
-            "missing learning setting min_count_3",
+            valid.replace(
+                "min_backward_percent_2 = 50",
+                "min_backward_percent_2 = 101",
+            ),
+            "min_backward_percent_2",
+        ),
+        (
+            valid.replace("min_lift_2 = 0", "min_lift_2 = -1"),
+            "min_lift_2",
+        ),
+        (
+            valid.replace("min_count_2 = 4\n", ""),
+            "missing learning setting min_count_2",
         ),
         (
             format!("{valid}pinyin_index = 5\n"),
             "duplicate learning setting",
         ),
         (
-            format!("{valid}min_count_5 = 1\n"),
+            format!("{valid}force_count = 1\n"),
             "unknown learning setting",
         ),
     ] {
@@ -268,13 +698,13 @@ fn paragraph_ingest_counts_longest_words_and_grams_together() -> io::Result<()> 
         summary.contains("Exported 2 entries for manual review")
             && summary.contains("words.sigram.review.csv")
     );
-    let header = "kind,text,count,candidate_readings,first_file,first_line\n";
+    let header = "kind,text,count,candidate_readings,first_file,first_line,reading\n";
     let review_path = scratch.0.join("words.sigram.review.csv");
     let review = fs::read_to_string(&review_path)?;
     assert_eq!(
         review,
         format!(
-            "{header}unmatched,陌,3,,paragraphs.txt,6\nunresolved,重,2,0:chong | 0:tong,paragraphs.txt,5\n"
+            "{header}unmatched,陌,3,,paragraphs.txt,6,\nunresolved,重,2,0:chong | 0:tong,paragraphs.txt,5,\n"
         ),
     );
     #[cfg(unix)]
@@ -325,6 +755,58 @@ fn paragraph_ingest_counts_longest_words_and_grams_together() -> io::Result<()> 
         Some(2)
     );
     assert!(fs::read_dir(&scratch.0)?.all(|entry| entry.is_ok_and(|entry| entry.path().is_file())));
+    Ok(())
+}
+
+#[test]
+fn paragraph_ingest_review_imports_completed_readings_and_preserves_word_ids() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "seed.csv",
+        "text,reading,weight\n甲,jia,1\n重,chong,6\n重,tong,7\n",
+    )?;
+    scratch.run(&["lexicon", "build", "seed.silex", "0", "seed.csv"])?;
+    let corpus = "part,\n\"one\".txt";
+    scratch.write(corpus, "重。\n晩。\n陌。\n重。\n甲甲。\n")?;
+    scratch.run(&["corpus", "ingest", "seed.silex", "words.sigram", corpus])?;
+
+    let lexicon_path = scratch.0.join("seed.silex");
+    let grams_path = scratch.0.join("words.sigram");
+    let review_name = "words.sigram.review.csv";
+    let original = EngineResources::open(&lexicon_path, Some(&grams_path))?;
+    let chong = original
+        .lexicon()
+        .find_reading(IndexId(0), b"chong", "重")
+        .unwrap();
+    let tong = original
+        .lexicon()
+        .find_reading(IndexId(0), b"tong", "重")
+        .unwrap();
+    let gram_bytes = fs::read(&grams_path)?;
+    let review = fs::read_to_string(scratch.0.join(review_name))?;
+    let source_field = "\"part,\n\"\"one\"\".txt\"";
+    let new_reading = format!("unmatched,晩,1,,{source_field},2,");
+    let existing_reading = format!("unresolved,重,2,0:chong | 0:tong,{source_field},1,");
+    assert!(review.contains(&new_reading) && review.contains(&existing_reading));
+    let edited = review
+        .replace(&new_reading, &format!("{new_reading}wan"))
+        .replace(&existing_reading, &format!("{existing_reading}chong"));
+    scratch.write(review_name, &edited)?;
+    let result = scratch.run(&["lexicon", "add", "seed.silex", "0", review_name])?;
+    assert!(String::from_utf8_lossy(&result.stdout).contains("Imported 2 CSV rows"));
+
+    let updated = EngineResources::open(&lexicon_path, Some(&grams_path))?;
+    let lexicon = updated.lexicon();
+    let wan = lexicon.find_reading(IndexId(0), b"wan", "晩").unwrap();
+    assert_eq!(lexicon.word(wan).unwrap().count, 1);
+    assert_eq!(
+        lexicon.find_reading(IndexId(0), b"chong", "重"),
+        Some(chong)
+    );
+    assert_eq!(lexicon.word(chong).unwrap().count, 8);
+    assert_eq!(lexicon.word(tong).unwrap().count, 7);
+    assert!(lexicon.find_word("陌").is_none());
+    assert_eq!(fs::read(grams_path)?, gram_bytes);
     Ok(())
 }
 
@@ -845,6 +1327,61 @@ fn corpus_imports_accumulate_only_within_known_word_runs() -> io::Result<()> {
 }
 
 #[test]
+fn corpus_prune_replaces_only_the_requested_order_and_checks_the_lexicon() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "words.csv",
+        "text,reading,weight\n甲,jia,1\n乙,yi,1\n丙,bing,1\n丁,ding,1\n",
+    )?;
+    scratch.write(
+        "reordered.csv",
+        "text,reading,weight\n乙,yi,1\n甲,jia,1\n丙,bing,1\n丁,ding,1\n",
+    )?;
+    scratch.write("source.txt", "甲 乙 丙 丁\n甲 乙 丙 丁\n乙 丙 丁 甲\n")?;
+    scratch.run(&["lexicon", "build", "base.silex", "0", "words.csv"])?;
+    scratch.run(&["lexicon", "build", "other.silex", "0", "reordered.csv"])?;
+    scratch.run(&["corpus", "build", "base.silex", "base.sigram", "source.txt"])?;
+
+    let lexicon_path = scratch.0.join("base.silex");
+    let gram_path = scratch.0.join("base.sigram");
+    let original_lexicon = fs::read(&lexicon_path)?;
+    let original_grams = fs::read(&gram_path)?;
+    let mut prune = [
+        "corpus",
+        "prune",
+        "--order",
+        "4",
+        "--min-count",
+        "2",
+        "other.silex",
+        "base.sigram",
+    ];
+    let rejected = scratch.command(&prune).output()?;
+    assert!(!rejected.status.success());
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("word order does not match"));
+    assert_eq!(fs::read(&gram_path)?, original_grams);
+
+    prune[6] = "base.silex";
+    let output = scratch.run(&prune)?;
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Removed 1 order-4 rows"));
+    let resources = EngineResources::open(&lexicon_path, Some(&gram_path))?;
+    let [a, b, c, d] =
+        ["甲", "乙", "丙", "丁"].map(|word| resources.lexicon().find_word(word).unwrap());
+    let grams = resources.grams().unwrap();
+    assert_eq!(grams.count(&[d, a]), Some(1));
+    assert_eq!(grams.count(&[c, d, a]), Some(1));
+    assert_eq!(grams.count(&[a, b, c, d]), Some(2));
+    assert_eq!(grams.count(&[b, c, d, a]), None);
+    assert_eq!(fs::read(&lexicon_path)?, original_lexicon);
+
+    let pruned = fs::read(&gram_path)?;
+    let output = scratch.run(&prune)?;
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Removed 0 order-4 rows"));
+    assert_eq!(fs::read(&gram_path)?, pruned);
+    Ok(())
+}
+
+#[test]
 fn word_corpus_requires_an_explicit_reading_for_polyphonic_text() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(
@@ -929,7 +1466,7 @@ fn missing_reading_rejects_the_entire_csv_import() -> io::Result<()> {
 }
 
 #[test]
-fn han_corpus_learns_two_three_and_four_character_words_with_exact_counts() -> io::Result<()> {
+fn han_corpus_learns_only_bigrams_even_with_higher_order_settings() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(
         "seed.csv",
@@ -977,7 +1514,13 @@ fn han_corpus_learns_two_three_and_four_character_words_with_exact_counts() -> i
     ])?;
     let gram_bytes = fs::read(&gram_path)?;
     assert!(EngineResources::open(&lexicon_path, Some(&gram_path)).is_err());
-    scratch.learning_config(0, [4, 3, 2], [0; 3])?;
+    scratch.learning_config(0, 4, 0, 0, 0)?;
+    let mut config = fs::read_to_string(scratch.0.join("learning.conf"))?;
+    config.push_str(concat!(
+        "min_count_3 = 1\nmin_forward_percent_3 = 0\nmin_backward_percent_3 = 0\nmin_lift_3 = 0\n",
+        "min_count_4 = 1\nmin_forward_percent_4 = 0\nmin_backward_percent_4 = 0\nmin_lift_4 = 0\n",
+    ));
+    scratch.write("learning.conf", &config)?;
     let learn = [
         "lexicon",
         "learn",
@@ -986,21 +1529,13 @@ fn han_corpus_learns_two_three_and_four_character_words_with_exact_counts() -> i
         "learning.conf",
     ];
     let output = scratch.run(&learn)?;
-    assert!(
-        String::from_utf8_lossy(&output.stdout)
-            .contains("Added 2 two-character, 1 three-character, and 1 four-character")
-    );
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Added 2 two-character words."));
     assert!(!scratch.0.join("base.silex.review-1.csv").exists());
 
     let resources = EngineResources::open(&lexicon_path, None)?;
     let lexicon = resources.lexicon();
     let pinyin = IndexId(0);
-    for (key, expected_text, count) in [
-        ("shen'hai", "深海", 4),
-        ("shen'hai'tan", "深海探", 3),
-        ("shen'hai'tan'ce", "深海探测", 2),
-        ("chong'qing", "重庆", 4),
-    ] {
+    for (key, expected_text, count) in [("shen'hai", "深海", 4), ("chong'qing", "重庆", 4)] {
         let word = lexicon.exact(pinyin, key.as_bytes()).next().unwrap();
         assert_eq!(word.text, expected_text);
         assert_eq!(word.count, count);
@@ -1011,16 +1546,15 @@ fn han_corpus_learns_two_three_and_four_character_words_with_exact_counts() -> i
     assert_eq!(lexicon.word(sea).unwrap().count, 2);
     assert!(lexicon.find_word("海探").is_none());
     assert!(lexicon.find_word("海探测").is_none());
+    assert!(lexicon.find_word("深海探").is_none());
+    assert!(lexicon.find_word("深海探测").is_none());
     assert!(lexicon.exact(pinyin, b"zhong'qing").next().is_none());
     assert!(lexicon.exact(IndexId(1), b"chong'qing").next().is_none());
     assert_eq!(fs::read(&gram_path)?, gram_bytes);
 
     let before_retry = fs::read(&lexicon_path)?;
     let retry = scratch.run(&learn)?;
-    assert!(
-        String::from_utf8_lossy(&retry.stdout)
-            .contains("Added 0 two-character, 0 three-character, and 0 four-character")
-    );
+    assert!(String::from_utf8_lossy(&retry.stdout).contains("Added 0 two-character words."));
     assert_eq!(fs::read(&lexicon_path)?, before_retry);
     assert!(!scratch.0.join("base.silex.review-1.csv").exists());
 
@@ -1040,10 +1574,7 @@ fn han_corpus_learns_two_three_and_four_character_words_with_exact_counts() -> i
     assert_eq!(expanded.find_word("深海"), Some(learned_sea));
     assert_eq!(expanded.word(learned_sea).unwrap().count, 4);
     assert_eq!(expanded.exact(pinyin, b"hai'tan").next().unwrap().count, 4);
-    assert_eq!(
-        expanded.exact(pinyin, b"hai'tan'ce").next().unwrap().count,
-        3
-    );
+    assert!(expanded.exact(pinyin, b"hai'tan'ce").next().is_none());
 
     scratch.write(
         "reordered.csv",
@@ -1063,6 +1594,27 @@ fn han_corpus_learns_two_three_and_four_character_words_with_exact_counts() -> i
         .output()?;
     assert!(!wrong_model.status.success());
     assert_eq!(fs::read(other)?, before_failure);
+
+    let pruned = scratch.run(&[
+        "corpus",
+        "prune",
+        "--order",
+        "4",
+        "--min-count",
+        "4",
+        "base.silex",
+        "base.sigram",
+    ])?;
+    assert!(String::from_utf8_lossy(&pruned.stdout).contains("Removed 1 order-4 rows"));
+    let updated = scratch.run(&[
+        "corpus",
+        "add",
+        "--han",
+        "base.silex",
+        "base.sigram",
+        "later.txt",
+    ])?;
+    assert!(String::from_utf8_lossy(&updated.stdout).contains("and 1 four-grams"));
     Ok(())
 }
 
@@ -1080,7 +1632,7 @@ fn learning_exports_unresolved_pinyin_and_preserves_manual_readings() -> io::Res
         "base.sigram",
         "words.txt",
     ])?;
-    scratch.learning_config(0, [1; 3], [0; 3])?;
+    scratch.learning_config(0, 1, 0, 0, 0)?;
     let learn = [
         "lexicon",
         "learn",
@@ -1267,19 +1819,14 @@ impl ScratchDirectory {
     fn learning_config(
         &self,
         index: u32,
-        counts: [u64; 3],
-        percentages: [u8; 3],
+        count: u64,
+        forward: u8,
+        backward: u8,
+        lift: u32,
     ) -> io::Result<()> {
-        use std::fmt::Write;
-
-        let mut settings = format!("pinyin_index = {index}\n");
-        for (order, (count, percent)) in (2..=4).zip(counts.into_iter().zip(percentages)) {
-            writeln!(
-                settings,
-                "min_count_{order} = {count}\nmin_prefix_percent_{order} = {percent}"
-            )
-            .unwrap();
-        }
+        let settings = format!(
+            "pinyin_index = {index}\nmin_count_2 = {count}\nmin_forward_percent_2 = {forward}\nmin_backward_percent_2 = {backward}\nmin_lift_2 = {lift}\n"
+        );
         self.write("learning.conf", &settings)
     }
 

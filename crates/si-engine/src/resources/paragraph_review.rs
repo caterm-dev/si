@@ -6,6 +6,8 @@ use si_lexicon::Lexicon;
 
 use super::csv_output::{PendingCsv, write_field};
 
+pub(super) const HEADER: &str = "kind,text,count,candidate_readings,first_file,first_line,reading";
+
 #[derive(Default)]
 pub(super) struct ParagraphReview {
     unmatched: HashMap<String, Occurrences>,
@@ -40,10 +42,8 @@ impl ParagraphReview {
     }
 
     pub(super) fn save(self, lexicon: &Lexicon, destination: &Path) -> io::Result<usize> {
-        let mut csv = PendingCsv::new(
-            destination,
-            b"kind,text,count,candidate_readings,first_file,first_line\n",
-        )?;
+        let header = format!("{HEADER}\n");
+        let mut csv = PendingCsv::new(destination, header.as_bytes())?;
         let count = self.unmatched.len() + self.unresolved.len();
         for (kind, entries) in [
             ("unmatched", self.unmatched),
@@ -75,7 +75,7 @@ impl ParagraphReview {
                 write_field(output, &readings.join(" | "))?;
                 write!(output, ",")?;
                 write_field(output, &entry.first_file.to_string_lossy())?;
-                writeln!(output, ",{}", entry.first_line)?;
+                writeln!(output, ",{},", entry.first_line)?;
             }
         }
         csv.finish()?.publish(destination)?;

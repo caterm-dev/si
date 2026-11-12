@@ -48,6 +48,28 @@ impl<const N: usize> Table<N> {
         }
     }
 
+    pub(crate) fn prune(&mut self, min_count: u64) -> usize {
+        let Some(mut retained) = self.counts.iter().position(|&count| count < min_count) else {
+            return 0;
+        };
+        let len = self.counts.len();
+        for index in retained + 1..len {
+            let count = self.counts[index];
+            if count >= min_count {
+                self.keys[retained] = self.keys[index];
+                self.counts[retained] = count;
+                retained += 1;
+            }
+        }
+        self.keys.truncate(retained);
+        self.counts.truncate(retained);
+        *self = Self::from_sorted(
+            std::mem::take(&mut self.keys),
+            std::mem::take(&mut self.counts),
+        );
+        len - retained
+    }
+
     pub(crate) fn count(&self, key: [u32; N]) -> Option<u64> {
         let range = self.bucket(key[0]);
         let offset = self.keys[range.clone()].binary_search(&key).ok()?;

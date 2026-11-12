@@ -1,4 +1,4 @@
-use std::io::{self, BufRead, Write};
+use std::io::{self, Write};
 use std::path::Path;
 
 use si_lexicon::{IndexId, Lexicon, Reading, WordId};
@@ -6,7 +6,7 @@ use si_lexicon::{IndexId, Lexicon, Reading, WordId};
 use super::LexiconImport;
 use super::csv_output::{PendingCsv, write_field};
 use super::source::{
-    bad_line, csv_fields, open_source, parse_count, strip_bom, without_line_ending,
+    bad_line, csv_fields, open_source, parse_count, read_csv_record, strip_bom, without_line_ending,
 };
 
 const HEADER: &str = "kind,id,text,weight,index,reading,key_hex";
@@ -81,7 +81,7 @@ pub(super) fn restore(source: &Path) -> io::Result<(Lexicon, LexiconImport)> {
     let mut reader = open_source(source)?;
     let mut record = String::new();
     let mut line = 0;
-    read_record(&mut reader, source, &mut line, &mut record)?;
+    read_csv_record(&mut reader, source, &mut line, &mut record)?;
     let header = csv_fields::<7>(strip_bom(without_line_ending(&record)));
     if !header.is_some_and(|fields| {
         fields
@@ -94,7 +94,7 @@ pub(super) fn restore(source: &Path) -> io::Result<(Lexicon, LexiconImport)> {
 
     let mut words = Vec::new();
     let mut aliases = Vec::new();
-    while let Some(start) = read_record(&mut reader, source, &mut line, &mut record)? {
+    while let Some(start) = read_csv_record(&mut reader, source, &mut line, &mut record)? {
         let invalid = |message| bad_line(source, start, message);
         let [kind, id, text, weight, index, reading, hex] =
             csv_fields(without_line_ending(&record))
@@ -143,40 +143,6 @@ pub(super) fn restore(source: &Path) -> io::Result<(Lexicon, LexiconImport)> {
         }
     }
     Ok((lexicon, report))
-}
-
-fn read_record(
-    reader: &mut impl BufRead,
-    source: &Path,
-    line: &mut usize,
-    record: &mut String,
-) -> io::Result<Option<usize>> {
-    record.clear();
-    let start = *line + 1;
-    let mut quoted = false;
-    loop {
-        let offset = record.len();
-        if reader
-            .read_line(record)
-            .map_err(|error| bad_line(source, *line + 1, error))?
-            == 0
-        {
-            if quoted {
-                return Err(bad_line(source, start, "unterminated quoted CSV field"));
-            }
-            return Ok(None);
-        }
-        *line += 1;
-        // Escaped quote pairs have no effect on whether the record spans lines.
-        let quotes = record.as_bytes()[offset..]
-            .iter()
-            .filter(|&&byte| byte == b'"')
-            .count();
-        quoted ^= !quotes.is_multiple_of(2);
-        if !quoted {
-            return Ok(Some(start));
-        }
-    }
 }
 
 fn parse_u32(value: &str) -> Option<u32> {

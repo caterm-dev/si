@@ -77,6 +77,7 @@ dependencies = [
  "pinyin_pro",
  "si-gram",
  "si-lexicon",
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -89,3 +90,9 @@ dependencies = [
 [[package]]
 name = "si-lexicon"
 version = "0.1.0"
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"

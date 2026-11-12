@@ -36,6 +36,7 @@ build/
 *.si-corpus/
 *.si-corpus.lock
 .*.si-corpus.*.tmp/
+*.si-user/
 
 # Retained KenLM delivery models; survive ordinary .build cleanup.
 /corpus/kenlm/models/
