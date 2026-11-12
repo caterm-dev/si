@@ -384,6 +384,21 @@ Build and extend local Rust resources with `si-cli` on Rust 1.89 or later.
 The main and user dictionaries each use a separate `.silex` file. The
 example uses lookup index `0` for Pinyin and index `1` for English.
 
+Run these scripts in order for the local base model:
+
+```sh
+./scripts/si-lexicon-build.sh
+./scripts/si-corpus-ingest.sh
+./scripts/si-lexicon-learn.sh
+```
+
+The build reads `Data/Chinese` and `Data/English` and requires a new
+`target/si-data/main.silex` destination. The ingest reads
+`corpus/chinese/prepared/raw-text-v2/*/text.txt` and adds counts to the main
+lexicon and `target/si-data/words.sigram` on each completed import. The learn
+script uses the word bigrams from that snapshot to discover two-character
+words for the main lexicon. Ingest and learn both read `config/si.conf`.
+
 ```sh
 cargo run --release --locked -p si-cli -- lexicon build target/si-data/main.silex 0 Data/Chinese 1 Data/English
 cargo run --release --locked -p si-cli -- lexicon build target/si-data/user.silex 0 /path/to/user-words.csv
