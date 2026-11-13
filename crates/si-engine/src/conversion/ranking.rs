@@ -1,13 +1,25 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use super::{Candidate, CandidateLanguage};
+use super::{Candidate, CandidateLanguage, ConversionBoundary};
 
 const DIRECT_COMPLETIONS_PER_LANGUAGE: usize = 32;
 
 #[derive(Default)]
 pub(super) struct Results {
-    rows: HashMap<(usize, CandidateLanguage, String), (f64, bool)>,
+    rows: HashMap<(usize, CandidateLanguage, String), Evidence>,
+}
+
+struct Evidence {
+    score: f64,
+    completion: bool,
+    lexical_tokens: usize,
+    source_boundaries: Vec<usize>,
+    confirmation_boundaries: Vec<ConversionBoundary>,
+    personal: bool,
+    preferred: bool,
+    verbatim: bool,
+    token_bonus: f64,
 }
 
 impl Results {
@@ -16,12 +28,46 @@ impl Results {
             .score_bits
             .expect("converted candidates have scores");
         let completion = candidate.completion;
-        let current = self
+        use std::collections::hash_map::Entry;
+        let evidence = Evidence {
+            score,
+            completion,
+            lexical_tokens: candidate.lexical_tokens,
+            source_boundaries: candidate.source_boundaries,
+            confirmation_boundaries: candidate.confirmation_boundaries,
+            personal: candidate.personal,
+            preferred: candidate.preferred,
+            verbatim: candidate.verbatim,
+            token_bonus: candidate.token_bonus,
+        };
+        match self
             .rows
             .entry((candidate.consumed_bytes, candidate.language, candidate.text))
-            .or_insert((score, completion));
-        if score > current.0 || (score == current.0 && !completion) {
-            *current = (score, completion);
+        {
+            Entry::Vacant(row) => {
+                row.insert(evidence);
+            }
+            Entry::Occupied(mut row) => {
+                let current = row.get_mut();
+                let direct = current.lexical_tokens == 1 || evidence.lexical_tokens == 1;
+                if (evidence.preferred && !current.preferred)
+                    || (evidence.preferred == current.preferred
+                        && (score + evidence.token_bonus > current.score + current.token_bonus
+                            || (score + evidence.token_bonus
+                                == current.score + current.token_bonus
+                                && !completion
+                                && current.completion)))
+                {
+                    *current = evidence;
+                } else if score == current.score {
+                    current
+                        .confirmation_boundaries
+                        .retain(|boundary| evidence.confirmation_boundaries.contains(boundary));
+                }
+                if direct {
+                    current.lexical_tokens = 1;
+                }
+            }
         }
     }
 
@@ -29,15 +75,20 @@ impl Results {
         let mut candidates: Vec<_> = self
             .rows
             .into_iter()
-            .map(
-                |((consumed_bytes, language, text), (score, completion))| Candidate {
-                    text,
-                    language,
-                    consumed_bytes,
-                    score_bits: Some(score),
-                    completion,
-                },
-            )
+            .map(|((consumed_bytes, language, text), evidence)| Candidate {
+                text,
+                language,
+                consumed_bytes,
+                score_bits: Some(evidence.score),
+                completion: evidence.completion,
+                lexical_tokens: evidence.lexical_tokens,
+                source_boundaries: evidence.source_boundaries,
+                confirmation_boundaries: evidence.confirmation_boundaries,
+                personal: evidence.personal,
+                preferred: evidence.preferred,
+                verbatim: evidence.verbatim,
+                token_bonus: evidence.token_bonus,
+            })
             .collect();
         candidates.sort_unstable_by(compare);
         candidates
@@ -77,8 +128,9 @@ impl Completions {
 
 fn compare(left: &Candidate, right: &Candidate) -> Ordering {
     right
-        .consumed_bytes
-        .cmp(&left.consumed_bytes)
+        .preferred
+        .cmp(&left.preferred)
+        .then_with(|| right.consumed_bytes.cmp(&left.consumed_bytes))
         .then_with(|| {
             right
                 .score_bits

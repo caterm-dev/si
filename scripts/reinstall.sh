@@ -12,9 +12,9 @@ case "$configuration" in
     *) printf 'Usage: %s [Debug|Release]\n' "$0" >&2; exit 2 ;;
 esac
 
-# A build recreates Swift products, not the trained language model. Check it
-# before stopping the input method so missing artifacts cannot interrupt typing.
-python3 "$repo_root/scripts/install_kenlm_model.py" --verify-only
+# Check the new build before stopping the running input method.
+"$repo_root/scripts/build.sh" "$configuration"
+python3 "$repo_root/scripts/verify-rust-app.py" "$repo_root/.build/xcode/Build/Products/$configuration/SI.app/Contents/Resources"
 
 user_id="$(id -u)"
 si_is_running() {

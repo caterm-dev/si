@@ -1354,10 +1354,12 @@ of an incompatible gram file before saving.
 The learning threshold regressions check the minimum sample count, both
 directions, the effect of below-threshold rows on marginals, and inclusive
 comparisons for shares and lift. They also check that multiple continuations
-can qualify and that unresolved readings still enter review. A mixed-order
-fixture verifies that learning skips longer words even when old configs
-include permissive order-3 and order-4 thresholds. The bigram reader test
-checks the lexicon checksum when higher-order rows reference additional IDs.
+can qualify and that unresolved readings still enter review. The word-model
+fixture covers multi-character operands, full Pinyin, mixed-language pair
+exclusion, and safe retries. The character-model fixture verifies that only
+bigrams contribute even with permissive legacy higher-order thresholds. The
+bigram reader test checks the lexicon checksum when higher-order rows
+reference additional IDs.
 Invalid configuration files fail before writing dictionary changes or review
 files.
 

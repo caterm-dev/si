@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -30,14 +31,7 @@ class LocalInstallTests(unittest.TestCase):
         fixture = fixture.replace("/usr/bin/codesign", '"' + str(self.bin / "codesign") + '"')
         self.executable(self.script, fixture)
         self.executable(scripts / "build.sh", "#!/bin/bash\nexit 0\n")
-        self.executable(scripts / "install_kenlm_model.py", '''from pathlib import Path
-import sys
-if "--verify-only" in sys.argv:
-    sys.exit(0)
-destination = Path(sys.argv[sys.argv.index("--bundle-resources") + 1]) / "KenLM"
-destination.mkdir(parents=True)
-(destination / "final.bin").write_bytes(b"synthetic model")
-''')
+        shutil.copy2(ROOT / "scripts/verify-rust-app.py", scripts / "verify-rust-app.py")
         self.signing_log = self.root / "signing.jsonl"
         self.executable(self.bin / "codesign", f"#!{sys.executable}\n" + '''
 import json
@@ -66,6 +60,9 @@ exec /bin/mv "$@"
         self.destination = self.user_directory / "Library/Input Methods/SI.app"
         self.source = self.root / ".build/xcode/Build/Products/Release/SI.app"
         self.app(self.source, b"new app")
+        resources = self.source / "Contents/Resources/SIEngine"
+        resources.mkdir(parents=True)
+        (resources / "main.silex").write_bytes(b"SILEX\0\x03\0synthetic lexicon")
 
     def executable(self, path, text):
         path.write_text(text)
@@ -93,7 +90,8 @@ exec /bin/mv "$@"
         result = self.run_install()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.destination / "Contents/synthetic").read_bytes(), b"new app")
-        self.assertEqual((self.destination / "Contents/Resources/KenLM/final.bin").read_bytes(), b"synthetic model")
+        self.assertEqual((self.destination / "Contents/Resources/SIEngine/main.silex").read_bytes(),
+                         b"SILEX\0\x03\0synthetic lexicon")
 
     def test_all_nested_code_uses_selected_developer_id(self):
         macos = self.source / "Contents/MacOS"

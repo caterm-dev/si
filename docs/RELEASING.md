@@ -6,15 +6,11 @@ SI is a development preview. These scripts build distributables and the user-ini
 
 Requires macOS 14+, Xcode 26+ with Swift 6.2+, and Python 3.9+. No extra Python packages or DMG utilities are needed.
 
-Release packaging also requires the full-data `final.bin` and
-`final.meta.json` under `corpus/kenlm/models/current/`. It checks the cleaning and
-binary metadata, hashes the model as it copies it into
-`SI.app/Contents/Resources/KenLM/`, and signs the staged app with those
-resources in place. The installer package and the Sparkle update ZIP both
-use that app. The selected `0012` model is approximately 160 MiB before compression.
-The local `scripts/install.sh` also bundles it before signing. See the
-[current model record](KENLM_MODEL.md) for the frozen sources and SHA-256.
-Model artifacts stay outside Git. See [the model provenance and build record](../README_kenlm_train.md#production-kenlm-ranking).
+Packaging requires Rust 1.89+ with the targets for the selected app
+architectures. Xcode builds the static Rust bridge and the base lexicon.
+Set `SI_ENGINE_LEXICON` and `SI_ENGINE_GRAMS` to include a validated paired
+snapshot. The packaging verifier checks for the Rust dictionary and rejects
+obsolete conversion resources before signing the staged app.
 
 ```sh
 ./scripts/package-dmg.sh --dry-run

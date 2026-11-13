@@ -62,7 +62,7 @@ struct KenLMRankingTests {
         guard let path = ProcessInfo.processInfo.environment["SI_TEST_KENLM_INSTALLATION"] else { return }
         let model = try #require(KenLMModel.openInstalled(at: URL(fileURLWithPath: path)))
         let experimental = CandidateEngine(rankingExperiment: RankingExperiment(model: model, languageModelWeight: 0.5))
-        let legacy = CandidateEngine()
+        let legacy = CandidateEngine.legacy()
         #expect(experimental.candidates(for: "goon", languages: [.english])
             == legacy.candidates(for: "goon", languages: [.english]))
         let chinese = experimental.candidates(for: "nihaopengyou", languages: [.simplifiedChinese])
@@ -91,7 +91,7 @@ extension KenLMRankingTests {
 
 extension KenLMRankingTests {
     @Test func featuresFollowWinningLexicalEdgesAndCoverageGroups() throws {
-        let candidates = CandidateEngine().candidates(for: "goon", languages: [.english])
+        let candidates = CandidateEngine.legacy().candidates(for: "goon", languages: [.english])
         let features = CandidateRankingPool(candidates: candidates, model: nil).features(input: "goon")
         let prefix = try #require(features.first { $0.identity == "prefix2:en:go" })
         let whole = try #require(features.first { $0.identity == "en:go on" })
@@ -112,7 +112,7 @@ extension KenLMRankingTests {
         let configuration = RankingExperiment(model: model, languageModelWeight: 0.5, fullCoverageFirst: true)
         let input = "woxiangyaodeploy"
         let languages = Set(InputLanguage.allCases)
-        let baseline = CandidateEngine().candidates(for: input, languages: languages)
+        let baseline = CandidateEngine.legacy().candidates(for: input, languages: languages)
         let pool = CandidateRankingPool(candidates: baseline, model: model)
         let app = CandidateEngine(rankingExperiment: configuration).candidates(for: input, languages: languages)
         #expect(pool.ranked(using: configuration) == app)
@@ -125,7 +125,7 @@ extension KenLMRankingTests {
     @Test func tuningFirstUsesSameOrderAsFrozenEvaluation() throws {
         guard let path = ProcessInfo.processInfo.environment["SI_TEST_KENLM_INSTALLATION"] else { return }
         let model = try #require(KenLMModel.openInstalled(at: URL(fileURLWithPath: path)))
-        let candidates = CandidateEngine().candidates(for: "nihaopengyou", languages: [.simplifiedChinese])
+        let candidates = CandidateEngine.legacy().candidates(for: "nihaopengyou", languages: [.simplifiedChinese])
         let pool = CandidateRankingPool(candidates: candidates, model: model, context: ["朋友"])
         for coverage in [false, true] {
             for wip in [-4.0, 0, 16, 28.85] {
@@ -141,7 +141,7 @@ extension KenLMRankingTests {
 
 extension KenLMRankingTests {
     @Test func englishInsertionAdjustmentCountsOnlyEnglishDictionaryTokens() throws {
-        let base = CandidateEngine()
+        let base = CandidateEngine.legacy()
         let penalty = RankingExperiment.defaultEnglishWordInsertionBits
         let adjusted = CandidateEngine(rankingExperiment: RankingExperiment(englishWordInsertionBits: penalty + 4))
         let now = Date(timeIntervalSince1970: 0)
@@ -189,7 +189,7 @@ extension KenLMRankingTests {
             try decoder.decode(Fixture.self, from: Data($0.utf8))
         }.filter { $0.origin == "requested-hard-case" }
         #expect(hardCases.count == 6)
-        let legacy = CandidateEngine()
+        let legacy = CandidateEngine.legacy()
         let engine = CandidateEngine(rankingExperiment: RankingExperiment(fullCoverageFirst: true))
         let knownMismatches = ["goon": "goon", "cannot": "can not"]
         for row in hardCases {

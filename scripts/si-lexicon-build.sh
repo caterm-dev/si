@@ -6,5 +6,5 @@ cd "$repo_root"
 
 exec cargo run --release --locked --offline -p si-cli -- lexicon build \
     "$repo_root/target/si-data/main.silex" \
-    0 "$repo_root/Data/Chinese" \
+    0 "$repo_root/.build/base.csv" \
     1 "$repo_root/Data/English"

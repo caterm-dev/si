@@ -6,32 +6,24 @@ SI exposes one macOS input source. Settings contain a set of enabled languages, 
 
 ## Data flow
 
-Runtime ranking uses the packaged dictionaries and shared word, spelling and language-transition costs.
-Opted-in Personal Learning retains its existing frequency and exact-choice preferences.
-Production ranking groups whole candidates before prefixes and reranks Chinese
-lexical tokens with a local KenLM model when available, including Chinese
-segments in mixed results. The same configuration runs in Debug and Release.
-Live-host validation remains outstanding.
-
-Current delivery selects the full-data raw-text-v2 model with pruning
-`0 0 1 2`; Wikipedia is excluded. Runtime metadata accepts this configuration
-and the previous `0 1 2 3` configuration, preserving existing App Support
-installations. Local and release installers embed the selected model before
-signing; unsigned plain builds retain the existing fallback behavior. See
-[model identity and provenance](KENLM_MODEL.md).
+The app links the Rust conversion engine through a C ABI. Swift owns the
+client-local input session, consent and application preferences, marked
+text, candidate window and commit handling. The bridge validates original
+UTF-8 spans and converts them to Swift character positions. The host adapter
+uses UTF-16 offsets for AppKit ranges.
 
 ```text
-Host application key event
-  → SIInputController
-  → client-local InputSession and immutable CandidateRequest
-  → full/provisional background workers
-  → CandidateEngine
-  → Swift ChineseDecoder + English lookup + shared English/mixed lexical search
-  → language-aware merge by shared effective score + exact literal fallback
-  → revision-checked CandidateResult → InputSession
-  → client-local selection/page state → nonactivating AppKit candidate window
-  → committed text in the host application
+Host key event → SIInputController → client-local InputSession
+  → immutable CandidateRequest → background candidate worker
+  → Rust decoder → ranked lexical candidates and source evidence
+  → local preference and presentation policies
+  → revision-checked CandidateResult → AppKit candidate window or commit
 ```
+
+The app bundles `SIEngine/main.silex`, optionally paired with
+`main.sigram`. Conversion operates on the current composition. Offline
+comparison tools keep the previous Swift decoder under `mac/LegacyConversion`
+and use generated comparison databases in `.build/legacy-dictionaries/`.
 
 ## Rust conversion
 
@@ -70,17 +62,15 @@ change resets the history. User evidence is bounded. Scores are heuristic
 and use only the source consumed by each path. Whole results sort ahead of
 prefixes, longer prefixes precede shorter ones, and score and stable
 identity break ties within a span. The engine retains distinct languages
-for identical output and keeps the exact literal last. Rust scoring runs
-independently of the macOS app's Swift/KenLM ranking.
+for identical output and keeps the exact literal last. The macOS app and the Rust CLI share this lexical scoring.
 
 ## Rust resource workflow
 
 `si-cli` parses command-line arguments and prints import summaries.
 `si-engine` owns resource loading, CSV and corpus imports, and snapshot
 compatibility. It uses `si-lexicon` and `si-gram` for storage and lookup.
-The future Swift bridge can load the same artifacts through
-`si_engine::resources::EngineResources`. The current macOS application
-uses the Swift engine and its existing resources.
+The macOS bridge loads the same artifacts through
+`si_engine::resources::EngineResources`.
 
 Lexicon imports accept one or more CSV files or directories, with a caller
 selected lookup index for each. Directory CSVs are visited in filename
@@ -220,9 +210,11 @@ learner accumulates the marginals for candidates in a second pass over
 the bigram table. Comparisons are exact and inclusive. A zero share or
 lift threshold disables that check.
 
-The learner requires single Han characters with lowercase ASCII syllable
-keys in the selected full-Pinyin index. It concatenates their exact output
-text and passes the whole new word to the shared `pinyin_pro` reader. The
+Both tokens must contain only Han characters and have a complete reading in
+the selected full-Pinyin index, with one lowercase ASCII syllable per
+character. Word models can supply multi-character tokens, and character
+models supply individual characters. The learner concatenates the exact
+token text and passes the whole new word to the shared `pinyin_pro` reader. The
 reader checks that the syllables align with every original character,
 removes tones and applies SI's umlaut aliases. The learner joins a
 complete reading with apostrophes and adds it to the selected index.
@@ -364,7 +356,7 @@ with `corpus build --han` before adding more character observations.
 
 Localization stays outside `SICore`. Stable language identifiers, core display-name/label metadata, candidate identity, ordering and exact commit bytes are unchanged. Settings localizes the core language/punctuation descriptions at presentation; `CandidateDescription` derives localized candidate labels from structured metadata. User text, phrase codes, application names/identifiers and archive contents are never treated as translation keys. E/C/A punctuation badges keep their existing identifiers while tooltips and accessibility descriptions are translated. No input or personal data is added to localization resources.
 
-## Chinese engine migration
+## Historical Swift Chinese engine
 
 The preparatory [HanLP CSV migration tool](../Data/Chinese/README.md) reads only
 the legacy Chinese `base.csv` and CSVs recursively under `phrase/`. It writes
@@ -464,39 +456,6 @@ page. Compact rendering shows one numbered row; Down expands the same ranking
 into a grid. Space, numbers and mouse clicks confirm the same candidate IDs, and
 the displayed global first choice stays neutral for Personal Learning. Pending
 engine searches disable stale rows until revision-checked results arrive.
-
-At startup the app opens a verified local model on a background task.
-`CandidateRankingPool` reuses the engine's winning lexical traces, resets the
-LM state at language boundaries and applies the new scores before shortlisting.
-English LM weight is zero. The production English insertion cost is 28 bits per
-dictionary token, including tokens in mixed candidates. Request snapshots carry
-the model and configuration, and old requests cannot publish after session
-reconfiguration. Previews and synchronous selection fallback use the production
-dictionary scores without querying the model. Secure event input uses legacy
-ranking. Release packaging stages the verified model inside the signed app.
-The loader prefers that resource and retains the App Support model as a fallback
-for source builds.
-
-`KenLMContextReader` reads at most 256 UTF-16 units before the marked range
-through the current IMK client, verifies SI's marked text and selection, and
-rechecks eligibility around host calls. It never queries the full document length,
-which the SDK warns can be expensive. Unmarked insertion carets are supported
-for committed-prefix remainders. Unknown/inconsistent ranges, secure input and
-direct input supply no context. `KenLMContext` uses an explicitly Chinese
-`NLTokenizer` on the candidate worker to retain up to three words from the
-trailing Chinese segment. Punctuation, newlines and other languages break that
-segment; the first token of a truncated read is discarded conservatively.
-System segmentation is an approximation to the training unigram tokenizer.
-The pool advances these words once to prepare a native KenLM State, copies it
-for each candidate and scores only consumed candidate tokens. Historical-token
-probabilities, EOS and hypothetical remainders do not contribute to scores.
-Language boundaries still reset the state. Prefix changes invalidate request
-IDs, just like composition edits. Context is transient and does not enter
-learning/history/network paths. No cross-composition draft buffer is retained.
-`LanguageSettings`
-clears the retired AI and development ranking preferences without changing
-languages, direct-input rules or recording consent.
-See [the production model record](../README_kenlm_train.md#production-kenlm-ranking).
 
 ## Automatic prefix confirmation
 
@@ -614,17 +573,11 @@ The app target alone links pinned Sparkle 2.10.0. Core/storage/package tests hav
 
 `SI_UPDATE_ARCH` defaults to `universal`; packaging explicitly sets it to the selected architecture and sets `SI_UPDATE_FEED_URL`. The resulting `SUFeedURL` points to SI's separate `si/channels/mac/stable-<arch>.xml`, so a Universal installation stays on the Universal channel on either CPU. No input text, phrase content, learning data or host-document content is supplied to Sparkle. Its update preferences remain separate from the existing language/learning domain. See [privacy](PRIVACY.md#software-update-requests).
 
-## Retained KenLM delivery assets
+## Offline KenLM assets
 
-KenLM training work files remain under `.build`, while a validated final model
-is copied to the ignored `corpus/kenlm/models/<binary-sha256>/` directory.
-`current` is an atomically replaced relative symlink. Install/release read that
-pointer and verify the binary and full metadata; clearing build caches does
-not remove it. Small code/dictionary pins, command journals and native scoring
-references are retained alongside the model, without copying raw training text.
-A failed copy/validation never changes the selected model. Reinstallation
-checks these assets before stopping SI, and ordinary app compilation does not
-train or repair a missing model automatically.
+Historical training and evaluation artifacts remain available to the offline
+comparison tools. They are stored outside the app bundle under
+`corpus/kenlm/models/` and are independent of the current Rust runtime.
 
 ## Distribution tooling
 

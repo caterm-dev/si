@@ -46,6 +46,7 @@ final class LanguageSettings {
         configurationGeneration &+= 1
     }
 
+    #if SWIFT_PACKAGE
     @ObservationIgnored private var kenLMModel: KenLMModel?
     @ObservationIgnored private var didStartModelLoad = false
 
@@ -68,6 +69,7 @@ final class LanguageSettings {
         RankingExperiment(model: kenLMModel, languageModelWeight: 0.25,
                           wordInsertionBits: 28.85, englishWordInsertionBits: 28, fullCoverageFirst: true)
     }
+    #endif
 
     var punctuationCandidatesEnabled: Bool {
         didSet {

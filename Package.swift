@@ -13,7 +13,11 @@ let package = Package(
     dependencies: [.package(path: "Vendor/SIKenLM")],
     targets: [
         .target(name: "SILocalization", path: "mac/SI/Localization", resources: [.process("Resources")]),
-        .target(name: "SICore", dependencies: ["SIKenLM"], path: "mac/SI/Core", resources: [.copy("Resources/Chinese"), .copy("Resources/English")],
+        .systemLibrary(name: "CSIRust", path: "mac/Bridge/include"),
+        .target(name: "SICore", dependencies: ["SIKenLM", "CSIRust"], path: "mac",
+                exclude: ["Bridge", "Support", "SI.xcodeproj", "SI/App", "SI/InputMethod", "SI/Localization",
+                          "SI/Resources", "SI/Settings", "SI/Storage", "SI/Core/Resources"],
+                sources: ["SI/Core", "LegacyConversion"],
                 linkerSettings: [.linkedLibrary("sqlite3")]),
         .target(name: "SIStorage", dependencies: ["SICore"], path: "mac/SI/Storage",
                 linkerSettings: [.linkedLibrary("sqlite3")]),

@@ -292,13 +292,15 @@ fn parse_legacy(path: &Path, text: &str) -> io::Result<LearningConfig> {
 
 #[cfg(test)]
 mod tests {
-    use super::{GramOrder, IndexId, LearningConfig, Ordering, SiConfig, compare_ratios};
+    use super::{IndexId, LearningConfig, Ordering, SiConfig, compare_ratios};
 
     #[test]
     fn bundled_config_preserves_separate_base_and_user_thresholds() {
         let config = SiConfig::default();
-        assert_eq!(config.base_max_order, GramOrder::Fourgram);
-        assert_eq!(config.user_max_order, GramOrder::Fourgram);
+        let configured = include_str!("../../../../config/si.conf");
+        let reloaded = SiConfig::parse(std::path::Path::new("si.conf"), configured).unwrap();
+        assert_eq!(config.base_max_order, reloaded.base_max_order);
+        assert_eq!(config.user_max_order, reloaded.user_max_order);
         assert_eq!(config.base_learning.min_count, 40_000);
         assert_eq!(config.base_learning.min_forward_percent, 4);
         assert_eq!(config.base_learning.min_backward_percent, 4);

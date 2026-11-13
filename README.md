@@ -4,7 +4,7 @@
 
 SI is an open-source macOS input method built around one idea: choose the languages you use in Settings or SI's input menu, then type without switching between language modes. Candidates from enabled languages appear together, including ambiguous matches. The original text always remains available.
 
-> **Status: development preview; Chinese engine migration in progress.** The current worktree implements the Chinese decoder in Swift using MSIME-derived lookup and word-lattice algorithms, with a pinned dictionary maintained by SI. Debug and Release builds have passed. The remaining regression suite passes after ten failing tests were removed at the user's request; those underlying behaviors remain unresolved. See the current validation record. Chinese quality parity and host compatibility remain unproven. English lookup and bounded Chinese/English lexical paths are connected; full regressions and host verification remain incomplete.
+> **Status: development preview.** macOS conversion uses the Rust SI engine through a native bridge. Live host compatibility and ranking quality still need verification.
 
 The English dictionary includes the article `a` for exact lookup and continuous word segmentation, such as `sendaenglish` → `send a english`. Existing ranking and candidate-window limits still apply; see [common English additions](docs/ENGLISH_VOCABULARY.md#common-english-additions).
 
@@ -20,11 +20,15 @@ Enable **English** and **Chinese (Simplified)** once. SI queries both providers 
 | `iwanttobuild` | `I want to build`, `iwanttobuild` (as typed) |
 | `woxiangyaodeploy` | `我想要 deploy`, `woxiangyaodeploy` (as typed) |
 
-The Chinese path queries exact full readings, syllable prefixes and initials, then constructs sentence candidates with a bounded word lattice. Lexical matches, generated sentences and completions compete by a shared score. Up to 32 complete minimum-syllable cuts share sentence search, so ambiguous boundaries such as `wo / xian / gan / zhao` and `wo / xiang / an / zhao` compete using dictionary frequency and spelling costs; `woxianganzhao` has `我想按照` as its leading complete sentence; prefixes compete separately by their own scores in the merged list. Apostrophes constrain syllable boundaries; prefix choices retain the exact unconsumed source spelling. Sentence search retains up to 32 distinct terminal alternatives per base/personalized lane for downstream ranking; the window still limits constructed results to the first four ranked choices. SI deliberately lowers the extra single-character cost to let dictionary frequency compete more strongly with segmentation structure. The production lexical cost is `-1.05 × ln(10) × logp`, using the compiled log10 probability, with an additional two nats for a single Chinese character or three nats for each English dictionary token (including lookup, completion and English/mixed sentence paths). The frequency coefficient strengthens dictionary-weight differences relative to insertion and spelling costs. These heuristic priors balance dictionary frequency against extra lexical splits; known ordinal ambiguities remain. The residual cost discourages excessive character splitting. This differs from the upstream scoring formula and does not establish MSIME-equivalent quality.
-
-English word lookup and continuous English segmentation remain available. With both languages enabled, a bounded lexical lattice also joins complete Pinyin words and English words in either direction, including `woxiangyaodeploy` → `我想要 deploy`, preserved English casing, interleaved words and a completed final English word. Adjacent English words keep their word spaces inside mixed candidates too: `helloworldzhongwen` can offer `hello world 中文`. Chinese/English boundaries also insert one space; personal phrases and verbatim paths retain their exact concatenated output. It uses the same packaged dictionaries and relative weight unit; pure Chinese sentences retain their existing decoder. Exact English words and fully lexical English sentences keep their English identity. Chinese, English and mixed whole choices now compete by the same word, spelling and language-transition costs, with opted-in learning bonuses. Full Pinyin syllables and complete English words receive stronger spelling weight than incomplete observations: bilingual `ma` now leads with `吗`, while English completions remain available. This heuristic can favor fully spelled word sequences over an unfinished English word. No language category has a reserved front position. For `ling`, `零` scores above `里 NG`; English completions such as `lingo` remain eligible by score. See [candidate ranking](docs/UNIFIED_RANKING.md). Mixed initials, incomplete Chinese-tail prediction and broad language-boundary detection remain limited. The exact original input remains an explicit candidate, including unknown input and configurations with all languages disabled.
-
-Whole candidates and prefixes compete using their lexical/preferences score plus five points per matched source letter or digit. Only the spelling a candidate consumes earns this presentation reward; output length, word count and the pending remainder do not. Apostrophes and punctuation earn no points, and ü/v/u: aliases count equally. Completions earn points only for typed spelling; candidates containing unrecognized verbatim spans receive no coverage reward. Base dictionary scores and learning caps are unchanged. Production ordering puts complete candidates before prefixes and longer prefix spans before shorter ones, subject to existing pins and remembered choices. Within a coverage group, candidates compete by score without estimating future conversions.
+The Rust engine searches a bounded word lattice over full Pinyin and English
+spelling, including mixed paths and final-word completion. Apostrophes
+constrain Pinyin syllable boundaries. Prefix choices consume the exact
+original spelling, including umlaut aliases and trailing separators. The
+engine scores paths using dictionary counts, optional paired word grams,
+and spelling and language-transition costs. Complete candidates precede
+prefixes. Prefixes sort by decreasing consumed length, then by score within
+the same range. The exact original input stays available for every nonempty
+composition. [Rust conversion architecture](docs/ARCHITECTURE.md#rust-conversion)
 
 The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated Chinese dictionary character that the system font can display. Only the first four ranked choices may include constructed sentences or multiword fragments. Remaining ordinary slots are single-character/word choices, including exact prefixes, so sentence alternatives cannot fill later pages. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Before shortlisting, the window excludes nonliteral candidates containing missing glyphs, including system LastResort placeholders; supported rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices show a small arrow and consume only their exact source spelling: choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Provisional hints may change when full results arrive. Live host compatibility remains unverified.
 
@@ -32,29 +36,12 @@ For `cichuxiande`, the single-character prefix `词` has the same lexical score 
 
 Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate preferences; Input History can retain each submitted spelling/text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
-Debug and Release use the same ranking. When a verified local KenLM model is
-installed, SI scores Chinese words in the current composition, including
-Chinese segments of mixed candidates. English uses dictionary scoring with its
-own per-word insertion cost. For local Chinese ranking, SI reads at most 256
-UTF-16 units before the current composition through the active IMK client,
-then uses up to three recent Chinese words as context. Punctuation, newlines
-and other-language boundaries reset that context. Secure/direct input and
-unavailable or inconsistent host ranges use context-free ranking. Context
-stays transient and local; it is neither recorded nor learned. The
-release DMG and update ZIP include the model inside the app. The dictionary
-supplies results while the model loads. See [production ranking and model packaging](README_kenlm_train.md#production-kenlm-ranking).
-
-The current delivery model retokenizes raw-text-v2 with the coarse count dictionary,
-using all seven non-Wikipedia sources, clean2 and four-gram pruning `0 0 1 2`
-(159.78 MiB). Training retains the delivery model under
-`corpus/kenlm/models/current`, outside the disposable `.build` directory.
-Local installation bundles that verified model before signing; plain builds
-still use the existing App Support fallback. Rebuilding Swift does not retrain
-KenLM; `reinstall.sh` checks the retained model before stopping SI. See [the current model record](docs/KENLM_MODEL.md).
-
-The reusable [KenLM training and ranking guide](docs/KENLM_TRAINING_GUIDE.md)
-covers corpus preparation, model selection, candidate diagnostics, parameter
-tuning and delivery for future runs.
+Debug and Release use the same Rust conversion. Xcode builds and bundles a
+base `.silex` from the maintained CSVs. To bundle an existing paired
+lexicon and word-gram snapshot, set `SI_ENGINE_LEXICON` and
+`SI_ENGINE_GRAMS` to their absolute paths before building. With only the
+base dictionary, the engine uses dictionary counts. Ranking uses the
+composition and local model data.
 
 ## Input languages
 
@@ -80,37 +67,11 @@ case variants and byte-distinct outputs remain separate. The offline HanLP
 [migration tool](Data/Chinese/README.md) defaults to coarse segmentation and is
 separate from ordinary compilation.
 
-```sh
-python3 scripts/csv_dictionary.py build
-python3 scripts/csv_dictionary.py build --check
-# Optional human-readable corpus snapshot version:
-python3 scripts/csv_dictionary.py build --corpus-version snapshot-v1
-```
-
-Each language has its own `total_n`, the sum of all its CSV counts. SQLite's
-REAL `weight` column stores `log10(count / total_n)`. Zero-count entries use
-`unk_logp = log10(0.5 / total_n)`, which is also stored in the `meta` table
-alongside `total_n`, `log_base`, `corpus_version`, `built_at` (UTC), schema
-version and weight unit. No pseudocount is added to the denominator. Negative
-or blank counts, overflow and an all-zero language are rejected. These
-normalized values derive from maintained dictionary weights; they do not
-establish representative corpus probabilities or improved typing quality.
-
-Schema 2 uses `si-log10-probability-v2`; app and package reject incompatible
-resources. Runtime scoring reads the stored probabilities and unknown floor,
-converts log10 units to bits and retains existing character, English-token,
-spelling and language-transition adjustments. The former raw-count insertion
-prior remains only for injected library fixtures. Production probabilities
-already include normalization and do not add that prior again.
-
-`corpus_version` defaults to the SHA-256 of ordered, merged text/reading/count
-rows. A custom version still retains individual CSV hashes in the manifest.
-`built_at` records actual generation time; `--check` verifies the published
-snapshot while ignoring a freshly generated comparison timestamp, without
-rewriting outputs. Both languages are staged and validated before publication.
-Generated SQLite files remain ignored; manifests and CSVs remain tracked.
-The packaged source notices/licenses stay under `mac/SI/Core/Resources/`.
-No build reads personal phrases, learning archives or history.
+Xcode compiles the maintained counts into the Rust `.silex` resource before
+building the app. The packaged source notices and licenses are under
+`mac/SI/Core/Resources/`. For offline reproduction of the previous Swift
+decoder, `python3 scripts/csv_dictionary.py build` generates comparison
+snapshots under `.build/legacy-dictionaries/`.
 
 ## Automatic prefix confirmation
 
@@ -194,6 +155,7 @@ The manager supports search, editing, deletion, clear, and additive JSON import/
 
 - macOS 14 or later.
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.
+- Rust 1.89 or later with the `aarch64-apple-darwin` and `x86_64-apple-darwin` targets for a universal app.
 - Git LFS for the maintained training CSVs. On macOS, install it with `brew install git-lfs` and run `git lfs install` before cloning.
 - Xcode resolves the pinned Sparkle 2.10.0 update framework on the first app build; no Apple Developer account is needed for an unsigned development build. Chinese vocabulary comes from pinned MSIME sources and context artifacts. English retains attributed SCOWL, CSpell and Rime Ice selections, with wordfreq frequency data.
 - Xcode resolves the pinned Sparkle 2.10.0 update framework on the first app build; no Apple Developer account is needed for an unsigned development build. Chinese context artifacts remain pinned to MSIME. Both base vocabularies come from Wanxiang; historical category data retains attributed SCOWL, CSpell and Rime Ice selections, with wordfreq frequency data.
@@ -204,8 +166,6 @@ The manager supports search, editing, deletion, clear, and additive JSON import/
 git clone https://github.com/caterm-dev/si.git
 cd si
 git lfs pull
-# Generate the ignored runtime databases offline from the tracked vocabulary CSVs:
-python3 scripts/csv_dictionary.py build
 ./scripts/test.sh
 ./scripts/build.sh
 ```
@@ -213,12 +173,9 @@ python3 scripts/csv_dictionary.py build
 The application is built at `.build/xcode/Build/Products/Debug/SI.app`.
 
 Training CSVs under `llm/pinyin_to_text/data/csv/` are stored with Git LFS. For an existing clone, install Git LFS, run `git lfs install --local`, then `git lfs pull` to download the CSV contents. See [the data guide](llm/pinyin_to_text/data/csv/README.md) before preparing a dataset.
-Generated `.db`, `.sqlite` and `.sqlite3` files and SQLite sidecars are Git-ignored.
-Run `python3 scripts/csv_dictionary.py build` before the first build/test in a fresh
-clone and after vocabulary edits. This compiles both dictionaries offline from
-tracked CSV sources; manifests and attribution remain in Git. The app and package
-use these same local files. Build/test scripts do not generate databases or acquire
-corpora, and require no language-model staging or training.
+The build prepares the Rust bridge and lexicon automatically. The test script
+also prepares offline comparison dictionaries when needed. Generated engine
+snapshots, comparison databases, and history databases stay outside Git.
 
 To work in Xcode, open `mac/SI.xcodeproj` and choose the shared **SI** scheme. The Run action passes `--settings` to show the settings window. Core tests are run through Swift Package Manager using `./scripts/test.sh`; they are not an Xcode test target.
 
@@ -367,7 +324,7 @@ The Swift package and Xcode app compile the same core source files.
 The Rust 2024 workspace includes a language-independent lexicon with stable
 word IDs, editable dictionaries, and exact and prefix lookup. The gram model
 uses those word IDs to count and query ordered sequences of two to five words.
-Both store raw occurrence counts. The macOS app uses its Swift engine. See
+Both store raw occurrence counts. The macOS app uses the Rust engine. See
 the [Rust lexicon](docs/ARCHITECTURE.md#rust-lexicon) and
 [Rust gram model](docs/ARCHITECTURE.md#rust-gram-model) for storage details.
 
@@ -396,8 +353,9 @@ The build reads `Data/Chinese` and `Data/English` and requires a new
 `target/si-data/main.silex` destination. The ingest reads
 `corpus/chinese/prepared/raw-text-v2/*/text.txt` and adds counts to the main
 lexicon and `target/si-data/words.sigram` on each completed import. The learn
-script uses the word bigrams from that snapshot to discover two-character
-words for the main lexicon. Ingest and learn both read `config/si.conf`.
+script uses adjacent Han tokens from that snapshot to discover compound words
+for the main lexicon. Each token may contain multiple characters. Ingest and
+learn both read `config/si.conf`.
 
 ```sh
 cargo run --release --locked -p si-cli -- lexicon build target/si-data/main.silex 0 Data/Chinese 1 Data/English
@@ -575,12 +533,17 @@ the same text and primary reading.
 
 #### Learn Chinese words from a corpus
 
-Start with a CSV of single Han characters and their full Pinyin readings.
-The `--han` option accepts ordinary UTF-8 text and counts contiguous
-characters. `lexicon learn` reads only the bigram table and proposes
-two-character words using the original count, both shares, and lift. Edit
-[the `[base]` section of SI configuration](config/si.conf) to select the
-Pinyin index and set the four bigram thresholds.
+`lexicon learn` reads the bigram table and joins adjacent Han tokens when
+their count, forward share, backward share, and lift meet the thresholds.
+With a word model, it can join tokens such as `数据` and `库` to learn
+`数据库`. Earlier gram counts keep the segmentation used when they were
+recorded. Newly learned words can participate in grams from subsequent
+imports. Edit [the `[base]` section of SI configuration](config/si.conf) to
+select the Pinyin index and set the four bigram thresholds.
+
+For two-character discovery from a character model, seed the lexicon with
+single Han characters and their full Pinyin readings. The `--han` option
+accepts ordinary UTF-8 text and counts contiguous characters.
 
 ```sh
 cargo run --release --locked -p si-cli -- lexicon build target/si-data/learned.silex 0 /path/to/han-seed.csv

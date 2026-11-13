@@ -121,7 +121,7 @@ pub fn restore_lexicon(source: &Path, output: &Path) -> io::Result<LexiconImport
     })
 }
 
-/// Learn two-character Han words and export candidates with unresolved readings.
+/// Learn Han words from adjacent tokens and export candidates with unresolved readings.
 pub fn learn_lexicon(
     path: &Path,
     grams: &Path,

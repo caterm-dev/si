@@ -46,21 +46,25 @@ enum CandidateScoring {
             + (isChineseCharacter ? characterInsertionCost : 0)) / log(2.0)
     }
 
+    #if SWIFT_PACKAGE
     static func wordCost(_ row: DictionaryLexeme, isChineseCharacter: Bool = false) -> Double {
         if let logProbability = row.logProbability {
             return wordCost(logProbability: logProbability, isChineseCharacter: isChineseCharacter)
         }
         return wordCost(weight: row.weight, isChineseCharacter: isChineseCharacter)
     }
+    #endif
 
     /// Charge each English dictionary token, shared by lookup and sentence edges.
     static func englishWordCost(weight: Int64) -> Double {
         wordCost(weight: weight) + englishWordInsertionCost / log(2.0)
     }
 
+    #if SWIFT_PACKAGE
     static func englishWordCost(_ row: DictionaryLexeme) -> Double {
         wordCost(row) + englishWordInsertionCost / log(2.0)
     }
+    #endif
 
     static func languageCost(previous: Int, next: Int) -> Double {
         guard previous != 0 else { return initialLanguageCost }

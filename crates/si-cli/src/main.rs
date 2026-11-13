@@ -62,6 +62,9 @@ fn main() -> ExitCode {
 
 fn run(args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
     match args {
+        [scope, lexicon, grams @ ..] if scope == "check-resources" && grams.len() <= 1 => {
+            Some(EngineResources::open(Path::new(lexicon), grams.first().map(Path::new)).map(drop))
+        }
         [scope, base, options @ ..] if scope == "candidates" => {
             candidates::run(Path::new(base), options)
         }
@@ -293,7 +296,7 @@ fn print_lexicon(report: LexiconImport) {
 }
 
 fn print_learning(report: LexiconLearning) {
-    println!("Added {} two-character words.", report.added[0]);
+    println!("Added {} words.", report.added[0]);
     if let Some(review) = report.review {
         println!(
             "Exported {} candidates for reading review to {}.",

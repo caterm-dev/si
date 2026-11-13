@@ -27,10 +27,6 @@ impl<'a> Input<'a> {
             {
                 input.separators.push(pinyin.len());
                 *input.ends.last_mut().unwrap() = end;
-                // An apostrophe belongs to the preceding Pinyin syllable.
-                *input.spellings[Language::English as usize]
-                    .last_mut()
-                    .unwrap() = 0;
                 continue;
             }
             if matches!(cluster, "ü" | "Ü" | "u\u{0308}" | "U\u{0308}") {

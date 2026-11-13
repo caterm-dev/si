@@ -11,7 +11,7 @@ use si_engine::resources::user::UserModelStore;
 #[test]
 fn user_and_base_imports_apply_independent_orders_to_new_batches() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
-    let config = include_str!("../../../config/si.conf");
+    let config = TEST_CONFIG;
     scratch.write(
         "si.conf",
         &config.replace("[base]\nmax_order = 4", "[base]\nmax_order = 3"),
@@ -493,6 +493,60 @@ fn corpus_progress_is_cumulative_across_files_and_keeps_stdout_for_the_summary()
         assert!(summary.contains(final_summary));
         assert!(!summary.contains("corpus file"));
     }
+    Ok(())
+}
+
+#[test]
+fn word_bigrams_learn_compounds_from_single_and_multi_character_tokens() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "seed.csv",
+        "text,reading,weight\n数据,shu'ju,1\n库,ku,1\n机器,ji'qi,1\n学习,xue'xi,1\n",
+    )?;
+    scratch.write("corpus.txt", &"数据库\n机器学习\n数据alpha\n".repeat(2))?;
+    scratch.run(&["lexicon", "build", "base.silex", "0", "seed.csv"])?;
+    scratch.run(&[
+        "corpus",
+        "ingest",
+        "base.silex",
+        "words.sigram",
+        "corpus.txt",
+    ])?;
+    scratch.learning_config(0, 2, 0, 0, 0)?;
+    let learn = [
+        "lexicon",
+        "learn",
+        "base.silex",
+        "words.sigram",
+        "learning.conf",
+    ];
+    let lexicon_path = scratch.0.join("base.silex");
+    let gram_path = scratch.0.join("words.sigram");
+    let gram_bytes = fs::read(&gram_path)?;
+    let before = EngineResources::open(&lexicon_path, Some(&gram_path))?;
+    let data = before.lexicon().find_word("数据").unwrap();
+    let alpha = before.lexicon().find_word("alpha").unwrap();
+    assert_eq!(before.grams().unwrap().count(&[data, alpha]), Some(2));
+
+    let report = scratch.run(&learn)?;
+    assert!(String::from_utf8_lossy(&report.stdout).contains("Added 2 words."));
+    let after = EngineResources::open(&lexicon_path, Some(&gram_path))?;
+    for (reading, expected) in [("shu'ju'ku", "数据库"), ("ji'qi'xue'xi", "机器学习")] {
+        let learned = after
+            .lexicon()
+            .exact(IndexId(0), reading.as_bytes())
+            .next()
+            .unwrap();
+        assert_eq!((learned.text, learned.count), (expected, 2));
+    }
+    assert_eq!(after.lexicon().find_word("数据"), Some(data));
+    assert!(after.lexicon().find_word("数据alpha").is_none());
+    assert_eq!(fs::read(&gram_path)?, gram_bytes);
+
+    let saved = fs::read(&lexicon_path)?;
+    let retry = scratch.run(&learn)?;
+    assert!(String::from_utf8_lossy(&retry.stdout).contains("Added 0 words."));
+    assert_eq!(fs::read(&lexicon_path)?, saved);
     Ok(())
 }
 
@@ -1529,7 +1583,7 @@ fn han_corpus_learns_only_bigrams_even_with_higher_order_settings() -> io::Resul
         "learning.conf",
     ];
     let output = scratch.run(&learn)?;
-    assert!(String::from_utf8_lossy(&output.stdout).contains("Added 2 two-character words."));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("Added 2 words."));
     assert!(!scratch.0.join("base.silex.review-1.csv").exists());
 
     let resources = EngineResources::open(&lexicon_path, None)?;
@@ -1554,7 +1608,7 @@ fn han_corpus_learns_only_bigrams_even_with_higher_order_settings() -> io::Resul
 
     let before_retry = fs::read(&lexicon_path)?;
     let retry = scratch.run(&learn)?;
-    assert!(String::from_utf8_lossy(&retry.stdout).contains("Added 0 two-character words."));
+    assert!(String::from_utf8_lossy(&retry.stdout).contains("Added 0 words."));
     assert_eq!(fs::read(&lexicon_path)?, before_retry);
     assert!(!scratch.0.join("base.silex.review-1.csv").exists());
 
@@ -1805,7 +1859,11 @@ impl ScratchDirectory {
             let path =
                 std::env::temp_dir().join(format!("si-cli-{}-{sequence}", std::process::id()));
             match fs::create_dir(&path) {
-                Ok(()) => return Ok(Self(path)),
+                Ok(()) => {
+                    let directory = Self(path);
+                    directory.write("fixture-defaults.conf", TEST_CONFIG)?;
+                    return Ok(directory);
+                }
                 Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
                 Err(error) => return Err(error),
             }
@@ -1832,7 +1890,11 @@ impl ScratchDirectory {
 
     fn command(&self, args: &[&str]) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_si-cli"));
-        command.current_dir(&self.0).args(args);
+        command.current_dir(&self.0);
+        if args.first() != Some(&"--config") {
+            command.args(["--config", "fixture-defaults.conf"]);
+        }
+        command.args(args);
         command
     }
 
@@ -1852,3 +1914,20 @@ impl Drop for ScratchDirectory {
         let _ = fs::remove_dir_all(&self.0);
     }
 }
+
+const TEST_CONFIG: &str = "[base]
+max_order = 4
+pinyin_index = 0
+min_count_2 = 40000
+min_forward_percent_2 = 4
+min_backward_percent_2 = 4
+min_lift_2 = 10
+
+[user]
+max_order = 4
+pinyin_index = 0
+min_count_2 = 5
+min_forward_percent_2 = 30
+min_backward_percent_2 = 30
+min_lift_2 = 2
+";

@@ -24,8 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             async let appMemory: Void = ApplicationMemorySettings.shared.start()
             async let history: Void = InputHistorySettings.shared.start()
             async let sentences: Void = InputHistorySettings.sentences.start()
-            async let rankingModel: Void = LanguageSettings.shared.startRankingModel()
-            _ = await (phrases, appMemory, history, sentences, rankingModel)
+            _ = await (phrases, appMemory, history, sentences)
+        }
+        Task.detached(priority: .userInitiated) { [logger] in
+            if RustConversion.shared == nil { logger.error("Unable to load the Rust conversion resources.") }
         }
         if ProcessInfo.processInfo.arguments.contains("--settings") {
             showSettings()

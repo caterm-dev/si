@@ -70,7 +70,7 @@ enum SICandidateExport {
                 NSLocalizedDescriptionKey: "Expected the pinned train-only clean2 model."
             ])
         }
-        let engine = CandidateEngine()
+        let engine = CandidateEngine.legacy()
         let names = ["coverage", "is_full_coverage", "is_full_match", "has_completion", "num_words",
                      "avg_word_len", "num_single_char_words", "log_freq_sum", "log_freq_min",
                      "lm_bits", "lm_bits_per_word", "lm_oov_ratio", "input_is_dictionary_word",

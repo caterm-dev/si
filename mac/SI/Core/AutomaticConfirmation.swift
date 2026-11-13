@@ -86,6 +86,12 @@ struct AutomaticConfirmation: Sendable {
         for boundary in leader.confirmationBoundaries {
             guard let start = reading.rawBoundaries.firstIndex(of: boundary.sourceCount),
                   start < reading.letters.count, !reading.separators.contains(start) else { continue }
+            if let rust = RustConversion.loaded {
+                let end = reading.separators.filter { $0 > start }.min() ?? reading.letters.count
+                if rust.hasEnglishWordPrefix(String(reading.letters[start..<end]), minimum: 4) { return [] }
+                continue
+            }
+            #if SWIFT_PACKAGE
             var node = 0
             for end in start..<min(reading.letters.count, start + EnglishLexicon.maximumLength) {
                 if end > start && reading.separators.contains(end) { break }
@@ -93,6 +99,7 @@ struct AutomaticConfirmation: Sendable {
                 node = next
                 if end - start + 1 >= 4 && EnglishLexicon.exactMatch(at: node) != nil { return [] }
             }
+            #endif
         }
         let ranking = learning.ranking(for: input, now: now, context: context)
         let threshold = ranking.score(leader) - competitorMargin

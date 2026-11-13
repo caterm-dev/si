@@ -7,7 +7,7 @@ struct CandidateEngineTests {
     private let languages = Set(InputLanguage.allCases)
 
     @Test(arguments: ["xianshi", "biruzhege", "danci", "nihaopengyou", "iwanttobuild"])
-    func ordinaryCandidatesCompeteByCoverageAdjustedScoreWithoutTypePriority(input: String) {
+    func ordinaryCandidatesCompeteByScoreWithinConsumedRange(input: String) {
         let profile = LearningProfile()
         for enabled: Set<InputLanguage> in [[.simplifiedChinese], languages] {
             var session = InputSession(candidateGeneration: .deferred)
@@ -18,8 +18,13 @@ struct CandidateEngineTests {
                                                     dictionary: UserDictionary(), now: .now, context: nil)] {
                 let ranked = result.filter { !$0.isLiteral }
                 for (left, right) in zip(ranked, ranked.dropFirst()) {
-                    #expect(session.presentationScore(for: left) >= session.presentationScore(for: right))
-                    if session.presentationScore(for: left) == session.presentationScore(for: right) { #expect(left.id < right.id) }
+                    let lhs = left.consumedInputCount ?? input.count
+                    let rhs = right.consumedInputCount ?? input.count
+                    #expect(lhs >= rhs)
+                    if lhs == rhs {
+                        #expect(session.presentationScore(for: left) >= session.presentationScore(for: right))
+                        if session.presentationScore(for: left) == session.presentationScore(for: right) { #expect(left.id < right.id) }
+                    }
                 }
                 #expect(result.last?.isLiteral == true && result.last?.text == input)
             }
@@ -46,7 +51,7 @@ struct CandidateEngineTests {
         #expect(abs(scores[1] - scores[0] - 1.05 * log2(20_000.0)) < 1e-12)
     }
 
-    @Test func wholeAndPrefixCandidatesCompeteByFractionalScoreAcrossSourceSpans() {
+    @Test func wholeAndLongerPrefixCandidatesPrecedeShorterPrefixes() {
         let values = [
             InputCandidate(text: "Whole", language: .english, score: 10, rankingScore: 10.25),
             InputCandidate(text: "Short", language: .english, score: 19,
@@ -58,7 +63,7 @@ struct CandidateEngineTests {
         for rows in [values, Array(values.reversed())] {
             let engine = CandidateEngine(providers: [RankedProvider(values: rows)])
             let result = engine.candidates(for: "synthetic", languages: [.english])
-            #expect(result.map(\.text) == ["Whole", "Long", "Short", "Low", "synthetic"])
+            #expect(result.map(\.text) == ["Whole", "Long", "Low", "Short", "synthetic"])
         }
     }
 
@@ -74,7 +79,9 @@ struct CandidateEngineTests {
             LearnedPreference(input: "synthetic", text: "Word", language: .english, strength: 8, lastUsed: now),
         ], now: now)
         #expect(engine.candidates(for: "synthetic", languages: [.english], now: now).first?.id == whole.id)
-        #expect(engine.candidates(for: "synthetic", languages: [.english], learning: profile, now: now).first?.id == prefix.id)
+        let learned = engine.candidates(for: "synthetic", languages: [.english], learning: profile, now: now)
+        #expect(learned.first?.id == whole.id)
+        #expect((learned.first(where: { $0.id == prefix.id })?.presentationScore ?? 0) > prefix.rankingScore)
         #expect(engine.candidates(for: "synthetic", languages: [.english], learning: unrelated, now: now).first?.id == whole.id)
     }
 

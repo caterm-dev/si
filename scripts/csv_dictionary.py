@@ -19,7 +19,7 @@ import lexicon_database as lexicon
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'Data'
-RESOURCES = ROOT / 'mac/SI/Core/Resources'
+RESOURCES = ROOT / '.build/legacy-dictionaries'
 DATABASES = {'chinese': 'si-pinyin.sqlite', 'english': 'si-english.sqlite'}
 COLUMNS = ['text', 'reading', 'weight']
 # Retained for legacy category-authoring tools; compilation always requires explicit counts.

@@ -6,5 +6,8 @@ mod pinyin;
 pub mod resources;
 pub mod segmentation;
 
-pub use conversion::{Candidate, CandidateEngine, CandidateLanguage, EnabledLanguages};
+pub use conversion::{
+    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, EnabledLanguages,
+    PersonalPhrase, TokenPreference,
+};
 pub use si_lexicon::IndexId;

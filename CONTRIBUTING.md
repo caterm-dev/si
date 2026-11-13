@@ -5,8 +5,7 @@ Thanks for helping build SI. The product principle is simple: users enable langu
 ## Development
 
 1. Install Xcode 26 or later and select it as the active developer directory.
-2. Run `python3 scripts/csv_dictionary.py build` to generate both local SQLite dictionaries from the tracked CSV sources, then open `mac/SI.xcodeproj` and choose the shared SI scheme.
-   Generate the dictionaries before the first build/test in a fresh clone and after editing vocabulary. No language-model staging is required.
+2. Install Rust 1.89 or later and add the Apple Silicon and Intel macOS targets for universal builds. Open `mac/SI.xcodeproj` and choose the shared SI scheme. Xcode generates the Rust lexicon from the tracked CSV files.
 3. For macOS app code changes beyond vocabulary maintenance, run `./scripts/test.sh` and `./scripts/build.sh` before submitting.
 4. For input-method changes, complete the relevant checks in [docs/TESTING.md](docs/TESTING.md).
 
@@ -18,10 +17,8 @@ Use synthetic data for the performance benchmark.
 
 For dictionary changes, edit `Data/Chinese/*.csv` and `Data/English/*.csv`.
 Keep the `text,reading,weight` header and explicit nonnegative integer counts;
-repeated exact identities sum across all files. Compile and check with
-`python3 scripts/csv_dictionary.py build` and `build --check`.
-The shared schema stores log10 probabilities and an explicit unknown floor in
-SQLite metadata; see [vocabulary maintenance](README.md#vocabulary-maintenance).
+repeated exact identities sum across all files. Validate the Rust dictionary with `si-cli lexicon build` and see
+[vocabulary maintenance](README.md#vocabulary-maintenance).
 Retain source attribution/licenses with the dictionary resources. New external
 sources still require the review below. Private phrases, learning and history
 are never ordinary dictionary inputs. For vocabulary-only changes, validate
@@ -36,9 +33,10 @@ Keep prepared datasets, checkpoints, reports and private archives ignored. LFS i
 
 ## Local corpus and model artifacts
 
-Keep the maintained application dictionary CSV sources in `Data/`, resource manifests and attribution in Git. Generated `.db`, `.sqlite` and `.sqlite3` files and their journal/WAL/shared-memory sidecars are ignored. Rebuild the runtime dictionaries offline with `python3 scripts/csv_dictionary.py build` before building or testing a fresh clone; `scripts/build.sh` and `scripts/test.sh` use these local resources without generating them. In `corpus/` and `llm/`, retain scripts, configurations, dependency pins, source locks, attribution, measured snapshot summaries, authored CSV sources and frozen regression fixtures. The static training CSVs have no general regeneration script and must remain available as source inputs.
-
-Validated KenLM delivery models are retained outside build caches under the ignored `corpus/kenlm/models/` directory. Training publishes a content-addressed version and a `current` pointer; install/release preflight verifies those files. Keep this model store when cleaning `.build`; app compilation does not retrain a model.
+Keep the maintained dictionary CSVs, manifests and attribution in Git.
+Rust snapshots and historical SQLite comparison databases are generated
+locally. Previous KenLM experiments retain their frozen models under the
+ignored `corpus/kenlm/models/` directory for offline reproduction.
 
 Downloaded archives, generated lexical tables, prepared training bundles, virtual environments, caches, checkpoints, exports and reports stay local under the ignored paths. Recreate them with the explicit commands in [the corpus guide](corpus/README.md#download-prepare-and-verify) and each [model guide](llm/README.md). Use a fresh output directory when preparing an immutable bundle. Reviewed corpus metadata referenced by `sources.lock.json` stays tracked so a fresh checkout can validate sources before downloading.
 
@@ -50,7 +48,7 @@ To stop tracking an artifact accidentally added earlier, use `git rm --cached` w
 - Keep changes focused and use English for code identifiers, comments, documentation, source localization keys, issues, and pull requests. Keep app translations in the matching `Localizable.strings` resources with identical keys and format arguments. Translations, language examples and lexicons use their native scripts.
 - Do not introduce a current-language mode, a language toggle shortcut, or a ranking rule that silently hides other enabled languages.
 - Keep the original input available, including unknown words and identifiers.
-- Keep typed content out of diagnostic logs. Send input and host context to the selected AI provider only within the independent [AI completion consent boundary](docs/PRIVACY.md#ai-completion). Input History retains SI submissions under its own opt-in. Sentence History separately opts into bounded Return-time text-client snapshots in all conversion-enabled apps. Local KenLM ranking may separately read a transient prefix of at most 256 UTF-16 units through the current IMK client; never persist or transfer that prefix. Keep both history stores local and separate from ranking/training, with secure-input, deletion and storage-error safeguards. Explicitly shared exports may become private offline candidate data through the documented receiver workflow. Never commit contributions, infer redistribution rights or silently append them to maintained datasets.
+- Keep typed content out of diagnostic logs. Send input and host context to the selected AI provider only within the independent [AI completion consent boundary](docs/PRIVACY.md#ai-completion). Input History retains SI submissions under its own opt-in. Sentence History separately opts into bounded Return-time text-client snapshots in all conversion-enabled apps. Keep both history stores local and separate from ranking/training, with secure-input, deletion and storage-error safeguards. Explicitly shared exports may become private offline candidate data through the documented receiver workflow. Never commit contributions, infer redistribution rights or silently append them to maintained datasets.
 - Discuss third-party engines, dictionaries, models, and large dependencies in an issue first. Include their license and data provenance.
 - Leave signing identities, provisioning profiles, user-specific Xcode state, and build products out of commits.
 

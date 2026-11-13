@@ -334,7 +334,7 @@ def write_jsonl(path, values):
 
 def build(output, exporter, data_path=None):
     rows = anchors()
-    readings = check_readings(rows, REPO / 'mac/SI/Core/Resources/Chinese/si-pinyin.sqlite')
+    readings = check_readings(rows, REPO / '.build/legacy-dictionaries/Chinese/si-pinyin.sqlite')
     overlaps, audit = audit_overlap(rows, data_path)
     inputs = {row['input'] for row in rows}
     for row in rows:

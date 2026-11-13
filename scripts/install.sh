@@ -27,7 +27,6 @@ ensure_si_stopped() {
     esac
 }
 ensure_si_stopped
-python3 "$repo_root/scripts/install_kenlm_model.py" --verify-only
 # Use the same kind of stable app identity as release packaging. Never fall back
 # to ad hoc signing: its code-hash identity loses privacy grants after rebuilds.
 requested_identity="${SI_SIGN_IDENTITY:-}"
@@ -67,8 +66,7 @@ mkdir -p "$(dirname "$destination")"
 staging="$(mktemp -d "$(dirname "$destination")/.si-install.XXXXXX")"
 trap 'rm -rf "$staging"' EXIT
 /usr/bin/ditto "$source_app" "$staging/SI.app"
-python3 "$repo_root/scripts/install_kenlm_model.py" \
-    --bundle-resources "$staging/SI.app/Contents/Resources"
+python3 "$repo_root/scripts/verify-rust-app.py" "$staging/SI.app/Contents/Resources"
 # Xcode may emit a separate Debug dylib. Sign nested code before the app bundle.
 for library in "$staging/SI.app/Contents/MacOS/"*.dylib; do
     if [[ -f "$library" ]]; then

@@ -2,27 +2,12 @@
 
 SI processes ordinary input locally, with no analytics or raw-keystroke logging. Independently opted-in Input History can retain each SI submission locally. Network features are user-initiated software updates and separately opted-in AI completion.
 
-## Local language model
+## Local candidate ranking
 
-When a verified KenLM model is installed, the input method scores Chinese
-candidate tokens locally during the current composition. While conversion is
-active, it may read up to 256 UTF-16 units immediately before SI's marked
-range (or the unmarked insertion caret after a prefix commit) through the
-current IMK text client. It excludes the current marked text and all following
-text. The last three Chinese words seed the model state; punctuation, newlines
-and other languages reset the context. It revalidates client, composition,
-configuration and secure/direct-input eligibility around synchronous host calls
-and before accepting delayed results. Unknown, incomplete or inconsistent host
-ranges fall back to context-free ranking. No Accessibility, Screen Recording,
-clipboard or global event access is involved.
-
-Host prefixes exist only in bounded transient session/request snapshots. Reset,
-cancellation, focus changes and secure/direct input invalidate their use; an
-already running obsolete request can finish but cannot publish its results.
-No prefix is saved to learning, either history store, logs or the network.
-System Chinese word segmentation can differ from the training tokenizer;
-ranking quality and live host compatibility remain unverified. Personal
-Learning and Input History retain their independent consent and storage rules.
+The Rust decoder scores the current composition with bundled dictionary
+counts and any bundled word grams. Normal conversion uses the marked
+composition and opted-in local preferences. Host text reads are limited to
+the separately enabled Sentence History and AI Completion workflows below.
 
 ## Software update requests
 

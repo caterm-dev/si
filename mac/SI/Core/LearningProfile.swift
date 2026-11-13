@@ -128,6 +128,18 @@ public struct LearningProfile: Sendable, Equatable {
 
     var hasTokenPreferences: Bool { !tokenInputs.isEmpty }
 
+    func tokenPreferences(for input: String, now: Date) -> [(entry: LearnedPreference, bonus: Double)] {
+        guard hasTokenPreferences else { return [] }
+        let chinese = Self.normalizedInput(input, language: .simplifiedChinese)
+        let english = Self.normalizedInput(input, language: .english)
+        return records.values.compactMap { entry in
+            let spelling = entry.language == .english ? english : chinese
+            guard Self.isTokenPreference(entry), spelling.contains(entry.input) else { return nil }
+            let bonus = weight(id: entry.id, maximum: 32, now: now)
+            return bonus > 0 ? (entry, bonus) : nil
+        }
+    }
+
     func tokenBonus(input: String, text: String, language: InputLanguage, now: Date) -> Double {
         let key = Self.normalizedInput(input, language: language)
         guard hasTokenPreferences(for: key) else { return 0 }

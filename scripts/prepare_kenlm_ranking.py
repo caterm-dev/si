@@ -14,7 +14,7 @@ import unicodedata
 
 ROOT = Path(__file__).resolve().parents[1]
 HELDOUT = ROOT / "corpus/chinese/generated/kenlm-selection-v1/data/heldout.txt"
-RESOURCES = ROOT / "mac/SI/Core/Resources"
+RESOURCES = ROOT / ".build/legacy-dictionaries"
 SEED = 20261106
 STRICT = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]+(?: [\u3400-\u4dbf\u4e00-\u9fff]+)*")
 HAN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\U00020000-\U000323af]+")

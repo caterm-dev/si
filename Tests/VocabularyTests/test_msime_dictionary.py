@@ -58,7 +58,7 @@ class MSIMEDictionaryTests(unittest.TestCase):
 
 class BundledChineseDictionaryTests(unittest.TestCase):
     def test_no_private_use_characters_without_removing_unicode_han_extensions(self):
-        database = dictionary.ROOT / 'mac/SI/Core/Resources/Chinese/si-pinyin.sqlite'
+        database = dictionary.ROOT / '.build/legacy-dictionaries/Chinese/si-pinyin.sqlite'
         with sqlite3.connect(database.resolve().as_uri() + '?mode=ro&immutable=1', uri=True) as connection:
             tables = [row[0] for row in connection.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tbl_%'")]

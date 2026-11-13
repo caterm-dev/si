@@ -121,7 +121,7 @@ enum KenLMRankingBenchmark {
         }
         let mode = args[0]
         let directory = URL(fileURLWithPath: args[2], isDirectory: true)
-        let engine = CandidateEngine()
+        let engine = CandidateEngine.legacy()
         let englishMode = mode == "english" || mode == "english-final"
         let languages: Set<InputLanguage> = englishMode ? [.simplifiedChinese, .english] : [.simplifiedChinese]
         // Warm dictionary initialization separately from per-query timing.

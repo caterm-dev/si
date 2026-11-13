@@ -35,6 +35,29 @@ pub enum CandidateLanguage {
     Literal,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(C)]
+pub struct ConversionBoundary {
+    pub source_bytes: usize,
+    pub output_bytes: usize,
+}
+
+/// An explicitly saved code, supplied transiently for this request.
+pub struct PersonalPhrase<'a> {
+    pub spelling: &'a str,
+    pub text: &'a str,
+    pub language: CandidateLanguage,
+    pub pinned: bool,
+}
+
+/// A transient frequency preference from a previously selected single-language word.
+pub struct TokenPreference<'a> {
+    pub spelling: &'a str,
+    pub text: &'a str,
+    pub language: CandidateLanguage,
+    pub bonus: f64,
+}
+
 /// One possible conversion of a prefix or the whole input.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Candidate {
@@ -46,6 +69,16 @@ pub struct Candidate {
     pub score_bits: Option<f64>,
     /// The last word extends the typed spelling.
     pub completion: bool,
+    /// Lexical units in the strongest derivation, with direct-word evidence retained.
+    pub lexical_tokens: usize,
+    /// Syllable and word boundaries in original UTF-8 bytes.
+    pub source_boundaries: Vec<usize>,
+    /// Aligned source and output boundaries from leading exact Chinese words.
+    pub confirmation_boundaries: Vec<ConversionBoundary>,
+    pub personal: bool,
+    pub preferred: bool,
+    pub verbatim: bool,
+    pub token_bonus: f64,
 }
 
 /// Reuse this engine across requests. Construction indexes dictionary
@@ -64,11 +97,47 @@ impl<'a> CandidateEngine<'a> {
 
     /// Return ranked candidates and one exact literal for nonempty input.
     pub fn candidates(&self, text: &str, languages: EnabledLanguages) -> Vec<Candidate> {
+        self.convert(text, languages, false, &[], &[])
+    }
+
+    /// Provisional candidates from a smaller search beam.
+    pub fn preview(&self, text: &str, languages: EnabledLanguages) -> Vec<Candidate> {
+        self.convert(text, languages, true, &[], &[])
+    }
+
+    /// Check an exact English prefix independently of the enabled languages.
+    pub fn has_english_word_prefix(&self, text: &str, minimum: usize) -> bool {
+        let input = Input::new(text);
+        let mut found = false;
+        self.lookup
+            .visit(Language::English, &input, 0, input.len(), |entry| {
+                found |= entry.missing == 0 && entry.end >= minimum;
+            });
+        found
+    }
+
+    pub fn convert(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preview: bool,
+        phrases: &[PersonalPhrase<'_>],
+        preferences: &[TokenPreference<'_>],
+    ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();
         }
         let mut candidates = if languages.chinese || languages.english {
-            search::run(&Input::new(text), languages, &self.lookup, &self.scoring)
+            let personal = Lookup::personal(phrases);
+            search::run(
+                &Input::new(text),
+                languages,
+                &self.lookup,
+                &self.scoring,
+                preview,
+                &personal,
+                preferences,
+            )
         } else {
             Vec::new()
         };
@@ -78,6 +147,13 @@ impl<'a> CandidateEngine<'a> {
             consumed_bytes: text.len(),
             score_bits: None,
             completion: false,
+            lexical_tokens: 0,
+            source_boundaries: Vec::new(),
+            confirmation_boundaries: Vec::new(),
+            personal: false,
+            preferred: false,
+            verbatim: false,
+            token_bonus: 0.0,
         });
         candidates
     }

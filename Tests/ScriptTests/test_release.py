@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -339,16 +340,26 @@ class ReleaseTests(unittest.TestCase):
                               "--output-dir", str(self.directory / "absent")])
             run.assert_not_called()
         commands = plan.getvalue()
-        stage = commands.index("--bundle-resources")
+        stage = commands.index("verify-rust-app.py")
         self.assertLess(stage, commands.index("codesign --force"))
         self.assertLess(stage, commands.index("pkgbuild"))
         self.assertFalse((self.directory / "absent").exists())
 
-    def test_package_requires_kenlm_before_building(self):
-        with patch.object(release, "run") as run:
-            with self.assertRaisesRegex(ValueError, "Release requires the full-data KenLM model"):
-                release.package(self.args, self.directory, "0.1.0", self.directory / "output")
-        run.assert_not_called()
+    def test_rust_app_resource_verifier_rejects_missing_or_obsolete_files(self):
+        resources = self.directory / "Resources"
+        resources.mkdir()
+        command = [sys.executable, ROOT / "scripts/verify-rust-app.py", resources]
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing SIEngine/main.silex", result.stderr)
+        engine = resources / "SIEngine"
+        engine.mkdir()
+        (engine / "main.silex").write_bytes(b"SILEX\0\x03\0synthetic lexicon")
+        subprocess.run(command, check=True, capture_output=True)
+        (resources / "KenLM").mkdir()
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("obsolete Swift conversion resources", result.stderr)
 
     def test_model_staging_checks_payload_and_omits_training_paths(self):
         binary = self.directory / "model.bin"

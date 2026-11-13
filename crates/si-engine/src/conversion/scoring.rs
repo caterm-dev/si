@@ -195,6 +195,39 @@ impl ScoreSession<'_, '_> {
         missing: usize,
     ) -> (History, Scores) {
         let language = word.language;
+        if word.verbatim {
+            let score = -24.0 - (word.text.chars().count() as f64) * 4.0;
+            return (
+                History {
+                    last: Some(language),
+                    ..History::default()
+                },
+                Scores {
+                    base: score,
+                    personalized: score,
+                },
+            );
+        }
+        if let Some(pinned) = word.personal {
+            let word_cost = (20.0 - 1.05 * 10_000_f64.ln()) / std::f64::consts::LN_2;
+            let spelling_cost = if missing == 0 {
+                0.0
+            } else {
+                4.0 + missing as f64
+            };
+            let score = -word_cost - spelling_cost - language_cost(previous.last, language)
+                + f64::from(pinned);
+            return (
+                History {
+                    last: Some(language),
+                    ..History::default()
+                },
+                Scores {
+                    base: score,
+                    personalized: score,
+                },
+            );
+        }
         let history = if previous.last == Some(language) {
             previous
         } else {
@@ -241,11 +274,7 @@ impl ScoreSession<'_, '_> {
                 priors.personalized = blend(priors.personalized, observed / mass, weight);
             }
         }
-        let mut cost = match previous.last {
-            None => LANGUAGE_START_BITS,
-            Some(last) if last != language => LANGUAGE_SWITCH_BITS,
-            Some(_) => 0.0,
-        };
+        let mut cost = language_cost(previous.last, language);
         cost += match language {
             Language::English => ENGLISH_TOKEN_BITS,
             Language::Chinese if han::single(word.text).is_some() => HAN_CHARACTER_BITS,
@@ -269,6 +298,14 @@ impl ScoreSession<'_, '_> {
                 personalized: priors.personalized.log2() - cost,
             },
         )
+    }
+}
+
+fn language_cost(previous: Option<Language>, next: Language) -> f64 {
+    match previous {
+        None => LANGUAGE_START_BITS,
+        Some(last) if last != next => LANGUAGE_SWITCH_BITS,
+        Some(_) => 0.0,
     }
 }
 
