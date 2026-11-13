@@ -141,7 +141,6 @@ def chinese_reading(code):
             raise ValueError('Unsupported Chinese syllable: ' + repr(syllable))
         syllables.append(spelling)
     reading = "'".join(syllables)
-    dictionary.lexicon.table_for(reading)
     if reading[0] not in 'abcdefghjklmnopqrstwxyz':
         raise ValueError('Unsupported Chinese initial')
     return reading
@@ -222,7 +221,6 @@ def category_hashes(managed):
 
 def prepare_metadata(lock, report, categories):
     meta = json.loads((DATA / 'meta.json').read_bytes())
-    meta['dictionary_format'] = dictionary.lexicon.FORMAT
     for language in ('chinese', 'english'):
         meta['languages'][language]['unknown_weight'] = 1
         meta['languages'][language]['base'] = {

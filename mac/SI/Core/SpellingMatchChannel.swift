@@ -25,23 +25,3 @@ enum WordPrefixChannel {
                                          maximumMissingLetters: fullLength - 1)
     }
 }
-
-/// Chinese observations operate on syllables, independently of dictionary word boundaries.
-/// Zero letters cover later syllables in an unfinished reading. Complete syllables
-/// receive the same exact-endpoint weight as English words, independently of word cuts.
-enum PinyinSpellingChannel {
-    static func cost(length: Int, typedLength: Int) -> Double {
-        precondition((1...64).contains(length) && (0...length).contains(typedLength))
-        return SpellingMatchChannel.cost(missingLetters: length - typedLength, maximumMissingLetters: length)
-    }
-
-    static func cost(syllables: [String], typedLength: Int) -> Double {
-        var remaining = typedLength
-        return syllables.reduce(0) { result, syllable in
-            let length = syllable.utf8.count
-            let consumed = min(length, remaining)
-            remaining -= consumed
-            return result + cost(length: length, typedLength: consumed)
-        }
-    }
-}

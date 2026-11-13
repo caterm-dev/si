@@ -104,12 +104,6 @@ artifacts and have not been overwritten or retrained.
 
 ## Downstream tools
 
-The [KenLM data record](KENLM_DATA.md) describes the frozen six-source runs.
-`prepare_kenlm_raw.py` still defaults to the now-removed `raw-text-v1` input
-and six pinned sources. The new eight-source, Simplified extraction is not silently merged into
-those runs. Selecting a new training corpus and adapting its tokenization input
-are separate explicit steps.
-
 The [unigram tokenizer](UNIGRAM_TOKENIZER.md), historical
 [HanLP word review](HANLP_WORDS.md), [English conversation collection](english/README.md)
 and [whole-document reranker](../llm/reranker_small/README.md) remain separate.

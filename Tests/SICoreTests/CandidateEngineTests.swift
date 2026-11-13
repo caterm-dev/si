@@ -31,26 +31,6 @@ struct CandidateEngineTests {
         }
     }
 
-    @Test func increasingDictionaryFrequencyRaisesTheWordUsingOnlyItsConsumedSpelling() throws {
-        var scores: [Double] = []
-        for weight: UInt64 in [100, 2_000_000] {
-            let decoder = PinyinDecoder(entries: [
-                PinyinLexiconEntry(syllables: ["bi", "ru"], text: "比如", upstreamWeight: weight),
-                PinyinLexiconEntry(syllables: ["zhe", "ge"], text: "这个", upstreamWeight: 100),
-                PinyinLexiconEntry(syllables: ["bi", "ru", "zhe", "ge"], text: "完整候选", upstreamWeight: 1_000_000),
-            ])
-            let engine = CandidateEngine(providers: [CompositionProvider(decoder: decoder)])
-            let result = engine.candidates(for: "biruzhege", languages: [.simplifiedChinese])
-            let index = try #require(result.firstIndex { $0.text == "比如" && $0.consumedInputCount == 4 })
-            #expect(result.contains { $0.text == "完整候选" && !$0.isPartial })
-            let standalone = try #require(decoder.candidates(for: "biru").first { $0.text == "比如" })
-            #expect(abs(result[index].rankingScore - standalone.rankingScore) < 1e-12)
-            #expect(result[index].inputScore == result[index].rankingScore)
-            scores.append(result[index].rankingScore)
-        }
-        #expect(abs(scores[1] - scores[0] - 1.05 * log2(20_000.0)) < 1e-12)
-    }
-
     @Test func wholeAndLongerPrefixCandidatesPrecedeShorterPrefixes() {
         let values = [
             InputCandidate(text: "Whole", language: .english, score: 10, rankingScore: 10.25),
@@ -154,13 +134,6 @@ private struct RankedProvider: CandidateProvider {
     }
 }
 
-private struct CompositionProvider: CandidateProvider {
-    let language = InputLanguage.simplifiedChinese
-    let decoder: PinyinDecoder
-    func candidates(for input: String) -> [InputCandidate] {
-        decoder.compositionCandidates(for: input, languages: [.simplifiedChinese])
-    }
-}
 
 private struct FixedProvider: CandidateProvider {
     let language: InputLanguage

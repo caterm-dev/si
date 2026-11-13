@@ -46,30 +46,6 @@ final class LanguageSettings {
         configurationGeneration &+= 1
     }
 
-    #if SWIFT_PACKAGE
-    @ObservationIgnored private var kenLMModel: KenLMModel?
-    @ObservationIgnored private var didStartModelLoad = false
-
-    func startRankingModel(
-        at root: URL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/SI/KenLM", isDirectory: true),
-        bundledAt bundle: URL? = Bundle.main.resourceURL?.appendingPathComponent("KenLM", isDirectory: true)
-    ) async {
-        guard !didStartModelLoad else { return }
-        didStartModelLoad = true
-        let load = Task.detached(priority: .utility) {
-            bundle.flatMap { KenLMModel.openBundled(at: $0) } ?? KenLMModel.openInstalled(at: root)
-        }
-        guard let model = await load.value else { return }
-        kenLMModel = model
-        configurationGeneration &+= 1
-    }
-
-    var productionRanking: RankingExperiment {
-        RankingExperiment(model: kenLMModel, languageModelWeight: 0.25,
-                          wordInsertionBits: 28.85, englishWordInsertionBits: 28, fullCoverageFirst: true)
-    }
-    #endif
 
     var punctuationCandidatesEnabled: Bool {
         didSet {

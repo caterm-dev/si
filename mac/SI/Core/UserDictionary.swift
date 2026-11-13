@@ -11,24 +11,8 @@ public struct UserDictionary: Equatable, Sendable {
 
     private var phrases: [UUID: UserPhrase] = [:]
     private var identities: [String: UUID] = [:]
-    private var codeIndex: [String: [UserPhrase]] = [:]
-    private(set) var maximumCodeLength = 0
-
-    /// Direct prefix choices are independent of the constructed-node fanout bound.
-    /// The existing code index is already sorted and contains no chronological history.
-    func directPhrases(for code: String) -> [UserPhrase] { codeIndex[code] ?? [] }
 
     public static func == (lhs: UserDictionary, rhs: UserDictionary) -> Bool { lhs.phrases == rhs.phrases }
-
-    /// Bound constructed-path fanout; direct matches are returned separately without this cap.
-    func phrases(for code: String) -> [UserPhrase] {
-        var counts: [InputLanguage: Int] = [:]
-        return (codeIndex[code] ?? []).filter {
-            guard counts[$0.language, default: 0] < 12 else { return false }
-            counts[$0.language, default: 0] += 1
-            return true
-        }
-    }
 
     public init() {}
 
@@ -39,8 +23,6 @@ public struct UserDictionary: Equatable, Sendable {
             try upsert(phrase)
         }
     }
-
-    var phraseCount: Int { phrases.count }
 
     public var entries: [UserPhrase] {
         phrases.values.sorted {
@@ -59,35 +41,19 @@ public struct UserDictionary: Equatable, Sendable {
         guard phrases[valid.id] != nil || phrases.count < Self.maximumEntries else { throw DictionaryError.capacityExceeded }
         if let previous = phrases[valid.id] {
             identities.removeValue(forKey: previous.identity)
-            removeFromIndex(previous)
         }
         phrases[valid.id] = valid
         identities[valid.identity] = valid.id
-        codeIndex[valid.code, default: []].append(valid)
-        codeIndex[valid.code]?.sort {
-            if $0.isPinned != $1.isPinned { return $0.isPinned }
-            if $0.text != $1.text { return $0.text < $1.text }
-            if $0.language != $1.language { return $0.language.rawValue < $1.language.rawValue }
-            return $0.id.uuidString < $1.id.uuidString
-        }
-        maximumCodeLength = max(maximumCodeLength, valid.code.count)
     }
 
     public mutating func remove(id: UUID) {
         if let phrase = phrases.removeValue(forKey: id) {
             identities.removeValue(forKey: phrase.identity)
-            removeFromIndex(phrase)
         }
     }
     public mutating func removeAll() {
-        phrases.removeAll(); identities.removeAll(); codeIndex.removeAll(); maximumCodeLength = 0
-    }
-
-    private mutating func removeFromIndex(_ phrase: UserPhrase) {
-        let key = phrase.code
-        codeIndex[key]?.removeAll { $0.id == phrase.id }
-        if codeIndex[key]?.isEmpty == true { codeIndex.removeValue(forKey: key) }
-        if key.count == maximumCodeLength { maximumCodeLength = codeIndex.keys.map(\.count).max() ?? 0 }
+        phrases.removeAll()
+        identities.removeAll()
     }
 
     /// Import is additive and atomic; existing content wins, including its pin setting.

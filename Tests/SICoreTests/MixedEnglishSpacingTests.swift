@@ -35,7 +35,7 @@ struct MixedEnglishSpacingTests {
                            dictionary: UserDictionary(), now: .now, context: nil)] {
             let candidate = try #require(values.first { $0.text == expected && !$0.isPartial && $0.isMixed })
             #expect(candidate.hasCompletion == completion)
-            #expect(!candidate.hasLiteralSegments && candidate.text.utf8.count <= PinyinDecoder.maximumOutputBytes)
+            #expect(!candidate.hasLiteralSegments && candidate.text.utf8.count <= 4_096)
             #expect(values.last?.text == input && values.last?.isLiteral == true)
         }
         #expect(engine.candidates(for: input, languages: languages) == engine.candidates(for: input, languages: languages))

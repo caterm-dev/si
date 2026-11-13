@@ -13,24 +13,9 @@ struct CompositionLatticeTests {
         #expect(direct.count(where: { $0.isUserPhrase && !$0.isPartial }) == 20)
         let input = String(repeating: "a", count: 20)
         let composed = CandidateEngine().candidates(for: input, languages: languages, dictionary: dictionary)
-        #expect(composed.allSatisfy { $0.text.utf8.count <= PinyinDecoder.maximumOutputBytes })
+        #expect(composed.allSatisfy { $0.text.utf8.count <= 4_096 })
         #expect(composed.last?.text == input)
         #expect(composed.contains { $0.isPartial && $0.isUserPhrase })
-    }
-
-    @Test func constructedRankingPreservesLexicalPreferencesInsteadOfIntegerTies() {
-        let tiny = PinyinDecoder(entries: [
-            PinyinLexiconEntry(syllables: ["wo"], text: "我", score: 100),
-            PinyinLexiconEntry(syllables: ["wo"], text: "握", score: 99),
-            PinyinLexiconEntry(syllables: ["shi"], text: "是", score: 100),
-            PinyinLexiconEntry(syllables: ["shi"], text: "时", score: 99),
-        ])
-        #expect(tiny.candidates(for: "woshi").first?.text == "我是")
-        let engine = CandidateEngine()
-        for (input, expected) in [("woshi", "我是"), ("nishi", "你是"), ("woyao", "我要"),
-                                  ("zhongguoren", "中国人"), ("womenhao", "我们好")] {
-            #expect(engine.candidates(for: input, languages: [.simplifiedChinese]).first { !$0.isPartial }?.text == expected)
-        }
     }
 
     @Test func coherentChinesePathsOutrankAccidentalEnglishWordsWithoutHidingThem() {
@@ -38,15 +23,6 @@ struct CompositionLatticeTests {
         #expect(candidates.first { !$0.isPartial }?.text == "我们去北京")
         #expect(candidates.contains { $0.text == "women 去北京" && $0.isMixed })
         #expect(candidates.last?.isLiteral == true)
-    }
-
-    @Test func longCompositionsDoNotLoseCoherenceThroughAFixedScoreFloor() {
-        // A 64-syllable lexical preference must remain ordered without a fixed score floor.
-        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["a"], text: "啊"),
-                                               PinyinLexiconEntry(syllables: ["a"], text: "阿", score: 99)])
-        let candidates = decoder.compositionCandidates(for: String(repeating: "a", count: 64), languages: languages)
-        #expect(candidates.first?.text == String(repeating: "啊", count: 64))
-        #expect(candidates.contains { $0.isMixed })
     }
 
     @Test func personalChineseAndEnglishNodesParticipateInLongerCompositions() throws {
@@ -82,13 +58,6 @@ struct CompositionLatticeTests {
         #expect(!engine.candidates(for: "woaizs", languages: languages, dictionary: dictionary).contains { $0.isUserPhrase })
     }
 
-    @Test func fullAndInitialSyllablesCanBeCombined() {
-        for input in ["nhao", "nih", "ni'h", "n'hao"] {
-            #expect(PinyinDecoder.standard.candidates(for: input).contains { $0.text == "你好" })
-        }
-        #expect(PinyinDecoder.standard.candidates(for: "n'h").contains { $0.text == "你好" })
-    }
-
     @Test func incompleteMixedWordAndUnknownSpansHaveDistinctPrivacyBehavior() throws {
         let engine = CandidateEngine()
         let completion = try #require(engine.candidates(for: "nihaowor", languages: languages)
@@ -99,7 +68,6 @@ struct CompositionLatticeTests {
         #expect(engine.candidates(for: "nihaowor", languages: languages).last?.isLiteral == true)
         // QWERT is now a lexical technology entry. Keep the unknown-span fixture
         // independent of it, and also cover an unknown tail after a known product.
-        #expect(EnglishLexicon.matches(for: "qz").isEmpty)
         for (input, output) in [("nihaoQzXvJk", "你好QzXvJk"), ("QzXvJknihao", "QzXvJk你好"),
                                 ("nihaogmailQzXvJk", "你好gmailQzXvJk")] {
             let candidates = engine.candidates(for: input, languages: languages)

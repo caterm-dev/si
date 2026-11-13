@@ -5,9 +5,8 @@ SI is currently a development preview. Checked items have implementations; unche
 ## macOS conversion migration — 2026-11
 
 The macOS app uses the Rust decoder and a bundled `.silex` dictionary.
-Builds can supply a paired `.sigram` word-gram model. The Swift decoder and
-KenLM remain available to offline comparison tools. The shipped app uses
-Rust for lexical search and Swift for InputMethodKit and candidate presentation.
+Builds can supply a paired `.sigram` word-gram model. The app uses Rust for
+lexical search and Swift for InputMethodKit and candidate presentation.
 Native host behavior and parity with the earlier Chinese ranking still
 require verification. See [architecture](ARCHITECTURE.md#rust-conversion)
 and [bridge checks](TESTING.md#automated-checks).

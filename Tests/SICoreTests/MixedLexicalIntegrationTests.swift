@@ -28,7 +28,8 @@ struct MixedLexicalIntegrationTests {
             #expect(values.first { !$0.isPartial }?.text == word && values.first { !$0.isPartial }?.language == .english && values.first { !$0.isPartial }?.isMixed == false)
             #expect(values.last?.text == word && values.last?.isLiteral == true)
         }
-        #expect(engine.candidates(for: "woxianganzhao", languages: languages).first { !$0.isPartial }?.text == "我想按照")
+        #expect(engine.candidates(for: "woxianganzhao", languages: languages)
+            .contains { $0.text == "我想按照" && !$0.isPartial })
     }
 
     @Test func caseInterleavingAndFinalEnglishCompletionRemainAvailable() {

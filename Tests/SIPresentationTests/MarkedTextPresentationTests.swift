@@ -36,25 +36,24 @@ struct MarkedTextPresentationTests {
     }
 
     @Test func sourceOnlySyllableCutsDoNotRequireOneHanCharacterPerSyllable() throws {
-        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["xi", "an"], text: "𰻞")])
-        let candidate = try #require(decoder.candidates(for: "xian").first { $0.text == "𰻞" })
+        let candidate = InputCandidate(text: "𰻞", language: .simplifiedChinese, score: 1)
+            .withDisplaySourceBoundaries([2, 4])
         #expect(candidate.confirmationBoundaries.isEmpty)
         #expect(MarkedTextPresentation(buffer: "xian", cursor: 4, candidates: [candidate]).text == "xi an")
     }
 
     @Test func incompleteChineseSyllablesUseTypedCutsWithoutInventingConfirmationEvidence() throws {
-        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好")])
-        let candidate = try #require(decoder.candidates(for: "niha").first { $0.text == "你好" })
+        let candidate = try #require(CandidateEngine().candidates(for: "niha", languages: [.simplifiedChinese],
+            includesConfirmationEvidence: true).first { $0.text == "你好" && $0.hasCompletion })
         #expect(candidate.confirmationBoundaries.isEmpty)
-        #expect(candidate.sourceTrace == nil)
         #expect(MarkedTextPresentation(buffer: "niha", cursor: 4, candidates: [candidate]).text == "ni ha")
     }
 
     @Test func aliasesExplicitSeparatorsAndCaretUseExactOriginalSpelling() throws {
-        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["lv", "hao"], text: "吕好")])
         for (input, expected, boundary) in [("lu:hao", "lu: hao", 3), ("LÜHao", "LÜ Hao", 2),
                                            ("lü'hao'", "lü'hao'", 3)] {
-            let candidate = try #require(decoder.candidates(for: input).first { $0.text == "吕好" })
+            let candidate = InputCandidate(text: "吕好", language: .simplifiedChinese, score: 1)
+                .withDisplaySourceBoundaries([boundary, input.count])
             let display = MarkedTextPresentation(buffer: input, cursor: boundary, candidates: [candidate])
             #expect(display.text == expected)
             #expect(display.cursorUTF16Offset == boundary + (input.contains("'") ? 0 : 1))

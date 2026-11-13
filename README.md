@@ -69,9 +69,8 @@ separate from ordinary compilation.
 
 Xcode compiles the maintained counts into the Rust `.silex` resource before
 building the app. The packaged source notices and licenses are under
-`mac/SI/Core/Resources/`. For offline reproduction of the previous Swift
-decoder, `python3 scripts/csv_dictionary.py build` generates comparison
-snapshots under `.build/legacy-dictionaries/`.
+`mac/SI/Core/Resources/`. Use `./scripts/si-lexicon-build.sh` to build
+a standalone Rust dictionary.
 
 ## Automatic prefix confirmation
 

@@ -34,9 +34,7 @@ Keep prepared datasets, checkpoints, reports and private archives ignored. LFS i
 ## Local corpus and model artifacts
 
 Keep the maintained dictionary CSVs, manifests and attribution in Git.
-Rust snapshots and historical SQLite comparison databases are generated
-locally. Previous KenLM experiments retain their frozen models under the
-ignored `corpus/kenlm/models/` directory for offline reproduction.
+Generate Rust dictionary and word-gram snapshots locally.
 
 Downloaded archives, generated lexical tables, prepared training bundles, virtual environments, caches, checkpoints, exports and reports stay local under the ignored paths. Recreate them with the explicit commands in [the corpus guide](corpus/README.md#download-prepare-and-verify) and each [model guide](llm/README.md). Use a fresh output directory when preparing an immutable bundle. Reviewed corpus metadata referenced by `sources.lock.json` stays tracked so a fresh checkout can validate sources before downloading.
 

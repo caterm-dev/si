@@ -11,17 +11,15 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from clean.chinese import HAN
-from common import REPO, ROOT, digest, new_directory, write_json
+from common import REPO, digest, new_directory, write_json
 
 
 def build(output):
-    vocabulary = REPO / 'Data/Vocabulary'
-    inputs = sorted((vocabulary / 'chinese').glob('*.csv'))
+    inputs = sorted((REPO / 'Data/Chinese').glob('*.csv'))
     # Reuse the dictionary compiler's overlap/weight contract rather than treating
     # duplicate categories as repeated natural-language occurrences.
     sys.path.insert(0, str(REPO / 'scripts'))
     import csv_dictionary
-    metadata, _ = csv_dictionary.metadata()
     entries, _ = csv_dictionary.rows('chinese')
     with new_directory(output) as staged:
         counts = Counter()
@@ -38,23 +36,20 @@ def build(output):
                 single = len(text) == 1
                 writers[single].writerow([text, reading, weight])
                 counts['characters' if single else 'words'] += 1
+        notice_dir = REPO / 'mac/SI/Core/Resources/Chinese'
         notices = staged / 'attribution'
         notices.mkdir()
-        for source in metadata['upstreams']:
-            path = REPO / source['attribution']
-            target = notices / source['attribution']
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, target)
-        shutil.copytree(vocabulary / 'Wanxiang', notices / 'Wanxiang',
-                        ignore=shutil.ignore_patterns('__pycache__'))
-        shutil.copy2(vocabulary / 'meta.json', staged / 'vocabulary-meta.json')
+        sources = sorted(path for path in notice_dir.iterdir()
+                         if path.is_file() and path.suffix in {'.txt', '.md'})
+        for path in sources:
+            shutil.copy2(path, notices / path.name)
         write_json(staged / 'manifest.json', {
             'schema_version': 1, 'language': 'zh', 'counts': dict(counts),
-            'inputs': {str(path.relative_to(REPO)): digest(path) for path in inputs + [vocabulary / 'meta.json']},
+            'inputs': {str(path.relative_to(REPO)): digest(path) for path in inputs + sources},
             'files': {name: digest(staged / name) for name in ('characters.tsv', 'words.tsv')},
             'code': {name: digest(REPO / name) for name in
                      ('corpus/pinyin/build.py', 'corpus/common.py', 'corpus/clean/chinese.py',
-                      'scripts/csv_dictionary.py', 'scripts/lexicon_database.py')},
+                      'scripts/csv_dictionary.py')},
             'notes': 'Explicit lexical readings, preserving polyphony. Weights are not corpus counts. '
                      'No sentence pronunciation generation or train/validation/test assignment.',
         })

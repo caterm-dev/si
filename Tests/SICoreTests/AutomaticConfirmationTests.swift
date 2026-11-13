@@ -147,21 +147,18 @@ struct AutomaticConfirmationTests {
         }
     }
 
-    @Test func bothLegacyAndRerankedCompetitorsCanBlockAutomaticConfirmation() {
+    @Test func bothLexicalAndPresentationCompetitorsCanBlockAutomaticConfirmation() {
         let boundary = ConfirmationBoundary(sourceCount: 5, outputByteCount: 6)
         let leader = InputCandidate(text: "你好学习", language: .simplifiedChinese, score: 100,
                                     confirmationBoundaries: [boundary]).withPresentationScore(100, remembered: false)
-        let legacyCompetitor = InputCandidate(text: "拟好学习", language: .simplifiedChinese, score: 99,
+        let lexicalCompetitor = InputCandidate(text: "拟好学习", language: .simplifiedChinese, score: 99,
                                               confirmationBoundaries: [boundary]).withPresentationScore(80, remembered: false)
-        let rerankedCompetitor = InputCandidate(text: "拟好学习", language: .simplifiedChinese, score: 80,
+        let presentationCompetitor = InputCandidate(text: "拟好学习", language: .simplifiedChinese, score: 80,
                                                 confirmationBoundaries: [boundary]).withPresentationScore(99, remembered: false)
-        for competitor in [legacyCompetitor, rerankedCompetitor] {
+        for competitor in [lexicalCompetitor, presentationCompetitor] {
             #expect(AutomaticConfirmation.prefixes(for: [leader, competitor], input: "nihaoxuexi",
-                                                   learning: LearningProfile(), now: start, context: nil,
-                                                   includesAdjustedScores: true).isEmpty)
+                                                   learning: LearningProfile(), now: start, context: nil).isEmpty)
         }
-        #expect(!AutomaticConfirmation.prefixes(for: [leader, rerankedCompetitor], input: "nihaoxuexi",
-                                                learning: LearningProfile(), now: start, context: nil).isEmpty)
     }
 
     @Test func aPauseAloneCannotAuthorizeAnIsolatedSingleCharacter() {
@@ -242,7 +239,7 @@ struct AutomaticConfirmationTests {
     }
 
     @Test func importedEnglishNameBlocksAnUnseparatedTailWithoutDisablingExplicitBoundaries() {
-        #expect(EnglishLexicon.matches(for: "peng").contains { $0.key == "peng" })
+        #expect(RustConversion.shared?.hasEnglishWordPrefix("pengyou", minimum: 4) == true)
         var ambiguous = makeSession()
         ambiguous.append("nihaopengyou", now: start)
         #expect(ambiguous.automaticallyConfirm(now: start.addingTimeInterval(2), afterPause: true) == nil)
@@ -263,15 +260,26 @@ struct AutomaticConfirmationTests {
 
     private struct FixtureProvider: CandidateProvider {
         let language = InputLanguage.simplifiedChinese
-        private let decoder = PinyinDecoder(entries: [
-            PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好"),
-            PinyinLexiconEntry(syllables: ["peng", "you"], text: "朋友"),
-            PinyinLexiconEntry(syllables: ["xue", "xi"], text: "学习"),
-            PinyinLexiconEntry(syllables: ["zhong", "wen"], text: "中文"),
-            PinyinLexiconEntry(syllables: ["nv", "er"], text: "女儿"),
-        ])
+        private let words: [(code: String, text: String)] = [
+            ("nihao", "你好"), ("pengyou", "朋友"), ("xuexi", "学习"),
+            ("zhongwen", "中文"), ("nver", "女儿"),
+        ]
+
         func candidates(for input: String) -> [InputCandidate] {
-            decoder.compositionCandidates(for: input, languages: [language], includesConfirmationEvidence: true)
+            guard let spelling = PinyinInput(input) else { return [] }
+            let letters = Array(spelling.letters)
+            var offset = 0
+            var text = ""
+            var boundaries: [ConfirmationBoundary] = []
+            while let word = words.first(where: { letters.dropFirst(offset).starts(with: $0.code) }) {
+                offset += word.code.count
+                text += word.text
+                boundaries.append(ConfirmationBoundary(sourceCount: spelling.rawBoundaries[offset],
+                                                         outputByteCount: text.utf8.count))
+            }
+            guard offset == letters.count, !boundaries.isEmpty else { return [] }
+            return [InputCandidate(text: text, language: language, score: 100,
+                                   confirmationBoundaries: boundaries)]
         }
     }
 }

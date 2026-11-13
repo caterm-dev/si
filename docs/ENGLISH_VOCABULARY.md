@@ -2,13 +2,10 @@
 
 ## Current count-based compiler
 
-Maintain `Data/English/*.csv` with explicit `text,reading,weight` counts.
-Exact duplicate identities sum; distinct casing remains available. Run
-`python3 scripts/csv_dictionary.py build --language english` and the same
-command with `--check`. The app reads stored log10 probabilities and the
-computed unknown floor from schema 2; see [the current contract](../README.md#vocabulary-maintenance).
-The legacy source paths, precedence and raw-weight rules below are historical
-and do not describe the current compiler.
+Maintain explicit `text,reading,weight` rows in the language's `Data/`
+directory. Xcode builds both languages into `SIEngine/main.silex`. To build
+or validate the same Rust dictionary from the command line, run
+`./scripts/si-lexicon-build.sh` and `cargo test --locked -p si-cli --test workflow`.
 
 ## Historical import and review record
 
@@ -24,8 +21,6 @@ English word/title keys retain SI's full-text alphabetic contract: lowercase out
 python3 scripts/wanxiang_dictionary.py fetch
 python3 scripts/wanxiang_dictionary.py convert
 python3 scripts/wanxiang_dictionary.py convert --check
-python3 scripts/csv_dictionary.py build
-python3 scripts/csv_dictionary.py build --check
 ```
 
 Fetch is a separate explicit network operation. Conversion is offline and replaces both base CSVs, preserving category files. Normal CSV builds compile the editable collection without downloading or reimporting anything. Manual base edits are overwritten by a later conversion; maintain intentional additions as category data. See [the CSV contract](../Data/Vocabulary/README.md).
@@ -65,6 +60,5 @@ SCOWL is pinned to `1e5b7d3a72f47a71da5d28686c1dd4b397178485`, CSpell to `5f0519
 
 Full redistribution notices are retained in [Data/English/licenses](../Data/English/licenses/), [EnglishVocabularyNotices.txt](../mac/SI/Resources/EnglishVocabularyNotices.txt) and [RankingNotices.txt](../mac/SI/Resources/RankingNotices.txt). SCOWL permits redistribution with notices, CSpell uses MIT, Rime Ice declares GPL-3.0-only, SI additions use GPLv3, and wordfreq-derived data retains CC-BY-SA-4.0 attribution. No installed system dictionary is copied.
 
-The retired `scripts/vocabulary.py` / `scripts/vocabulary.sh` import tools and their snapshot-only tests have been removed. `scripts/ranking.py` now checks only the retained attribution and synthetic calibration; its wordfreq archive decoder/import is removed. The new Wanxiang converter does not reconstruct the former vocabulary from those retired sources. After source/license review, explicitly merge intended changes into category CSVs and update source-level metadata when needed.
 
 Public dictionary changes can affect mixed segmentation and candidate ranking. For vocabulary-only edits, validate the changed data and regenerate the dictionary resources as needed. Run regression suites and app builds only when requested. Private phrases and app vocabulary are independent; these tools never inspect them.

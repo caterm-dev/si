@@ -2,13 +2,10 @@
 
 ## Current count-based compiler
 
-Maintain `Data/Chinese/*.csv` with explicit `text,reading,weight` counts.
-Exact duplicate identities sum across all files. Run
-`python3 scripts/csv_dictionary.py build --language chinese` and the same
-command with `--check`. Schema 2 stores log10 probabilities and the computed
-unknown floor in SQLite `meta`; see [the current contract](../README.md#vocabulary-maintenance).
-The legacy source paths, precedence and raw-weight rules below are historical
-and do not describe the current compiler.
+Maintain explicit `text,reading,weight` rows in the language's `Data/`
+directory. Xcode builds both languages into `SIEngine/main.silex`. To build
+or validate the same Rust dictionary from the command line, run
+`./scripts/si-lexicon-build.sh` and `cargo test --locked -p si-cli --test workflow`.
 
 ## Historical import and review record
 
@@ -42,9 +39,6 @@ The old MSIME-derived base is replaced. Historical source records and licenses r
 python3 scripts/wanxiang_dictionary.py fetch
 python3 scripts/wanxiang_dictionary.py convert
 python3 scripts/wanxiang_dictionary.py convert --check
-python3 scripts/csv_dictionary.py build
-python3 scripts/csv_dictionary.py build --check
-python3 scripts/msime_dictionary.py build --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 ./scripts/test.sh
 ./scripts/build.sh
@@ -57,9 +51,6 @@ The preserved local categories came from an earlier broad heuristic grouping of 
 See [the CSV contract and category workflow](../Data/Vocabulary/README.md) for columns, validation, ties, weights and provenance. [English](ENGLISH_VOCABULARY.md) uses the same compiler and SQLite schema. Source-level provenance is indexed once in [meta.json](../Data/Vocabulary/meta.json); source versions and input hashes are inline there, while full licenses and attribution remain under [Data/Chinese/MSIME](../Data/Chinese/MSIME/README.md). MSIME's underlying Rime Ice / rime-wanxiang attribution still applies. Moving data into SI CSV does not erase those obligations.
 
 ```sh
-python3 scripts/csv_dictionary.py build
-python3 scripts/csv_dictionary.py build --check
-python3 scripts/msime_dictionary.py build --check
 python3 -m unittest discover -s Tests/VocabularyTests -v
 ./scripts/test.sh
 ./scripts/build.sh
@@ -70,9 +61,8 @@ The first two commands compile/check both languages offline. The Chinese compati
 Historical word-context tables, archived outside App resources under `Data/Chinese/MSIME/artifacts/`, are independently pinned in `Data/Chinese/MSIME/resources.lock.json`. They are not regenerated when words change and are not loaded by the App. Runtime scoring uses dictionary, spelling and language-transition costs. Fetching these existing pinned tables remains an explicit maintainer action:
 
 ```sh
-python3 scripts/msime_dictionary.py fetch-context
 ```
 
-`python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json` reads the recorded MSIME revisions from `meta.json` and compares them with upstream without adopting changes. Any upstream update must be reviewed, licensed and deliberately integrated into the maintained CSVs. This audit does not adopt lexical updates. Wanxiang adoption uses its separate explicit fetch/convert workflow; context adoption remains separate.
+`python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json` reads the recorded MSIME revisions from `meta.json` and compares them with upstream without adopting changes. Any upstream update must be reviewed, licensed and deliberately integrated into the maintained CSVs. This audit does not adopt lexical updates. Wanxiang adoption uses its separate explicit fetch/convert workflow.
 
 Private phrases and opt-in app vocabulary retain their own consent, retention and deletion controls. These maintenance commands never read user archives. Automated resource checks do not establish input quality or native host compatibility; see [testing](TESTING.md).

@@ -30,7 +30,6 @@ class WanxiangConversionTests(unittest.TestCase):
         self.notice.parent.mkdir(parents=True)
         self.notice.write_text('Synthetic notice')
         (self.data / 'meta.json').write_text(json.dumps({'schema_version': 2,
-            'dictionary_format': dictionary.lexicon.FORMAT,
             'languages': {'chinese': {'unknown_weight': 1}, 'english': {'unknown_weight': 9}},
             'upstreams': []}))
         patches = patch.multiple(importer, ROOT=self.root, DATA=self.data,

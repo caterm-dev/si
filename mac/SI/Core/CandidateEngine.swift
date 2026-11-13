@@ -3,81 +3,25 @@ import Foundation
 public struct CandidateEngine: Sendable {
     private let providers: [any CandidateProvider]?
     public var punctuationCandidatesEnabled: Bool
-    #if SWIFT_PACKAGE
-    private var legacy: LegacyCandidateEngine?
-    var usesLegacyConversion: Bool { legacy != nil }
-
-    public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false,
-                rankingExperiment: RankingExperiment? = nil) {
-        self.providers = providers
-        self.punctuationCandidatesEnabled = punctuationCandidatesEnabled
-        legacy = rankingExperiment.map { LegacyCandidateEngine(providers: providers,
-            punctuationCandidatesEnabled: punctuationCandidatesEnabled, rankingExperiment: $0) }
-    }
-
-    /// Explicit entry point for offline reproduction of the previous decoder.
-    public static func legacy(providers: [any CandidateProvider]? = nil,
-                              punctuationCandidatesEnabled: Bool = false) -> Self {
-        Self(providers: providers, punctuationCandidatesEnabled: punctuationCandidatesEnabled,
-             rankingExperiment: RankingExperiment())
-    }
-
-    public var rankingExperiment: RankingExperiment {
-        get { legacy?.rankingExperiment ?? RankingExperiment() }
-        set { legacy?.rankingExperiment = newValue }
-    }
-    #else
     public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false) {
         self.providers = providers
         self.punctuationCandidatesEnabled = punctuationCandidatesEnabled
     }
-    #endif
 
     public func candidates(for input: String, languages: Set<InputLanguage>,
                            learning: LearningProfile = LearningProfile(), dictionary: UserDictionary = UserDictionary(),
                            now: Date = .now, context: CandidateContext? = nil,
                            includesConfirmationEvidence: Bool = false,
                            applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
-        #if SWIFT_PACKAGE
-        if var legacy {
-            legacy.punctuationCandidatesEnabled = punctuationCandidatesEnabled
-            return legacy.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
-                now: now, context: context, includesConfirmationEvidence: includesConfirmationEvidence,
-                applicationMemory: applicationMemory)
-        }
-        #endif
         return converted(input, languages: languages, learning: learning, dictionary: dictionary,
                          now: now, context: context, applicationMemory: applicationMemory, preview: false,
                          includesConfirmation: includesConfirmationEvidence)
     }
 
-    #if SWIFT_PACKAGE
-    public func candidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile = LearningProfile(),
-                           dictionary: UserDictionary = UserDictionary(), now: Date = .now, context: CandidateContext? = nil,
-                           includesConfirmationEvidence: Bool = false, applicationMemory: ApplicationMemorySnapshot = .empty,
-                           languageModelContext: KenLMContext) -> [InputCandidate] {
-        if var legacy {
-            legacy.punctuationCandidatesEnabled = punctuationCandidatesEnabled
-            return legacy.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
-                now: now, context: context, includesConfirmationEvidence: includesConfirmationEvidence,
-                applicationMemory: applicationMemory, languageModelContext: languageModelContext)
-        }
-        return candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
-                          now: now, context: context, includesConfirmationEvidence: includesConfirmationEvidence,
-                          applicationMemory: applicationMemory)
-    }
-    #endif
 
     func previewCandidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
-        #if SWIFT_PACKAGE
-        if var legacy {
-            legacy.punctuationCandidatesEnabled = punctuationCandidatesEnabled
-            return legacy.previewCandidates(for: input, languages: languages, learning: learning,
-                dictionary: dictionary, now: now, context: context, applicationMemory: applicationMemory)
-        }
-        #endif
         return converted(input, languages: languages, learning: learning, dictionary: dictionary,
                          now: now, context: context, applicationMemory: applicationMemory, preview: true)
     }

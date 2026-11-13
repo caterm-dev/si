@@ -43,12 +43,6 @@ struct MixedInputTests {
         #expect(mixedEndingEnglish.label == "Chinese + English")
     }
 
-    @Test func uppercaseEnglishAndTitleCaseArePreserved() {
-        let provider = EnglishCandidateProvider()
-        #expect(provider.candidates(for: "WORLD").first?.text == "WORLD")
-        #expect(provider.candidates(for: "Wor").contains { $0.text == "World" })
-    }
-
     @Test func candidateIdentitiesRemainUniqueAndRepeatable() {
         let candidates = engine.candidates(for: "nihaoworld", languages: languages)
         #expect(Set(candidates.map(\.id)).count == candidates.count)

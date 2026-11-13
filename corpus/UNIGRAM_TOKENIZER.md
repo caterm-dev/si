@@ -149,10 +149,6 @@ tests passed with `./scripts/test.sh --disable-sandbox`, and the Debug app built
 with normal Xcode compiler/package-cache access. Logs are local in
 `/tmp/si-unigram-*.log`; these checks do not process the full corpus or install SI.
 
-The [raw-derived KenLM workflow](KENLM_DATA.md) runs this exact engine on
-all six complete local raw archives. It retains numbers, punctuation, short
-spans and repeated occurrences; the obsolete Han-fragment batch was deleted.
-
 ## Optional source-line map
 
 `--output-origins NEW_MAP.jsonl` writes one `[input_line, sentence_index]` pair

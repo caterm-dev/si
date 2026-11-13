@@ -36,27 +36,6 @@ struct MixedWordBoundaryTests {
         #expect(candidates.first { !$0.isPartial }?.canLearn == true)
     }
 
-    @Test(arguments: [
-        ("nihaoTITLE", "你好 TITLE", "你好 TIT 了"),
-        ("nihaotable", "你好 table", "你好 tab 了"),
-        ("nihaomaple", "你好 maple", "你好 map 了"),
-        ("nihaotitlezhongwen", "你好 title 中文", "你好 tit 了中文"),
-    ])
-    func safeguardAppliesBeyondOneWordAndSurvivesContinuation(input: String, intact: String, split: String) throws {
-        let profile = LearningProfile(entries: [
-            LearnedPreference(input: "le", text: "了", language: .simplifiedChinese, strength: 8, lastUsed: now),
-        ], now: now)
-        // Keep the lexical boundary contract independent of vocabulary-dependent beam membership.
-        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好"),
-                                               PinyinLexiconEntry(syllables: ["zhong", "wen"], text: "中文"),
-                                               PinyinLexiconEntry(syllables: ["le"], text: "了")])
-        let candidates = decoder.compositionCandidates(for: input, languages: languages, learning: profile, now: now)
-        let intactIndex = try #require(candidates.firstIndex { $0.text == intact && !$0.isPartial })
-        let splitIndex = try #require(candidates.firstIndex { $0.text == split && !$0.isPartial })
-        #expect(intactIndex < splitIndex)
-        #expect(candidates[splitIndex].tokenLearningBonus == 0)
-    }
-
     @Test func aLearnedWholePrefixUsesOnlyItsConsumedSpelling() throws {
         let profile = LearningProfile(entries: [
             LearnedPreference(input: "nihaotitle", text: "你好 tit 了", language: .simplifiedChinese,

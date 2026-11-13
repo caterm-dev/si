@@ -361,53 +361,6 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("obsolete Swift conversion resources", result.stderr)
 
-    def test_model_staging_checks_payload_and_omits_training_paths(self):
-        binary = self.directory / "model.bin"
-        binary.write_bytes(b"synthetic model")
-        metadata = self.directory / "model.json"
-        model = {"order": 4, "a": 22, "prune": [0, 0, 1, 2], "probability_bits": 8,
-                 "backoff_bits": 8, "binary_sha256": release.digest(binary).hexdigest(),
-                 "binary_bytes": binary.stat().st_size, "training_command": ["/private/local/fixture"]}
-        metadata.write_text(json.dumps({
-            "schema_version": 1, "kenlm": {"binary_format_version": 5},
-            "corpus": {"source_order": ["train", "heldout"]}, "model": model,
-            "cleaning": {"version": "si-kenlm-cleaning-v1", "unicode_version": "15.0.0",
-                         "maximum_scalars": 32, "rare_threshold_exclusive": 5,
-                         "module_sha256": release.digest(ROOT / "scripts/kenlm_cleaning.py").hexdigest(),
-                         "vectors_sha256": release.digest(ROOT / "Tests/KenLMTests/cleaning_vectors.json").hexdigest()},
-        }))
-        command = [sys.executable, "-B", ROOT / "scripts/install_kenlm_model.py",
-                   "--model", binary, "--metadata", metadata, "--bundle-resources"]
-        resources = self.directory / "Resources"
-        resources.mkdir()
-        release.subprocess.run([*command, resources], check=True, capture_output=True)
-        payload = resources / "KenLM"
-        self.assertEqual((payload / "final.bin").read_bytes(), binary.read_bytes())
-        self.assertNotIn("training_command", json.loads((payload / "final.meta.json").read_text())["model"])
-        self.assertTrue((payload / "Corpus-Notices/sources.lock.json").is_file())
-
-        data = json.loads(metadata.read_text())
-        for prune, accepted in (([0, 1, 2, 3], True), ([0, 0, 0, 0], False)):
-            with self.subTest(prune=prune):
-                data["model"]["prune"] = prune
-                metadata.write_text(json.dumps(data))
-                target = self.directory / ("Prune" + "".join(map(str, prune)))
-                target.mkdir()
-                result = release.subprocess.run([*command, target], capture_output=True, text=True)
-                self.assertEqual(result.returncode == 0, accepted, result.stderr)
-                if not accepted:
-                    self.assertEqual(list(target.iterdir()), [])
-        data["model"]["prune"] = [0, 0, 1, 2]
-        metadata.write_text(json.dumps(data))
-
-        corrupt = self.directory / "Corrupt"
-        corrupt.mkdir()
-        binary.write_bytes(b"corrupted model")
-        result = release.subprocess.run([*command, corrupt], capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Model checksum or size does not match metadata", result.stderr)
-        self.assertEqual(list(corrupt.iterdir()), [])
-
     def test_rejected_notarization_does_not_expose_final_image(self):
         output = self.directory / "failed"
 

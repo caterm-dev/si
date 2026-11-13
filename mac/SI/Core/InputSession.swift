@@ -12,49 +12,19 @@ public struct CandidateRequest: Sendable {
     fileprivate let context: CandidateContext?
     fileprivate let automaticConfirmationEnabled: Bool
     fileprivate let applicationMemory: ApplicationMemorySnapshot
-    #if SWIFT_PACKAGE
-    fileprivate var languageModelContext: KenLMContext = .empty
-    #endif
 
     public func generate() -> CandidateResult {
-        generate(using: engine)
-    }
-
-    private var dictionaryEngine: CandidateEngine {
-        #if SWIFT_PACKAGE
-        var engine = engine
-        engine.rankingExperiment.model = nil
-        #endif
-        return engine
-    }
-
-    fileprivate func generateWithoutLanguageModel() -> CandidateResult {
-        generate(using: dictionaryEngine)
-    }
-
-    private func generate(using engine: CandidateEngine) -> CandidateResult {
-        #if SWIFT_PACKAGE
-        let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
-                                           now: now, context: context,
-                                           includesConfirmationEvidence: automaticConfirmationEnabled,
-                                           applicationMemory: applicationMemory, languageModelContext: languageModelContext)
-        let ranking = engine.rankingExperiment
-        let usesAdjustedScores = !engine.usesLegacyConversion || ranking.isActive || ranking.adjustsEnglishInsertion
-        #else
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context, includesConfirmationEvidence: automaticConfirmationEnabled,
                                            applicationMemory: applicationMemory)
-        let usesAdjustedScores = true
-        #endif
         return CandidateResult(requestID: id, candidates: candidates,
                                confirmationPrefixes: automaticConfirmationEnabled
                                 ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
-                                                                 now: now, context: context,
-                                                                 includesAdjustedScores: usesAdjustedScores) : [])
+                                                                 now: now, context: context) : [])
     }
 
     public func generatePreview() -> CandidateResult {
-        CandidateResult(requestID: id, candidates: dictionaryEngine.previewCandidates(
+        CandidateResult(requestID: id, candidates: engine.previewCandidates(
             for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context,
             applicationMemory: applicationMemory),
             isPreview: true)
@@ -97,9 +67,6 @@ public struct InputSession: Sendable {
     private var learning = LearningProfile()
     private var dictionary = UserDictionary()
     private var applicationMemory: ApplicationMemorySnapshot = .empty
-    #if SWIFT_PACKAGE
-    private var languageModelContext: KenLMContext = .empty
-    #endif
     private var usesContext = false
     private var recentContext: RecentContext?
     private var contextGeneration: UInt64 = 0
@@ -146,24 +113,10 @@ public struct InputSession: Sendable {
         self.automaticConfirmationEnabled = automaticConfirmationEnabled
         self.configurationGeneration = configurationGeneration
         engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
-        #if SWIFT_PACKAGE
-        if contextChanged || !languages.contains(.simplifiedChinese) || !engine.rankingExperiment.isActive {
-            languageModelContext = .empty
-        }
-        #endif
         automaticConfirmation = AutomaticConfirmation()
         if !usesContext || languagesChanged || contextChanged { recentContext = nil }
         refresh(now: now)
     }
-
-    #if SWIFT_PACKAGE
-    public mutating func setLanguageModelContext(_ context: KenLMContext) {
-        let context = buffer.isEmpty ? .empty : context
-        guard languageModelContext != context else { return }
-        languageModelContext = context
-        refresh()
-    }
-    #endif
 
     public mutating func append(_ text: String, now: Date = .now) {
         guard !text.isEmpty else { return }
@@ -218,18 +171,7 @@ public struct InputSession: Sendable {
     }
 
     public mutating func commitResult(_ candidate: InputCandidate? = nil, reason: CommitReason, now: Date = .now) -> InputCommit {
-        var requestedCandidate = candidate
-        if hasCandidatePreview, let candidate {
-            if candidates.contains(where: { $0.hasSameCommitValue(as: candidate) }) {
-                #if SWIFT_PACKAGE
-                if engine.usesLegacyConversion {
-                    resolveCandidates()
-                    requestedCandidate = candidates.first { $0.hasSameCommitValue(as: candidate) }
-                }
-                #endif
-            } else { requestedCandidate = nil }
-        }
-        let validCandidate = requestedCandidate.flatMap { value -> InputCandidate? in
+        let validCandidate = candidate.flatMap { value -> InputCandidate? in
             guard let current = candidates.first(where: { $0.hasSameCommitValue(as: value) }) else { return nil }
             if let count = value.consumedInputCount, count <= 0 || count >= buffer.count { return nil }
             return current
@@ -285,20 +227,12 @@ public struct InputSession: Sendable {
         pendingCandidateRequest = nil
         hasCandidatePreview = false
         recentContext = nil
-        #if SWIFT_PACKAGE
-        languageModelContext = .empty
-        #endif
     }
 
     public mutating func breakContext() {
         compositionLearning.invalidate()
         suspendAutomaticConfirmation()
-        #if SWIFT_PACKAGE
-        let hadContext = recentContext != nil || languageModelContext != .empty
-        languageModelContext = .empty
-        #else
         let hadContext = recentContext != nil
-        #endif
         guard hadContext else { return }
         recentContext = nil
         refresh()
@@ -340,13 +274,10 @@ public struct InputSession: Sendable {
             hasCandidatePreview = false
             return
         }
-        var request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
+        let request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
                                        dictionary: dictionary, now: now, context: currentContext(now: now),
                                        automaticConfirmationEnabled: automaticConfirmationEnabled,
                                        applicationMemory: applicationMemory)
-        #if SWIFT_PACKAGE
-        request.languageModelContext = languageModelContext
-        #endif
         pendingCandidateRequest = request
         hasCandidatePreview = false
         if candidateGeneration == .synchronous {
@@ -373,14 +304,10 @@ public struct InputSession: Sendable {
     /// Resolve pending conversion for an explicit action.
     public mutating func resolveCandidates() {
         guard let request = pendingCandidateRequest else { return }
-        #if SWIFT_PACKAGE
-        if !engine.usesLegacyConversion && hasCandidatePreview { return }
-        #else
         // Keep the currently displayed choices actionable while final search runs on its worker.
         guard !hasCandidatePreview else { return }
         // An explicit action during startup can still commit the current literal.
         guard RustConversion.loaded != nil else { return }
-        #endif
-        _ = accept(request.generateWithoutLanguageModel())
+        _ = accept(request.generate())
     }
 }

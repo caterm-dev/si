@@ -1,16 +1,11 @@
 import Foundation
 
-/// Shared heuristic lexical costs and presentation rewards in bits.
-/// These scores are comparable across decoders; they are not calibrated probabilities.
+/// Presentation rewards and direct personal-phrase fallback costs.
 enum CandidateScoring {
-    static let pointsPerBit = 1.0
-    static let terminalCost = 0.0
     static let initialLanguageCost = 1.0
     static let personalWeight: Int64 = 10_000
     // Retained insertion priors; these are not corpus probabilities.
     private static let wordInsertionCost = 20.0
-    private static let characterInsertionCost = 2.0
-    private static let englishWordInsertionCost = 3.0
     /// Amplify dictionary-frequency differences relative to insertion and spelling costs.
     /// Known synthetic fixtures favor this over 1.10; it is not a probability estimate.
     private static let frequencyWeight = 1.05
@@ -35,54 +30,8 @@ enum CandidateScoring {
         }
     }
 
-    static func wordCost(weight: Int64, isChineseCharacter: Bool = false) -> Double {
-        (wordInsertionCost - frequencyWeight * log(Double(max(1, weight)))
-            + (isChineseCharacter ? characterInsertionCost : 0)) / log(2.0)
-    }
-
-    /// Normalization already supplies the token prior; do not add the raw-fixture insertion constant.
-    static func wordCost(logProbability: Double, isChineseCharacter: Bool = false) -> Double {
-        (-frequencyWeight * logProbability * log(10.0)
-            + (isChineseCharacter ? characterInsertionCost : 0)) / log(2.0)
-    }
-
-    #if SWIFT_PACKAGE
-    static func wordCost(_ row: DictionaryLexeme, isChineseCharacter: Bool = false) -> Double {
-        if let logProbability = row.logProbability {
-            return wordCost(logProbability: logProbability, isChineseCharacter: isChineseCharacter)
-        }
-        return wordCost(weight: row.weight, isChineseCharacter: isChineseCharacter)
-    }
-    #endif
-
-    /// Charge each English dictionary token, shared by lookup and sentence edges.
-    static func englishWordCost(weight: Int64) -> Double {
-        wordCost(weight: weight) + englishWordInsertionCost / log(2.0)
-    }
-
-    #if SWIFT_PACKAGE
-    static func englishWordCost(_ row: DictionaryLexeme) -> Double {
-        wordCost(row) + englishWordInsertionCost / log(2.0)
-    }
-    #endif
-
-    static func languageCost(previous: Int, next: Int) -> Double {
-        guard previous != 0 else { return initialLanguageCost }
-        return -log2(previous == next ? 1 - RankingCalibration.switchProbability : RankingCalibration.switchProbability)
-    }
-
-    /// Observe each Chinese syllable independently, including initials and missing syllables.
-    /// Canonical umlaut aliases must not change the spelling cost or source boundaries.
-    static func chineseSpellingCost(reading: [String], typed: [String]) -> Double {
-        reading.enumerated().reduce(0) { result, item in
-            let length = ChineseSyllables.canonical(item.element).utf8.count
-            let observed = item.offset < typed.count ? ChineseSyllables.canonical(typed[item.offset]).utf8.count : 0
-            return result + PinyinSpellingChannel.cost(length: length, typedLength: min(length, observed))
-        }
-    }
-
     static func personalCost(codeLength: Int, typedLength: Int, pinned: Bool) -> Double {
-        wordCost(weight: personalWeight) - (pinned ? 1 : 0)
+        (wordInsertionCost - frequencyWeight * log(Double(personalWeight))) / log(2.0) - (pinned ? 1 : 0)
             + WordPrefixChannel.cost(fullLength: codeLength, typedLength: typedLength)
     }
 }

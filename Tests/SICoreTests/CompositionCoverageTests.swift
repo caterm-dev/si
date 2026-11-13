@@ -8,7 +8,6 @@ struct CompositionCoverageTests {
         let prefix = InputCandidate(text: "A", language: .english, score: -2, consumedInputCount: 1)
         let other = InputCandidate(text: "B", language: .english, score: -4, consumedInputCount: 1)
         let whole = InputCandidate(text: "A Z", language: .english, score: Int(wholeScore), rankingScore: wholeScore)
-            .withSourceTrace(CandidateSourceTrace(sourceCount: 1, outputByteCount: 1, languages: 2, previous: nil))
         let rows = [prefix, other, whole]
         for ordered in [rows, Array(rows.reversed())] {
             let engine = CandidateEngine(providers: [NoSuffixProvider(input: "abcd", values: ordered)])
@@ -44,34 +43,11 @@ struct CompositionCoverageTests {
             let text = consumed == 1 ? "é" : "e\u{301}"
             let prefix = InputCandidate(text: text, language: .english, score: -1, consumedInputCount: consumed)
             let whole = InputCandidate(text: "éZ", language: .english, score: -20)
-                .withSourceTrace(CandidateSourceTrace(sourceCount: 2, outputByteCount: 2, languages: 2, previous: nil))
             let engine = CandidateEngine(providers: [NoSuffixProvider(input: "abcd", values: [whole, prefix])])
             let values = engine.candidates(for: "abcd", languages: [.english])
             let choice = try #require(values.first { $0.id == prefix.id })
             #expect(choice.inputScore == -1)
             #expect(Array(choice.text.utf8) == Array(text.utf8))
-        }
-    }
-
-    @Test func prefixScoresAndCommitsUseExactUmlautAliasesAndSeparators() throws {
-        let decoder = PinyinDecoder(entries: [
-            PinyinLexiconEntry(syllables: ["lv", "xiang", "hao"], text: "吕想好", upstreamWeight: 1_000_000),
-            PinyinLexiconEntry(syllables: ["lv", "xiang"], text: "吕想", upstreamWeight: 100),
-            PinyinLexiconEntry(syllables: ["hao"], text: "好", upstreamWeight: 100),
-        ])
-        let engine = CandidateEngine(providers: [DecoderProvider(decoder: decoder)])
-        for input in ["lü'xiang'hao", "lu:'xiang'hao", "LÜ'Xiang'Hao"] {
-            var session = InputSession(engine: engine)
-            session.configure(languages: [.simplifiedChinese])
-            session.append(input)
-            #expect(session.candidates.contains { $0.text == "吕想好" && !$0.isPartial })
-            let prefix = try #require(session.candidates.first { $0.text == "吕想" && $0.isPartial })
-            let count = try #require(prefix.consumedInputCount)
-            let standalone = try #require(decoder.candidates(for: String(input.prefix(count))).first { $0.text == "吕想" })
-            #expect(prefix.inputScore == standalone.rankingScore)
-            let commit = session.commitResult(prefix, reason: .explicitSelection)
-            #expect(commit.input == String(input.prefix(count)) && session.buffer.lowercased() == "hao")
-            #expect(commit.text == "吕想" && commit.candidate?.appendsSpaceOnAcceptance == false)
         }
     }
 
@@ -146,12 +122,4 @@ private struct FixtureProvider: CandidateProvider {
     let language = InputLanguage.english
     let rows: [String: [InputCandidate]]
     func candidates(for input: String) -> [InputCandidate] { rows[input] ?? [] }
-}
-
-private struct DecoderProvider: CandidateProvider {
-    let language = InputLanguage.simplifiedChinese
-    let decoder: PinyinDecoder
-    func candidates(for input: String) -> [InputCandidate] {
-        decoder.compositionCandidates(for: input, languages: [.simplifiedChinese])
-    }
 }

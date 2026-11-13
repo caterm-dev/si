@@ -5,12 +5,11 @@ bundles and their derived HanLP/token tables were deleted on November 5, 2026
 at the user's request. Maintained application vocabulary/audit records remain;
 a fixed occurrence-count dictionary is retained under
 `chinese/dictionaries/generated/unigram-reference-v1/` for the custom tokenizer.
-Use [the raw-derived workflow](KENLM_DATA.md) for current KenLM input.
 
 This workflow uses HanLP as a **local, offline corpus-analysis tool**. It does
 not add HanLP, a Python interpreter, a neural model or host-text inspection to
 the input method. Vocabulary changes still use the existing CSV compiler and
-shared Swift engine.
+Rust engine.
 
 ## Inputs and model
 

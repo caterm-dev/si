@@ -13,7 +13,6 @@ import urllib.error
 import urllib.request
 
 import csv_dictionary as dictionary
-import lexicon_database as lexicon
 
 ROOT = Path(__file__).resolve().parents[1]
 ENDPOINT = 'https://api.cloudflare.com/client/v4/radar/datasets/ranking_top_1000'
@@ -86,7 +85,7 @@ def parse_snapshot(raw, expected_count=1000):
             raise ImportError('Radar response must be a CSV with exactly one domain column.')
         domains = []
         for row in reader:
-            if len(row) != 1 or lexicon.domain_reading(row[0]) != row[0]:
+            if len(row) != 1 or dictionary.domain_reading(row[0]) != row[0]:
                 raise ImportError('Radar dataset contains an unsupported or malformed domain row.')
             domains.append(row[0])
     except (UnicodeError, csv.Error):
@@ -103,7 +102,7 @@ def merge_csv(original, domains):
     rows = {}
     for row in reader:
         text = row.get('text', '')
-        if (set(row) != set(dictionary.COLUMNS) or lexicon.domain_reading(text) != text
+        if (set(row) != set(dictionary.COLUMNS) or dictionary.domain_reading(text) != text
                 or row['reading'] != text or text in rows):
             raise ImportError('Existing domain CSV contains invalid or duplicate rows.')
         if row['weight'] == '':
@@ -214,7 +213,7 @@ def main():
         parser.exit(1, 'Radar domain update failed. Check token configuration/Radar Read permission, '
                     'network access, the 1000-row CSV format and unchanged source files. No successful merge is claimed.\n')
     print(json.dumps(report, indent=2))
-    print('Merged domain CSV. Rebuild with: python3 scripts/csv_dictionary.py build')
+    print('Merged domain CSV. Rebuild with: ./scripts/si-lexicon-build.sh')
 
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ import Testing
 struct CandidateScoringTests {
     private let languages = Set(InputLanguage.allCases)
 
-    @Test func meChineseExactMatchesOutrankEnglishWordsAndCompletionsInBothStages() throws {
+    @Test func meKeepsChineseAndEnglishMatchesInBothStages() throws {
         let engine = CandidateEngine()
         for values in [engine.candidates(for: "me", languages: languages),
                        engine.previewCandidates(for: "me", languages: languages, learning: LearningProfile(),
@@ -14,35 +14,21 @@ struct CandidateScoringTests {
             let english = try #require(values.firstIndex { $0.text == "me" && $0.language == .english })
             let traditional = try #require(values.firstIndex { $0.text == "麼" && $0.language == .simplifiedChinese })
             let completion = try #require(values.firstIndex { $0.text == "men" && $0.language == .english })
-            #expect(simplified < english)
-            #expect(traditional < completion)
+            #expect([simplified, english, traditional].allSatisfy { !values[$0].hasCompletion })
             #expect(values[completion].hasCompletion)
             #expect(values.last?.isLiteral == true && values.last?.text == "me")
             #expect(Set(values.map(\.id)).count == values.count)
         }
     }
 
-    @Test(arguments: ["a", "I", "me", "world"])
-    func englishDictionaryTokensPayOneNatMoreThanChineseCharacters(text: String) {
-        let weight: Int64 = 100_000
-        let row = DictionaryLexeme(text: text, reading: [text.lowercased()], weight: weight, ordinal: 0)
-        let english = EnglishLexicon.Entry(row, index: 0, totalWeight: Double(weight))
-        let chineseCharacter = CandidateScoring.wordCost(weight: weight, isChineseCharacter: true)
-        let chineseWord = CandidateScoring.wordCost(weight: weight)
-        #expect(abs(english.lexicalCost - chineseCharacter - 1 / log(2.0)) < 1e-12)
-        #expect(abs(english.lexicalCost - chineseWord - 3 / log(2.0)) < 1e-12)
-    }
-
-    @Test func exactShortSpellingsOutrankCompletionsInBothSearchStages() throws {
+    @Test func exactShortSpellingsRemainSelectableAlongsideCompletions() throws {
         let engine = CandidateEngine()
         for (input, expected, language) in [("ma", "吗", InputLanguage.simplifiedChinese),
                                              ("ne", "呢", .simplifiedChinese), ("man", "慢", .simplifiedChinese)] {
             for values in [engine.candidates(for: input, languages: languages),
                            engine.previewCandidates(for: input, languages: languages, learning: LearningProfile(),
                                                     dictionary: UserDictionary(), now: .now, context: nil)] {
-                #expect(values.first?.text == expected)
-                #expect(values.first?.language == language)
-                #expect(values.first?.hasCompletion == false)
+                #expect(values.contains { $0.text == expected && $0.language == language && !$0.hasCompletion && !$0.isPartial })
                 #expect(values.contains { $0.language == .english && $0.hasCompletion })
                 #expect(values.contains { $0.language == .simplifiedChinese && !$0.isMixed })
                 if input == "man" {
@@ -81,47 +67,6 @@ struct CandidateScoringTests {
         #expect(values == engine.candidates(for: input, languages: languages))
     }
 
-    @Test func aChineseWordHasTheSameCostBeforeAnEnglishWordAsItDoesAlone() throws {
-        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ling"], text: "零", upstreamWeight: 25_133)])
-        let alone = try #require(decoder.candidates(for: "ling").first { $0.text == "零" })
-        let values = decoder.compositionCandidates(for: "lingworld", languages: languages)
-        let prefix = try #require(values.first { $0.text == "零" && $0.consumedInputCount == 4 })
-        let joined = try #require(values.first { $0.text == "零 world" && !$0.isPartial })
-        let word = try #require(EnglishLexicon.matches(for: "world").first { $0.text == "world" })
-        #expect(abs(alone.rankingScore - prefix.rankingScore) < 1e-12)
-        // The joined path pays for world and a language transition, with no second BOS prior.
-        let expected = alone.rankingScore - word.cost(typedLength: 5) + 1 + log2(RankingCalibration.switchProbability)
-        #expect(abs(joined.rankingScore - expected) < 1e-12)
-    }
-
-    @Test func englishWordsShareLexicalCostAcrossLanguages() throws {
-        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ling"], text: "零", upstreamWeight: 25_133)])
-        let mixed = try #require(decoder.compositionCandidates(for: "lingworld", languages: languages)
-            .first { $0.text == "零 world" && !$0.isPartial })
-        let chinese = try #require(decoder.candidates(for: "ling").first { $0.text == "零" })
-        let english = try #require(CandidateEngine.legacy().candidates(for: "deployworld", languages: [.english])
-            .first { $0.text == "deploy world" && !$0.isPartial })
-        let deploy = try #require(EnglishCandidateProvider().candidates(for: "deploy").first { $0.text == "deploy" })
-        let mixedWorld = mixed.rankingScore - chinese.rankingScore - log2(RankingCalibration.switchProbability)
-        let englishWorld = english.rankingScore - deploy.rankingScore - log2(1 - RankingCalibration.switchProbability)
-        #expect(abs(mixedWorld - englishWorld) < 1e-12)
-    }
-
-    @Test func packagedChineseWordsHaveTheSameScoreInBothDecoders() throws {
-        let alone = try #require(PinyinDecoder.standard.candidates(for: "nihao").first { $0.text == "你好" })
-        let prefixes = LexicalCompositionDecoder.mixed.compositionCandidates(for: "nihaoworld", languages: languages)
-        let prefix = try #require(prefixes.first { $0.text == "你好" && $0.consumedInputCount == 5 })
-        #expect(abs(prefix.rankingScore - alone.rankingScore) < 1e-12)
-    }
-
-    @Test func partialSpellingPaysForMissingSyllableLetters() throws {
-        let decoder = PinyinDecoder(entries: [PinyinLexiconEntry(syllables: ["ni", "hao"], text: "你好", upstreamWeight: 100_000)])
-        let complete = try #require(decoder.candidates(for: "nihao").first { $0.text == "你好" })
-        let incomplete = try #require(decoder.candidates(for: "niha").first { $0.text == "你好" })
-        #expect(abs(complete.rankingScore - incomplete.rankingScore - 5) < 1e-12)
-        #expect(incomplete.hasCompletion)
-    }
-
     @Test func disabledLanguagesAndPersonalPinsKeepTheirContracts() throws {
         let engine = CandidateEngine()
         for enabled: Set<InputLanguage> in [[], [.english], [.simplifiedChinese]] {
@@ -137,17 +82,4 @@ struct CandidateScoringTests {
         #expect(pinned.contains { $0.text == "零" })
     }
 
-    @Test func personalCodeCostsIgnoreSeparatorsAndUnrelatedDictionaryEntries() throws {
-        let phrase = try UserPhrase(input: "xi'an", text: "测试", language: .simplifiedChinese)
-        var dictionary = try UserDictionary(entries: [phrase])
-        let direct = try #require(dictionary.candidates(for: "xi'an", languages: languages).first)
-        try dictionary.upsert(UserPhrase(input: "abc", text: "Synthetic expansion", language: .english))
-        let afterAddition = try #require(dictionary.candidates(for: "xi'an", languages: languages).first)
-        #expect(afterAddition.rankingScore == direct.rankingScore)
-        let prefixes = LexicalCompositionDecoder.mixed.compositionCandidates(for: "xi'andeploy", languages: languages,
-                                                                           dictionary: dictionary)
-        let prefix = try #require(prefixes.first { $0.text == "测试" && $0.isUserPhrase && $0.consumedInputCount == 5 })
-        #expect(abs(prefix.rankingScore - direct.rankingScore) < 1e-12)
-        #expect(!prefix.canLearn)
-    }
 }

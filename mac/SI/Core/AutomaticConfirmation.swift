@@ -75,7 +75,7 @@ struct AutomaticConfirmation: Sendable {
 
     /// Runs on the candidate worker. No new decoding, profile scan, host text, or disk access.
     static func prefixes(for candidates: [InputCandidate], input: String, learning: LearningProfile,
-                         now: Date, context: CandidateContext?, includesAdjustedScores: Bool = false) -> [Prefix] {
+                         now: Date, context: CandidateContext?) -> [Prefix] {
         guard input == input.lowercased(), let reading = PinyinInput(input),
               let leader = candidates.first(where: { !$0.isPartial && !$0.isLiteral }),
               leader.language == .simplifiedChinese, !leader.isMixed, !leader.isUserPhrase, !leader.hasLiteralSegments,
@@ -89,22 +89,12 @@ struct AutomaticConfirmation: Sendable {
             if let rust = RustConversion.loaded {
                 let end = reading.separators.filter { $0 > start }.min() ?? reading.letters.count
                 if rust.hasEnglishWordPrefix(String(reading.letters[start..<end]), minimum: 4) { return [] }
-                continue
             }
-            #if SWIFT_PACKAGE
-            var node = 0
-            for end in start..<min(reading.letters.count, start + EnglishLexicon.maximumLength) {
-                if end > start && reading.separators.contains(end) { break }
-                guard let next = EnglishLexicon.advance(node, byte: reading.letters[end].asciiValue!) else { break }
-                node = next
-                if end - start + 1 >= 4 && EnglishLexicon.exactMatch(at: node) != nil { return [] }
-            }
-            #endif
         }
         let ranking = learning.ranking(for: input, now: now, context: context)
         let threshold = ranking.score(leader) - competitorMargin
-        // Keep any plausible legacy competitor and also check candidates brought close by reranking.
-        let adjustedThreshold = includesAdjustedScores ? leader.presentationScore.map { $0 - competitorMargin } : nil
+        // Keep any plausible lexical competitor and also check candidates brought close by reranking.
+        let adjustedThreshold = leader.presentationScore.map { $0 - competitorMargin }
         let competitors = candidates.filter {
             guard !$0.isLiteral, !$0.isPartial else { return false }
             if ranking.score($0) >= threshold || $0.isPreferred { return true }

@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 import re
 import shutil
-import sqlite3
 import subprocess
 import unicodedata
 
@@ -99,20 +98,24 @@ def anchors():
     return result
 
 
-def check_readings(rows, database):
-    """Use maintained readings, not an unrelated automatic sentence transliterator."""
+def check_readings(rows, source_directory):
+    """Validate against explicit readings in the maintained vocabulary CSVs."""
     characters = {}
     words = {}
-    targets = sorted({word for row in rows for word in row['candidates']})
-    with sqlite3.connect(f'file:{Path(database).resolve()}?mode=ro', uri=True) as connection:
-        tables = [name for name, in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")
-                  if re.fullmatch(r'tbl_[1-7]_[a-z]', name)]
-        for table in tables:
-            for key, word in connection.execute(f'SELECT key,value FROM {table} WHERE length(value)=1'):
-                characters.setdefault(word, set()).add(spelling(key))
-            placeholders = ','.join('?' for _ in targets)
-            for key, word in connection.execute(f'SELECT key,value FROM {table} WHERE value IN ({placeholders})', targets):
-                words.setdefault(word, set()).add(spelling(key))
+    targets = {word for row in rows for word in row['candidates']}
+    sources = sorted(Path(source_directory).glob('*.csv'))
+    if not sources:
+        raise ValueError('Missing Chinese vocabulary CSVs')
+    for path in sources:
+        with path.open(encoding='utf-8-sig', newline='') as stream:
+            for entry in csv.DictReader(stream):
+                word, reading = entry['text'], entry['reading']
+                if len(reading.split("'")) > 7:
+                    continue
+                if len(word) == 1:
+                    characters.setdefault(word, set()).add(spelling(reading))
+                if word in targets:
+                    words.setdefault(word, set()).add(spelling(reading))
 
     def compatible(text, raw):
         raw = spelling(raw)
@@ -130,7 +133,7 @@ def check_readings(rows, database):
     if errors:
         raise ValueError('Incompatible authored Pinyin/candidate readings: ' + json.dumps(errors, ensure_ascii=False))
     return {'anchors': len(rows), 'candidate_checks': sum(len(row['candidates']) for row in rows),
-            'database_sha256': file_hash(database),
+            'source_sha256': {path.name: file_hash(path) for path in sources},
             'method': 'Known whole-word readings; otherwise character-reading alignment with exact ASCII spans. '
                       'Tone-free alignment does not independently verify semantic labels.'}
 
@@ -334,7 +337,7 @@ def write_jsonl(path, values):
 
 def build(output, exporter, data_path=None):
     rows = anchors()
-    readings = check_readings(rows, REPO / '.build/legacy-dictionaries/Chinese/si-pinyin.sqlite')
+    readings = check_readings(rows, REPO / 'Data/Chinese')
     overlaps, audit = audit_overlap(rows, data_path)
     inputs = {row['input'] for row in rows}
     for row in rows:

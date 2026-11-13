@@ -10,36 +10,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public private(set) var isRememberedChoice = false
     /// Lexical score before learning and the consumed-input coverage reward.
     public var inputScore: Double { rankingScore }
-    #if SWIFT_PACKAGE
-    var languageBoundary: CandidateLanguageBoundary?
-    var sourceTrace: CandidateSourceTrace?
-    private var directRankingToken: RankingToken?
-    public private(set) var lmOOVRatio: Double?
-
-    var rankingTokens: [RankingToken] {
-        if let directRankingToken { return [directRankingToken] }
-        var result: [RankingToken] = []
-        var trace = sourceTrace
-        while let node = trace {
-            guard let token = node.rankingToken else { return [] }
-            result.append(token)
-            trace = node.previous
-        }
-        return result.reversed()
-    }
-
-    func withRankingToken(_ token: RankingToken?) -> Self {
-        var result = self
-        result.directRankingToken = token
-        return result
-    }
-
-    func withLMOOVRatio(_ ratio: Double) -> Self {
-        var result = self
-        result.lmOOVRatio = ratio
-        return result
-    }
-    #endif
     private var displaySourceBoundaries: [Int] = []
     /// Runtime provenance for generated Chinese sentence alternatives.
     private(set) var isChineseSentence = false
@@ -65,14 +35,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     /// This is presentation metadata, independent of commit/automatic-confirmation evidence.
     public var sourceSegmentBoundaries: [Int] {
         var result = displaySourceBoundaries
-        #if SWIFT_PACKAGE
-        var trace = sourceTrace
-        while let node = trace {
-            result.append(node.boundary.sourceCount)
-            result.append(contentsOf: node.syllableSourceCounts)
-            trace = node.previous
-        }
-        #endif
         return Array(Set(result)).sorted()
     }
 
@@ -144,19 +106,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         return result
     }
 
-    #if SWIFT_PACKAGE
-    func withLanguageBoundary(_ context: CandidateLanguageBoundary) -> Self {
-        var result = self
-        result.languageBoundary = context
-        return result
-    }
-
-    func withSourceTrace(_ trace: CandidateSourceTrace?) -> Self {
-        var result = self
-        result.sourceTrace = trace
-        return result
-    }
-    #endif
 
     func withDisplaySourceBoundaries(_ boundaries: [Int]) -> Self {
         var result = self
@@ -168,12 +117,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         var left = self
         var right = other
         // Transient decoder evidence does not change the committed value.
-        #if SWIFT_PACKAGE
-        left.languageBoundary = nil
-        right.languageBoundary = nil
-        left.sourceTrace = nil
-        right.sourceTrace = nil
-        #endif
         left.displaySourceBoundaries = []
         right.displaySourceBoundaries = []
         left.isChineseSentence = false

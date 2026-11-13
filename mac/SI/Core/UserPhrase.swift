@@ -31,14 +31,6 @@ public struct UserPhrase: Codable, Equatable, Identifiable, Sendable {
 
     var identity: String { LearnedPreference.identity(input: input, language: language, text: text) }
     var code: String { input.replacing("'", with: "") }
-    var boundaries: Set<Int> {
-        var count = 0
-        var result = Set<Int>()
-        for character in input {
-            if character == "'" { result.insert(count) } else { count += 1 }
-        }
-        return result
-    }
 
     func validated() throws -> UserPhrase {
         try UserPhrase(id: id, input: input, text: text, language: language, isPinned: isPinned)

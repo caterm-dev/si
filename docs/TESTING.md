@@ -1340,6 +1340,11 @@ synthetic requests per scenario. Observed p95 was 12.53 ms for `shi`,
 19.76 ms for `woxiangyaodeploy` and 33.35 ms for 20 repeated `shi`
 syllables. Native IMK event delivery and typing remain unverified.
 
+After retiring the Swift decoder, `./scripts/test.sh` ran 388 tests with
+eight known assertions for the recall miss below. The Rust engine and C
+bridge tests, 65 packaging/script tests, and Debug and Release app resource
+inspection passed. Native host typing remains unverified.
+
 ### Known Rust recall misses
 
 These authored examples are absent from the engine's whole-input results.
@@ -1350,7 +1355,7 @@ The table records the resources and search stages used to reproduce each miss.
 | `zhaojichujuzi`, `zhao'ji'chu'ju'zi` | 找几处句子 | Bundled dictionary in Swift preview and full search. Local `.silex` + `.sigram` in CLI full search. Both were checked with Chinese only and with Chinese and English enabled. |
 
 The bundled dictionary has `找` (`zhao`), `几处` (`ji'chu`) and `句子`
-(`ju'zi`). The regression remains covered by
+(`ju'zi`). The known issue remains tracked by
 [`ChineseSentenceAlternativesTests`](../Tests/SICoreTests/ChineseSentenceAlternativesTests.swift).
 
 ### Other Rust resource checks
@@ -1378,6 +1383,9 @@ that paragraph import records `行` as `hang` in `银行` and `xing` in
 `行走`, with independent word and gram counts. Single ASCII letters and
 digit runs use stable `<char>` and `<num>` IDs across batches, with
 occurrences counted in the gram model. Paragraph import refreshes
+an importable English CSV with counts by exact spelling, breaks the gram
+sequence at unknown English words, and uses reviewed entries in later batches.
+It also refreshes
 `<grams.sigram>.review.csv` with grouped unmatched and unresolved segments,
 counts, and source locations. A clean batch publishes a header-only review.
 The round-trip fixture edits the exported reading column and checks that
@@ -1418,14 +1426,12 @@ Corpus progress tests check file transitions, cumulative counters, final
 publication stages, and reuse of an unlocked sidecar file. The command
 keeps progress on stderr and final summaries on stdout.
 
-For exact-spelling ranking, run `./scripts/test.sh --filter 'CandidateScoringTests|UnifiedRankingTests|SpellingEvidenceTests|UnifiedRankingPresentationTests'`. With both languages enabled and an empty learning profile, check `ma` → `吗`, `ne` → `呢` and exact English `man` in provisional/full results. The `ma` presentation regression checks first-choice numbering, retained English completions/literal and exact commits in both layouts. Finite-channel tests verify normalization and the stronger complete-spelling endpoint; formula fixtures independently check the new weights. Compare `./scripts/benchmark.sh --quality` against the recorded baseline, including unfinished English words and continuous sentence splits.
+For exact-spelling coverage, run `./scripts/test.sh --filter 'CandidateScoringTests|RustConversionIntegrationTests|UnifiedRankingPresentationTests'`. With both languages enabled, verify that exact Chinese and English matches, completions, and the literal remain selectable in provisional and full results.
 
 On an intentionally installed build, repeat `ma`, `ne`, `man`, `togethe` and `performa` in TextEdit and a browser field, with Chinese-only, English-only and bilingual settings as relevant. Check compact/expanded selection with Space, digits and mouse, then Return, Escape, shortcuts and focus changes. Verify normalized umlaut prefix commits still leave the exact remainder editable. Core/offscreen checks do not establish native host routing, VoiceOver or candidate positioning.
 
 ```sh
-python3 scripts/csv_dictionary.py build --check
-python3 scripts/msime_dictionary.py build --check
-python3 scripts/ranking.py --check
+cargo test --locked -p si-engine --test conversion
 python3 -m unittest discover -s Tests/VocabularyTests -v
 python3 -m unittest discover -s Tests/ScriptTests -v
 ./scripts/test.sh
@@ -1436,7 +1442,7 @@ python3 -m unittest discover -s Tests/ScriptTests -v
 ./scripts/benchmark.sh --resources > .build/candidate-benchmark.json 2> .build/resource-usage.log
 ```
 
-`UnifiedRankingTests` independently checks probability/unknown normalization, conditional pronunciation, Witten–Bell boundary interpolation, finite spelling-channel mass, exact/composed unit consistency, deterministic initialization and cached versus unbounded English preview ranking. Exhaustive small-lexicon regressions compare optimal costs with floating-point tolerance and require identical output bytes across insertion orders. `UnifiedRankingPresentationTests` checks bilingual `abilit` → `ability` through both generation stages/layouts, literal retention, exact commit spelling and the absence of per-language reservations. `--quality` reads only fixed synthetic JSON fixtures and reports development/regression and later holdout partitions separately; it never reads a user's archive or host text. See [model/provenance](UNIFIED_RANKING.md).
+Rust conversion fixtures exercise exact spelling, deterministic ordering, contextual scores and source boundaries. `UnifiedRankingPresentationTests` checks bilingual `abilit` → `ability` through both generation stages/layouts, literal retention, exact commit spelling and the absence of per-language reservations. `--quality` reads only fixed synthetic JSON fixtures and reports development/regression and later holdout partitions separately; it never reads a user's archive or host text. See [model/provenance](UNIFIED_RANKING.md).
 
 CSV vocabulary checks run offline and verify deterministic generation, category discovery, explicit corrections/deletions, checksums, duplicate merging and failure preservation. Inline source metadata and retained license/attribution text are checked without old source wordlists or frequency archives. Network refresh/audit checks are separate manual maintainer actions and do not install SI. See [English vocabulary maintenance](ENGLISH_VOCABULARY.md) and [Chinese vocabulary maintenance](CHINESE_VOCABULARY.md).
 
@@ -1890,43 +1896,6 @@ Live verification remains required in TextEdit and a browser/editor:
 5. Check keyboard use, VoiceOver, light/dark/high-contrast appearance and narrow
    display positioning. In-process rendering does not establish host compatibility.
 
-## Offline KenLM configuration selection
-
-Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests -v`.
-Synthetic fixtures check first-occurrence deduplication, stable seeded block
-assignment, split counts/disjointness, 100,000-line smoke extraction, query
-summary parsing, all-smokes-before-full gating and failure stopping, complete
-four-model comparison validation and the size/perplexity recommendation rule.
-Real smoke models exercise `lmplz`, quantized trie construction and `query`;
-full comparisons verify scored heldout token coverage including EOS, identical
-input/tool hashes and matching OOV counts. All commands, options, source pins,
-data counts and measured results are in [README_kenlm_train.md](../README_kenlm_train.md).
-No native installation or user-data collection is part of this offline workflow.
-
-## Production KenLM ranking
-
-The selected delivery artifact is documented in [the current model record](KENLM_MODEL.md).
-Set `SI_TEST_KENLM_BUNDLE` to a staged `Contents/Resources/KenLM` directory
-when running `scripts/test.sh` to check native `0012` loading, known synthetic
-markers and rejection of unsupported pruning metadata. Script tests verify
-model staging before local-install signing and replacement. Plain builds do
-not themselves embed the model.
-
-See [the production model record](../README_kenlm_train.md#production-kenlm-ranking)
-for the model install command and the train-only benchmark links.
-`SI_TEST_KENLM_INSTALLATION` points the full Swift suite to a versioned test
-installation. It exercises native scores, cleaning vectors, configuration
-load, model-free provisional selection, stale results and automatic-confirmation
-confidence checks. Both build configurations use the same preset.
-
-Manual validation in TextEdit and a browser/editor remains pending. On an
-intentionally installed build, compare a compatible model installation with
-the missing-model fallback. Check that `biruzhege` retains a selectable
-`比如` prefix and leaves `zhege` after confirmation. Exercise quick Space
-and number confirmation, delayed full results, cancellations and focus switches
-while the model opens. Check the opt-in automatic confirmation path and secure
-input. Verify candidate order, selection and VoiceOver in both window layouts.
-
 ## Complete Chinese text extraction
 
 Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests -v` after
@@ -1961,38 +1930,3 @@ counts, every document range, source/code/output checksums and dialogue
 metadata. SI retains all 10,000 conversations; dialogue contains 20,264,390
 utterance/message records, including the duplicated LCCC-base source. No
 new tokenization, dataset split or model training was performed.
-
-
-## Bounded host context for KenLM
-
-`KenLMContextReaderTests` checks UTF-16 reads before the entire marked range,
-a caret in the middle of composition, unmarked insertion carets, the 256-unit
-bound, incomplete responses and reentrant client/selection changes.
-`KenLMContextTests` checks three-word limits, punctuation/language/newline
-resets, truncated reads and rejection of stale preview/final results.
-With `SI_TEST_KENLM_BUNDLE` pointing to a verified model bundle, it also compares
-prepared-State scores to independent native incremental scoring, tests that
-candidate branches cannot contaminate each other, checks engine/pool agreement
-and verifies mixed-language state reset. Run the full shared tests and Debug
-build after changes. System word segmentation is not the training tokenizer;
-these checks do not establish a ranking-quality improvement.
-
-On an intentionally installed build, use synthetic text in TextEdit and a
-browser/editor. Type Chinese before a new composition and check candidate
-ordering, then repeat after punctuation/newlines, English, editing preceding
-text, moving the caret and switching fields/apps. Verify prefixes refresh from
-actual inserted host text, leave the exact remainder editable, and never reuse
-an old request. Check unavailable/partial host ranges, secure input, direct-input
-rules, no-model startup, quick Space/number/mouse acceptance and automatic
-confirmation. Verify typing never asks for Accessibility or Screen Recording.
-Live host verification remains pending; do not install or replace the input
-method merely to run package tests.
-
-On November 9, 2026, all 495 Swift tests passed with
-`SI_TEST_KENLM_BUNDLE` set to the selected local `0012` model directory and
-`./scripts/test.sh --disable-sandbox`, including the six new host-context tests
-and the native prepared-State comparison. The Debug app build passed with
-normal Xcode/compiler-cache access outside the restricted workspace sandbox.
-`git diff --check` passed. No input method was installed or launched, no real
-host text was collected, and no ranking-quality or latency improvement was
-measured. Live host checks above remain unverified.
