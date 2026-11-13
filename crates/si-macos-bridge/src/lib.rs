@@ -6,8 +6,8 @@ use std::ptr::{self, NonNull};
 
 use si_engine::resources::EngineResources;
 use si_engine::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, EnabledLanguages,
-    PersonalPhrase, TokenPreference,
+    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionPreferences,
+    EnabledLanguages, PathPreference, PersonalPhrase, TokenPreference,
 };
 
 struct OwnedResources(NonNull<EngineResources>);
@@ -45,6 +45,16 @@ pub struct SILearnedToken {
     text_bytes: usize,
     language: u8,
     bonus: f64,
+}
+
+#[repr(C)]
+pub struct SILearnedPath {
+    consumed_bytes: usize,
+    text: *const u8,
+    text_bytes: usize,
+    language: u8,
+    frequency: f64,
+    contextual: f64,
 }
 
 #[repr(C)]
@@ -109,7 +119,7 @@ pub unsafe extern "C" fn si_engine_close(engine: *mut SIEngine) {
 }
 
 /// # Safety
-/// The handle must be live. Each nonempty byte slice and the phrase array must
+/// The handle must be live. Each nonempty byte slice and array must
 /// point to initialized memory for the duration of the call.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn si_engine_candidates(
@@ -120,8 +130,10 @@ pub unsafe extern "C" fn si_engine_candidates(
     preview: bool,
     phrases: *const SIUserPhrase,
     phrase_count: usize,
-    preferences: *const SILearnedToken,
-    preference_count: usize,
+    tokens: *const SILearnedToken,
+    token_count: usize,
+    paths: *const SILearnedPath,
+    path_count: usize,
 ) -> *mut SICandidates {
     let Some(engine) = (unsafe { engine.as_ref() }) else {
         return ptr::null_mut();
@@ -178,14 +190,14 @@ pub unsafe extern "C" fn si_engine_candidates(
             })
         })
         .collect();
-    let preferences = if preference_count == 0 {
+    let tokens = if token_count == 0 {
         &[]
-    } else if preferences.is_null() || preference_count > 5_000 {
+    } else if tokens.is_null() || token_count > 5_000 {
         return ptr::null_mut();
     } else {
-        unsafe { std::slice::from_raw_parts(preferences, preference_count) }
+        unsafe { std::slice::from_raw_parts(tokens, token_count) }
     };
-    let preferences: Vec<_> = preferences
+    let tokens: Vec<_> = tokens
         .iter()
         .filter_map(|row| {
             if row.spelling.is_null()
@@ -216,9 +228,48 @@ pub unsafe extern "C" fn si_engine_candidates(
             })
         })
         .collect();
-    let rows = engine
-        .decoder
-        .convert(text, languages, preview, &phrases, &preferences);
+    let paths = if path_count == 0 {
+        &[]
+    } else if paths.is_null() || path_count > 5_000 {
+        return ptr::null_mut();
+    } else {
+        unsafe { std::slice::from_raw_parts(paths, path_count) }
+    };
+    let paths: Vec<_> = paths
+        .iter()
+        .filter_map(|row| {
+            if row.text.is_null() || row.text_bytes > 512 {
+                return None;
+            }
+            let text = std::str::from_utf8(unsafe {
+                std::slice::from_raw_parts(row.text, row.text_bytes)
+            })
+            .ok()?;
+            let language = match row.language {
+                1 => CandidateLanguage::Chinese,
+                2 => CandidateLanguage::English,
+                3 => CandidateLanguage::Mixed,
+                _ => return None,
+            };
+            Some(PathPreference {
+                consumed_bytes: row.consumed_bytes,
+                text,
+                language,
+                frequency: row.frequency,
+                contextual: row.contextual,
+            })
+        })
+        .collect();
+    let rows = engine.decoder.convert(
+        text,
+        languages,
+        preview,
+        &phrases,
+        ConversionPreferences {
+            tokens: &tokens,
+            paths: &paths,
+        },
+    );
     Box::into_raw(Box::new(SICandidates(rows)))
 }
 

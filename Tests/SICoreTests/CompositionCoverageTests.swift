@@ -97,13 +97,13 @@ struct CompositionCoverageTests {
         }
     }
 
-    @Test func coverageRewardCanOvercomeALexicalGapWithoutMakingLengthAbsolute() throws {
+    @Test func completeCandidatesPrecedePrefixesOrderedByConsumedSpan() throws {
         let whole = InputCandidate(text: "Complete", language: .english, score: -20)
         let short = InputCandidate(text: "A", language: .english, score: -2, consumedInputCount: 1, rankingScore: -2.25)
         let long = InputCandidate(text: "ABC", language: .english, score: -4, consumedInputCount: 3, rankingScore: -4.5)
         let provider = NoSuffixProvider(input: "abcdef", values: [whole, short, long])
         let result = CandidateEngine(providers: [provider]).candidates(for: "abcdef", languages: [.english])
-        #expect(result.map(\.text) == ["ABC", "Complete", "A", "abcdef"])
+        #expect(result.map(\.text) == ["Complete", "ABC", "A", "abcdef"])
         #expect(result.first { $0.id == short.id }?.inputScore == -2.25)
         #expect(result.first { $0.id == long.id }?.inputScore == -4.5)
     }

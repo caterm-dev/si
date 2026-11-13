@@ -77,4 +77,29 @@ struct RustConversionIntegrationTests {
         #expect(ranked.first?.id == learned.id)
         #expect(base.first?.id != learned.id)
     }
+
+    @Test func englishPersonalPhraseRetainsExplicitCodeAndOutput() throws {
+        let phrase = try UserPhrase(input: "q'z", text: "Custom  Spacing", language: .english, isPinned: true)
+        let dictionary = try UserDictionary(entries: [phrase])
+        let engine = CandidateEngine()
+        let exact = engine.candidates(for: "Q'Z", languages: [.english], dictionary: dictionary)
+        #expect(exact.first?.text == phrase.text && exact.first?.isPreferred == true)
+        #expect(!engine.candidates(for: "qz", languages: [.english], dictionary: dictionary).contains { $0.isUserPhrase })
+        let joined = engine.candidates(for: "nihaoq'z", languages: Set(InputLanguage.allCases), dictionary: dictionary)
+        #expect(joined.contains { $0.text == "你好Custom  Spacing" && $0.isMixed && !$0.canLearn })
+    }
+
+    @Test func aDisplayedPreviewPrefixCanBeConfirmedBeforeFinalSearch() throws {
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.simplifiedChinese])
+        session.append("lu:'se")
+        let request = try #require(session.pendingCandidateRequest)
+        let acceptedPreview = session.accept(request.generatePreview())
+        #expect(acceptedPreview)
+        let prefix = try #require(session.candidates.first { $0.text == "绿" && $0.consumedInputCount == 4 })
+        let commit = session.commitResult(prefix, reason: .explicitSelection)
+        #expect(commit.text == "绿" && commit.input == "lu:'" && session.buffer == "se")
+        let acceptedStaleResult = session.accept(request.generate())
+        #expect(!acceptedStaleResult)
+    }
 }

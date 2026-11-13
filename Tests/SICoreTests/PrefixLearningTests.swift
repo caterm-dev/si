@@ -102,6 +102,7 @@ struct PrefixLearningTests {
         let corrected = memory.snapshot(vocabularyEnabled: true, now: now)
         let ranked = engine.candidates(for: "shizenme", languages: [.simplifiedChinese],
                                        learning: corrected.learning, now: now, applicationMemory: corrected)
-        #expect(ranked.first?.id == prefix.id)
+        #expect(ranked.first { $0.consumedInputCount == prefix.consumedInputCount }?.id == prefix.id)
+        #expect(ranked.first?.isPartial == false)
     }
 }

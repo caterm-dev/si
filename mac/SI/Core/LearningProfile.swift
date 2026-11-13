@@ -128,6 +128,51 @@ public struct LearningProfile: Sendable, Equatable {
 
     var hasTokenPreferences: Bool { !tokenInputs.isEmpty }
 
+    struct PathPreference {
+        let consumedBytes: Int
+        let text: String
+        let language: UInt8
+        var frequency: Double = 0
+        var contextual: Double = 0
+    }
+
+    func pathPreferences(for input: String, now: Date, context: CandidateContext?) -> [PathPreference] {
+        guard !rankingInputs.isEmpty else { return [] }
+        var englishSpans: [String: [Int]] = [:]
+        var chineseSpans: [String: [Int]] = [:]
+        var spelling = ""
+        for character in input.prefix(256) {
+            spelling.append(character)
+            let consumedBytes = spelling.utf8.count
+            let english = Self.normalizedInput(spelling, language: .english)
+            let chinese = Self.normalizedInput(spelling, language: .simplifiedChinese)
+            if rankingInputs[english] != nil { englishSpans[english, default: []].append(consumedBytes) }
+            if rankingInputs[chinese] != nil { chineseSpans[chinese, default: []].append(consumedBytes) }
+        }
+        guard !englishSpans.isEmpty || !chineseSpans.isEmpty else { return [] }
+        var paths: [String: PathPreference] = [:]
+        for entry in records.values {
+            guard entry.context == nil || entry.context == context,
+                  let spans = (entry.language == .english ? englishSpans : chineseSpans)[entry.input] else { continue }
+            let bonus = weight(id: entry.id, maximum: entry.context == nil ? 32 : 12, now: now)
+            guard bonus > 0 else { continue }
+            for consumedBytes in spans {
+                let key = LearnedPreference.identity(input: "\(consumedBytes)", language: entry.language,
+                                                    text: entry.text, isMixed: entry.mixed == true)
+                var path = paths[key] ?? PathPreference(
+                    consumedBytes: consumedBytes, text: entry.text,
+                    language: entry.mixed == true ? 3 : (entry.language == .english ? 2 : 1))
+                if entry.context == nil {
+                    path.frequency = bonus
+                } else {
+                    path.contextual = bonus
+                }
+                paths[key] = path
+            }
+        }
+        return Array(paths.values)
+    }
+
     func tokenPreferences(for input: String, now: Date) -> [(entry: LearnedPreference, bonus: Double)] {
         guard hasTokenPreferences else { return [] }
         let chinese = Self.normalizedInput(input, language: .simplifiedChinese)

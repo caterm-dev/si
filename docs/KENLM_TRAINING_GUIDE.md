@@ -381,8 +381,12 @@ si_results=.build/kenlm-ranking-new-study
 si_dataset=.build/kenlm-ranking/dataset
 si_model=.build/kenlm-round3/models/clean2/p0123-a22/model.trie
 mkdir -p "$si_results"
+si_rust="$PWD/.build/rust-app/offline"
+export SI_LEGACY_DICTIONARY_DIRECTORY="$PWD/.build/legacy-dictionaries"
+bash scripts/prepare-rust-app.sh "$si_rust" "$si_rust/SIEngine"
+python3 scripts/csv_dictionary.py build
 swift build -c release -debug-info-format none \
-  --scratch-path "$si_results/build" --disable-sandbox --product SIBenchmark
+  --scratch-path "$si_results/build" --disable-sandbox -Xlinker "-L$si_rust" --product SIBenchmark
 si_cli="$(swift build -c release --scratch-path "$si_results/build" --show-bin-path)/SIBenchmark"
 
 "$si_cli" --kenlm recall "$si_model" "$si_dataset" > "$si_results/recall-probe.json"

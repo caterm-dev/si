@@ -58,6 +58,21 @@ pub struct TokenPreference<'a> {
     pub bonus: f64,
 }
 
+/// A preference for one complete output of a specific consumed source span.
+pub struct PathPreference<'a> {
+    pub consumed_bytes: usize,
+    pub text: &'a str,
+    pub language: CandidateLanguage,
+    pub frequency: f64,
+    pub contextual: f64,
+}
+
+#[derive(Default)]
+pub struct ConversionPreferences<'a> {
+    pub tokens: &'a [TokenPreference<'a>],
+    pub paths: &'a [PathPreference<'a>],
+}
+
 /// One possible conversion of a prefix or the whole input.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Candidate {
@@ -65,7 +80,7 @@ pub struct Candidate {
     pub language: CandidateLanguage,
     /// Exact length in UTF-8 bytes from the start of the original input.
     pub consumed_bytes: usize,
-    /// Higher scores rank first within the same consumed span.
+    /// Lexical score before any transient token or whole-path preference.
     pub score_bits: Option<f64>,
     /// The last word extends the typed spelling.
     pub completion: bool,
@@ -97,12 +112,18 @@ impl<'a> CandidateEngine<'a> {
 
     /// Return ranked candidates and one exact literal for nonempty input.
     pub fn candidates(&self, text: &str, languages: EnabledLanguages) -> Vec<Candidate> {
-        self.convert(text, languages, false, &[], &[])
+        self.convert(
+            text,
+            languages,
+            false,
+            &[],
+            ConversionPreferences::default(),
+        )
     }
 
     /// Provisional candidates from a smaller search beam.
     pub fn preview(&self, text: &str, languages: EnabledLanguages) -> Vec<Candidate> {
-        self.convert(text, languages, true, &[], &[])
+        self.convert(text, languages, true, &[], ConversionPreferences::default())
     }
 
     /// Check an exact English prefix independently of the enabled languages.
@@ -122,7 +143,7 @@ impl<'a> CandidateEngine<'a> {
         languages: EnabledLanguages,
         preview: bool,
         phrases: &[PersonalPhrase<'_>],
-        preferences: &[TokenPreference<'_>],
+        preferences: ConversionPreferences<'_>,
     ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();

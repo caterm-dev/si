@@ -39,7 +39,7 @@ public struct CandidateRequest: Sendable {
                                            includesConfirmationEvidence: automaticConfirmationEnabled,
                                            applicationMemory: applicationMemory, languageModelContext: languageModelContext)
         let ranking = engine.rankingExperiment
-        let usesAdjustedScores = ranking.isActive || ranking.adjustsEnglishInsertion
+        let usesAdjustedScores = !engine.usesLegacyConversion || ranking.isActive || ranking.adjustsEnglishInsertion
         #else
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context, includesConfirmationEvidence: automaticConfirmationEnabled,
@@ -221,8 +221,12 @@ public struct InputSession: Sendable {
         var requestedCandidate = candidate
         if hasCandidatePreview, let candidate {
             if candidates.contains(where: { $0.hasSameCommitValue(as: candidate) }) {
-                resolveCandidates()
-                requestedCandidate = candidates.first { $0.id == candidate.id }
+                #if SWIFT_PACKAGE
+                if engine.usesLegacyConversion {
+                    resolveCandidates()
+                    requestedCandidate = candidates.first { $0.hasSameCommitValue(as: candidate) }
+                }
+                #endif
             } else { requestedCandidate = nil }
         }
         let validCandidate = requestedCandidate.flatMap { value -> InputCandidate? in
@@ -366,10 +370,14 @@ public struct InputSession: Sendable {
         return true
     }
 
-    /// Explicit actions need current candidates without synchronously querying the mapped model.
+    /// Resolve pending conversion for an explicit action.
     public mutating func resolveCandidates() {
         guard let request = pendingCandidateRequest else { return }
-        #if !SWIFT_PACKAGE
+        #if SWIFT_PACKAGE
+        if !engine.usesLegacyConversion && hasCandidatePreview { return }
+        #else
+        // Keep the currently displayed choices actionable while final search runs on its worker.
+        guard !hasCandidatePreview else { return }
         // An explicit action during startup can still commit the current literal.
         guard RustConversion.loaded != nil else { return }
         #endif

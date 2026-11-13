@@ -5,6 +5,7 @@ public struct CandidateEngine: Sendable {
     public var punctuationCandidatesEnabled: Bool
     #if SWIFT_PACKAGE
     private var legacy: LegacyCandidateEngine?
+    var usesLegacyConversion: Bool { legacy != nil }
 
     public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false,
                 rankingExperiment: RankingExperiment? = nil) {
@@ -93,7 +94,8 @@ public struct CandidateEngine: Sendable {
             generated = provided + dictionary.candidates(for: input, languages: languages)
         } else {
             generated = RustConversion.shared?.candidates(for: input, languages: languages, preview: preview,
-                dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now)
+                dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now,
+                context: context)
                 ?? dictionary.candidates(for: input, languages: languages)
         }
         var entries = generated
@@ -119,6 +121,7 @@ public struct CandidateEngine: Sendable {
             if let consumed = candidate.consumedInputCount, consumed <= 0 || consumed >= inputCount { continue }
             let spelling = candidate.consumedInputCount.map { String(input.prefix($0)) } ?? input
             let score = learning.rankingScore(for: candidate, input: spelling, now: now, context: context)
+                + CandidateScoring.inputCoverageBonus(for: candidate, spelling: spelling)
             let remembered = candidate.canLearn && !candidate.isPartial && candidate.id == preferredID
             var ranked = candidate.withPresentationScore(score, remembered: remembered)
             if let previous = best[ranked.id] {

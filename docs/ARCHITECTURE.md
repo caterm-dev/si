@@ -43,16 +43,20 @@ apostrophes constrain syllable cuts and belong to the preceding syllable
 for prefix consumption. Umlaut aliases share a spelling but consume their
 own bytes. English uses case-insensitive lookup with typed capitalization
 applied to output. Constructed paths join Chinese words directly and
-insert a space at English word boundaries. Unrecognized spans stop that
-path. An exact literal is available for every nonempty input.
+insert a space at English word boundaries. Bilingual paths can preserve a
+bounded unrecognized span next to a known Chinese word. Those paths and
+paths containing a personal phrase preserve their token bytes without
+adding spaces and are excluded from learning. An exact literal is available
+for every nonempty input.
 
 Conversion uses a word lattice with up to 24 paths per input position,
-language combination and scoring lane. The base lane preserves dictionary
-paths when user evidence is enabled. Exact direct dictionary matches
+language combination and scoring lane, or six in preview. The base lane preserves dictionary
+paths when user evidence is enabled. A bounded lane keeps personal and
+verbatim paths available with their learning exclusions. Exact direct dictionary matches
 bypass the beam. Constructed paths are bounded to the first 128 normalized
 units and 4,096 output bytes. Final completions can extend up to eight
 spelling units, with up to 32 direct completions per language. Composed
-prefixes retain up to two distinct outputs per lane and span.
+prefixes retain up to two distinct outputs per language combination and span.
 
 Each edge adds a unigram or smoothed gram log probability in bits and
 pays explicit spelling, token and language-transition costs. User
@@ -63,6 +67,8 @@ and use only the source consumed by each path. Whole results sort ahead of
 prefixes, longer prefixes precede shorter ones, and score and stable
 identity break ties within a span. The engine retains distinct languages
 for identical output and keeps the exact literal last. The macOS app and the Rust CLI share this lexical scoring.
+The app passes opted-in token and consumed-spelling preferences to the search.
+Their larger value counts toward the shared 32-point frequency cap.
 
 ## Rust resource workflow
 

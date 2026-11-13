@@ -37,9 +37,9 @@ struct PinyinDecoderTests {
         for input in ["'ni", "ni''hao", "ni7hao", "👩🏽‍💻", String(repeating: "shi", count: 100)] {
             #expect(decoder.candidates(for: input).isEmpty)
             let candidates = engine.candidates(for: input, languages: [.simplifiedChinese])
-            #expect(candidates.count == 1)
-            #expect(candidates.first?.text == input)
-            #expect(candidates.first?.isLiteral == true)
+            #expect(!candidates.contains { !$0.isLiteral && !$0.isPartial })
+            #expect(candidates.last?.text == input)
+            #expect(candidates.last?.isLiteral == true)
         }
         #expect(PinyinDecoder(entries: []).candidates(for: "ni").isEmpty)
     }

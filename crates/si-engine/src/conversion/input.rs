@@ -78,6 +78,10 @@ impl<'a> Input<'a> {
         self.ends[position]
     }
 
+    pub(super) fn position(&self, source_bytes: usize) -> Option<usize> {
+        self.ends.binary_search(&source_bytes).ok()
+    }
+
     pub(super) fn source_span(&self, start: usize, end: usize) -> &'a str {
         &self.source[self.ends[start]..self.ends[end]]
     }

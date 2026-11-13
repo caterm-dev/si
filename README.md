@@ -433,8 +433,8 @@ candidates as typed values and can be reused across requests.
 
 The decoder handles continuous full Pinyin and English spelling, mixed
 paths, explicit Pinyin apostrophes, umlaut aliases, final-word spelling
-completion and prefix candidates. The macOS app uses its Swift conversion
-path. See [Rust conversion](docs/ARCHITECTURE.md#rust-conversion).
+completion and prefix candidates. The macOS app uses the same Rust
+decoder through its native bridge. See [Rust conversion](docs/ARCHITECTURE.md#rust-conversion).
 
 #### Build a local user model
 

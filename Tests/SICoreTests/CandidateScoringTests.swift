@@ -99,7 +99,7 @@ struct CandidateScoringTests {
         let mixed = try #require(decoder.compositionCandidates(for: "lingworld", languages: languages)
             .first { $0.text == "零 world" && !$0.isPartial })
         let chinese = try #require(decoder.candidates(for: "ling").first { $0.text == "零" })
-        let english = try #require(CandidateEngine().candidates(for: "deployworld", languages: [.english])
+        let english = try #require(CandidateEngine.legacy().candidates(for: "deployworld", languages: [.english])
             .first { $0.text == "deploy world" && !$0.isPartial })
         let deploy = try #require(EnglishCandidateProvider().candidates(for: "deploy").first { $0.text == "deploy" })
         let mixedWorld = mixed.rankingScore - chinese.rankingScore - log2(RankingCalibration.switchProbability)

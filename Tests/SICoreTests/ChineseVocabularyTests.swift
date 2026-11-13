@@ -123,7 +123,7 @@ struct ChineseVocabularyTests {
     }
 
     @Test func upstreamHomophoneWeightsKeepTheirRatioAndReachConstructedSentences() throws {
-        let engine = CandidateEngine()
+        let engine = CandidateEngine.legacy()
         let values = engine.candidates(for: "guo", languages: [.simplifiedChinese])
         let past = try #require(values.first { $0.text == "过" })
         let country = try #require(values.first { $0.text == "国" })

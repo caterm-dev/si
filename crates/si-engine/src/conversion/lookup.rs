@@ -205,7 +205,18 @@ impl<'a> Lookup<'a> {
             if phrase.spelling.len() > 64 || phrase.text.is_empty() || phrase.text.len() > 1_024 {
                 continue;
             }
-            let Some(spelling) = lookup_spelling(language, phrase.spelling) else {
+            let spelling = if language == Language::English && phrase.spelling.contains('\'') {
+                let key: Vec<_> = phrase
+                    .spelling
+                    .bytes()
+                    .filter(|&byte| byte != b'\'')
+                    .collect();
+                (!key.is_empty() && key.iter().copied().all(english_key_byte))
+                    .then_some(Cow::Owned(key))
+            } else {
+                lookup_spelling(language, phrase.spelling)
+            };
+            let Some(spelling) = spelling else {
                 continue;
             };
             entries[language as usize].push(Entry {
@@ -268,18 +279,40 @@ impl<'a> Lookup<'a> {
                 &rows[..exact]
             };
             let mut separators = input.separators(start, end).peekable();
-            if language == Language::English && separators.peek().is_some_and(|&cut| cut < length) {
+            let first_separator = separators.peek().copied();
+            let english = language == Language::English;
+            if english
+                && first_separator.is_some_and(|cut| cut < length)
+                && rows[0].word.personal.is_none()
+            {
                 break;
             }
-            let ends_at_separator =
-                language == Language::English && separators.peek() == Some(&length);
             for row in eligible {
                 let missing = row.spelling.len() - length;
-                if (!ends_at_separator || missing == 0)
+                let permits_separators = if row.word.personal.is_some() {
+                    let required = row
+                        .reading
+                        .split('\'')
+                        .scan(0, |end, part| {
+                            *end += if english {
+                                part.len()
+                            } else {
+                                lookup_syllable(part).len()
+                            };
+                            Some(*end)
+                        })
+                        .filter(|&cut| cut < row.spelling.len() && cut <= length);
+                    required.eq(separators
+                        .clone()
+                        .filter(|&cut| cut < length || missing != 0))
+                } else if english {
+                    first_separator.is_none_or(|cut| cut == length && missing == 0)
+                } else {
+                    separators.peek().is_none()
+                        || matches_separators(row.reading, separators.clone())
+                };
+                if permits_separators
                     && (missing <= MAX_UNTYPED_LETTERS || row.word.personal.is_some())
-                    && (language == Language::English
-                        || separators.peek().is_none()
-                        || matches_separators(row.reading, separators.clone()))
                 {
                     emit(Match {
                         end,

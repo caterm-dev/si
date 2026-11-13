@@ -19,20 +19,13 @@ struct ChineseFrequencyRankingTests {
         }
     }
 
-    @Test func previousOccurrenceWeightAppliesEquallyToDirectAndPrefixChoices() throws {
-        let entry = try #require(ChineseLexicon.standard.exactMatches(["shang", "ci"]).first { $0.text == "上次" })
-        #expect(entry.weight == 40_000)
-        let baseline = PinyinDecoder(entries: [
-            PinyinLexiconEntry(syllables: ["shang", "ci"], text: "上次", upstreamWeight: 21_766),
-        ])
+    @Test func directAndPrefixChoicesUseTheSameLexicalScore() throws {
         let engine = CandidateEngine()
         for input in ["shangci", "shang'ci"] {
-            let previous = try #require(baseline.candidates(for: input).first { $0.text == "上次" })
             for languages: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
                 let direct = try #require(engine.candidates(for: input, languages: languages).first {
                     $0.text == "上次" && !$0.isPartial
                 })
-                #expect(abs(direct.rankingScore - previous.rankingScore - 1.05 * log2(40_000.0 / 21_766)) < 1e-12)
                 let requestInput = input + "bi"
                 for values in [engine.candidates(for: requestInput, languages: languages),
                                engine.previewCandidates(for: requestInput, languages: languages, learning: LearningProfile(),

@@ -8,7 +8,8 @@ use super::lookup::{Lookup, Match};
 use super::ranking::{Completions, Results};
 use super::scoring::{History, ScoreSession, Scores, Scoring};
 use super::{
-    Candidate, CandidateLanguage, ConversionBoundary, EnabledLanguages, Language, TokenPreference,
+    Candidate, CandidateLanguage, ConversionBoundary, ConversionPreferences, EnabledLanguages,
+    Language, PathPreference, TokenPreference,
 };
 use crate::han;
 
@@ -16,9 +17,8 @@ const MAX_SEARCH_UNITS: usize = 128;
 const MAX_OUTPUT_BYTES: usize = 4_096;
 const BEAM_WIDTH: usize = 24;
 const PREVIEW_BEAM_WIDTH: usize = 6;
-const PREVIEW_SEARCH_UNITS: usize = 32;
 const MAX_DERIVATIONS_PER_TEXT: usize = 2;
-const COMPOSED_PREFIXES_PER_BEAM: usize = 2;
+const COMPOSED_PREFIXES_PER_LANGUAGE: usize = 2;
 const PERSONAL_EDGES_PER_SPAN: usize = 12;
 const ABBREVIATION_BITS: f64 = 7.0;
 
@@ -29,12 +29,23 @@ pub(super) fn run(
     scoring: &Scoring<'_>,
     preview: bool,
     personal: &Lookup<'_>,
-    preferences: &[TokenPreference<'_>],
+    preferences: ConversionPreferences<'_>,
 ) -> Vec<Candidate> {
-    let limit = if preview {
-        input.len().min(PREVIEW_SEARCH_UNITS)
+    let limit = input.len().min(MAX_SEARCH_UNITS);
+    let english_ends = if languages.english && !preferences.tokens.is_empty() {
+        (0..limit)
+            .map(|start| {
+                let mut longest = 0;
+                lookup.visit(Language::English, input, start, limit, |edge| {
+                    if edge.missing == 0 {
+                        longest = longest.max(edge.end);
+                    }
+                });
+                longest
+            })
+            .collect()
     } else {
-        input.len().min(MAX_SEARCH_UNITS)
+        Vec::new()
     };
     let mut search = Search {
         input,
@@ -47,7 +58,9 @@ pub(super) fn run(
         scoring: scoring.session(),
         lattice: (0..=limit).map(|_| Frontier::default()).collect(),
         results: Results::default(),
-        preferences: TokenBonuses::new(preferences),
+        preferences: TokenBonuses::new(preferences.tokens),
+        path_preferences: PathBonuses::new(preferences.paths, input, limit),
+        english_ends,
     };
     let allow_verbatim = languages.chinese && languages.english && limit == input.len();
     let (chinese_starts, exact_starts, exact_whole) = if allow_verbatim {
@@ -64,17 +77,19 @@ pub(super) fn run(
             search.seed(
                 edge,
                 &mut completions,
-                scoring.has_user() || !preferences.is_empty(),
+                scoring.has_user()
+                    || !preferences.tokens.is_empty()
+                    || !preferences.paths.is_empty(),
                 true,
             );
         });
-        let mut seen = vec![0; limit];
+        let mut seen = vec![0; limit + 1];
         personal.visit(language, input, 0, input.len(), |edge| {
             let can_extend = allow_personal_edge(&mut seen, edge.end);
             search.seed(edge, &mut completions, false, can_extend);
         });
-        for candidate in completions.into_rows() {
-            search.results.insert(candidate);
+        for (candidate, effective_score) in completions.into_rows() {
+            search.results.insert(candidate, effective_score);
         }
     }
     if !exact_whole && !exact_starts[0] {
@@ -173,9 +188,84 @@ struct Search<'input, 'model, 'data, 'preferences> {
     lattice: Vec<Frontier>,
     results: Results,
     preferences: TokenBonuses<'preferences>,
+    path_preferences: PathBonuses<'preferences>,
+    english_ends: Vec<usize>,
 }
 
 struct TokenBonuses<'a>(HashMap<(Language, &'a str, &'a str), f64>);
+
+type SpanBonuses<'a> = HashMap<(CandidateLanguage, &'a str), (f64, f64)>;
+
+struct PathBonuses<'a> {
+    spans: Vec<SpanBonuses<'a>>,
+    last: usize,
+}
+
+impl<'a> PathBonuses<'a> {
+    fn new(preferences: &[PathPreference<'a>], input: &Input<'_>, limit: usize) -> Self {
+        if preferences.is_empty() {
+            return Self {
+                spans: Vec::new(),
+                last: 0,
+            };
+        }
+        let mut rows = vec![HashMap::new(); limit + 1];
+        let mut last = 0;
+        for item in preferences
+            .iter()
+            .take(5_000)
+            .filter(|item| item.frequency.is_finite() && item.contextual.is_finite())
+        {
+            if let Some(end) = input
+                .position(item.consumed_bytes)
+                .filter(|&end| end <= limit)
+            {
+                rows[end].insert(
+                    (item.language, item.text),
+                    (
+                        item.frequency.clamp(0.0, 32.0),
+                        item.contextual.clamp(0.0, 12.0),
+                    ),
+                );
+                last = last.max(end);
+            }
+        }
+        Self { spans: rows, last }
+    }
+
+    fn adjustment(&self, end: usize, mask: usize, output: &str, token_bonus: f64) -> f64 {
+        self.spans
+            .get(end)
+            .and_then(|rows| rows.get(&(candidate_language(mask), output)))
+            .map_or(token_bonus, |&(frequency, contextual)| {
+                token_bonus.max(frequency) + contextual
+            })
+    }
+
+    fn could_adjust(&self, end: usize) -> bool {
+        self.last != 0 && end <= self.last
+    }
+
+    fn continuation_bonus(&self, end: usize, mask: usize, output: &str) -> f64 {
+        if end >= self.last {
+            return 0.0;
+        }
+        self.spans[end + 1..=self.last]
+            .iter()
+            .flat_map(|rows| rows.iter())
+            .filter_map(|(&(language, text), &(frequency, contextual))| {
+                let same_languages = match language {
+                    CandidateLanguage::Chinese => mask == 1,
+                    CandidateLanguage::English => mask == 2,
+                    CandidateLanguage::Mixed => true,
+                    CandidateLanguage::Literal => false,
+                };
+                (same_languages && text.len() > output.len() && text.starts_with(output))
+                    .then_some(frequency + contextual)
+            })
+            .fold(0.0, f64::max)
+    }
+}
 
 impl<'a> TokenBonuses<'a> {
     fn new(preferences: &[TokenPreference<'a>]) -> Self {
@@ -233,18 +323,23 @@ impl Search<'_, '_, '_, '_> {
             lexical_tokens: 0,
             completion: false,
             personal: false,
-            last_personal: false,
             verbatim: true,
             token_sum: 0.0,
             units: edge.end,
+            adjustment: 0.0,
+            search_adjustment: 0.0,
+            english_end: 0,
+            splits_english: false,
+            confirmation_ambiguous: false,
             trace: Rc::new(Trace {
                 previous: None,
                 details: Rc::new(EdgeDetails::new(edge, self.input, 0)),
                 output_start: 0,
+                space: false,
             }),
         };
         self.lattice[edge.end]
-            .beam(Lane::Personalized, mask)
+            .beam(Lane::Personalized, mask, true)
             .insert(path, Lane::Personalized, false, self.beam_width);
     }
 
@@ -264,10 +359,19 @@ impl Search<'_, '_, '_, '_> {
             score.personalized -= ABBREVIATION_BITS;
         }
         let personal = edge.word.personal.is_some();
-        if edge.missing != 0 && !personal && !completions.could_enter(score.personalized) {
+        let output = render(edge, self.input.source_span(0, edge.end));
+        let direct_adjustment = if personal {
+            0.0
+        } else {
+            self.path_preferences
+                .adjustment(edge.end, mask, &output, 0.0)
+        };
+        if edge.missing != 0
+            && !personal
+            && !completions.could_enter(score.personalized + direct_adjustment)
+        {
             return;
         }
-        let output = render(edge, self.input.source_span(0, edge.end));
         let details = Rc::new(EdgeDetails::new(edge, self.input, 0));
         let candidate = Candidate {
             text: output.to_string(),
@@ -286,14 +390,29 @@ impl Search<'_, '_, '_, '_> {
             token_bonus: 0.0,
         };
         if candidate.completion && !personal {
-            completions.insert(candidate);
+            completions.insert(candidate, direct_adjustment);
             return;
         }
-        self.results.insert(candidate);
+        self.results
+            .insert(candidate, score.personalized + direct_adjustment);
         if !can_extend || edge.end >= self.limit || output.len() > MAX_OUTPUT_BYTES {
             return;
         }
         let token_sum = self.preferences.get(edge, self.input, 0, &output) * edge.end as f64;
+        let adjustment = if personal {
+            0.0
+        } else {
+            self.path_preferences
+                .adjustment(edge.end, mask, &output, token_sum / edge.end as f64)
+        };
+        let search_adjustment = if personal {
+            adjustment
+        } else {
+            adjustment.max(
+                self.path_preferences
+                    .continuation_bonus(edge.end, mask, &output),
+            )
+        };
         let path = Path {
             output: output.into_owned(),
             score,
@@ -303,26 +422,35 @@ impl Search<'_, '_, '_, '_> {
             lexical_tokens: 1,
             completion: false,
             personal,
-            last_personal: personal,
             verbatim: false,
             token_sum,
             units: edge.end,
+            adjustment,
+            search_adjustment,
+            english_end: if !personal && edge.word.language == Language::English {
+                self.english_end(0)
+            } else {
+                0
+            },
+            splits_english: edge.is_abbreviated() && edge.end < self.english_end(0),
+            confirmation_ambiguous: false,
             trace: Rc::new(Trace {
                 previous: None,
                 details,
                 output_start: 0,
+                space: false,
             }),
         };
         let frontier = &mut self.lattice[edge.end];
         if has_user && edge.word.ids.base.is_some() {
-            frontier.beam(Lane::Base, mask).insert(
+            frontier.beam(Lane::Base, mask, false).insert(
                 path.clone(),
                 Lane::Base,
                 false,
                 self.beam_width,
             );
         }
-        frontier.beam(Lane::Personalized, mask).insert(
+        frontier.beam(Lane::Personalized, mask, personal).insert(
             path,
             Lane::Personalized,
             false,
@@ -332,37 +460,48 @@ impl Search<'_, '_, '_, '_> {
 
     fn collect(&mut self, end: usize, frontier: &Frontier) {
         let whole = end == self.input.len();
-        for (_, beam) in frontier.beams() {
+        for mask in 1..=3 {
+            let mut paths: Vec<_> = Lane::ALL
+                .into_iter()
+                .map(|lane| &frontier.lanes[lane as usize][mask - 1])
+                .chain(std::iter::once(&frontier.private[mask - 1]))
+                .flat_map(|beam| &beam.paths)
+                .filter(|path| path.constructed && (!path.verbatim || (whole && mask == 3)))
+                .collect();
+            if !whole {
+                paths.sort_by(|left, right| compare_paths(left, right, Lane::Personalized, false));
+            }
             let mut seen = Vec::new();
-            for path in beam
-                .paths
-                .iter()
-                .filter(|path| path.constructed && (!path.verbatim || (whole && path.mask == 3)))
-            {
+            for path in paths {
                 if !whole {
                     if seen.contains(&path.output.as_str()) {
                         continue;
                     }
-                    if seen.len() == COMPOSED_PREFIXES_PER_BEAM {
+                    if seen.len() == COMPOSED_PREFIXES_PER_LANGUAGE {
                         break;
                     }
                     seen.push(path.output.as_str());
                 }
-                let (source_boundaries, confirmation_boundaries) = path.trace.boundaries();
-                self.results.insert(Candidate {
-                    text: path.output.clone(),
-                    language: candidate_language(path.mask),
-                    consumed_bytes: self.input.source_end(end),
-                    score_bits: Some(path.score.personalized),
-                    completion: path.completion,
-                    lexical_tokens: path.lexical_tokens,
-                    source_boundaries,
-                    confirmation_boundaries,
-                    personal: path.personal,
-                    preferred: false,
-                    verbatim: path.verbatim,
-                    token_bonus: path.token_bonus(),
-                });
+                let (source_boundaries, confirmation_boundaries) = path
+                    .trace
+                    .boundaries(!path.confirmation_ambiguous && !path.personal && !path.verbatim);
+                self.results.insert(
+                    Candidate {
+                        text: path.output.clone(),
+                        language: candidate_language(mask),
+                        consumed_bytes: self.input.source_end(end),
+                        score_bits: Some(path.score.personalized),
+                        completion: path.completion,
+                        lexical_tokens: path.lexical_tokens,
+                        source_boundaries,
+                        confirmation_boundaries,
+                        personal: path.personal,
+                        preferred: false,
+                        verbatim: path.verbatim,
+                        token_bonus: path.token_bonus(),
+                    },
+                    path.score.personalized + path.adjustment,
+                );
             }
         }
     }
@@ -373,6 +512,7 @@ impl Search<'_, '_, '_, '_> {
         let terminal = edge.end == self.limit;
         let details = Rc::new(EdgeDetails::new(edge, self.input, start));
         let personal = edge.word.personal.is_some();
+        let english_end = self.english_end(start);
         let token_sum =
             self.preferences.get(edge, self.input, start, &surface) * (edge.end - start) as f64;
         for (lane, beam) in frontier.beams() {
@@ -386,12 +526,19 @@ impl Search<'_, '_, '_, '_> {
                     continue;
                 }
                 let verbatim = path.verbatim || edge.word.verbatim;
-                let space = !verbatim
-                    && !personal
-                    && !path.last_personal
+                let has_personal = personal || path.personal;
+                let private = verbatim || has_personal;
+                let strip_spaces = private && !path.verbatim && !path.personal;
+                let space = !private
                     && (language == Language::English
                         || path.history.last() == Some(Language::English));
-                if path.output.len() + surface.len() + usize::from(space) > MAX_OUTPUT_BYTES {
+                let output_start = path.output.len() + usize::from(space)
+                    - if strip_spaces {
+                        path.trace.inserted_spaces()
+                    } else {
+                        0
+                    };
+                if output_start + surface.len() > MAX_OUTPUT_BYTES {
                     continue;
                 }
                 let (history, mut delta) = self.scoring.step(path.history, edge.word, edge.missing);
@@ -401,23 +548,49 @@ impl Search<'_, '_, '_, '_> {
                 }
                 let score = path.score + delta;
                 let mask = path.mask | language.mask();
-                let target = self.lattice[edge.end].beam(lane, mask);
-                let token_sum = if verbatim || personal || path.personal {
+                let target = self.lattice[edge.end].beam(lane, mask, private);
+                let splits_english = !private
+                    && (path.splits_english
+                        || start < path.english_end
+                        || (edge.is_abbreviated() && edge.end < english_end));
+                let token_sum = if private || splits_english {
                     0.0
                 } else {
                     path.token_sum + token_sum
                 };
                 let bonus = token_sum / edge.end as f64;
-                if !target.could_enter(lane.score(score, bonus), lane, self.beam_width) {
+                let has_path_preferences = !private
+                    && lane == Lane::Personalized
+                    && self.path_preferences.could_adjust(edge.end);
+                if !has_path_preferences
+                    && !target.could_enter(lane.score(score, bonus), lane, self.beam_width)
+                {
                     continue;
                 }
-                let mut output =
-                    String::with_capacity(path.output.len() + surface.len() + usize::from(space));
-                output.push_str(&path.output);
+                let mut output = String::with_capacity(output_start + surface.len());
+                if strip_spaces {
+                    path.trace.copy_without_spaces(&path.output, &mut output);
+                } else {
+                    output.push_str(&path.output);
+                }
                 if space {
                     output.push(' ');
                 }
                 output.push_str(&surface);
+                let adjustment = if has_path_preferences {
+                    self.path_preferences
+                        .adjustment(edge.end, mask, &output, bonus)
+                } else {
+                    bonus
+                };
+                let search_adjustment = if has_path_preferences && edge.missing == 0 {
+                    adjustment.max(
+                        self.path_preferences
+                            .continuation_bonus(edge.end, mask, &output),
+                    )
+                } else {
+                    adjustment
+                };
                 target.insert(
                     Path {
                         output,
@@ -427,15 +600,25 @@ impl Search<'_, '_, '_, '_> {
                         constructed: true,
                         lexical_tokens: path.lexical_tokens + 1,
                         completion: edge.missing != 0,
-                        personal: personal || path.personal,
-                        last_personal: personal,
+                        personal: has_personal,
                         verbatim,
                         token_sum,
                         units: edge.end,
+                        adjustment,
+                        search_adjustment,
+                        english_end: if language == Language::English && !private && !splits_english
+                        {
+                            english_end
+                        } else {
+                            0
+                        },
+                        splits_english,
+                        confirmation_ambiguous: path.confirmation_ambiguous,
                         trace: Rc::new(Trace {
                             previous: Some(Rc::clone(&path.trace)),
                             details: Rc::clone(&details),
-                            output_start: path.output.len() + usize::from(space),
+                            output_start,
+                            space,
                         }),
                     },
                     lane,
@@ -444,6 +627,10 @@ impl Search<'_, '_, '_, '_> {
                 );
             }
         }
+    }
+
+    fn english_end(&self, start: usize) -> usize {
+        self.english_ends.get(start).copied().unwrap_or(0)
     }
 }
 
@@ -496,19 +683,27 @@ impl Lane {
 #[derive(Default)]
 struct Frontier {
     lanes: [[Beam; 3]; 2],
+    private: [Beam; 3],
 }
 
 impl Frontier {
-    fn beam(&mut self, lane: Lane, mask: usize) -> &mut Beam {
-        &mut self.lanes[lane as usize][mask - 1]
+    fn beam(&mut self, lane: Lane, mask: usize, private: bool) -> &mut Beam {
+        if private {
+            &mut self.private[mask - 1]
+        } else {
+            &mut self.lanes[lane as usize][mask - 1]
+        }
     }
 
     fn beams(&self) -> impl Iterator<Item = (Lane, &Beam)> {
-        Lane::ALL.into_iter().flat_map(|lane| {
-            self.lanes[lane as usize]
-                .iter()
-                .map(move |beam| (lane, beam))
-        })
+        Lane::ALL
+            .into_iter()
+            .flat_map(|lane| {
+                self.lanes[lane as usize]
+                    .iter()
+                    .map(move |beam| (lane, beam))
+            })
+            .chain(self.private.iter().map(|beam| (Lane::Personalized, beam)))
     }
 
     fn is_empty(&self) -> bool {
@@ -527,10 +722,14 @@ struct Path {
     completion: bool,
     trace: Rc<Trace>,
     personal: bool,
-    last_personal: bool,
     verbatim: bool,
     token_sum: f64,
     units: usize,
+    adjustment: f64,
+    search_adjustment: f64,
+    english_end: usize,
+    splits_english: bool,
+    confirmation_ambiguous: bool,
 }
 
 impl Path {
@@ -586,10 +785,30 @@ struct Trace {
     previous: Option<Rc<Trace>>,
     details: Rc<EdgeDetails>,
     output_start: usize,
+    space: bool,
 }
 
 impl Trace {
-    fn boundaries(&self) -> (Vec<usize>, Vec<ConversionBoundary>) {
+    fn inserted_spaces(&self) -> usize {
+        std::iter::successors(Some(self), |node| node.previous.as_deref())
+            .filter(|node| node.space)
+            .count()
+    }
+
+    fn copy_without_spaces(&self, original: &str, output: &mut String) {
+        let spaces: Vec<_> = std::iter::successors(Some(self), |node| node.previous.as_deref())
+            .filter(|node| node.space)
+            .map(|node| node.output_start - 1)
+            .collect();
+        let mut start = 0;
+        for end in spaces.into_iter().rev() {
+            output.push_str(&original[start..end]);
+            start = end + 1;
+        }
+        output.push_str(&original[start..]);
+    }
+
+    fn boundaries(&self, include_confirmation: bool) -> (Vec<usize>, Vec<ConversionBoundary>) {
         let mut nodes = Vec::new();
         let mut current = Some(self);
         while let Some(node) = current {
@@ -598,7 +817,7 @@ impl Trace {
         }
         let mut cuts = Vec::new();
         let mut confirmation = Vec::new();
-        let mut leading = true;
+        let mut leading = include_confirmation;
         for node in nodes.into_iter().rev() {
             cuts.extend(&node.details.cuts);
             if let Some(aligned) = node.details.confirmation.as_ref().filter(|_| leading) {
@@ -627,19 +846,31 @@ impl Beam {
             || self
                 .paths
                 .last()
-                .is_some_and(|last| score >= lane.score(last.score, last.token_bonus()))
+                .is_some_and(|last| score >= lane.score(last.score, last.search_adjustment))
     }
 
     fn insert(&mut self, path: Path, lane: Lane, terminal: bool, width: usize) {
-        let compare = |left: &Path, right: &Path| {
-            lane.score(right.score, right.token_bonus())
-                .total_cmp(&lane.score(left.score, left.token_bonus()))
-                .then_with(|| left.output.cmp(&right.output))
-                .then_with(|| left.completion.cmp(&right.completion))
-        };
         let equivalent = self.paths.iter().position(|current| {
-            current.output == path.output && (terminal || current.history == path.history)
+            current.output == path.output
+                && (terminal
+                    || (current.history == path.history
+                        && current.english_end == path.english_end
+                        && current.splits_english == path.splits_english
+                        && current.personal == path.personal
+                        && current.verbatim == path.verbatim))
         });
+        if let Some(index) = equivalent {
+            let current = &mut self.paths[index];
+            if path.mask == 1
+                && compare_paths(&path, current, lane, true) == Ordering::Equal
+                && !current.confirmation_ambiguous
+                && !Rc::ptr_eq(&path.trace, &current.trace)
+                && (path.confirmation_ambiguous
+                    || path.trace.boundaries(true).1 != current.trace.boundaries(true).1)
+            {
+                current.confirmation_ambiguous = true;
+            }
+        }
         let weakest_derivation = || {
             self.paths
                 .iter()
@@ -649,17 +880,34 @@ impl Beam {
                 .nth(MAX_DERIVATIONS_PER_TEXT - 1)
         };
         if let Some(index) = equivalent.or_else(weakest_derivation) {
-            if compare(&path, &self.paths[index]) != Ordering::Less {
+            if compare_paths(&path, &self.paths[index], lane, true) != Ordering::Less {
                 return;
             }
             self.paths.remove(index);
         }
-        let position = self
-            .paths
-            .partition_point(|current| compare(current, &path) != Ordering::Greater);
+        let position = self.paths.partition_point(|current| {
+            compare_paths(current, &path, lane, true) != Ordering::Greater
+        });
         if position < width {
             self.paths.insert(position, path);
             self.paths.truncate(width);
         }
     }
+}
+
+fn compare_paths(left: &Path, right: &Path, lane: Lane, for_search: bool) -> Ordering {
+    let score = |path: &Path| {
+        lane.score(
+            path.score,
+            if for_search {
+                path.search_adjustment
+            } else {
+                path.adjustment
+            },
+        )
+    };
+    score(right)
+        .total_cmp(&score(left))
+        .then_with(|| left.output.cmp(&right.output))
+        .then_with(|| left.completion.cmp(&right.completion))
 }

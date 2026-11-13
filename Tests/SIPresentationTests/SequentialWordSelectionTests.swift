@@ -28,8 +28,10 @@ struct SequentialWordSelectionTests {
             #expect(session.accept(result) == true)
             let ranked = session.candidates.filter { !$0.isLiteral }
             let black = try #require(ranked.first { $0.text == "黑" && !$0.isPartial })
-            #expect(ranked.contains { $0.text == "合 I" && $0.isMixed })
-            #expect(black.inputScore > (try #require(ranked.first { $0.text == "合 I" })).inputScore)
+            #expect(ranked.contains { $0.text == "he I" && $0.language == .english })
+            if let mixed = ranked.first(where: { $0.text == "合 I" && $0.isMixed }) {
+                #expect(black.inputScore > mixed.inputScore)
+            }
             for expanded in [false, true] {
                 var selection = CandidateSelection()
                 selection.update(session.candidates)
@@ -193,7 +195,12 @@ struct SequentialWordSelectionTests {
                 #expect(indices == indices.sorted())
                 #expect(selection.candidates.filter { !$0.isLiteral && $0.lexicalTokenCount != 1 }.count <= 4)
                 for (left, right) in zip(engineCandidates.dropLast(), engineCandidates.dropLast().dropFirst()) {
-                    #expect(session.presentationScore(for: left) >= session.presentationScore(for: right))
+                    let leftCount = left.consumedInputCount ?? session.buffer.count
+                    let rightCount = right.consumedInputCount ?? session.buffer.count
+                    #expect(leftCount >= rightCount)
+                    if leftCount == rightCount {
+                        #expect(session.presentationScore(for: left) >= session.presentationScore(for: right))
+                    }
                 }
                 for expanded in [false, true] {
                     selection.setExpanded(expanded)

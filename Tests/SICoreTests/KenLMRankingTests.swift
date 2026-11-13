@@ -29,7 +29,7 @@ struct KenLMRankingTests {
         if path != nil { _ = try #require(model) }
         let now = Date(timeIntervalSince1970: 0)
         for input in ["goon", "nihaopengyou", "wo'xiang", "woxiangyaodeploy", "GOON", "example.com"] {
-            var legacy = InputSession(candidateGeneration: .deferred)
+            var legacy = InputSession(engine: .legacy(), candidateGeneration: .deferred)
             var zero = InputSession(engine: CandidateEngine(rankingExperiment: RankingExperiment(
                 model: model, languageModelWeight: 0, englishLanguageModelWeight: 0,
                 frequencyWeight: 2, wordInsertionBits: -4)), candidateGeneration: .deferred)

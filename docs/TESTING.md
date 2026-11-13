@@ -1317,6 +1317,44 @@ scores affect paths before the beam limit and that two user models with
 identical unigram counts can rank differently based on their grams.
 These checks use synthetic input and exercise the Rust engine directly.
 
+Run `./scripts/test.sh --filter RustConversionIntegrationTests` to exercise
+the same Swift-to-Rust bridge used by the macOS app. The fixtures check
+bilingual results, exact literal fallback, UTF-8 prefix boundaries, personal
+phrases, confirmation evidence and token preferences. Run
+`./scripts/build.sh Release` followed by
+`python3 scripts/verify-rust-app.py .build/xcode/Build/Products/Release/SI.app/Contents/Resources`
+to check the packaged lexicon and the removal of obsolete conversion resources.
+Run the host checks above on an intentionally installed Rust-backed build
+to verify native event routing, focus changes and commits.
+
+On November 13, 2026, the Rust workspace and 66 packaging/script tests
+passed. Universal Debug and Release bundles passed resource inspection.
+All 151 selected bridge, presentation, learning and partial-commit tests
+passed. The full Swift run reported 98 issues in the core suite, including
+legacy scoring expectations and current Chinese ranking regressions.
+With the local paired Rust gram snapshot, `woxianganzhao` and
+`heshangcibi` led their candidate lists. See
+[known Rust recall misses](#known-rust-recall-misses) for missing candidates.
+The dictionary-only Release preview benchmark used 100
+synthetic requests per scenario. Observed p95 was 12.53 ms for `shi`,
+19.76 ms for `woxiangyaodeploy` and 33.35 ms for 20 repeated `shi`
+syllables. Native IMK event delivery and typing remain unverified.
+
+### Known Rust recall misses
+
+These authored examples are absent from the engine's whole-input results.
+The table records the resources and search stages used to reproduce each miss.
+
+| Input | Expected candidate | Confirmed with |
+| --- | --- | --- |
+| `zhaojichujuzi`, `zhao'ji'chu'ju'zi` | 找几处句子 | Bundled dictionary in Swift preview and full search. Local `.silex` + `.sigram` in CLI full search. Both were checked with Chinese only and with Chinese and English enabled. |
+
+The bundled dictionary has `找` (`zhao`), `几处` (`ji'chu`) and `句子`
+(`ju'zi`). The regression remains covered by
+[`ChineseSentenceAlternativesTests`](../Tests/SICoreTests/ChineseSentenceAlternativesTests.swift).
+
+### Other Rust resource checks
+
 Run `cargo test --locked -p si-cli --test workflow user_` for the Rust user
 model. The synthetic cases check base-file byte preservation, separate
 profiles and word IDs, exact 2–5 gram counts and sentence boundaries,

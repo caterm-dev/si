@@ -24,8 +24,15 @@ struct PrefixConfirmationTests {
                 let shortlist = CandidateShortlist.candidates(from: candidates)
                 let visibleIndex = try #require(shortlist.firstIndex { $0.id == word.id })
                 #expect(visibleIndex < 5)
-                let scores = shortlist.filter { !$0.isLiteral }.map { session.presentationScore(for: $0) }
-                #expect(scores == scores.sorted(by: >))
+                let ordinary = shortlist.filter { !$0.isLiteral }
+                for (left, right) in zip(ordinary, ordinary.dropFirst()) {
+                    let leftCount = left.consumedInputCount ?? session.buffer.count
+                    let rightCount = right.consumedInputCount ?? session.buffer.count
+                    #expect(leftCount >= rightCount)
+                    if leftCount == rightCount {
+                        #expect(session.presentationScore(for: left) >= session.presentationScore(for: right))
+                    }
+                }
                 if languages.contains(.english) {
                     #expect(candidates.contains { $0.text == "day in" && $0.language == .english && !$0.isPartial })
                     #expect(prefixes.contains { $0.text == "day" && $0.consumedInputCount == 3 })

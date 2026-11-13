@@ -2,9 +2,19 @@
 
 SI is currently a development preview. Checked items have implementations; unchecked items remain planned. Automated engine coverage does not replace host-app verification.
 
+## macOS conversion migration — 2026-11
+
+The macOS app uses the Rust decoder and a bundled `.silex` dictionary.
+Builds can supply a paired `.sigram` word-gram model. The Swift decoder and
+KenLM remain available to offline comparison tools. The shipped app uses
+Rust for lexical search and Swift for InputMethodKit and candidate presentation.
+Native host behavior and parity with the earlier Chinese ranking still
+require verification. See [architecture](ARCHITECTURE.md#rust-conversion)
+and [bridge checks](TESTING.md#automated-checks).
+
 ## Chinese migration — 2026-10-21
 
-The current worktree replaces the historical Chinese/mixed decoder with a Swift MSIME adaptation and an SI-maintained dictionary. Full/prefix/initial lookup, spelling aliases, word-lattice search and word bigram/trigram ranking are written. The user authorized validation on October 22. Builds pass, while full regressions and Chinese quality remain unresolved; live host checks remain unverified. MSIME quality parity is unproven; optional general typo paths and neural reranking remain incomplete. Bounded complete-Pinyin/English lexical paths are connected, including `woxiangyaodeploy`; mixed initials and Chinese-tail completion remain incomplete. The checked historical Chinese/mixed milestones below describe the previous implementation, not verification of this migration. See [the implementation plan](IMPLEMENTATION_PLAN.md) and [algorithm study](MSIME_ALGORITHM.md).
+The October migration used a Swift MSIME adaptation and an SI-maintained dictionary. Its milestones record the earlier implementation. See [the implementation plan](IMPLEMENTATION_PLAN.md) and [algorithm study](MSIME_ALGORITHM.md).
 
 The October 22 dictionary consolidation removes old Chinese sources and their maintenance adapter. English shares the Chinese SQLite schema. The October 29 Wanxiang replacement supersedes the former relative-frequency weight unit with raw upstream ranking weights. The October 27 source migration places both effective dictionaries in SI-maintained `base.csv` files, supports additional category CSVs and centralizes source-level provenance in `Data/Vocabulary/meta.json`; source-level metadata and notices remain attribution records, while superseded wordlists/import pipelines are deleted. Original English import provenance and functionality are retained; complete-candidate calibration remains separate work. Mixed lexical integration now queries those same dictionaries.
 

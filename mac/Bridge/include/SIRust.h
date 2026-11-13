@@ -26,6 +26,15 @@ typedef struct SILearnedToken {
     double bonus;
 } SILearnedToken;
 
+typedef struct SILearnedPath {
+    size_t consumed_bytes;
+    const uint8_t *text;
+    size_t text_bytes;
+    uint8_t language;
+    double frequency;
+    double contextual;
+} SILearnedPath;
+
 typedef struct SIConversionBoundary {
     size_t source_bytes;
     size_t output_bytes;
@@ -57,7 +66,8 @@ void si_engine_close(SIEngine *engine);
 SICandidates *si_engine_candidates(const SIEngine *engine, const uint8_t *text,
                                    size_t length, uint8_t languages, bool preview,
                                    const SIUserPhrase *phrases, size_t phrase_count,
-                                   const SILearnedToken *preferences, size_t preference_count);
+                                   const SILearnedToken *tokens, size_t token_count,
+                                   const SILearnedPath *paths, size_t path_count);
 bool si_engine_has_english_word_prefix(const SIEngine *engine, const uint8_t *text,
                                        size_t length, size_t minimum);
 size_t si_candidates_count(const SICandidates *results);

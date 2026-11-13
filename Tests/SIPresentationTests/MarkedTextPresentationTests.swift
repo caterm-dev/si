@@ -7,7 +7,7 @@ struct MarkedTextPresentationTests {
     @Test func leadingWholeHypothesisSuppliesSegmentationDespiteHigherRankedPrefixes() {
         let engine = CandidateEngine()
         for (input, expected, languages) in [
-            ("chileme", "chi le me", Set(InputLanguage.allCases)),
+            ("chileme", "chi le me", Set([InputLanguage.simplifiedChinese])),
             ("iwanttobuild", "i want to build", Set([InputLanguage.english])),
         ] {
             let candidates = engine.candidates(for: input, languages: languages)

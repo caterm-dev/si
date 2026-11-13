@@ -4,7 +4,7 @@ import Testing
 
 struct ChineseCompositionContextTests {
     @Test func directWordsUseDictionaryFrequency() throws {
-        let engine = CandidateEngine()
+        let engine = CandidateEngine.legacy()
         for enabled: Set<InputLanguage> in [[.simplifiedChinese], Set(InputLanguage.allCases)] {
             let values = engine.candidates(for: "shihou", languages: enabled)
             let time = try #require(values.first { $0.text == "时候" && !$0.isPartial })
@@ -20,13 +20,16 @@ struct ChineseCompositionContextTests {
 
     @Test func confirmingAPrefixStartsANewIndependentComposition() throws {
         var session = InputSession()
+        let standalone = try #require(CandidateEngine().candidates(for: "shihou", languages: [.simplifiedChinese])
+            .first { $0.text == "时候" && !$0.isPartial })
         session.configure(languages: [.simplifiedChinese])
         session.append("nihaoshihou")
         let greeting = try #require(session.candidates.first { $0.text == "你好" && $0.consumedInputCount == 5 })
         let commit = session.commitResult(greeting, reason: .explicitSelection)
         #expect(commit.text == "你好" && session.buffer == "shihou")
         let time = try #require(session.candidates.first { $0.text == "时候" && !$0.isPartial })
-        #expect(time.languageBoundary == CandidateLanguageBoundary.chinese())
+        #expect(time.rankingScore == standalone.rankingScore)
+        #expect(time.sourceSegmentBoundaries == standalone.sourceSegmentBoundaries)
     }
 
     @Test func chineseSentencesUseOnlyWordSpellingAndLanguageCosts() throws {

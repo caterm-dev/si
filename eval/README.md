@@ -79,16 +79,19 @@ python3 scripts/generate_ranking_eval.py --output /tmp/si-ranking-reproduction
 
 # Blind requests omit references, categories, syllables and target notes.
 python3 scripts/ranking_eval.py requests --output /tmp/si-ranking-requests.jsonl
-swift build --scratch-path .build/swift --configuration release --product SICandidateExport
+si_rust="$PWD/.build/rust-app/eval"
+export SI_ENGINE_RESOURCE_DIRECTORY="$si_rust/SIEngine"
+bash scripts/prepare-rust-app.sh "$si_rust" "$SI_ENGINE_RESOURCE_DIRECTORY"
+swift build --scratch-path .build/swift --configuration release \
+  -Xlinker "-L$si_rust" --product SICandidateExport
 .build/swift/release/SICandidateExport < /tmp/si-ranking-requests.jsonl > /tmp/si-ranking-predictions.jsonl
 python3 scripts/ranking_eval.py score --predictions /tmp/si-ranking-predictions.jsonl \
   --output /tmp/si-ranking-report.json
 ```
 
-The existing exporter emits the first 32 eligible complete nonliteral,
-noncompletion candidates from dictionary-only bilingual engine ranking; it does
-not load the production KenLM model, expose the full engine pool or reproduce
-the input window's shortlist. Accordingly the scorer reports **exported-pool
+The exporter emits the first 32 eligible complete nonliteral,
+noncompletion candidates from dictionary-only bilingual Rust engine ranking.
+It uses the resource directory prepared by the command above. The scorer reports **exported-pool
 recall**, Top-1/Top-5 and MRR for that explicit protocol, not full-engine recall
 or native-window accuracy. Empty/missing-gold pools stay in the denominator.
 Reports bind the dataset and prediction hashes; separately record the exact code

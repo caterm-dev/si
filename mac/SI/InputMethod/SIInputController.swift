@@ -317,7 +317,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     private func resolveCandidates(to client: any IMKTextInput) {
-        guard session.pendingCandidateRequest != nil else { return }
+        guard session.pendingCandidateRequest != nil, !session.hasCandidatePreview else { return }
         session.resolveCandidates()
         update(client)
     }

@@ -3,7 +3,7 @@ import Testing
 @testable import SICore
 
 struct PartialCommitTests {
-    @Test func frequentShortWordsCompeteByConsumedSpellingScoreWithCompleteCompositions() {
+    @Test func frequentShortWordsUseConsumedSpellingScoresWithinEachSpan() {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         var profile = LearningProfile()
         let you = InputCandidate(text: "你", language: .simplifiedChinese, score: 100)
@@ -15,7 +15,12 @@ struct PartialCommitTests {
         #expect(candidates.contains { $0.text == "你好朋友" && !$0.isPartial })
         let ranked = candidates.dropLast()
         for (left, right) in zip(ranked, ranked.dropFirst()) {
-            #expect(session.presentationScore(for: left, now: now) >= session.presentationScore(for: right, now: now))
+            let leftCount = left.consumedInputCount ?? session.buffer.count
+            let rightCount = right.consumedInputCount ?? session.buffer.count
+            #expect(leftCount >= rightCount)
+            if leftCount == rightCount {
+                #expect(session.presentationScore(for: left, now: now) >= session.presentationScore(for: right, now: now))
+            }
         }
     }
 

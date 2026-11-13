@@ -43,7 +43,8 @@ final class RustConversion: @unchecked Sendable {
 
     func candidates(for input: String, languages: Set<InputLanguage>, preview: Bool = false,
                     dictionary: UserDictionary = UserDictionary(), includesConfirmation: Bool = false,
-                    learning: LearningProfile = LearningProfile(), now: Date = .now) -> [InputCandidate] {
+                    learning: LearningProfile = LearningProfile(), now: Date = .now,
+                    context: CandidateContext? = nil) -> [InputCandidate] {
         var mask: UInt8 = 0
         if languages.contains(.simplifiedChinese) { mask |= 1 }
         if languages.contains(.english) { mask |= 2 }
@@ -52,10 +53,11 @@ final class RustConversion: @unchecked Sendable {
         let offsets = Self.sourceOffsets(input)
         let bytes = Array(input.utf8)
         let learned = learning.tokenPreferences(for: input, now: now)
-        guard let result = withRows(dictionary.entries, learned, { phrases, tokens in
+        let paths = learning.pathPreferences(for: input, now: now, context: context)
+        guard let result = withRows(dictionary.entries, learned, paths, { phrases, tokens, paths in
             bytes.withUnsafeBufferPointer {
                 si_engine_candidates(engine, $0.baseAddress, $0.count, mask, preview, phrases.baseAddress, phrases.count,
-                                     tokens.baseAddress, tokens.count)
+                                     tokens.baseAddress, tokens.count, paths.baseAddress, paths.count)
             }
         }) else { return [] }
         defer { si_candidates_free(result) }
@@ -90,7 +92,9 @@ final class RustConversion: @unchecked Sendable {
     }
 
     private func withRows<T>(_ phrases: [UserPhrase], _ learned: [(entry: LearnedPreference, bonus: Double)],
-                             _ body: (UnsafeBufferPointer<SIUserPhrase>, UnsafeBufferPointer<SILearnedToken>) -> T) -> T {
+                             _ paths: [LearningProfile.PathPreference],
+                             _ body: (UnsafeBufferPointer<SIUserPhrase>, UnsafeBufferPointer<SILearnedToken>,
+                                      UnsafeBufferPointer<SILearnedPath>) -> T) -> T {
         var bytes: [UInt8] = []
         func append(_ spelling: String, _ text: String) -> (Int, Int, Int) {
             let spellingStart = bytes.count
@@ -101,6 +105,7 @@ final class RustConversion: @unchecked Sendable {
         }
         let phraseSpans = phrases.map { append($0.input, $0.text) }
         let tokenSpans = learned.map { append($0.entry.input, $0.entry.text) }
+        let pathSpans = paths.map { append("", $0.text) }
         return bytes.withUnsafeBufferPointer { buffer in
             let rows = zip(phrases, phraseSpans).map { phrase, span in
                 SIUserPhrase(spelling: buffer.baseAddress?.advanced(by: span.0),
@@ -116,8 +121,15 @@ final class RustConversion: @unchecked Sendable {
                                text_bytes: span.2 - span.1,
                                language: token.entry.language == .english ? 2 : 1, bonus: token.bonus)
             }
+            let pathRows = zip(paths, pathSpans).map { path, span in
+                SILearnedPath(consumed_bytes: path.consumedBytes,
+                              text: buffer.baseAddress?.advanced(by: span.1), text_bytes: span.2 - span.1,
+                              language: path.language, frequency: path.frequency, contextual: path.contextual)
+            }
             return rows.withUnsafeBufferPointer { phrases in
-                tokens.withUnsafeBufferPointer { body(phrases, $0) }
+                tokens.withUnsafeBufferPointer { tokens in
+                    pathRows.withUnsafeBufferPointer { body(phrases, tokens, $0) }
+                }
             }
         }
     }

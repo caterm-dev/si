@@ -22,7 +22,8 @@ struct TokenLearningTests {
                     let results = preview
                         ? engine.previewCandidates(for: input, languages: enabled, learning: profile, dictionary: UserDictionary(), now: now, context: nil)
                         : engine.candidates(for: input, languages: enabled, learning: profile, now: now)
-                    #expect(results == baseline)
+                    #expect(results.filter { !$0.isPartial } == baseline.filter { !$0.isPartial })
+                    #expect(results.allSatisfy { $0.tokenLearningBonus == 0 })
                     #expect(results.last?.text == input && results.last?.isLiteral == true)
                 }
             }
@@ -59,7 +60,7 @@ struct TokenLearningTests {
         #expect(engine.candidates(for: "bangwozaixie", languages: languages, learning: profile, now: now).first { !$0.isPartial }?.text == "帮我在写")
         var session = InputSession()
         session.configure(languages: languages, learning: profile, now: now)
-        session.append("bangwozaixieyige")
+        session.append("bangwozaixieyige", now: now)
         let prefix = try #require(session.candidates.first { $0.text == "帮我在写" && $0.isPartial })
         let commit = session.commitResult(prefix, reason: .explicitSelection, now: now)
         #expect(commit.input == "bangwozaixie" && commit.remainingInput == "yige")
@@ -198,10 +199,10 @@ struct TokenLearningTests {
     @Test func personalAndVerbatimPathsNeverReceiveTokenBonusesOrGenerateTokenRecords() throws {
         var profile = try learned(input: "shike", text: "食客")
         let dictionary = try UserDictionary(entries: [UserPhrase(input: "xm", text: "测试人名", language: .simplifiedChinese)])
-        for input in ["shikexm", "shikeQwErTy"] {
+        for input in ["shikexm", "shikeQzXvJk"] {
             let candidates = engine.candidates(for: input, languages: languages, learning: profile, dictionary: dictionary, now: now)
             let privateCandidates = candidates.filter { $0.isUserPhrase || $0.hasLiteralSegments }
-            #expect(!privateCandidates.isEmpty)
+            #expect(!privateCandidates.isEmpty, "Input: \(input)")
             for candidate in privateCandidates {
                 #expect(candidate.tokenLearningBonus == 0)
                 #expect(profile.rankingScore(for: candidate, input: input, now: now, context: nil) == candidate.rankingScore)
@@ -224,7 +225,8 @@ struct TokenLearningTests {
         var session = InputSession(candidateGeneration: .deferred)
         session.configure(languages: languages, learning: profile, now: now)
         session.append("woshikenihao", now: now)
-        let scores = candidates.dropLast().map { session.presentationScore(for: $0, now: now) }
+        let scores = candidates.filter { $0.consumedInputCount == prefix.consumedInputCount }
+            .map { session.presentationScore(for: $0, now: now) }
         #expect(scores == scores.sorted(by: >))
     }
 
