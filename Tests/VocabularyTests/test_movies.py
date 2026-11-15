@@ -1,7 +1,5 @@
 """Public movie-title coverage, language separation and reviewed pronunciation checks."""
 import csv
-import hashlib
-import json
 from pathlib import Path
 import sys
 import unittest
@@ -12,35 +10,20 @@ import csv_dictionary as dictionary
 
 
 def movie_rows(language):
-    rows = []
-    for path in dictionary.category_sources(language):
-        if path.name == 'movie.csv':
-            with path.open() as stream:
-                rows.extend(csv.DictReader(stream))
-    return rows
+    with (ROOT / 'Data' / language.title() / 'movie.csv').open(encoding='utf-8', newline='') as stream:
+        return list(csv.DictReader(stream))
 
 
 class MovieVocabularyTests(unittest.TestCase):
-    def test_catalog_covers_twenty_years_and_both_language_categories(self):
-        data = ROOT / 'Data/Vocabulary'
-        with (data / 'movie-catalog.csv').open() as stream:
-            catalog = list(csv.DictReader(stream))
-        chinese = movie_rows('chinese')
-        english = movie_rows('english')
-        self.assertEqual({int(row['year']) for row in catalog}, set(range(2007, 2027)))
-        self.assertEqual(len({(row['year'], row['chinese']) for row in catalog}), len(catalog))
-        zh_texts = {row['text'] for row in chinese}
-        en_identities = {(row['reading'], row['text'].lower()) for row in english}
-        for row in catalog:
-            with self.subTest(title=row['chinese']):
-                self.assertIn(row['chinese'], zh_texts)
-                self.assertIn((dictionary.english_reading(row['english']), row['english'].lower()), en_identities)
-        for rows in (chinese, english):
-            self.assertEqual(len({(r['reading'], r['text']) for r in rows}), len(rows))
-        curation = next(r for r in json.loads((data / 'meta.json').read_text())['curations']
-                        if r['id'] == 'movie-titles-2007-2026')
-        self.assertEqual(curation['films'], len(catalog))
-        self.assertEqual(curation['catalog_sha256'], hashlib.sha256((data / 'movie-catalog.csv').read_bytes()).hexdigest())
+    def test_movie_categories_have_unique_valid_readings(self):
+        for language in ('chinese', 'english'):
+            rows = movie_rows(language)
+            self.assertTrue(rows)
+            self.assertEqual(len({(row['reading'], row['text']) for row in rows}), len(rows))
+            for row in rows:
+                self.assertGreaterEqual(dictionary.integer(row['weight'], 0, 'count'), 0)
+                if language == 'english':
+                    self.assertEqual(row['reading'], dictionary.english_reading(row['text']))
 
     def test_movie_names_keep_reviewed_polyphonic_and_umlaut_readings(self):
         identities = {(row['text'], row['reading']) for row in movie_rows('chinese')}

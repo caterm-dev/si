@@ -26,6 +26,7 @@ Usage:
   si-cli corpus build  [--han] <lexicon.silex> <output.sigram> <source.txt> [<source.txt> ...]
   si-cli corpus add    [--han] <lexicon.silex> <output.sigram> <source.txt> [<source.txt> ...]
   si-cli corpus ingest <lexicon.silex> <grams.sigram> <source.txt> [<source.txt> ...]
+  si-cli corpus clear-grams <lexicon.silex> <grams.sigram>
   si-cli corpus prune  --order <2|3|4|5> --min-count <count> <lexicon.silex> <grams.sigram>
   si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--languages <zh-Hans,en|zh-Hans|en|none>]
   si-cli user ingest <profile.si-user> <base.silex> <batch-id> <sentences.txt|->
@@ -108,6 +109,18 @@ fn run(args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
         }
         [scope, action, inputs @ ..] if scope == "corpus" && action == "prune" => {
             prune_corpus(inputs)
+        }
+        [scope, action, lexicon, grams] if scope == "corpus" && action == "clear-grams" => {
+            let grams = Path::new(grams);
+            Some(
+                resources::clear_corpus_grams(Path::new(lexicon), grams).map(|removed| {
+                    if removed {
+                        println!("Removed {}.", grams.display());
+                    } else {
+                        println!("No gram snapshot at {}.", grams.display());
+                    }
+                }),
+            )
         }
         [scope, action, inputs @ ..] if scope == "corpus" => {
             run_corpus(action, inputs, config.base_max_order)
@@ -364,7 +377,15 @@ fn print_paragraphs(report: ParagraphImport) {
         "Imported {} paragraphs with {} matched words. Skipped {} unknown characters and {} unresolved matches.",
         report.paragraphs, report.matched_words, report.unknown_characters, report.ambiguous_words
     );
-    println!("Added {} new English words.", report.added_english_words);
+    if let Some(review) = report.english_review {
+        println!(
+            "Exported {} unknown English spellings to {}.",
+            review.rows,
+            review.path.display()
+        );
+    } else if report.added_english_words != 0 {
+        println!("Added {} new English words.", report.added_english_words);
+    }
     println!(
         "Counted {} <char> and {} <num> placeholders in the token stream.",
         report.letter_placeholders, report.number_placeholders

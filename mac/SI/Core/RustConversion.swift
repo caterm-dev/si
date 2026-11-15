@@ -17,8 +17,12 @@ final class RustConversion: @unchecked Sendable {
         #endif
         guard let resourceDirectory else { return nil }
         let lexicon = resourceDirectory.appendingPathComponent("main.silex")
-        let grams = resourceDirectory.appendingPathComponent("main.sigram")
-        let engine = RustConversion(lexicon: lexicon, grams: FileManager.default.fileExists(atPath: grams.path) ? grams : nil)
+        #if SWIFT_PACKAGE
+        let engine = RustConversion(lexicon: lexicon)
+        #else
+        let grams = resourceDirectory.appendingPathComponent("words.sigram")
+        let engine = RustConversion(lexicon: lexicon, grams: grams)
+        #endif
         ready.withLock { $0 = engine }
         return engine
     }()
@@ -33,7 +37,32 @@ final class RustConversion: @unchecked Sendable {
         engine = handle
     }
 
+    private init(engine: OpaquePointer) { self.engine = engine }
+
     deinit { si_engine_close(engine) }
+
+    func loadUserModel(at profile: URL) throws -> RustConversion? {
+        var handle: OpaquePointer?
+        guard profile.withUnsafeFileSystemRepresentation({ si_engine_load_user(engine, $0, &handle) }) else {
+            throw SentenceLearningStore.StoreError.profile
+        }
+        return handle.map(RustConversion.init(engine:))
+    }
+
+    func ingestUserSentences(_ sentences: [String], batchID: UUID, at profile: URL) throws {
+        let bytes = Array(sentences.joined(separator: "\n").utf8)
+        guard profile.withUnsafeFileSystemRepresentation({ path in
+            batchID.uuidString.withCString { id in
+                bytes.withUnsafeBufferPointer { si_engine_ingest_user(engine, path, id, $0.baseAddress, $0.count) }
+            }
+        }) else { throw SentenceLearningStore.StoreError.profile }
+    }
+
+    static func clearUserModel(at profile: URL) throws {
+        guard profile.withUnsafeFileSystemRepresentation({ si_engine_clear_user($0) }) else {
+            throw SentenceLearningStore.StoreError.profile
+        }
+    }
 
     func hasEnglishWordPrefix(_ input: String, minimum: Int) -> Bool {
         Array(input.utf8).withUnsafeBufferPointer {
@@ -44,7 +73,7 @@ final class RustConversion: @unchecked Sendable {
     func candidates(for input: String, languages: Set<InputLanguage>, preview: Bool = false,
                     dictionary: UserDictionary = UserDictionary(), includesConfirmation: Bool = false,
                     learning: LearningProfile = LearningProfile(), now: Date = .now,
-                    context: CandidateContext? = nil) -> [InputCandidate] {
+                    context: CandidateContext? = nil, precedingText: String = "") -> [InputCandidate] {
         var mask: UInt8 = 0
         if languages.contains(.simplifiedChinese) { mask |= 1 }
         if languages.contains(.english) { mask |= 2 }
@@ -54,10 +83,14 @@ final class RustConversion: @unchecked Sendable {
         let bytes = Array(input.utf8)
         let learned = learning.tokenPreferences(for: input, now: now)
         let paths = learning.pathPreferences(for: input, now: now, context: context)
+        var precedingText = precedingText
         guard let result = withRows(dictionary.entries, learned, paths, { phrases, tokens, paths in
-            bytes.withUnsafeBufferPointer {
-                si_engine_candidates(engine, $0.baseAddress, $0.count, mask, preview, phrases.baseAddress, phrases.count,
-                                     tokens.baseAddress, tokens.count, paths.baseAddress, paths.count)
+            bytes.withUnsafeBufferPointer { input in
+                precedingText.withUTF8 { preceding in
+                    si_engine_candidates(engine, input.baseAddress, input.count, preceding.baseAddress, preceding.count,
+                                         mask, preview, phrases.baseAddress, phrases.count,
+                                         tokens.baseAddress, tokens.count, paths.baseAddress, paths.count)
+                }
             }
         }) else { return [] }
         defer { si_candidates_free(result) }
@@ -78,7 +111,7 @@ final class RustConversion: @unchecked Sendable {
                           (1...row.text_bytes).contains(boundary.output_bytes) else { return nil }
                     return ConfirmationBoundary(sourceCount: count, outputByteCount: boundary.output_bytes)
                 }
-            let candidate = InputCandidate(text: output, language: language,
+            var candidate = InputCandidate(text: output, language: language,
                 score: Int(row.score_bits.rounded(.towardZero)), isMixed: row.language == 3,
                 isUserPhrase: row.personal,
                 hasLiteralSegments: row.verbatim,
@@ -87,6 +120,9 @@ final class RustConversion: @unchecked Sendable {
                 isPreferred: row.preferred,
                 lexicalTokenCount: row.lexical_tokens,
                 confirmationBoundaries: confirmation).withDisplaySourceBoundaries(boundaries)
+            if candidate.canLearn && row.context_adjustment.isFinite {
+                candidate.fieldContextAdjustment = row.context_adjustment
+            }
             return row.language == 1 && row.lexical_tokens > 1 ? candidate.withChineseSentenceOrigin() : candidate
         }
     }

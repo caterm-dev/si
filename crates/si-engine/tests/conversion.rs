@@ -5,7 +5,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use si_engine::resources::EngineResources;
 use si_engine::resources::user::{UserLearningConfig, UserModelStore};
-use si_engine::{Candidate, CandidateEngine, CandidateLanguage, EnabledLanguages};
+use si_engine::{
+    Candidate, CandidateEngine, CandidateLanguage, ConversionPreferences, EnabledLanguages,
+    PersonalPhrase,
+};
 use si_gram::GramBuilder;
 use si_lexicon::{IndexId, Lexicon, WordId};
 
@@ -23,6 +26,115 @@ const ENGLISH: EnabledLanguages = EnabledLanguages {
     chinese: false,
     english: true,
 };
+
+#[test]
+fn preceding_field_uses_only_the_last_sentence_for_gram_scoring() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let previous = add(&mut lexicon, ZH, "he'shui", "喝水", 20);
+    let terminal = add(&mut lexicon, ZH, "guo", "过", 10);
+    let river = add(&mut lexicon, ZH, "he", "河", 4);
+    let together = add(&mut lexicon, ZH, "he", "和", 40);
+    let the = add(&mut lexicon, EN, "the", "the", 15);
+    let english = add(&mut lexicon, EN, "he", "he", 15);
+    let mut grams = GramBuilder::new();
+    grams.add(&[previous, together], 1_000).unwrap();
+    grams.add(&[terminal, river], 1_000).unwrap();
+    grams.add(&[previous, terminal, river], 1_000).unwrap();
+    grams.add(&[the, english], 1_000).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    let convert = |text, context, preview| {
+        engine.convert_with_context(
+            text,
+            BILINGUAL,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+            context,
+        )
+    };
+    for preview in [false, true] {
+        let baseline = convert("he", "", preview);
+        let latest = convert("he", "过。", preview);
+        assert_eq!(latest, convert("he", "喝水！过。 ” ", preview));
+        assert_eq!(latest, convert("he", "喝水\n过", preview));
+        assert_eq!(latest, convert("he", "喝水。过，", preview));
+        assert_eq!(convert("he", "喝水。🦉", preview), baseline);
+        assert_ne!(latest, baseline);
+        let first_chinese = |rows: &[Candidate]| {
+            rows.iter()
+                .find(|candidate| candidate.language == CandidateLanguage::Chinese)
+                .unwrap()
+                .text
+                .clone()
+        };
+        assert_eq!(first_chinese(&baseline), "和");
+        assert_eq!(first_chinese(&latest), "河");
+        assert_eq!(
+            find(&latest, "he", CandidateLanguage::English, 2).context_adjustment,
+            0.0
+        );
+        assert!(
+            find(
+                &convert("he", "The ", preview),
+                "he",
+                CandidateLanguage::English,
+                2
+            )
+            .context_adjustment
+                > 0.0
+        );
+        let river = find(&latest, "河", CandidateLanguage::Chinese, 2);
+        assert_eq!(
+            river.score_bits,
+            find(&baseline, "河", CandidateLanguage::Chinese, 2).score_bits
+        );
+        assert_eq!(
+            river.context_adjustment,
+            find(
+                &convert("he'guo", "过。", preview),
+                "河",
+                CandidateLanguage::Chinese,
+                3
+            )
+            .context_adjustment
+        );
+        assert!(
+            find(
+                &convert("he", "喝水过", preview),
+                "河",
+                CandidateLanguage::Chinese,
+                2
+            )
+            .context_adjustment
+                > river.context_adjustment
+        );
+        assert_literal(latest.last().unwrap(), "he");
+    }
+    let phrase = PersonalPhrase {
+        spelling: "qxz",
+        text: "小鹿",
+        language: CandidateLanguage::Chinese,
+        pinned: false,
+    };
+    let with_phrase = engine.convert_with_context(
+        "heqxz",
+        CHINESE,
+        false,
+        &[phrase],
+        ConversionPreferences::default(),
+        "过",
+    );
+    let personal = find(&with_phrase, "河小鹿", CandidateLanguage::Chinese, 5);
+    assert!(personal.personal);
+    assert_eq!(personal.context_adjustment, 0.0);
+    let with_verbatim = convert("hezz", "过", false);
+    let verbatim = find(&with_verbatim, "河zz", CandidateLanguage::Mixed, 4);
+    assert!(verbatim.verbatim);
+    assert_eq!(verbatim.context_adjustment, 0.0);
+    Ok(())
+}
 
 #[test]
 fn enabled_languages_preserve_ambiguous_and_literal_identities() -> io::Result<()> {

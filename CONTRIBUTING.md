@@ -5,7 +5,7 @@ Thanks for helping build SI. The product principle is simple: users enable langu
 ## Development
 
 1. Install Xcode 26 or later and select it as the active developer directory.
-2. Install Rust 1.89 or later and add the Apple Silicon and Intel macOS targets for universal builds. Open `mac/SI.xcodeproj` and choose the shared SI scheme. Xcode generates the Rust lexicon from the tracked CSV files.
+2. Install Rust 1.89 or later and add the Apple Silicon and Intel macOS targets for universal builds. Place the paired `main.silex` and `words.sigram` under `target/si-data/`. Open `mac/SI.xcodeproj` and choose the shared SI scheme.
 3. For macOS app code changes beyond vocabulary maintenance, run `./scripts/test.sh` and `./scripts/build.sh` before submitting.
 4. For input-method changes, complete the relevant checks in [docs/TESTING.md](docs/TESTING.md).
 
@@ -46,7 +46,7 @@ To stop tracking an artifact accidentally added earlier, use `git rm --cached` w
 - Keep changes focused and use English for code identifiers, comments, documentation, source localization keys, issues, and pull requests. Keep app translations in the matching `Localizable.strings` resources with identical keys and format arguments. Translations, language examples and lexicons use their native scripts.
 - Do not introduce a current-language mode, a language toggle shortcut, or a ranking rule that silently hides other enabled languages.
 - Keep the original input available, including unknown words and identifiers.
-- Keep typed content out of diagnostic logs. Send input and host context to the selected AI provider only within the independent [AI completion consent boundary](docs/PRIVACY.md#ai-completion). Input History retains SI submissions under its own opt-in. Sentence History separately opts into bounded Return-time text-client snapshots in all conversion-enabled apps. Keep both history stores local and separate from ranking/training, with secure-input, deletion and storage-error safeguards. Explicitly shared exports may become private offline candidate data through the documented receiver workflow. Never commit contributions, infer redistribution rights or silently append them to maintained datasets.
+- Keep typed content out of diagnostic logs. Send input and host context to the selected AI provider only within the independent [AI completion consent boundary](docs/PRIVACY.md#ai-completion). Input History retains SI submissions under its own opt-in. Sentence learning defaults to enabled under the Personal Learning opt-in and sends bounded Return-time text-client snapshots to the local Rust model. Keep Input History separate from ranking and learning. Preserve secure-input, deletion and storage-error safeguards. Explicitly shared exports may become private offline candidate data through the documented receiver workflow. Never commit contributions, infer redistribution rights or silently append them to maintained datasets.
 - Discuss third-party engines, dictionaries, models, and large dependencies in an issue first. Include their license and data provenance.
 - Leave signing identities, provisioning profiles, user-specific Xcode state, and build products out of commits.
 

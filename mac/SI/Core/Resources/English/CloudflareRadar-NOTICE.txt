@@ -17,7 +17,8 @@ SI validates full lowercase ASCII domains, retains dots/hyphens/digits as litera
 readings, and merges exact duplicate domains without changing existing weights.
 New entries use an editorial weight of 100. SI's separately authored domain
 selection is retained alongside the imported data. Snapshot bytes, retrieval time,
-checksums and transformations are recorded in Data/Vocabulary/meta.json.
+checksums and transformations are recorded in SI Git history at
+revision 90dae8b^ under Data/Vocabulary/meta.json.
 
 Cloudflare-derived data retains CC BY-NC 4.0, including its attribution and
 NonCommercial conditions. It is not relicensed under SI's GPLv3 code license.

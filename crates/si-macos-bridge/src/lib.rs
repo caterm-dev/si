@@ -1,28 +1,47 @@
-//! C ABI for the macOS Swift client. The engine and its backing data are immutable.
+//! C ABI for the macOS Swift client. Candidate engines and their backing data are immutable.
 
 use std::ffi::{CStr, c_char};
 use std::path::Path;
 use std::ptr::{self, NonNull};
+use std::sync::Arc;
 
 use si_engine::resources::EngineResources;
+use si_engine::resources::user::{UserLearningConfig, UserModelStore};
 use si_engine::{
     Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionPreferences,
     EnabledLanguages, PathPreference, PersonalPhrase, TokenPreference,
 };
 
-struct OwnedResources(NonNull<EngineResources>);
+struct OwnedResources(NonNull<(Arc<EngineResources>, Option<EngineResources>)>);
 
 impl Drop for OwnedResources {
     fn drop(&mut self) {
-        // SAFETY: the owner was allocated with Box::into_raw and is unique.
+        // SAFETY: this uniquely owns the stable allocation created by SIEngine::new.
         unsafe { drop(Box::from_raw(self.0.as_ptr())) };
     }
 }
 
 pub struct SIEngine {
     decoder: CandidateEngine<'static>,
-    // Rust drops fields in declaration order, so the borrows end before freeing the allocation.
-    _resources: OwnedResources,
+    // Field drop order keeps the resources alive until after the decoder drops.
+    resources: OwnedResources,
+}
+
+impl SIEngine {
+    fn new(base: Arc<EngineResources>, user: Option<EngineResources>) -> Self {
+        let resources = OwnedResources(NonNull::from(Box::leak(Box::new((base, user)))));
+        // SAFETY: the allocation outlives the decoder and its data is immutable.
+        let (base, user) = unsafe { resources.0.as_ref() };
+        Self {
+            decoder: CandidateEngine::new(base, user.as_ref()),
+            resources,
+        }
+    }
+
+    fn base(&self) -> &Arc<EngineResources> {
+        // SAFETY: the resource allocation stays live for the engine's lifetime.
+        &unsafe { self.resources.0.as_ref() }.0
+    }
 }
 
 pub struct SICandidates(Vec<Candidate>);
@@ -64,6 +83,7 @@ pub struct SICandidateView {
     consumed_bytes: usize,
     lexical_tokens: usize,
     score_bits: f64,
+    context_adjustment: f64,
     language: u8,
     completion: bool,
     source_boundaries: *const usize,
@@ -100,17 +120,83 @@ pub unsafe extern "C" fn si_engine_open(
     let Ok(resources) = EngineResources::open(Path::new(lexicon), grams) else {
         return ptr::null_mut();
     };
-    let resources = OwnedResources(NonNull::from(Box::leak(Box::new(resources))));
-    // SAFETY: the allocation is stable and the owner is kept until after the decoder drops.
-    let decoder = CandidateEngine::new(unsafe { resources.0.as_ref() }, None);
-    Box::into_raw(Box::new(SIEngine {
-        decoder,
-        _resources: resources,
-    }))
+    Box::into_raw(Box::new(SIEngine::new(Arc::new(resources), None)))
+}
+
+unsafe fn user_store(profile: *const c_char) -> Option<UserModelStore> {
+    if profile.is_null() {
+        return None;
+    }
+    let path = unsafe { CStr::from_ptr(profile) }.to_str().ok()?;
+    Some(UserModelStore::new(path))
 }
 
 /// # Safety
-/// The handle must be null or returned by si_engine_open, with no outstanding calls.
+/// The engine must be live, profile must be a UTF-8 C string, and out must be writable.
+/// On success, out receives an owned engine or null for an empty profile.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_load_user(
+    engine: *const SIEngine,
+    profile: *const c_char,
+    out: *mut *mut SIEngine,
+) -> bool {
+    let (Some(engine), Some(store), Some(out)) =
+        (unsafe { (engine.as_ref(), user_store(profile), out.as_mut()) })
+    else {
+        return false;
+    };
+    let Ok(user) = store.load() else { return false };
+    *out = user.map_or(ptr::null_mut(), |user| {
+        Box::into_raw(Box::new(SIEngine::new(
+            Arc::clone(engine.base()),
+            Some(user),
+        )))
+    });
+    true
+}
+
+/// # Safety
+/// The engine must be live. Profile and batch ID must be UTF-8 C strings.
+/// Text must point to len initialized bytes of newline-delimited UTF-8.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_ingest_user(
+    engine: *const SIEngine,
+    profile: *const c_char,
+    batch_id: *const c_char,
+    text: *const u8,
+    len: usize,
+) -> bool {
+    let (Some(engine), Some(store)) = (unsafe { (engine.as_ref(), user_store(profile)) }) else {
+        return false;
+    };
+    if batch_id.is_null() || text.is_null() || !(1..=32 * 4096).contains(&len) {
+        return false;
+    }
+    let Ok(batch_id) = (unsafe { CStr::from_ptr(batch_id) }).to_str() else {
+        return false;
+    };
+    let Ok(text) = std::str::from_utf8(unsafe { std::slice::from_raw_parts(text, len) }) else {
+        return false;
+    };
+    if text.lines().count() > 32 || text.lines().any(|line| line.encode_utf16().count() > 1024) {
+        return false;
+    }
+    let lexicon = engine.base().lexicon();
+    store
+        .ingest(lexicon, batch_id, text.lines().map(Ok))
+        .is_ok()
+        && store.learn(lexicon, &UserLearningConfig::default()).is_ok()
+}
+
+/// # Safety
+/// Profile must be a valid UTF-8 C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_clear_user(profile: *const c_char) -> bool {
+    unsafe { user_store(profile) }.is_some_and(|store| store.clear().is_ok())
+}
+
+/// # Safety
+/// The handle must be null or returned by si_engine_open or si_engine_load_user, with no outstanding calls.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn si_engine_close(engine: *mut SIEngine) {
     if !engine.is_null() {
@@ -126,6 +212,8 @@ pub unsafe extern "C" fn si_engine_candidates(
     engine: *const SIEngine,
     text: *const u8,
     len: usize,
+    preceding_text: *const u8,
+    preceding_len: usize,
     languages: u8,
     preview: bool,
     phrases: *const SIUserPhrase,
@@ -147,6 +235,12 @@ pub unsafe extern "C" fn si_engine_candidates(
     };
     let Ok(text) = std::str::from_utf8(bytes) else {
         return ptr::null_mut();
+    };
+    let preceding_text = if preceding_len == 0 || preceding_text.is_null() {
+        ""
+    } else {
+        std::str::from_utf8(unsafe { std::slice::from_raw_parts(preceding_text, preceding_len) })
+            .unwrap_or_default()
     };
     let languages = EnabledLanguages {
         chinese: languages & 1 != 0,
@@ -260,7 +354,7 @@ pub unsafe extern "C" fn si_engine_candidates(
             })
         })
         .collect();
-    let rows = engine.decoder.convert(
+    let rows = engine.decoder.convert_with_context(
         text,
         languages,
         preview,
@@ -269,6 +363,7 @@ pub unsafe extern "C" fn si_engine_candidates(
             tokens: &tokens,
             paths: &paths,
         },
+        preceding_text,
     );
     Box::into_raw(Box::new(SICandidates(rows)))
 }
@@ -329,6 +424,7 @@ pub unsafe extern "C" fn si_candidates_get(
             consumed_bytes: candidate.consumed_bytes,
             lexical_tokens: candidate.lexical_tokens,
             score_bits: candidate.score_bits.unwrap_or(0.0),
+            context_adjustment: candidate.context_adjustment,
             language,
             completion: candidate.completion,
             source_boundaries: candidate.source_boundaries.as_ptr(),

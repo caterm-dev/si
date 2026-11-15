@@ -1,3 +1,4 @@
+mod context;
 mod input;
 mod lookup;
 mod ranking;
@@ -82,6 +83,8 @@ pub struct Candidate {
     pub consumed_bytes: usize,
     /// Lexical score before any transient token or whole-path preference.
     pub score_bits: Option<f64>,
+    /// Transient change in log probability from the host field's preceding text.
+    pub context_adjustment: f64,
     /// The last word extends the typed spelling.
     pub completion: bool,
     /// Lexical units in the strongest derivation, with direct-word evidence retained.
@@ -101,13 +104,20 @@ pub struct Candidate {
 pub struct CandidateEngine<'a> {
     lookup: Lookup<'a>,
     scoring: Scoring<'a>,
+    context: Option<context::Context<'a>>,
 }
 
 impl<'a> CandidateEngine<'a> {
     pub fn new(base: &'a EngineResources, user: Option<&'a EngineResources>) -> Self {
         let lookup = Lookup::new(base.lexicon(), user.map(EngineResources::lexicon));
         let scoring = Scoring::new(base, user, &lookup);
-        Self { lookup, scoring }
+        let context = (base.grams().is_some() || user.is_some_and(|user| user.grams().is_some()))
+            .then(|| context::Context::new(base.lexicon(), user.map(EngineResources::lexicon)));
+        Self {
+            lookup,
+            scoring,
+            context,
+        }
     }
 
     /// Return ranked candidates and one exact literal for nonempty input.
@@ -145,16 +155,35 @@ impl<'a> CandidateEngine<'a> {
         phrases: &[PersonalPhrase<'_>],
         preferences: ConversionPreferences<'_>,
     ) -> Vec<Candidate> {
+        self.convert_with_context(text, languages, preview, phrases, preferences, "")
+    }
+
+    /// Convert `text` with transient committed field text preceding the composition.
+    pub fn convert_with_context(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preview: bool,
+        phrases: &[PersonalPhrase<'_>],
+        preferences: ConversionPreferences<'_>,
+        preceding_text: &str,
+    ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();
         }
         let mut candidates = if languages.chinese || languages.english {
             let personal = Lookup::personal(phrases);
+            let history = self
+                .context
+                .as_ref()
+                .map_or_else(Default::default, |context| {
+                    context.history(preceding_text, &self.scoring)
+                });
             search::run(
                 &Input::new(text),
                 languages,
                 &self.lookup,
-                &self.scoring,
+                self.scoring.session(history),
                 preview,
                 &personal,
                 preferences,
@@ -167,6 +196,7 @@ impl<'a> CandidateEngine<'a> {
             language: CandidateLanguage::Literal,
             consumed_bytes: text.len(),
             score_bits: None,
+            context_adjustment: 0.0,
             completion: false,
             lexical_tokens: 0,
             source_boundaries: Vec::new(),

@@ -12,24 +12,27 @@ public struct CandidateEngine: Sendable {
                            learning: LearningProfile = LearningProfile(), dictionary: UserDictionary = UserDictionary(),
                            now: Date = .now, context: CandidateContext? = nil,
                            includesConfirmationEvidence: Bool = false,
-                           applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
+                           applicationMemory: ApplicationMemorySnapshot = .empty,
+                           precedingText: String = "") -> [InputCandidate] {
         return converted(input, languages: languages, learning: learning, dictionary: dictionary,
                          now: now, context: context, applicationMemory: applicationMemory, preview: false,
-                         includesConfirmation: includesConfirmationEvidence)
+                         includesConfirmation: includesConfirmationEvidence, precedingText: precedingText)
     }
 
 
     func previewCandidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
-                           applicationMemory: ApplicationMemorySnapshot = .empty) -> [InputCandidate] {
+                           applicationMemory: ApplicationMemorySnapshot = .empty,
+                           precedingText: String = "") -> [InputCandidate] {
         return converted(input, languages: languages, learning: learning, dictionary: dictionary,
-                         now: now, context: context, applicationMemory: applicationMemory, preview: true)
+                         now: now, context: context, applicationMemory: applicationMemory, preview: true,
+                         precedingText: precedingText)
     }
 
     private func converted(_ input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot, preview: Bool,
-                           includesConfirmation: Bool = false) -> [InputCandidate] {
+                           includesConfirmation: Bool = false, precedingText: String) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let generated: [InputCandidate]
         if let providers {
@@ -37,9 +40,10 @@ public struct CandidateEngine: Sendable {
                 .flatMap { $0.candidates(for: input) }
             generated = provided + dictionary.candidates(for: input, languages: languages)
         } else {
-            generated = RustConversion.shared?.candidates(for: input, languages: languages, preview: preview,
+            let rust = applicationMemory.sentenceModel?.conversion ?? RustConversion.shared
+            generated = rust?.candidates(for: input, languages: languages, preview: preview,
                 dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now,
-                context: context)
+                context: context, precedingText: precedingText)
                 ?? dictionary.candidates(for: input, languages: languages)
         }
         var entries = generated
@@ -48,9 +52,11 @@ public struct CandidateEngine: Sendable {
             let prefixes = punctuation.prefix.isEmpty
                 ? [InputCandidate(text: "", language: nil, score: 0)]
                 : converted(punctuation.prefix, languages: languages, learning: learning, dictionary: dictionary,
-                            now: now, context: context, applicationMemory: applicationMemory, preview: preview)
+                            now: now, context: context, applicationMemory: applicationMemory, preview: preview,
+                            precedingText: precedingText)
             entries += PunctuationCandidates.candidates(symbol: punctuation.symbol, prefixes: prefixes, languages: languages) {
                 learning.rankingScore(for: $0, input: punctuation.prefix, now: now, context: context)
+                    + $0.fieldContextAdjustment
             }
         }
         let known = Set(entries.map(\.id))
@@ -65,6 +71,7 @@ public struct CandidateEngine: Sendable {
             if let consumed = candidate.consumedInputCount, consumed <= 0 || consumed >= inputCount { continue }
             let spelling = candidate.consumedInputCount.map { String(input.prefix($0)) } ?? input
             let score = learning.rankingScore(for: candidate, input: spelling, now: now, context: context)
+                + candidate.fieldContextAdjustment
                 + CandidateScoring.inputCoverageBonus(for: candidate, spelling: spelling)
             let remembered = candidate.canLearn && !candidate.isPartial && candidate.id == preferredID
             var ranked = candidate.withPresentationScore(score, remembered: remembered)

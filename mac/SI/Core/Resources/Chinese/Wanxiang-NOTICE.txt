@@ -29,6 +29,7 @@ the distribution for preserved category data and source history.
 
 No upstream program code, grammar model or runtime is imported by this change.
 SI's independently written conversion script and application remain GPLv3.
-Full upstream LICENSE-SCOPE.md and NOTICE.md, source checksums and conversion
-report are retained under Data/Vocabulary/Wanxiang in the source distribution.
+The pinned upstream revision contains LICENSE-SCOPE.md and NOTICE.md.
+The original source checksums and SI conversion report are recorded in
+SI Git history at revision 90dae8b^ under Data/Vocabulary/Wanxiang/.
 No user input, private phrases or learning archives are dictionary inputs.

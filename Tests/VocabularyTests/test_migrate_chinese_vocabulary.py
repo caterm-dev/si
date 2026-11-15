@@ -16,6 +16,7 @@ from migrate_chinese_vocabulary import convert, source_rows, word_readings
 
 class ChineseVocabularyMigrationTests(unittest.TestCase):
     def test_model_selection_defaults_to_coarse_and_retains_fine_option(self):
+        source = Path('legacy-chinese')
         for arguments, model, cache in [
             ([], migration.MODEL, migration.CACHE),
             (['--granularity', 'fine'], migration.FINE_MODEL, migration.FINE_CACHE),
@@ -26,9 +27,10 @@ class ChineseVocabularyMigrationTests(unittest.TestCase):
                     patch.object(migration, 'load_tokenizer', return_value=('tokenizer', {})) as load, \
                     patch.object(migration, 'convert') as conversion, \
                     contextlib.redirect_stdout(io.StringIO()):
-                migration.main(arguments)
+                migration.main(['--source', str(source), *arguments])
                 configure.assert_called_once_with(cache)
                 load.assert_called_once_with('cpu', 4, model=model, cache=cache)
+                self.assertEqual(conversion.call_args.args[0], source)
                 self.assertEqual(conversion.call_args.args[2], 'tokenizer')
         self.assertNotEqual(migration.FINE_CACHE, migration.CACHE)
 

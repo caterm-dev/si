@@ -6,8 +6,9 @@ preparation command has been removed. Shared archive readers live in `readers.py
 
 ## Sources
 
-`--source all` selects the six pinned archives from `chinese/sources.lock.json`
-and two explicit local collections:
+`--source all` selects the six pinned archives from `chinese/sources.lock.json`,
+the SI and dialogue collections, and Chinese Chatbot Corpus when its local
+directory is present.
 
 | Source | Local input and selection |
 | --- | --- |
@@ -17,15 +18,16 @@ and two explicit local collections:
 | `wikipedia` | Pinned complete current-article archive; namespace 0, nonredirect current wikitext, with titles. |
 | `si` | Recursively sorted `chinese/raw/si/**/*.txt`; blank lines delimit conversations. The local `synthetic-dialogues-v1` collection is AI-authored synthetic dialogue, not actual chat transcripts. |
 | `dialogue` | `chinese/raw/dialogue/download-manifest.json`, or the existing `dialogue-20261104` directory when `dialogue` is absent. |
+| `chinese-chatbot-corpus` | Extracted `raw_chat_corpus` files from [codemayq's collection](chinese/metadata/chinese-chatbot-corpus.md). |
 
-The local dialogue manifest describes LCCC-base JSONL/gzip, KdConv JSON,
-CrossWOZ JSON/ZIP and OASST1 Parquet. Only utterance text enters `text.txt`.
+Dialogue preparation reads KdConv JSON, CrossWOZ JSON/ZIP and OASST1
+Parquet from the local manifest. Only utterance text enters `text.txt`.
 Dataset, original split, conversation/turn identity and available role/parent
 information remain in `documents.jsonl`. OASST1 retains Chinese-language
 messages (`zh`, `zh-cn`, `zh-tw`, `zh-hans`, `zh-hant`), without quality filtering;
-sibling replies are never fabricated into a linear transcript. The collection's
-LCCC archive overlaps the separate `lccc` source; preparation deliberately does
-not deduplicate this overlap or assign new training/evaluation splits.
+sibling replies retain their parent links. The dialogue extractor skips the
+manifest’s LCCC-base entry because the pinned `lccc` source handles that archive.
+Original source splits are preserved.
 
 ## Environment
 
@@ -53,12 +55,21 @@ python3 corpus/fetch.py all --check
 python3 corpus/fetch.py wikipedia --latest
 ```
 
-The two local collections must already exist; this command does not acquire
-them or infer permission to redistribute their contents.
+Place the local collections under `chinese/raw/` before preparing them. For
+Chinese Chatbot Corpus, use the Google Drive or Aliyun link in the
+[upstream README](https://github.com/codemayq/chinese-chatbot-corpus#使用方法).
+Place the contents of the downloaded `raw_chat_corpus` directory directly in
+`corpus/chinese/raw/chinese-chatbot-corpus/`, so a source directory such as
+`douban-multiturn-100w/` is its immediate child. Partial downloads are accepted
+and the manifest lists missing subcorpora and Douban splits. When both PTT
+releases are present, the importer selects v2, which extends v1. After adding
+files to an existing local collection, use `--output` with a fresh directory
+to prepare the expanded collection.
 
 ```sh
 corpus/.venv/bin/python corpus/prepare_raw_text.py --source si
 corpus/.venv/bin/python corpus/prepare_raw_text.py --source dialogue
+corpus/.venv/bin/python corpus/prepare_raw_text.py --source chinese-chatbot-corpus
 corpus/.venv/bin/python corpus/prepare_raw_text.py --source all
 # Select another raw root or a fresh output version explicitly:
 corpus/.venv/bin/python corpus/prepare_raw_text.py --source si \
@@ -72,13 +83,14 @@ Default output: `chinese/prepared/raw-text-v2/{source}/`. Each source contains:
   document, SI conversation or dataset utterance/message.
 - `manifest.json`: input hashes, code hashes, OpenCC version/config, counts and
   output checksums. Dialogue also retains the Parquet reader version.
-- `attribution/` for dialogue: copied download manifest, acquisition records,
-  licenses and metadata, covered by output checksums.
+- `attribution/` for dialogue and Chinese Chatbot Corpus: source notices and
+  available local acquisition and license documents, covered by output checksums.
 
 Preparation verifies archive checksums and every declared dialogue data/license
 file before reading. SI inputs receive a deterministic file inventory with
-sizes and SHA-256 hashes. Local inventories are checked again before publishing,
-so edits or additions during processing cannot publish a stale snapshot.
+sizes and SHA-256 hashes, as do Chinese Chatbot Corpus inputs. Local inventories
+are checked again before publishing, so edits or additions during processing
+cannot publish a stale snapshot.
 Each source is staged and published only on success. Existing complete outputs
 are reused only when input, code, normalization and output hashes still match;
 otherwise choose a fresh output directory. Existing bundles are not overwritten.
@@ -91,16 +103,19 @@ removes invalid surrogate code points. Numbers, English word spaces, punctuation
 short text, long lines and repeated occurrences remain. SI conversation
 separators remain blank lines. There is no Han-only cutting, four-character
 minimum, 96-character truncation, character cap, deduplication or tokenization.
+Chinese Chatbot Corpus writes individual turns and records their source path,
+conversation, turn and upstream split when available. It excludes Douban rows
+with negative response labels and PTT missing-data placeholders. Subtitle
+segmentation slashes are removed. Weibo posts and replies must have equal
+record counts. The manifest counts documents per subcorpus and lines repaired
+with Unicode replacement characters after invalid UTF-8.
 Markdown/Wikipedia readers still remove code, templates, tables and references;
 removed or never-captured prose is not reconstructed.
 
-The former fragment bundles were deleted on November 5, 2026. Their measured
-snapshots (`chinese/snapshot.json`, `chinese/wikipedia-20261001.snapshot.json`)
-remain historical provenance. `check.py` verifies that historical fragment
-format, not the current complete-text format. The old `prepared/raw-text-v1` directory was deleted at the user's request on
-November 8, 2026; current preparation uses `raw-text-v2`. The
-`kenlm-raw-v1` / `kenlm-words-v2` generated outputs remain frozen older
-artifacts and have not been overwritten or retrained.
+The older Han-fragment snapshots document prior extraction runs.
+`check.py` applies to that fragment format. For current full-text bundles,
+rerun preparation with the original input and output paths to verify a
+completed bundle.
 
 ## Downstream tools
 
@@ -123,7 +138,7 @@ corpus/.venv/bin/python -m unittest discover -s corpus/tests -v
 ```
 
 Synthetic regressions cover simplification, punctuation/English/numbers,
-conversation boundaries and repeated turns, all four dialogue formats,
+conversation boundaries and repeated turns, the selected dialogue formats and the separate LCCC source,
 Chinese-message selection and original parent edges, attribution, checksum
 rejection, source changes during extraction, output reuse and rollback.
 See [the verification guide](../docs/TESTING.md).

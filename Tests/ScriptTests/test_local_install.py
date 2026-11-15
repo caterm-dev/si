@@ -63,6 +63,7 @@ exec /bin/mv "$@"
         resources = self.source / "Contents/Resources/SIEngine"
         resources.mkdir(parents=True)
         (resources / "main.silex").write_bytes(b"SILEX\0\x03\0synthetic lexicon")
+        (resources / "words.sigram").write_bytes(b"SIGRAM\x04\0synthetic word grams")
 
     def executable(self, path, text):
         path.write_text(text)
@@ -92,6 +93,8 @@ exec /bin/mv "$@"
         self.assertEqual((self.destination / "Contents/synthetic").read_bytes(), b"new app")
         self.assertEqual((self.destination / "Contents/Resources/SIEngine/main.silex").read_bytes(),
                          b"SILEX\0\x03\0synthetic lexicon")
+        self.assertEqual((self.destination / "Contents/Resources/SIEngine/words.sigram").read_bytes(),
+                         b"SIGRAM\x04\0synthetic word grams")
 
     def test_all_nested_code_uses_selected_developer_id(self):
         macos = self.source / "Contents/MacOS"

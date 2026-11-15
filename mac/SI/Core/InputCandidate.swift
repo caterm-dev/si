@@ -4,8 +4,10 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let score: Int
     /// Base lexical score for the spelling this candidate actually consumes.
     public let rankingScore: Double
-    /// Final engine score, including eligible learning and consumed-spelling coverage.
+    /// Final engine score, including field context, eligible learning and consumed-spelling coverage.
     public private(set) var presentationScore: Double?
+    /// Transient Rust gram adjustment from the preceding field text.
+    var fieldContextAdjustment = 0.0
     /// Exact-spelling correction priority is separate from statistical score units.
     public private(set) var isRememberedChoice = false
     /// Lexical score before learning and the consumed-input coverage reward.

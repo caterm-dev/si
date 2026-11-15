@@ -4,17 +4,13 @@
 import csv
 import hashlib
 import io
-import os
 from pathlib import Path
 import re
-import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'Data'
 COLUMNS = ['text', 'reading', 'weight']
-# Retained for legacy category-authoring tools; compilation always requires explicit counts.
-DEFAULT_NEW_ENTRY_WEIGHT = 10
 DIGIT_READINGS = ('zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine')
 
 
@@ -46,18 +42,6 @@ def english_reading(text):
 
 def digest(content):
     return hashlib.sha256(content).hexdigest()
-
-
-def write_atomic(path, content):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix='.incoming-')
-    try:
-        with os.fdopen(descriptor, 'wb') as stream:
-            stream.write(content)
-        os.replace(temporary, path)
-        path.chmod(0o644)
-    finally:
-        Path(temporary).unlink(missing_ok=True)
 
 
 def category_sources(language):

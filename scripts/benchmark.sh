@@ -6,7 +6,7 @@ export CLANG_MODULE_CACHE_PATH="$repo_root/.build/module-cache"
 export SWIFT_MODULECACHE_PATH="$repo_root/.build/module-cache"
 rust_dir="$repo_root/.build/rust-app/test"
 export SI_ENGINE_RESOURCE_DIRECTORY="$rust_dir/SIEngine"
-bash scripts/prepare-rust-app.sh "$rust_dir" "$SI_ENGINE_RESOURCE_DIRECTORY"
+bash scripts/prepare-rust-app.sh --fixtures "$rust_dir" "$SI_ENGINE_RESOURCE_DIRECTORY"
 swift_args=(--configuration release --scratch-path .build/swift -Xlinker "-L$rust_dir")
 case "${1:-}" in
     "")

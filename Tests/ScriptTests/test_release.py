@@ -355,6 +355,15 @@ class ReleaseTests(unittest.TestCase):
         engine = resources / "SIEngine"
         engine.mkdir()
         (engine / "main.silex").write_bytes(b"SILEX\0\x03\0synthetic lexicon")
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing SIEngine/words.sigram", result.stderr)
+        grams = engine / "words.sigram"
+        grams.write_bytes(b"invalid")
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid SIEngine/words.sigram header", result.stderr)
+        grams.write_bytes(b"SIGRAM\x04\0synthetic word grams")
         subprocess.run(command, check=True, capture_output=True)
         (resources / "KenLM").mkdir()
         result = subprocess.run(command, capture_output=True, text=True)

@@ -1,11 +1,13 @@
 SI corpus vocabulary review (2026-11-04)
 
 Selected lexical terms, manual readings and bounded editorial weight corrections from local corpus observations.
-The 266-row corpus.csv is a separate SI-maintained category. Raw counts are not Wanxiang ranking weights.
+The historical review published 266 rows in a separate corpus.csv category. Raw counts are not Wanxiang ranking weights.
 No corpus passages, HanLP code or pretrained models are bundled with SI.
 HanLP 2.1.3 COARSE_ELECTRA_SMALL_ZH was used locally for analysis; its model terms are separate from Apache-2.0 code.
 Model: https://file.hankcs.com/hanlp/tok/coarse_electra_small_20220616_012050.zip
-Source revisions, retained terms, modifications and curation evidence: Data/Vocabulary/Corpus/ and corpus/chinese/sources.lock.json.
+Source revisions and terms are recorded in corpus/chinese/sources.lock.json.
+The original review and curation evidence are in SI Git history at
+revision 90dae8b^ under Data/Vocabulary/Corpus/.
 
 # Chinese corpus attribution
 
@@ -16,7 +18,7 @@ The first batch follows the acquisition/cleaning/reading-table organization of
 SI's scripts are independently written; no upstream implementation is copied.
 
 Exact revisions, archive sizes, SHA-256 values, URLs and retained license/card
-checksums are in [sources.lock.json](sources.lock.json). Each prepared bundle
+checksums are in corpus/chinese/sources.lock.json in the SI source distribution. Each prepared bundle
 copies that lock, this notice and the complete retained license documents.
 Every output line has an aligned origin in `origins.jsonl`: an archive-relative
 document path, an LCCC row/turn, an mC4 row, or a Wikipedia page/revision URL. Resolve document paths against
@@ -46,8 +48,8 @@ The preparation dependency `opencc-python-reimplemented` 0.1.7 is Apache-2.0
 ([source](https://github.com/yichen0831/opencc-python)); its package notice/license
 remains installed in the isolated environment. It is not linked into SI.
 The lexical reading exports use existing SI/Wanxiang data and retain their
-separate provenance and notices from `Data/Vocabulary`; dictionary weights are
-ranking values, not observed sentence counts.
+separate provenance and the accompanying vocabulary notices. Dictionary
+weights and observed sentence counts describe different sources.
 
 This collection is offline research material. No prepared corpus or model is
 published or bundled into the input method by these tools. A future release

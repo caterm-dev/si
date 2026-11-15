@@ -20,8 +20,9 @@ Host key event → SIInputController → client-local InputSession
   → revision-checked CandidateResult → AppKit candidate window or commit
 ```
 
-The app bundles `SIEngine/main.silex`, optionally paired with
-`main.sigram`. Conversion operates on the current composition.
+Xcode copies `target/si-data/main.silex` and `target/si-data/words.sigram`
+into the app's `Contents/Resources/SIEngine/` directory. The build validates
+the pair before packaging. Candidate source spans are relative to the current composition.
 
 ## Rust conversion
 
@@ -67,6 +68,22 @@ identity break ties within a span. The engine retains distinct languages
 for identical output and keeps the exact literal last. The macOS app and the Rust CLI share this lexical scoring.
 The app passes opted-in token and consumed-spelling preferences to the search.
 Their larger value counts toward the shared 32-point frequency cap.
+
+At composition start and after a prefix commit, `SIInputController` asks the
+active InputMethodKit client for the full UTF-16 range before the insertion point.
+It revalidates the client and ranges across the read. The Swift request carries
+that text separately from composition spelling for both preview and full search.
+It uses an empty context in secure input or when the host cannot supply the full
+range. Direct input bypasses conversion. The snapshot is transient and local.
+
+Rust selects the last sentence or unfinished sentence fragment from the supplied
+text, including the last completed sentence after terminal punctuation. It uses
+the lexicons to segment the sentence and keeps the final recognized same-language
+word history up to the loaded gram order. The difference between the first word's
+conditioned and unconditioned log probabilities adjusts ranking before pruning.
+Language-start costs and subsequent composition scoring use their existing
+histories. Candidates containing personal or verbatim segments receive no field
+adjustment. The adjustment is separate from the lexical score saved by Personal Learning.
 
 ## Rust resource workflow
 
@@ -122,9 +139,11 @@ Suspending a process keeps its lock until the process exits.
 nonempty line. The Rust segmenter indexes exact output spellings and chooses
 the longest match from left to right using UTF-8 byte ranges. Matches end
 at the boundary of a consecutive ASCII letter run. Unlisted runs of at
-least two letters get new word IDs in first-observed order and enter
-English lookup index `1`, preserving exact capitalization with a
-lowercase lookup key. Single ASCII letter tokens and independent runs of
+least two letters end the gram sequence. The importer groups them by
+exact capitalization and exports `text,reading,weight` to
+`<grams.sigram>.english.csv`. The reading is a lowercase lookup key and the
+weight is the count from the latest batch. The file can be edited and imported
+explicitly with `lexicon add` in English lookup index `1`. Single ASCII letter tokens and independent runs of
 ASCII digits contribute `<char>` and `<num>` to the n-gram stream,
 respectively. Each run of digits contributes one token. Exact compound
 dictionary matches can include letters or digits. Placeholder IDs are
@@ -144,11 +163,15 @@ or initializes missing snapshots. An existing model referencing word IDs
 requires its compatible lexicon. Each batch increments counts in both files
 at their original paths. Both locks stay held during preparation and
 publication. The importer stages each replacement beside its destination,
-then replaces the lexicon, gram model, and review CSV individually by rename.
+then replaces the lexicon, gram model, and both review CSVs individually by rename.
 Pending records beside the snapshots let the same command finish an
 interrupted publication without recounting the batch. Other writes to
 either snapshot are blocked while its record is pending. Failures before
 publication leave existing snapshot files intact.
+
+`corpus clear-grams` takes both snapshot locks and checks for pending
+publication before deleting the gram file. The paired lexicon and review
+CSVs remain available.
 
 The review CSV at `<grams.sigram>.review.csv` groups unmatched and unresolved
 segments from the latest batch by exact text and reason. It includes counts,
@@ -242,11 +265,11 @@ rebuild or discard a learned lexicon. Delete the derived snapshot, review
 CSVs, and gram files to remove those local artifacts. Review CSVs use
 owner-only file permissions on Unix. The repository ignores review files
 generated beside `.silex` snapshots. This workflow is independent of the app's
-Personal Learning, Input History and Sentence History.
+Personal Learning and Input History.
 
 ## Rust user model
 
-`UserModelStore` takes explicitly supplied sentences and a read-only base
+`UserModelStore` takes supplied sentences and a read-only base
 lexicon. One forward maximum-matching index combines the base lexicon and
 the user's current entries. Identical text, lookup index and primary reading
 resolve to one lexeme. Contextual Pinyin disambiguates known Han readings.
@@ -424,11 +447,11 @@ On the background worker, `AutomaticConfirmation.prefixes` compares the leading 
 
 `InputSession` retains at most eight client-local prefix observations. Only accepted full results advance stability, once per distinct appended spelling; pending, provisional, stale and cross-session results cannot confirm. Continuous confirmation requires two observations, six additional source characters since the first observation, at least four remaining output characters and eight remaining normalized letters. Pause confirmation requires at least 1.8 seconds since input, 0.6 seconds since the observation, a prefix of at least two output characters, two remaining output characters and four remaining normalized letters. Both use the same consensus proposals and complete lexical boundaries. Editing/navigation suspends evidence; only fresh end-of-buffer typing can restart it. Configuration, reset, commits and host boundaries invalidate evidence and the timer revision. A prefix commit resets observations, so a timer cannot repeatedly drain a stationary composition.
 
-`SIInputController` attempts continuous confirmation on accepted result delivery. Its single cancellable, weakly captured main-actor pause task rechecks session revision, current client, settings and secure input before the same `automaticallyConfirm` method. Neither path synchronously resolves a search. `.automaticConfirmation` has zero learning weight and never creates previous-word context; no new persistence or surrounding-document reads are introduced. The ordinary prefix commit/marked-remainder path handles insertion exactly once without an English space. Already committed text uses ordinary host editing; there is no cross-host automatic reconversion/undo contract. Native focus/timer delivery remains an integration check.
+`SIInputController` attempts continuous confirmation on accepted result delivery. Its single cancellable, weakly captured main-actor pause task rechecks session revision, current client, settings and secure input before the same `automaticallyConfirm` method. Neither path synchronously resolves a search. `.automaticConfirmation` has zero learning weight. The ordinary prefix commit/marked-remainder path handles insertion exactly once without an English space and refreshes the local field context after insertion. Already committed text uses ordinary host editing; there is no cross-host automatic reconversion/undo contract. Native focus/timer delivery remains an integration check.
 
 ## Personalization and storage
 
-`ApplicationMemorySettings` is the sole automatic-learning settings model. The retired global `PersonalizationSettings`, its Settings views and `LearningStore` are removed from the app and package. Launch/termination prepare or flush app memory, explicit phrases and the independent Input History store; input uses a shared global profile when learning is enabled and input is not secure. Disabled or secure clients use base ranking. No disk I/O or dictionary initialization runs in the keystroke handler.
+`ApplicationMemorySettings` is the global entry point for learning settings. The retired global `PersonalizationSettings`, its Settings views and `LearningStore` are removed from the app and package. Launch/termination prepare or flush app memory, explicit phrases and the independent Input History store; input uses a shared global profile when learning is enabled and input is not secure. Disabled or secure clients use base ranking. No disk I/O or dictionary initialization runs in the keystroke handler.
 
 The UI-independent `LearningProfile` and `LearnedPreference` models remain shared ranking primitives for Personal Learning. Single-language frequency records can influence whole/prefix and eligible internal tokens before bounded limits, preserving base/personalized search beams and the shared 32-point cap. Chinese single-character outputs do not transfer into other compositions. Core contextual-ranking/session APIs remain available to library fixtures, but the application does not enable, store or expose previous-word pair learning. Old global archive schema versions are no longer loaded or migrated.
 
@@ -448,7 +471,7 @@ A bounded spelling-to-record index maintains one latest deliberate choice per no
 
 `ApplicationMemoryStore` performs actor-isolated I/O at the existing `SI/Personalization/application-memory-v1.json` path, with vocabulary-only schema 4, a 64 MiB file limit, owner-only permissions, atomic replacement and revision-ordered saves/deletion. Schemas 1–3 migrate atomically, stripping app identifiers/history and merging equal record identities: counts are summed with existing one-million caps, latest usage/base metadata is retained, and strength uses the maximum rather than stacking app bonuses. Schema-1/2 mixed default/correction evidence resets to neutral; schema-3 strength/corrections survive. No old schema supplies an exact-choice marker because it lacks a deliberate-selection timestamp. Age alone no longer invalidates retained records. Malformed/unsupported archives remain untouched; migration write failures propagate and pause loading. The retired `preferences-v1.json` archive is never decoded or imported and keeps its explicit deletion control.
 
-Vocabulary retains at most 5,000 records; capacity eviction removes least recently used entries with identity tie-breaking. There is no timed expiry, decay or daily expiry task. Saves coalesce for 300 ms and flush on normal termination. Settings provide global search, Forget and global clear/archive erase under **Personal Learning**, with no application picker, pause or app discovery. Existing learning consent persists; old history flags never grant learning consent. The former App History draft/completion feature and previous-word pair learning remain absent. The separate Input History below does not provide candidates. No document, clipboard, URL or recipient is queried, and no keystroke-path disk access is introduced.
+Vocabulary retains at most 5,000 records; capacity eviction removes least recently used entries with identity tie-breaking. There is no timed expiry, decay or daily expiry task. Saves coalesce for 300 ms and flush on normal termination. Settings provide global search, Forget and global clear/archive erase under **Personal Learning**, with no application picker, pause or app discovery. Existing learning consent persists; old history flags never grant learning consent. The former App History draft/completion feature and previous-word pair learning remain absent. The separate Input History below does not provide candidates. Candidate-choice learning uses confirmed SI text. The independent sentence learning switch controls the bounded Return-time host read below.
 
 ### Input History
 
@@ -458,11 +481,11 @@ Vocabulary retains at most 5,000 records; capacity eviction removes least recent
 
 `InputHistoryStore` uses the system SQLite library. Schema 1 lives separately at `SI/InputHistory/history-v1.sqlite3`, under 0700 directory/0600 file permissions with DELETE journaling. Each operation opens/closes its actor-confined connection; prepared SQL binds text with explicit UTF-8 lengths (including embedded NUL), and retrieval uses byte counts rather than C-string termination. UUID uniqueness makes retries idempotent while preserving repeated real submissions as distinct events. Append batches use transactions. There is no age/count eviction, full-archive rewrite or full in-memory load: newest-first pagination uses monotonic SQLite sequence cursors, returns at most 100 entries plus lookahead, and remains stable when newer events arrive or the wall clock moves backward. Search binds literal source/output substrings with ASCII case folding; no query/input text appears in error logs. Explicit row deletion uses secure_delete; explicit clear removes the database and journal/WAL/SHM sidecars, including corrupt/unsupported archives. This is not a guarantee of forensic erasure or backup deletion. Corrupt/unsupported opens preserve existing bytes. History is unencrypted and independent of learning/phrases/retired files, with no migration, ranking, completions, automatic training or network path. User-controlled export and offline preparation follow the separate workflow below.
 
-### Sentence History
+### Sentence learning
 
-The independent default-off `sentenceHistory.enabled` consent controls a second history settings instance and SQLite archive in all conversion-enabled apps. The retired `sentenceHistory.applications` key is removed without changing consent. A successful SI insert in an eligible client arms one later nonrepeated Return with an empty composition. Client/focus changes, Escape, direct input, observed secure input and consent-generation changes invalidate eligibility. `SentenceSnapshotReader` checks the unselected caret, no marked text, stable client and caret, and a bounded, nonblank single line. The reader does not query document length or compare returned text length with the requested range. The reader requests the bounded prefix before the caret and saves the exact returned single-line text even when its length differs; this may be partial and does not verify a terminal caret. The reader reports a typed failure code for unavailable caret/text, marked text, invalid text or stale callbacks. Settings exposes only the latest transient stage/failure code, never diagnostic input text or app identity; consent changes and clear reset it. “Captured and queued” precedes disk persistence, whose failures retain their separate error/retry UI. The controller passes that Return to the app. The snapshot reflects the text before the app handles the key. Client revalidation and direct-input exclusions use the IMK client's bundle identifier.
+The `sentenceLearning.enabled` switch defaults to on when no preference is saved and requires global Personal Learning. A successful manual lexical confirmation arms one nonrepeated Return with empty composition. The controller excludes secure/direct input and invalidates eligibility across client, focus and consent/configuration changes. `SentenceSnapshotReader` validates the selection, marked range, reported text length and exact returned UTF-16 length. It rechecks client and consent across host calls. The controller forwards Return normally. The complete single-line input is read before the app handles the key.
 
-The separate archive reuses the history mutation queue and SQLite implementation, with a distinct database path and SQLite application ID. The export envelope is `si-sentence-history` version 1, scope `all_saved_sentences`. Its entries contain `type`, `sequence`, `id`, `created_at_unix` and `output`, with the same atomic publication, count and exact-byte checksum as Input History. The submission export format and receiver remain separate.
+`SentenceLearningSettings` keeps at most 32 queued lines and one in-flight or retry batch in memory. The actor calls the same `UserModelStore` ingestion and word discovery used by the CLI, then loads the paired user resources into a new immutable Rust decoder sharing the existing base resources. The Swift snapshot carries that decoder only for eligible requests. Existing request IDs and settings generations reject obsolete conversion results; clear drops pending samples and runs behind in-flight ingestion. The retired raw SQLite archive is never opened or migrated. Settings offers explicit file/sidecar deletion, and offline extraction still accepts older exports.
 
 ### Portable history export
 
@@ -540,25 +563,20 @@ DMGs use compressed UDZO with an explicit HFS+ filesystem. This avoids inheritin
 
 ## Offline model experiments
 
-`corpus/prepare_raw_text.py` extracts eight sources into versioned
+`corpus/prepare_raw_text.py` extracts sources into versioned
 `chinese/prepared/raw-text-v2` bundles. Six archives retain their existing pins;
-local SI TXT and the manifest-pinned dialogue download are independently
-snapshotted and verified. `readers.py` owns the shared archive readers, while
-`local_sources.py` owns local inventories and dialogue-format parsing. OpenCC
+local SI TXT, the manifest-pinned dialogue download, and optional Chinese
+Chatbot Corpus files are independently snapshotted and verified. `readers.py`
+owns the shared archive readers. `local_sources.py` owns SI and dialogue
+parsing, and `chatbot_sources.py` reads the eight upstream chatbot layouts. OpenCC
 t2s runs before output line accounting; original source bytes and origin IDs
 remain unchanged. SI conversation boundaries and dialogue dataset/split/turn/
 parent metadata survive in line-range sidecars. Existing output identity includes
-input/code/normalization; local source changes invalidate publication. The
-retired Han-fragment command is removed.
+input, code and normalization. Dialogue preparation skips LCCC-base because
+the pinned LCCC source extracts it separately.
 
-Application dictionary CSV sources and attribution are tracked. Builds compile
-Rust resources directly from the maintained CSV files.
-
-Historical Chinese phrase review used `Data/Vocabulary/chinese/phrase/`.
-The completed migration now maintains flat CSVs under `Data/Chinese/`; the
-ordinary compiler reads only those current files. Legacy corpus preparation
-scripts may still require retained historical inputs and are not an implicit
-regeneration path for the current app dictionary.
+Application dictionary CSV sources and attribution are tracked. The Rust
+resource tools prepare snapshots separately from the app build.
 
 `eval/ranking/test.jsonl` contains the 220-query synthetic regression suite, replacing
 all former root evaluation datasets and model adapters. It stores authored exact
@@ -574,10 +592,8 @@ engine under evaluation; missing targets remain in metric denominators. The
 existing `SICandidateExport` protocol exports the first 32 eligible complete
 nonliteral/noncompletion dictionary-only bilingual results. The helper scorer
 reports exported-pool recall, Top-1/Top-5, MRR, categories and a family macro; it
-does not claim full-engine recall, native-window accuracy.
-There is no independent annotation or model-corpus overlap audit. Old small-model
-benchmark data links are retired; legacy utility code remains for explicit old-format
-experiments. See [the dataset and commands](../eval/README.md).
+measures the exported pool. Independent annotation and model-corpus overlap
+audits remain open. [Dataset and commands](../eval/README.md)
 
 `llm/reranker_small/` implements an independent 7,419,392-parameter causal character-LM baseline: four width-256 pre-norm blocks, four heads, 1,024-wide FFNs, tied embeddings and 256-token context. Its explicit preparation imports verified raw public sources through package-compatible corpus readers, retaining articles/paragraphs, punctuation and English word spaces. Source/group hashes keep Wikipedia pages and conversation turns together; normalized document deduplication and exclusion of cross-split long-paragraph copies reduce exact leakage. Training-only vocabulary, byte fallback and immutable token/window arrays preserve text without joining documents. FP32 training supports strict CPU/MPS resume with RNG/cursor state; CPU is tested bitwise and MPS weights within measured numerical tolerances. Token-loss evaluation, supplied-candidate scoring/benchmarking and inference-only export are separate commands. Bounded validation uses a fixed permutation across source windows. The local 30,000-step checkpoint supports explicit offline Core ML export; native comparison and app staging are removed pending redesign. Pinyin generation, hard-negative ranking fine-tuning and quantization remain separate work.
 
@@ -585,7 +601,10 @@ experiments. See [the dataset and commands](../eval/README.md).
 
 The corpus acquisition also supports the latest complete official Chinese Wikipedia current-article dump. Explicit `wikipedia --latest` resolution checks completion metadata, pins a dated URL, verifies the official SHA-1 and records a local SHA-256. The full raw archive retains original simplified/traditional wikitext; streaming preparation selects namespace-0 nonredirect pages and retains page/revision URLs, with Wikipedia's CC BY-SA 4.0 terms kept separate. Existing prepared bundles validate against their own frozen source locks so adding/updating a source does not invalidate historical runs.
 
-`corpus/` includes an independent offline Chinese preparation path. A reviewed source lock pins LCCC-base training, one Chinese mC4 training shard, and Kubernetes/TensorFlow/MDN Chinese documentation archives with checksums and separate data terms. Explicit fetching is the only network stage. Preparation verifies archives, strips markup/code, converts through OpenCC `t2s`, separates at non-Han boundaries, retains 4–96-character fragments and deduplicates exact text per source on disk. Immutable bundles retain code/source hashes, limits, counts, aligned line origins and copied attribution. A separate lexical exporter reuses the existing CSV compiler's merging/weight contract and retains exact character/word readings and polyphony. These are text corpora and lexical resources, without sentence Pinyin labels, split assignment, automatic training, private-data inputs or app integration. See [the corpus guide](../corpus/README.md).
+The Chinese corpus pipeline extracts full text from pinned public archives and
+explicit local collections. It keeps the source locks, text/document ranges and
+attribution together. The lexical reading exporter uses the maintained Chinese
+CSVs. [Corpus preparation and reading export](../corpus/README.md)
 
 `corpus/english.py` independently acquires and prepares the reviewed English dialogue collection: PersonaChat/ConvAI2, BST, Topical-Chat, Taskmaster 1/2/3, ABCD, SGD and selected English OASST1 messages. It reuses checksum/staged-directory utilities without applying the Han cleaner. Publisher source bytes and full terms are pinned; preparation retains exact selected utterances, original turn/source identity, collection method and existing split membership. Missing upstream assignments stay explicitly unsplit. Alternate ConvAI2 speaker views and non-dialogue metadata are excluded; OASST1 keeps parent edges rather than inventing linear adjacency between replies. Source-separated immutable JSONL bundles carry copied attribution, hashes and measured selection counts. The verifier recounts the whole bundle against its frozen lock. These are acquisition artifacts, not a mixed training dataset or a runtime ranking change; future training still needs deliberate source selection and a broader overlap audit. See [the English guide](../corpus/english/README.md).
 
@@ -601,15 +620,15 @@ The model's MPS path materializes full encoder/cross-attention masks to avoid a 
 
 ## Extending language support
 
-1. Add a stable language identifier and English display name to `InputLanguage`.
-2. Implement a `CandidateProvider` with local, deterministic behavior and licensed data.
-3. Register the provider in `CandidateEngine` and expose its enabled preference in Settings.
+1. Add a stable language identifier and display name to `InputLanguage`.
+2. Extend the Rust engine's language and lookup handling with deterministic
+   normalization, source spans and licensed data.
+3. Update the C ABI and Swift bridge mapping, language preferences and Settings.
 4. Test ambiguous sequences, disabled-language filtering, deterministic ranking, literal fallback, and composition resets.
 5. Document dictionary provenance, performance characteristics, and limitations.
 
-The new Chinese implementation and its current limits are described in the core section above and in [the pinned MSIME algorithm study](MSIME_ALGORITHM.md). English-only and Chinese/English lexical composition share the bounded search, with complete Chinese-word edges fetched from the maintained dictionary. Both lanes share the same public engine/session and existing personal-data controls.
-
-The previous mixed decoder's guarded ASCII/CJK byte comparison and canonical Unicode fallback remain in `LexicalCompositionDecoder`. The measured performance figures recorded before this migration describe that previous implementation; they do not establish performance of the Swift MSIME adaptation. Exact output bytes are never normalized for committing.
+See the [conversion pipeline](#rust-conversion) and [ranking contract](UNIFIED_RANKING.md)
+for the current Chinese and English paths.
 
 ## References
 

@@ -1,9 +1,6 @@
 # SI ranking evaluation
 
-The previous ranking/correction/conversion registry, fixtures, frozen candidate
-pools and generated outputs were removed on November 9, 2026. This directory
-now contains one authored [220-query ranking test set](ranking/test.jsonl).
-The old `.build/kenlm-ranking/` experiment is separate and is not this dataset.
+This directory contains one authored [220-query ranking test set](ranking/test.jsonl).
 
 | File | Purpose |
 | --- | --- |
@@ -81,7 +78,7 @@ python3 scripts/generate_ranking_eval.py --output /tmp/si-ranking-reproduction
 python3 scripts/ranking_eval.py requests --output /tmp/si-ranking-requests.jsonl
 si_rust="$PWD/.build/rust-app/eval"
 export SI_ENGINE_RESOURCE_DIRECTORY="$si_rust/SIEngine"
-bash scripts/prepare-rust-app.sh "$si_rust" "$SI_ENGINE_RESOURCE_DIRECTORY"
+bash scripts/prepare-rust-app.sh --fixtures "$si_rust" "$SI_ENGINE_RESOURCE_DIRECTORY"
 swift build --scratch-path .build/swift --configuration release \
   -Xlinker "-L$si_rust" --product SICandidateExport
 .build/swift/release/SICandidateExport < /tmp/si-ranking-requests.jsonl > /tmp/si-ranking-predictions.jsonl

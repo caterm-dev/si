@@ -9,13 +9,16 @@ modify the input, dictionary, earlier prepared bundles or runtime vocabulary.
 ## Run
 
 From the repository root, supply a plain UTF-8 text file and a **new** output
-path. For example, use the word-side dictionary built with
-`python3 corpus/build_word_dictionary.py`:
+path. For example, build a frequency
+table for words in the maintained Chinese CSVs using a separately supplied
+occurrence-count reference.
 
 ```sh
+python3 corpus/build_word_dictionary.py --frequencies /path/to/reference-counts.csv \
+  --output /tmp/si-unigram-words
 python3 corpus/tokenize_unigram.py \
-  --input corpus/chinese/prepared/raw-text-v1/lccc/text.txt \
-  --dictionary corpus/chinese/dictionaries/generated/unigram-words-v2/frequencies.csv \
+  --input corpus/chinese/prepared/raw-text-v2/lccc/text.txt \
+  --dictionary /tmp/si-unigram-words/frequencies.csv \
   --output corpus/chinese/generated/unigram-v1/lccc.txt \
   --workers 4 --chunk-lines 1000 --chunk-bytes 1048576 --max-in-flight 8 \
   --sentence-punctuation '。！？.!?' \

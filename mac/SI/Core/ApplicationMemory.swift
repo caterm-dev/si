@@ -77,9 +77,10 @@ public struct ApplicationMemory: Equatable, Sendable {
     }
 
     public func snapshot(vocabularyEnabled: Bool,
-                         now: Date = .now) -> ApplicationMemorySnapshot {
+                         now: Date = .now, sentenceModel: SentenceLearningModel? = nil) -> ApplicationMemorySnapshot {
         ApplicationMemorySnapshot(vocabulary: vocabularyEnabled ? Array(words.values) : [], now: now,
-                                  learning: vocabularyEnabled ? profile : LearningProfile(retainsIndefinitely: true))
+                                  learning: vocabularyEnabled ? profile : LearningProfile(retainsIndefinitely: true),
+                                  sentenceModel: vocabularyEnabled ? sentenceModel : nil)
     }
 
     public mutating func removeVocabulary(id: String) {

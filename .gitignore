@@ -33,18 +33,18 @@ build/
 *.sigram.lock
 *.sigram.ingest-pending/
 *.sigram.review.csv
+*.sigram.english.csv
 *.si-corpus/
 *.si-corpus.lock
 .*.si-corpus.*.tmp/
 *.si-user/
 
-# Retained KenLM delivery models; survive ordinary .build cleanup.
+# Old local model artifacts.
 /corpus/kenlm/models/
 
 # Local configuration and signing material
 .env
 .env.*
-!.env.example
 *.xcconfig.local
 *.p12
 *.mobileprovision
@@ -79,6 +79,5 @@ __pycache__/
 SI-Input-History*.jsonl
 SI-Sentence-History*.jsonl
 
-# Explicitly staged local neural-model artifacts (including source attribution).
-/mac/SI/Core/Resources/Reranker/*
-!/mac/SI/Core/Resources/Reranker/README.md
+# Old local neural-model staging directory.
+/mac/SI/Core/Resources/Reranker/

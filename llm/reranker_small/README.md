@@ -126,13 +126,9 @@ its stage paths consistent. Existing conversion checkpoints cannot resume here.
 
 ## Explicit evaluation, scoring and export
 
-The [root ranking dataset](../../eval/README.md) contains authored query-only
-cases. The old `chinese-v1` suite, compatibility data links and `eval.adapters`
-were retired on November 9, 2026. The new data requires current candidate generation
-and an explicitly adapted model scorer; the old `evaluate_suite.sh` default cannot
-consume it. Standalone model loss evaluation, explicit candidate scoring and
-inference export below remain available. Historical challenge results do not
-apply to the new dataset.
+The [root ranking dataset](../../eval/README.md) contains query-only engine
+regressions. The commands below run token-loss evaluation, score a supplied
+candidate pool or export the model for offline inference.
 
 ```sh
 ./llm/reranker_small/scripts/validation.sh

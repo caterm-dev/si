@@ -11,27 +11,14 @@ import SILocalization
 @Observable
 final class InputHistorySettings {
     static let shared = InputHistorySettings(defaults: SettingsDefaults.shared)
-    static let sentences = InputHistorySettings(defaults: SettingsDefaults.shared, kind: .sentences)
-
-    let kind: InputHistoryStore.Kind
-    private let enabledKey: String
-    var savesSentences: Bool { kind == .sentences }
+    private static let enabledKey = "inputHistory.enabled"
 
     var enabled: Bool {
         didSet {
-            defaults.set(enabled, forKey: enabledKey)
-            if enabled != oldValue {
-                generation &+= 1
-                sentenceCaptureStatus = nil
-            }
+            defaults.set(enabled, forKey: Self.enabledKey)
+            if enabled != oldValue { generation &+= 1 }
         }
     }
-    // Transient diagnostic codes only; never retain host text or application identity here.
-    enum SentenceCaptureStatus {
-        case waitingForReturn, captured
-        case skipped(SentenceSnapshot.CaptureFailure)
-    }
-    var sentenceCaptureStatus: SentenceCaptureStatus?
 
     private(set) var generation: UInt64 = 0
     private(set) var isLoading = true
@@ -64,44 +51,13 @@ final class InputHistorySettings {
     var hasPreviousPage: Bool { !previousCursors.isEmpty }
 
     init(defaults: UserDefaults = .standard, store: InputHistoryStore? = nil, isPreview: Bool = false,
-         kind: InputHistoryStore.Kind = .submissions,
          allowsRecording: @escaping @MainActor () -> Bool = { !IsSecureEventInputEnabled() }) {
-        let enabledKey = kind == .sentences ? "sentenceHistory.enabled" : "inputHistory.enabled"
-        self.kind = kind
-        self.enabledKey = enabledKey
         self.defaults = defaults
         self.store = isPreview ? nil : store ?? InputHistoryStore(
-            url: URL.applicationSupportDirectory.appending(path: kind.databasePath), kind: kind)
+            url: URL.applicationSupportDirectory.appending(path: InputHistoryStore.databasePath))
         self.allowsRecording = allowsRecording
-        enabled = !isPreview && defaults.bool(forKey: enabledKey)
-        if kind == .sentences && !isPreview {
-            defaults.removeObject(forKey: "sentenceHistory.applications")
-        }
+        enabled = !isPreview && defaults.bool(forKey: Self.enabledKey)
         if isPreview { isLoading = false; loadSucceeded = true }
-    }
-
-    var sentenceCaptureDescription: String {
-        let message: String
-        switch sentenceCaptureStatus {
-        case nil: message = "Sentence capture: waiting for an SI submission in the current input."
-        case .waitingForReturn: message = "Sentence capture: SI submitted text. Press Return to save available text before the caret."
-        case .captured: message = "Sentence capture: captured and queued for saving."
-        case .skipped(let reason):
-            switch reason {
-            case .staleClient: message = "Sentence capture skipped: the input client or recording settings changed during the read."
-            case .unavailableSelection: message = "Sentence capture skipped: the app did not provide the caret range."
-            case .invalidSelection: message = "Sentence capture skipped: select no text and use a nonempty input of at most 1,024 UTF-16 units."
-            case .markedText: message = "Sentence capture skipped: the app still reports marked text."
-            case .unavailableText: message = "Sentence capture skipped: the app did not return text."
-            case .invalidText: message = "Sentence capture skipped: the input is blank, multiline, contains control characters or exceeds the limit."
-            }
-        }
-        return L10n.text(message)
-    }
-
-    func canCaptureSentence(in application: String?) -> Bool {
-        guard savesSentences, let application, !application.isEmpty else { return false }
-        return canRecord
     }
 
     func start() async {
@@ -126,15 +82,9 @@ final class InputHistorySettings {
     }
 
     func record(_ commit: InputCommit, suffix: String = "", expectedGeneration: UInt64? = nil, now: Date = .now) {
-        guard !savesSentences, canRecord, expectedGeneration == nil || expectedGeneration == generation,
+        guard canRecord, expectedGeneration == nil || expectedGeneration == generation,
               !commit.input.isEmpty, !(commit.text + suffix).isEmpty else { return }
         enqueueEntry(InputHistoryEntry(commit: commit, suffix: suffix, now: now))
-    }
-
-    func recordSentence(_ text: String, in application: String?, expectedGeneration: UInt64, now: Date = .now) {
-        guard expectedGeneration == generation, canCaptureSentence(in: application), SentenceSnapshot.accepts(text) else { return }
-        // Reuse history paging and retry. Snapshot rows carry no spelling or candidate metadata.
-        enqueueEntry(InputHistoryEntry(createdAt: now, input: "", text: text, language: nil, reason: .literal))
     }
 
     private func enqueueEntry(_ entry: InputHistoryEntry) {
@@ -193,7 +143,6 @@ final class InputHistorySettings {
     func clear() {
         guard !isLoading, !isClearing, let store else { return }
         storageGeneration &+= 1
-        sentenceCaptureStatus = nil
         generation &+= 1
         readGeneration &+= 1
         isClearing = true

@@ -5,6 +5,7 @@ struct ApplicationMemorySection: View {
     @State private var showsManager = false
     @State private var showsClearConfirmation = false
     @State private var showsLegacyClearConfirmation = false
+    @State private var showsSentenceHistoryClearConfirmation = false
 
     var body: some View {
         SettingsGroup("Learning") {
@@ -17,10 +18,11 @@ struct ApplicationMemorySection: View {
                     .disabled(settings.isLoading)
             }
             Divider()
-            Text("Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. No document or clipboard content is read.")
+            Text("Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. Candidate-choice learning uses the text you confirm.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
+        SentenceLearningSection(settings: settings.sentences, vocabularyEnabled: settings.vocabularyEnabled)
         SettingsGroup("Saved Data") {
             if settings.isLoading {
                 ProgressView("Opening learning data…")
@@ -31,21 +33,21 @@ struct ApplicationMemorySection: View {
                 }
                 Divider()
                 Button("Clear All Learning Data…", role: .destructive) { showsClearConfirmation = true }
-                    .disabled(settings.memory.vocabulary.isEmpty && settings.errorMessage == nil)
+                    .disabled(!settings.canClearAll)
                     .confirmationDialog("Clear all learning data?", isPresented: $showsClearConfirmation) {
                         Button("Clear All Learning Data", role: .destructive) { settings.clearAll() }
                         Button("Cancel", role: .cancel) {}
                     } message: {
-                        Text("Deletes all learned vocabulary on this Mac. Explicit personal phrases are kept.")
+                        Text("Deletes learned vocabulary and the sentence model on this Mac. Explicit personal phrases are kept.")
                     }
-                if settings.isSaving { ProgressView("Saving learning data…").controlSize(.small) }
+                if settings.isSaving || settings.sentences.isClearing { ProgressView("Saving learning data…").controlSize(.small) }
             }
             if let error = settings.errorMessage {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
                 if settings.canRetrySaving { Button("Retry Saving") { Task { await settings.flush() } } }
             }
         }
-        if settings.hasLegacyLearningData || settings.legacyRemovalError != nil {
+        if settings.hasLegacyLearningData || settings.legacyRemovalError != nil || settings.sentences.hasRetiredHistory {
             SettingsGroup("Legacy Data") {
                 if settings.hasLegacyLearningData {
                     Text("The legacy learning archive is no longer used. You can delete it without affecting Personal Learning or personal phrases.")
@@ -61,6 +63,17 @@ struct ApplicationMemorySection: View {
                     if settings.isRemovingLegacyData { ProgressView("Deleting old shared data…").controlSize(.small) }
                 }
                 if let error = settings.legacyRemovalError { Text(error).foregroundStyle(.red) }
+                if settings.sentences.hasRetiredHistory {
+                    Button("Delete Old Sentence History…", role: .destructive) { showsSentenceHistoryClearConfirmation = true }
+                        .disabled(settings.sentences.isDeletingRetiredHistory)
+                        .confirmationDialog("Delete old Sentence History?", isPresented: $showsSentenceHistoryClearConfirmation) {
+                            Button("Delete Old Sentence History", role: .destructive, action: settings.sentences.deleteRetiredHistory)
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("Deletes sentences saved by the former Sentence History feature on this Mac.")
+                        }
+                }
+                if let error = settings.sentences.retiredHistoryError { Text(error).foregroundStyle(.red) }
             }
         }
     }

@@ -12,11 +12,71 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from prepare_raw_text import extract, raw_documents
+from chatbot_sources import DOUBAN, FILES, PTT_V1, PTT_V2, WEIBO, chatbot_snapshot
 from local_sources import snapshot
 from common import digest
 
 
 class RawTextPreparationTests(unittest.TestCase):
+    def test_chatbot_import_preserves_turns_splits_and_provenance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            raw = root / 'raw'
+            fixtures = {
+                'chatterbot-1k/chinese/fixture.yml': 'conversations:\n- - 測試\n  - 好\n  - 好\n',
+                DOUBAN[1]: '0\t排除\t排除\n1\t測試\tEnglish 2026\t好\n',
+                PTT_V1: '新版覆蓋\t舊資料\n',
+                PTT_V2: 'question,answer\n測試,沒有資料\n"繁體,標點","保留\n第二行"\n',
+                FILES['qingyun'][0]: '問題|回答\n',
+                FILES['subtitle'][0]: 'E\nM 字/幕\nE\nM 重複\n',
+                FILES['tieba'][0]: '留言\t使用 English spaces\t回覆\n',
+                WEIBO[0]: '貼文\n',
+                WEIBO[1]: '回覆\n',
+                FILES['xiaohuangji'][0]: b'E\nM \xff\nM test\n',
+                'licenses/fixture.txt': 'Synthetic fixture notice.',
+            }
+            for name, value in fixtures.items():
+                path = raw / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(value.encode() if isinstance(value, str) else value)
+            out = root / 'prepared'
+            source = chatbot_snapshot(raw)
+            manifest = extract(source, raw, out)
+            self.assertEqual(source['missing_datasets'], [])
+            self.assertEqual(source['missing_douban_splits'], ['train', 'test'])
+            self.assertEqual(source['datasets']['ptt'], [PTT_V2])
+            self.assertEqual((out / 'text.txt').read_text().splitlines(), [
+                '测试', '好', '好', '测试', 'English 2026', '好', '繁体,标点', '保留', '第二行',
+                '问题', '回答', '字幕', '重复', '留言', '使用 English spaces', '回复', '贴文', '回复',
+                '\ufffd', 'test',
+            ])
+            rows = [json.loads(line) for line in (out / 'documents.jsonl').read_text().splitlines()]
+            self.assertEqual([row['turn'] for row in rows[:3]], [0, 1, 2])
+            self.assertEqual([row['split'] for row in rows[3:6]], ['dev'] * 3)
+            self.assertEqual((rows[7]['first_line'], rows[7]['lines']), (8, 2))
+            self.assertEqual([row['role'] for row in rows if row['dataset'] == 'weibo'], ['post', 'response'])
+            self.assertEqual(manifest['counts']['excluded_douban_negatives'], 1)
+            self.assertEqual(manifest['counts']['excluded_ptt_placeholders'], 1)
+            self.assertEqual(manifest['counts']['invalid_utf8_lines'], 1)
+            self.assertEqual(manifest['dataset_documents']['tieba'], 3)
+            self.assertIn('attribution/licenses/fixture.txt', manifest['files'])
+            self.assertIn('attribution/chinese-chatbot-corpus.md', manifest['files'])
+            self.assertEqual(extract(source, raw, out), manifest)
+
+    def test_chatbot_misaligned_weibo_files_do_not_publish(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            post, reply = (root / name for name in WEIBO)
+            post.parent.mkdir()
+            post.write_text('貼文\n')
+            with self.assertRaisesRegex(ValueError, 'both Weibo files'):
+                chatbot_snapshot(root)
+            reply.write_text('回覆\n多了一行\n')
+            output = root / 'out'
+            with self.assertRaisesRegex(ValueError, 'lengths differ at row 2'):
+                extract(chatbot_snapshot(root), root, output)
+            self.assertFalse(output.exists())
+
     def local_manifest(self, root, datasets):
         for dataset in datasets:
             for entry in dataset['files']:
@@ -84,7 +144,7 @@ class RawTextPreparationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Unsafe'):
                 snapshot('si', raw)
 
-    def test_dialogue_formats_preserve_identity_and_attribution(self):
+    def test_dialogue_formats_preserve_identity_and_skip_duplicate_lccc(self):
         import zipfile
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -114,13 +174,14 @@ class RawTextPreparationTests(unittest.TestCase):
             output = root / 'out'
             result = extract(source, raw, output)
             self.assertEqual((output / 'text.txt').read_text().splitlines(), [
-                '我们用 API 2026。', '好。', '换一个。', '没问题。', '我们用 Python tools 2017 年。', '好。', '好。'])
+                '我们用 API 2026。', '好。', '换一个。', '没问题。'])
             rows = [json.loads(line) for line in (output / 'documents.jsonl').read_text().splitlines()]
+            self.assertEqual({row['dataset'] for row in rows}, {'kdconv', 'crosswoz'})
             self.assertEqual(rows[2]['dataset'], 'crosswoz')
             self.assertEqual(rows[2]['split'], 'val')
             self.assertEqual(rows[2]['conversation'], 'fixture')
             self.assertEqual(rows[2]['role'], 'usr')
-            self.assertEqual(rows[-1]['turn'], 2)
+            self.assertEqual(rows[-1]['turn'], 1)
             self.assertIn('attribution/licenses/fixture.txt', result['files'])
             kd.write_text('[]')
             with self.assertRaisesRegex(ValueError, 'checksum mismatch'):

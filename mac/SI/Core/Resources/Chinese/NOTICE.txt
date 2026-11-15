@@ -1,6 +1,6 @@
-SI Chinese decoder and dictionary
+SI Chinese dictionary notices
 
-Swift algorithm adaptation: MSIME contributors and SI contributors.
+Historical Swift algorithm adaptation: MSIME contributors and SI contributors.
 MSIME source: https://github.com/metasequoiaime/msime
 Pinned engine revision: 0fce42f0dd22fe6930b5a1942498280df8073396
 Algorithm code: GPL-3.0-only. SI remains licensed under GPLv3.
@@ -20,17 +20,15 @@ The pinyin-data copyright and MIT terms are in pinyin-data-MIT.txt.
 Administrative division names retain the accompanying
 Administrative-divisions-of-China-WTFPL.txt.
 
-Word-context artifacts: MSIME dictionary release dict-v2.0.24.
+Historical word-context artifacts: MSIME dictionary release dict-v2.0.24.
 https://github.com/metasequoiaime/msime-dictionary/releases/tag/dict-v2.0.24
 Adapted from Chinese Wikipedia contributors, September 1, 2026 dump:
 https://dumps.wikimedia.org/zhwiki/20260901/
 Corpus and derived bigram/trigram tables retain CC BY-SA 4.0 attribution:
 https://creativecommons.org/licenses/by-sa/4.0/
 The source subset and exact artifact checksums are in
-Data/Chinese/MSIME/resources.lock.json in the SI source distribution.
+SI Git history at revision 90dae8b^ under Data/Chinese/MSIME/resources.lock.json.
 
-SI changes: read-only SQLite generation, duplicate text/reading merging,
-MSIME reading corrections, and migration of effective entries into SI-maintained
-category CSVs. Old wordlists and overlays have been removed; source-level
-provenance is retained in Data/Vocabulary/meta.json.
-No Rust runtime is included. No user input is part of these resources.
+SI maintains counted category CSVs and compiles them into a Rust lexicon.
+The former SQLite import and MSIME reading corrections are recorded in
+SI Git history at revision 90dae8b^ under Data/Vocabulary/meta.json.

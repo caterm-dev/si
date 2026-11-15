@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use si_gram::{Context, GramModel, MAX_ORDER};
 use si_lexicon::{Lexicon, WordId};
 
-use super::Language;
 use super::lookup::{Lexeme, Lookup};
+use super::{Language, WordIds};
 use crate::han;
 use crate::resources::EngineResources;
 
@@ -103,9 +103,26 @@ impl<'a> Scoring<'a> {
         self.user.is_some()
     }
 
-    pub(super) fn session(&self) -> ScoreSession<'_, 'a> {
+    pub(super) fn extend_history(
+        &self,
+        previous: History,
+        language: Language,
+        ids: WordIds,
+    ) -> History {
+        let history = previous.for_language(language);
+        History {
+            base: history.base.with_word(ids.base, self.base.history_limit),
+            user: history
+                .user
+                .with_word(ids.user, self.user.map_or(3, |user| user.history_limit)),
+            last: Some(language),
+        }
+    }
+
+    pub(super) fn session(&self, initial_history: History) -> ScoreSession<'_, 'a> {
         ScoreSession {
             model: self,
+            initial_history,
             base_cache: HashMap::new(),
             user_cache: HashMap::new(),
         }
@@ -162,6 +179,14 @@ pub(super) struct History {
 }
 
 impl History {
+    fn for_language(self, language: Language) -> Self {
+        if self.last == Some(language) {
+            self
+        } else {
+            Self::default()
+        }
+    }
+
     pub(super) fn last(self) -> Option<Language> {
         self.last
     }
@@ -183,16 +208,46 @@ type ContextCache<'a> = HashMap<ContextKey, Prepared<'a>>;
 
 pub(super) struct ScoreSession<'model, 'data> {
     model: &'model Scoring<'data>,
+    initial_history: History,
     base_cache: ContextCache<'data>,
     user_cache: ContextCache<'data>,
 }
 
 impl ScoreSession<'_, '_> {
+    pub(super) fn has_user(&self) -> bool {
+        self.model.has_user()
+    }
+
+    pub(super) fn start(&mut self, word: Lexeme<'_>, missing: usize) -> (History, Scores, Scores) {
+        let (history, scores) = self.step(History::default(), word, missing);
+        let mut adjustment = Scores::default();
+        if self.initial_history.last == Some(word.language)
+            && word.personal.is_none()
+            && !word.verbatim
+        {
+            // Compare the same first word with and without preceding grams, using the same costs.
+            let (_, conditioned) = self.score_word(self.initial_history, word, missing, None);
+            adjustment.base = conditioned.base - scores.base;
+            adjustment.personalized = conditioned.personalized - scores.personalized;
+        }
+        (history, scores, adjustment)
+    }
+
     pub(super) fn step(
         &mut self,
         previous: History,
         word: Lexeme<'_>,
         missing: usize,
+    ) -> (History, Scores) {
+        self.score_word(previous, word, missing, previous.last)
+    }
+
+    fn score_word(
+        &mut self,
+        previous: History,
+        word: Lexeme<'_>,
+        missing: usize,
+        previous_language: Option<Language>,
     ) -> (History, Scores) {
         let language = word.language;
         if word.verbatim {
@@ -215,7 +270,7 @@ impl ScoreSession<'_, '_> {
             } else {
                 4.0 + missing as f64
             };
-            let score = -word_cost - spelling_cost - language_cost(previous.last, language)
+            let score = -word_cost - spelling_cost - language_cost(previous_language, language)
                 + f64::from(pinned);
             return (
                 History {
@@ -228,11 +283,7 @@ impl ScoreSession<'_, '_> {
                 },
             );
         }
-        let history = if previous.last == Some(language) {
-            previous
-        } else {
-            History::default()
-        };
+        let history = previous.for_language(language);
         let base = self.model.base;
         let vocab = base.vocabulary[language as usize];
         let base_count = base.count(word.ids.base) + 1.0;
@@ -274,7 +325,7 @@ impl ScoreSession<'_, '_> {
                 priors.personalized = blend(priors.personalized, observed / mass, weight);
             }
         }
-        let mut cost = language_cost(previous.last, language);
+        let mut cost = language_cost(previous_language, language);
         cost += match language {
             Language::English => ENGLISH_TOKEN_BITS,
             Language::Chinese if han::single(word.text).is_some() => HAN_CHARACTER_BITS,
@@ -283,14 +334,7 @@ impl ScoreSession<'_, '_> {
         if missing > 0 {
             cost += 4.0 + missing as f64;
         }
-        let next = History {
-            base: history.base.with_word(word.ids.base, base.history_limit),
-            user: history.user.with_word(
-                word.ids.user,
-                self.model.user.map_or(3, |user| user.history_limit),
-            ),
-            last: Some(language),
-        };
+        let next = self.model.extend_history(history, language, word.ids);
         (
             next,
             Scores {

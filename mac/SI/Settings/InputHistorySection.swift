@@ -6,7 +6,7 @@ struct InputHistorySection: View {
     @State private var showsClearConfirmation = false
 
     var body: some View {
-        let saveTitle = L10n.text(history.savesSentences ? "Save Complete Sentences" : "Save Input History")
+        let saveTitle = L10n.text("Save Input History")
 
         SettingsGroup("Recording") {
             SettingsRow(title: Text(saveTitle), detail: recordingDescription) {
@@ -14,23 +14,13 @@ struct InputHistorySection: View {
                     .labelsHidden()
                     .disabled(history.isLoading || history.isClearing)
             }
-            if history.savesSentences, history.enabled {
-                Text(history.sentenceCaptureDescription)
-                    .font(.callout).foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-            }
             Divider()
-            if history.savesSentences {
-                Text("Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted.")
-                    .font(.callout).foregroundStyle(.secondary)
-            } else {
-                Text("Off by default and independent of Personal Learning. History can contain private text, including original English input and personal phrases. Secure input and direct-input apps are excluded. Text typed outside SI is not captured. Stored history is not encrypted; other software running as you and backups may access it.")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
+            Text("Off by default and independent of Personal Learning. History can contain private text, including original English input and personal phrases. Secure input and direct-input apps are excluded. Text typed outside SI is not captured. Stored history is not encrypted; other software running as you and backups may access it.")
+                .font(.callout).foregroundStyle(.secondary)
         }
         SettingsGroup("Saved Data") {
             HStack {
-                Button(L10n.text(history.savesSentences ? "View Saved Sentences…" : "View Input History…")) { showsHistory = true }
+                Button("View Input History…") { showsHistory = true }
                     .sheet(isPresented: $showsHistory) { InputHistoryView(history: history) }
                 InputHistoryExportButton(history: history)
             }
@@ -62,10 +52,6 @@ struct InputHistorySection: View {
     }
 
     private var recordingDescription: Text {
-        if history.savesSentences {
-            Text("In all apps where SI conversion is active, press Return after submitting text with SI to save available single-line text before the caret. Completeness is not checked; saved text may be partial and may include edits, pasted text and existing content.")
-        } else {
-            Text("Saves each SI submission with its original spelling, submitted text and time. Repeated submissions are separate records. History stays on this Mac until you delete it, without automatic expiry or a record-count limit.")
-        }
+        Text("Saves each SI submission with its original spelling, submitted text and time. Repeated submissions are separate records. History stays on this Mac until you delete it, without automatic expiry or a record-count limit.")
     }
 }

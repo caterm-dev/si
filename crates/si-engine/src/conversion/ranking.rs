@@ -12,6 +12,7 @@ pub(super) struct Results {
 
 struct Evidence {
     score: f64,
+    context_adjustment: f64,
     effective_score: f64,
     completion: bool,
     lexical_tokens: usize,
@@ -32,6 +33,7 @@ impl Results {
         use std::collections::hash_map::Entry;
         let evidence = Evidence {
             score,
+            context_adjustment: candidate.context_adjustment,
             effective_score,
             completion,
             lexical_tokens: candidate.lexical_tokens,
@@ -60,7 +62,9 @@ impl Results {
                                 && current.completion)))
                 {
                     *current = evidence;
-                } else if score == current.score {
+                } else if score + evidence.context_adjustment
+                    == current.score + current.context_adjustment
+                {
                     current
                         .confirmation_boundaries
                         .retain(|boundary| evidence.confirmation_boundaries.contains(boundary));
@@ -92,6 +96,7 @@ impl Results {
                 language,
                 consumed_bytes,
                 score_bits: Some(evidence.score),
+                context_adjustment: evidence.context_adjustment,
                 completion: evidence.completion,
                 lexical_tokens: evidence.lexical_tokens,
                 source_boundaries: evidence.source_boundaries,

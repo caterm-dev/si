@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common import digest
 from check_word_corrections import count_spans
 from hanlp_words import count_tokens, load_tokenizer, segment, tokenize_chunk, verify
-from review_words import eligibility
 
 
 class HanLPWordCountTests(unittest.TestCase):
@@ -58,15 +57,6 @@ class HanLPWordCountTests(unittest.TestCase):
             self.assertIsNone(kwargs['sampler_builder'])
             return [[text] for text in batch]
         self.assertEqual(tokenize_chunk(tokenizer, texts, 2), [[text] for text in texts])
-
-    def test_review_requires_frequency_and_independent_fragment_support(self):
-        self.assertEqual(eligibility('测试词', 19, 19, 3), 'low_frequency')
-        self.assertEqual(eligibility('测试词', 200, 9, 3), 'low_frequency')
-        self.assertEqual(eligibility('测试词', 50, 40, 1), 'insufficient_source_support')
-        self.assertEqual(eligibility('测试词', 20, 10, 2), 'review')
-        self.assertEqual(eligibility('测试词', 100, 100, 1), 'review')
-        self.assertEqual(eligibility('哈哈', 200, 100, 2), 'repeated_character')
-        self.assertEqual(eligibility('测试x', 200, 100, 2), 'outside_length_or_script')
 
     def test_completed_chunks_resume_without_double_counting_and_reject_tampering(self):
         with tempfile.TemporaryDirectory() as temporary:

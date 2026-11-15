@@ -6,6 +6,9 @@ The first batch follows the acquisition/cleaning/reading-table organization of
 [chinese-ime-lm](https://github.com/metasequoiaime/chinese-ime-lm/tree/154eb5c59a5ad9b0c93a48b05dc7cd143601d18a/corpus).
 SI's scripts are independently written; no upstream implementation is copied.
 
+The separately supplied local [Chinese Chatbot Corpus](metadata/chinese-chatbot-corpus.md)
+has per-subcorpus provenance and data terms recorded in its own notice.
+
 Exact revisions, archive sizes, SHA-256 values, URLs and retained license/card
 checksums are in [sources.lock.json](sources.lock.json). Each prepared bundle
 copies that lock, this notice and the complete retained license documents.
@@ -37,8 +40,8 @@ The preparation dependency `opencc-python-reimplemented` 0.1.7 is Apache-2.0
 ([source](https://github.com/yichen0831/opencc-python)); its package notice/license
 remains installed in the isolated environment. It is not linked into SI.
 The lexical reading exports use existing SI/Wanxiang data and retain their
-separate provenance and notices from `Data/Vocabulary`; dictionary weights are
-ranking values, not observed sentence counts.
+separate provenance and [packaged notices](../../mac/SI/Core/Resources/Chinese/).
+Dictionary weights and observed sentence counts describe different sources.
 
 This collection is offline research material. No prepared corpus or model is
 published or bundled into the input method by these tools. A future release

@@ -7,7 +7,6 @@ struct SettingsDetail: View {
     let dictionary: UserDictionarySettings
     let applicationMemory: ApplicationMemorySettings
     let inputHistory: InputHistorySettings
-    let sentenceHistory: InputHistorySettings
 
     var body: some View {
         switch page {
@@ -23,8 +22,6 @@ struct SettingsDetail: View {
             ApplicationMemorySection(settings: applicationMemory)
         case .inputHistory:
             InputHistorySection(history: inputHistory)
-        case .sentenceHistory:
-            InputHistorySection(history: sentenceHistory)
         case .permissions:
             ExperimentPermissionsSection()
         case .about:

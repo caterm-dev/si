@@ -12,6 +12,13 @@ def verify(resources: Path) -> None:
     with lexicon.open("rb") as stream:
         if stream.read(8) not in (b"SILEX\0\x01\0", b"SILEX\0\x02\0", b"SILEX\0\x03\0"):
             raise ValueError("App has an invalid SIEngine/main.silex header")
+    grams = resources / "SIEngine/words.sigram"
+    if not grams.is_file():
+        raise ValueError("App is missing SIEngine/words.sigram")
+    with grams.open("rb") as stream:
+        header = stream.read(8)
+        if header not in (b"SIGRAM\x01\0", b"SIGRAM\x02\0", b"SIGRAM\x03\0", b"SIGRAM\x04\0"):
+            raise ValueError("App has an invalid SIEngine/words.sigram header")
     if ((resources / "KenLM").exists()
             or any(resources.rglob("si-pinyin.sqlite"))
             or any(resources.rglob("si-english.sqlite"))):

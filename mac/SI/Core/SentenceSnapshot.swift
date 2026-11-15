@@ -1,12 +1,13 @@
 import Foundation
 
-/// Bounds for one bounded single-line text-client snapshot.
+/// Bounds for one single-line text-client snapshot.
 public enum SentenceSnapshot {
     public enum CaptureFailure: Equatable, Sendable {
         case staleClient
         case unavailableSelection
         case invalidSelection
         case markedText
+        case incompleteRange
         case unavailableText
         case invalidText
     }

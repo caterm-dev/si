@@ -6,7 +6,7 @@ use std::rc::Rc;
 use super::input::Input;
 use super::lookup::{Lookup, Match};
 use super::ranking::{Completions, Results};
-use super::scoring::{History, ScoreSession, Scores, Scoring};
+use super::scoring::{History, ScoreSession, Scores};
 use super::{
     Candidate, CandidateLanguage, ConversionBoundary, ConversionPreferences, EnabledLanguages,
     Language, PathPreference, TokenPreference,
@@ -26,7 +26,7 @@ pub(super) fn run(
     input: &Input<'_>,
     languages: EnabledLanguages,
     lookup: &Lookup<'_>,
-    scoring: &Scoring<'_>,
+    scoring: ScoreSession<'_, '_>,
     preview: bool,
     personal: &Lookup<'_>,
     preferences: ConversionPreferences<'_>,
@@ -47,6 +47,7 @@ pub(super) fn run(
     } else {
         Vec::new()
     };
+    let has_user = scoring.has_user();
     let mut search = Search {
         input,
         limit,
@@ -55,7 +56,7 @@ pub(super) fn run(
         } else {
             BEAM_WIDTH
         },
-        scoring: scoring.session(),
+        scoring,
         lattice: (0..=limit).map(|_| Frontier::default()).collect(),
         results: Results::default(),
         preferences: TokenBonuses::new(preferences.tokens),
@@ -77,9 +78,7 @@ pub(super) fn run(
             search.seed(
                 edge,
                 &mut completions,
-                scoring.has_user()
-                    || !preferences.tokens.is_empty()
-                    || !preferences.paths.is_empty(),
+                has_user || !preferences.tokens.is_empty() || !preferences.paths.is_empty(),
                 true,
             );
         });
@@ -317,6 +316,7 @@ impl Search<'_, '_, '_, '_> {
         let path = Path {
             output: edge.word.text.to_owned(),
             score,
+            context_adjustment: Scores::default(),
             history,
             mask,
             constructed: false,
@@ -351,9 +351,7 @@ impl Search<'_, '_, '_, '_> {
         can_extend: bool,
     ) {
         let mask = edge.word.language.mask();
-        let (history, mut score) = self
-            .scoring
-            .step(History::default(), edge.word, edge.missing);
+        let (history, mut score, context_adjustment) = self.scoring.start(edge.word, edge.missing);
         if edge.is_abbreviated() {
             score.base -= ABBREVIATION_BITS;
             score.personalized -= ABBREVIATION_BITS;
@@ -365,7 +363,7 @@ impl Search<'_, '_, '_, '_> {
         } else {
             self.path_preferences
                 .adjustment(edge.end, mask, &output, 0.0)
-        };
+        } + context_adjustment.personalized;
         if edge.missing != 0
             && !personal
             && !completions.could_enter(score.personalized + direct_adjustment)
@@ -378,6 +376,7 @@ impl Search<'_, '_, '_, '_> {
             language: candidate_language(mask),
             consumed_bytes: self.input.source_end(edge.end),
             score_bits: Some(score.personalized),
+            context_adjustment: context_adjustment.personalized,
             completion: edge.missing != 0,
             lexical_tokens: 1,
             source_boundaries: details.cuts.clone(),
@@ -416,6 +415,7 @@ impl Search<'_, '_, '_, '_> {
         let path = Path {
             output: output.into_owned(),
             score,
+            context_adjustment,
             history,
             mask,
             constructed: false,
@@ -491,6 +491,7 @@ impl Search<'_, '_, '_, '_> {
                         language: candidate_language(mask),
                         consumed_bytes: self.input.source_end(end),
                         score_bits: Some(path.score.personalized),
+                        context_adjustment: path.context_adjustment.personalized,
                         completion: path.completion,
                         lexical_tokens: path.lexical_tokens,
                         source_boundaries,
@@ -500,7 +501,9 @@ impl Search<'_, '_, '_, '_> {
                         verbatim: path.verbatim,
                         token_bonus: path.token_bonus(),
                     },
-                    path.score.personalized + path.adjustment,
+                    path.score.personalized
+                        + path.context_adjustment.personalized
+                        + path.adjustment,
                 );
             }
         }
@@ -547,6 +550,11 @@ impl Search<'_, '_, '_, '_> {
                     delta.personalized -= ABBREVIATION_BITS;
                 }
                 let score = path.score + delta;
+                let context_adjustment = if private {
+                    Scores::default()
+                } else {
+                    path.context_adjustment
+                };
                 let mask = path.mask | language.mask();
                 let target = self.lattice[edge.end].beam(lane, mask, private);
                 let splits_english = !private
@@ -563,7 +571,11 @@ impl Search<'_, '_, '_, '_> {
                     && lane == Lane::Personalized
                     && self.path_preferences.could_adjust(edge.end);
                 if !has_path_preferences
-                    && !target.could_enter(lane.score(score, bonus), lane, self.beam_width)
+                    && !target.could_enter(
+                        lane.score(score + context_adjustment, bonus),
+                        lane,
+                        self.beam_width,
+                    )
                 {
                     continue;
                 }
@@ -595,6 +607,7 @@ impl Search<'_, '_, '_, '_> {
                     Path {
                         output,
                         score,
+                        context_adjustment,
                         history,
                         mask,
                         constructed: true,
@@ -715,6 +728,7 @@ impl Frontier {
 struct Path {
     output: String,
     score: Scores,
+    context_adjustment: Scores,
     history: History,
     mask: usize,
     constructed: bool,
@@ -898,7 +912,7 @@ impl Beam {
 fn compare_paths(left: &Path, right: &Path, lane: Lane, for_search: bool) -> Ordering {
     let score = |path: &Path| {
         lane.score(
-            path.score,
+            path.score + path.context_adjustment,
             if for_search {
                 path.search_adjustment
             } else {

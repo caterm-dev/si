@@ -141,9 +141,6 @@
 "Personal Learning · %@" = "Personal Learning · %@";
 "Enable Personal Learning" = "Enable Personal Learning";
 "Shares learned vocabulary across apps. A deliberate choice of a later candidate becomes the first choice for the same spelling next time, unless a personal phrase is pinned. Frequency rewards remain capped at 32 points. Learning does not decay or expire; turning it off returns to base ranking." = "Shares learned vocabulary across apps. A deliberate choice of a later candidate becomes the first choice for the same spelling next time, unless a personal phrase is pinned. Frequency rewards remain capped at 32 points. Learning does not decay or expire; turning it off returns to base ranking.";
-"Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. No document or clipboard content is read." = "Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. No document or clipboard content is read.";
-"Deletes all learned vocabulary on this Mac. Explicit personal phrases are kept." = "Deletes all learned vocabulary on this Mac. Explicit personal phrases are kept.";
-"Deletes all learned vocabulary, including entries hidden by the search. Explicit personal phrases are kept." = "Deletes all learned vocabulary, including entries hidden by the search. Explicit personal phrases are kept.";
 "Learned words and counts are shared across apps. Forgetting an entry removes it everywhere." = "Learned words and counts are shared across apps. Forgetting an entry removes it everywhere.";
 "Search words or input" = "Search words or input";
 "No Learning Data" = "No Learning Data";
@@ -198,23 +195,7 @@
 "To grant either experimental permission, drag SI from the floating panel into the list in System Settings." = "To grant either experimental permission, drag SI from the floating panel into the list in System Settings.";
 
 "These permissions are for future experiments. macOS may require restarting SI after authorization." = "These permissions are for future experiments. macOS may require restarting SI after authorization.";
-"Clear Saved Sentences" = "Clear Saved Sentences";
-"Clear Saved Sentences…" = "Clear Saved Sentences…";
-"Clear all saved sentences?" = "Clear all saved sentences?";
-"Each row is the text SI read from the input before passing Return to the app." = "Each row is the text SI read from the input before passing Return to the app.";
-"Enable Save Complete Sentences, submit text with SI, then press Return to save available text before the caret. The saved text may be partial." = "Enable Save Complete Sentences, submit text with SI, then press Return to save available text before the caret. The saved text may be partial.";
-"Export Saved Sentences" = "Export Saved Sentences";
-"Export Saved Sentences…" = "Export Saved Sentences…";
-"Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies." = "Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies.";
-"In all apps where SI conversion is active, press Return after submitting text with SI to save available single-line text before the caret. Completeness is not checked; saved text may be partial and may include edits, pasted text and existing content." = "In all apps where SI conversion is active, press Return after submitting text with SI to save available single-line text before the caret. Completeness is not checked; saved text may be partial and may include edits, pasted text and existing content.";
-"No Saved Sentences" = "No Saved Sentences";
-"Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted." = "Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted.";
-"Permanently deletes saved and pending sentences. Individual SI submissions are kept." = "Permanently deletes saved and pending sentences. Individual SI submissions are kept.";
 "Remove Application" = "Remove Application";
-"Save Complete Sentences" = "Save Complete Sentences";
-"Search saved sentences" = "Search saved sentences";
-"Sentence History" = "Sentence History";
-"View Saved Sentences…" = "View Saved Sentences…";
 
 // Settings navigation and groups
 "Settings" = "Settings";
@@ -335,12 +316,19 @@
 "Record Direct Input Shortcut" = "Record Direct Input Shortcut";
 "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels." = "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels.";
 
-"Sentence capture: waiting for an SI submission in the current input." = "Sentence capture: waiting for an SI submission in the current input.";
-"Sentence capture: SI submitted text. Press Return to save available text before the caret." = "Sentence capture: SI submitted text. Press Return to save available text before the caret.";
-"Sentence capture: captured and queued for saving." = "Sentence capture: captured and queued for saving.";
-"Sentence capture skipped: the input client or recording settings changed during the read." = "Sentence capture skipped: the input client or recording settings changed during the read.";
-"Sentence capture skipped: the app did not provide the caret range." = "Sentence capture skipped: the app did not provide the caret range.";
-"Sentence capture skipped: select no text and use a nonempty input of at most 1,024 UTF-16 units." = "Sentence capture skipped: select no text and use a nonempty input of at most 1,024 UTF-16 units.";
-"Sentence capture skipped: the app still reports marked text." = "Sentence capture skipped: the app still reports marked text.";
-"Sentence capture skipped: the input is blank, multiline, contains control characters or exceeds the limit." = "Sentence capture skipped: the input is blank, multiline, contains control characters or exceeds the limit.";
-"Sentence capture skipped: the app did not return text." = "Sentence capture skipped: the app did not return text.";
+// Sentence learning
+"Sentence Learning" = "Sentence Learning";
+"Learn from Submitted Sentences" = "Learn from Submitted Sentences";
+"After you confirm a candidate and press Return, SI can learn from the complete text in compatible single-line inputs, including edits and pasted text." = "After you confirm a candidate and press Return, SI can learn from the complete text in compatible single-line inputs, including edits and pasted text.";
+"On by default when Personal Learning is enabled. Learned words and word counts stay on this Mac and can change candidate ranking. SI discards the original sentence after processing it." = "On by default when Personal Learning is enabled. Learned words and word counts stay on this Mac and can change candidate ranking. SI discards the original sentence after processing it.";
+"Retry Sentence Learning" = "Retry Sentence Learning";
+"Sentence learning data could not be opened. Clear all learning data to start again." = "Sentence learning data could not be opened. Clear all learning data to start again.";
+"Sentence learning data could not be cleared. Please try clearing it again." = "Sentence learning data could not be cleared. Please try clearing it again.";
+"Sentence learning could not be saved. Retry while SI is running to process the pending text." = "Sentence learning could not be saved. Retry while SI is running to process the pending text.";
+"Delete Old Sentence History…" = "Delete Old Sentence History…";
+"Delete Old Sentence History" = "Delete Old Sentence History";
+"Delete old Sentence History?" = "Delete old Sentence History?";
+"Deletes sentences saved by the former Sentence History feature on this Mac." = "Deletes sentences saved by the former Sentence History feature on this Mac.";
+"Old Sentence History could not be deleted. Please retry." = "Old Sentence History could not be deleted. Please retry.";
+"Deletes learned vocabulary and the sentence model on this Mac. Explicit personal phrases are kept." = "Deletes learned vocabulary and the sentence model on this Mac. Explicit personal phrases are kept.";
+"Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. Candidate-choice learning uses the text you confirm." = "Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. Candidate-choice learning uses the text you confirm.";

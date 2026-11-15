@@ -1,68 +1,28 @@
 # Chinese vocabulary maintenance
 
-## Current count-based compiler
+Edit the flat category CSVs in [Data/Chinese](../Data/Chinese/). Each row
+has `text,reading,weight`. Use lowercase Pinyin with apostrophes between
+syllables and `v` for ü in the dictionary key. Keep the exact output bytes
+and supply an explicit nonnegative integer count. Polyphonic readings
+remain separate entries. Repeating an exact text/reading pair across
+categories adds its counts.
 
-Maintain explicit `text,reading,weight` rows in the language's `Data/`
-directory. Xcode builds both languages into `SIEngine/main.silex`. To build
-or validate the same Rust dictionary from the command line, run
-`./scripts/si-lexicon-build.sh` and `cargo test --locked -p si-cli --test workflow`.
-
-## Historical import and review record
-
-The current [base.csv](../Data/Vocabulary/chinese/base.csv) is converted from pinned Wanxiang `zi.dict.yaml`, `jichu.dict.yaml` and `duoyin.dict.yaml`. The original import contains 1,547,554 text/toneless-reading pairs; the maintained word-side base now contains 1,326,683 after the ongoing [phrase split](../Data/Vocabulary/chinese/phrase/README.md), initially preserving upstream integer weights, with [documented SI editorial adjustments](../Data/Vocabulary/chinese/README.md#si-editorial-weight-adjustments). Tone marks are removed from readings, ü becomes `v`, and tone-collapsed duplicate identities retain the maximum source weight. Output text is not normalized. The [import guide](../Data/Vocabulary/Wanxiang/README.md) contains the source lock, CC BY 4.0 data licensing, exact transformations and reproduction/update workflow.
-
-During the ongoing word/phrase review, fixed technical terms remain whole on
-the word side, as explicitly confirmed by the user. The
-[term retention review](../Data/Vocabulary/chinese/phrase/batches/2026-11-09-06.json)
-restores complete terms such as `矩阵的秩` and `水的离子积` even though they
-contain 的. Ordinary grammatical descriptions remain in `phrase/`; apply the
-latest explicit term decisions before any future grammatical heuristic.
-
-The seven remaining local nonbase category CSVs retain their text/readings with all weights set to 10. Base owns overlapping weights, including lower or zero weights; categories add missing identities, with maximum-weight merging among nonbase duplicates. Existing movie/domain catalogs and source attribution remain intact. The requested `炼仙丹` now exists in the Wanxiang base with source weight 333, replacing the former SI-authored base weight of 2,916.
-
-Ten other normal upstream dictionaries remain separate categories named after the upstream files, containing 602,516 rows; see the import guide for names and per-file counts. Their weights take precedence over legacy category copies absent from base. With the separate corpus additions, the merged Chinese database has 2,141,077 entries.
-
-The [HanLP corpus review](../Data/Vocabulary/Corpus/README.md) adds 266 reviewed
-terms in [corpus.csv](../Data/Vocabulary/chinese/corpus.csv) and makes eight
-bounded authoritative base-weight corrections. Its accepted table retains
-per-source counts and explicit readings; all eligible exclusions and old/new
-weights are separately reviewable. New corpus-category weights are explicit
-editorial values anchored to existing word weights, capped at 5,000, rather
-than raw counts or the default local 10. Other category weights and prior user
-adjustments remain intact. HanLP stays an offline analysis tool; no model or
-Python dependency is added to the app. See the review for source limits,
-attribution, independent recount commands and upstream-refresh precautions.
-
-The old MSIME-derived base is replaced. Historical source records and licenses remain for retained category data and attribution. The shared runtime contract is `si-wanxiang-weight-v1`, reference mass one and unknown weight one; no wordfreq conversion or frequency rescaling is applied. These are source ranking weights, not measured occurrence counts or normalized probabilities.
+To validate both languages with the standalone Rust compiler, build to a new
+path. Debug and Release package the prepared snapshots under `target/si-data/`.
 
 ```sh
-python3 scripts/wanxiang_dictionary.py fetch
-python3 scripts/wanxiang_dictionary.py convert
-python3 scripts/wanxiang_dictionary.py convert --check
-python3 -m unittest discover -s Tests/VocabularyTests -v
-./scripts/test.sh
-./scripts/build.sh
+si_vocab_check="$(mktemp -d)"
+./scripts/si-lexicon-build.sh "$si_vocab_check/main.silex"
+cargo run --locked -p si-cli -- check-resources "$si_vocab_check/main.silex"
 ```
 
-Only `fetch` downloads source data. Conversion replaces both bases and imported categories offline; normal CSV builds do not reimport them. Reimport overwrites manual base edits; keep additional SI vocabulary in separate categories. See [the CSV contract](../Data/Vocabulary/README.md) for editing and duplicate precedence.
+The base derives from pinned Wanxiang data and the coarse HanLP vocabulary
+migration. Wanxiang imports removed tones and merged tone-collapsed
+source identities before publication. Current compilation sums the counts
+present in the maintained CSVs. The migration requires an explicit
+historical source directory for reproduction. [Migration workflow](../Data/Chinese/README.md)
 
-The preserved local categories came from an earlier broad heuristic grouping of the MSIME-derived collection. That grouping was not exhaustive semantic annotation and does not classify the current Wanxiang base. New upstream classifications remain separate; no automatic semantic classifier runs during builds. Base owns overlaps, imported Wanxiang categories take precedence over legacy copies absent from base, and duplicates within each tier use maximum weight. New category files are discovered automatically without provider registration or Settings changes. Chinese sources also include flat CSVs in `Data/Vocabulary/chinese/phrase/`; original basenames preserve their base/upstream tier across the two directories. Output text remains byte-preserving and row IDs follow content order.
-
-See [the CSV contract and category workflow](../Data/Vocabulary/README.md) for columns, validation, ties, weights and provenance. [English](ENGLISH_VOCABULARY.md) uses the same compiler and SQLite schema. Source-level provenance is indexed once in [meta.json](../Data/Vocabulary/meta.json); source versions and input hashes are inline there, while full licenses and attribution remain under [Data/Chinese/MSIME](../Data/Chinese/MSIME/README.md). MSIME's underlying Rime Ice / rime-wanxiang attribution still applies. Moving data into SI CSV does not erase those obligations.
-
-```sh
-python3 -m unittest discover -s Tests/VocabularyTests -v
-./scripts/test.sh
-./scripts/build.sh
-```
-
-The first two commands compile/check both languages offline. The Chinese compatibility command compiles the Chinese CSV collection and also verifies the pinned context-table sizes/hashes. Runtime SQLite files contain data and lookup indexes, not references back into CSV. App and package share the same resources; no import or download occurs while typing.
-
-Historical word-context tables, archived outside App resources under `Data/Chinese/MSIME/artifacts/`, are independently pinned in `Data/Chinese/MSIME/resources.lock.json`. They are not regenerated when words change and are not loaded by the App. Runtime scoring uses dictionary, spelling and language-transition costs. Fetching these existing pinned tables remains an explicit maintainer action:
-
-```sh
-```
-
-`python3 scripts/msime_dictionary.py audit --report .build/vocabulary-msime-audit.json` reads the recorded MSIME revisions from `meta.json` and compares them with upstream without adopting changes. Any upstream update must be reviewed, licensed and deliberately integrated into the maintained CSVs. This audit does not adopt lexical updates. Wanxiang adoption uses its separate explicit fetch/convert workflow.
-
-Private phrases and opt-in app vocabulary retain their own consent, retention and deletion controls. These maintenance commands never read user archives. Automated resource checks do not establish input quality or native host compatibility; see [testing](TESTING.md).
+Keep source terms and notices with any vocabulary contribution.
+Current Wanxiang attribution and the legacy MSIME/Rime Ice notices for
+retained data are packaged with the dictionary. Corpus imports and word
+discovery operate on separately selected local Rust snapshots. [Packaged notices](../mac/SI/Core/Resources/Chinese/) · [Rust resource workflow](ARCHITECTURE.md#rust-resource-workflow)

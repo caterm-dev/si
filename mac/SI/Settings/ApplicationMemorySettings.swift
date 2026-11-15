@@ -10,7 +10,11 @@ import SIStorage
 @MainActor
 @Observable
 final class ApplicationMemorySettings {
-    static let shared = ApplicationMemorySettings(defaults: SettingsDefaults.shared)
+    static let shared = ApplicationMemorySettings(
+        defaults: SettingsDefaults.shared,
+        sentenceStore: SentenceLearningStore(profile: URL.applicationSupportDirectory.appending(path: "SI/Personalization/model.si-user")),
+        retiredSentenceHistory: InputHistoryStore(url: URL.applicationSupportDirectory.appending(path: InputHistoryStore.retiredSentenceDatabasePath))
+    )
     private static let vocabularyKey = "applicationMemory.vocabularyEnabled"
 
     var vocabularyEnabled: Bool {
@@ -19,6 +23,7 @@ final class ApplicationMemorySettings {
             if vocabularyEnabled != oldValue { invalidateConsent() }
         }
     }
+    let sentences: SentenceLearningSettings
     private(set) var memory = ApplicationMemory()
     private(set) var generation: UInt64 = 0
     private(set) var isLoading = true
@@ -40,8 +45,10 @@ final class ApplicationMemorySettings {
     var canRetrySaving: Bool { loadSucceeded && errorMessage != nil }
 
     init(defaults: UserDefaults = .standard, store: ApplicationMemoryStore? = nil, isPreview: Bool = false,
+         sentenceStore: SentenceLearningStore? = nil, retiredSentenceHistory: InputHistoryStore? = nil,
          allowsRecording: @escaping @MainActor () -> Bool = { !IsSecureEventInputEnabled() }) {
         self.defaults = defaults
+        sentences = SentenceLearningSettings(defaults: defaults, store: sentenceStore, retiredHistory: retiredSentenceHistory)
         self.allowsRecording = allowsRecording
         vocabularyEnabled = !isPreview && defaults.bool(forKey: Self.vocabularyKey)
         self.store = isPreview ? nil : store ?? ApplicationMemoryStore(
@@ -78,8 +85,9 @@ final class ApplicationMemorySettings {
         // Observe consent invalidation even when a cached snapshot is returned to SwiftUI.
         _ = generation
         guard usesVocabulary else { return .empty }
-        if let sharedSnapshot { return sharedSnapshot }
-        let snapshot = memory.snapshot(vocabularyEnabled: true)
+        let model = sentences.enabled ? sentences.model : nil
+        if let sharedSnapshot, sharedSnapshot.sentenceModel === model { return sharedSnapshot }
+        let snapshot = memory.snapshot(vocabularyEnabled: true, sentenceModel: model)
         sharedSnapshot = snapshot
         return snapshot
     }
@@ -97,15 +105,14 @@ final class ApplicationMemorySettings {
         scheduleSave(immediate: true)
     }
 
-    func clearVocabulary() {
-        guard loadSucceeded else { return }
-        memory.clearVocabulary()
-        invalidateConsent()
-        scheduleSave(immediate: true)
+    var canClearAll: Bool {
+        !isLoading && !sentences.isLoading && !sentences.isClearing
+            && (!memory.vocabulary.isEmpty || errorMessage != nil || sentences.hasDataOrError)
     }
 
     func clearAll() {
-        guard !isLoading else { return }
+        guard canClearAll else { return }
+        sentences.clear()
         pendingWrite?.cancel()
         memory = ApplicationMemory()
         invalidateConsent()

@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             async let phrases: Void = UserDictionarySettings.shared.start()
             async let appMemory: Void = ApplicationMemorySettings.shared.start()
             async let history: Void = InputHistorySettings.shared.start()
-            async let sentences: Void = InputHistorySettings.sentences.start()
+            async let sentences: Void = ApplicationMemorySettings.shared.sentences.start()
             _ = await (phrases, appMemory, history, sentences)
         }
         Task.detached(priority: .userInitiated) { [logger] in
@@ -46,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             async let phrases: Void = UserDictionarySettings.shared.flush()
             async let appMemory: Void = ApplicationMemorySettings.shared.flush()
             async let history: Void = InputHistorySettings.shared.flush()
-            async let sentences: Void = InputHistorySettings.sentences.flush()
+            async let sentences: Void = ApplicationMemorySettings.shared.sentences.flush()
             _ = await (phrases, appMemory, history, sentences)
             sender.reply(toApplicationShouldTerminate: true)
         }

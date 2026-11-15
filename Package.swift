@@ -27,7 +27,7 @@ let package = Package(
                           "UserDictionarySection.swift", "UserDictionaryView.swift",
                           "UserPhraseEditor.swift", "UserDictionaryDocument.swift", "PhraseEditorRequest.swift",
                           "UpdateSettingsSection.swift", "ApplicationMemorySection.swift", "ApplicationMemoryView.swift",
-                          "ApplicationMemoryRow.swift", "ApplicationPassthroughSection.swift",
+                          "ApplicationMemoryRow.swift", "SentenceLearningSection.swift", "ApplicationPassthroughSection.swift",
                           "ApplicationPassthroughView.swift", "ApplicationPassthroughRow.swift",
                           "DirectInputShortcutRecorder.swift",
                           "ExperimentPermissions.swift", "ExperimentPermissionsSection.swift"]),

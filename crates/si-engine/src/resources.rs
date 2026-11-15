@@ -73,6 +73,7 @@ pub struct CorpusImport {
 pub struct ParagraphImport {
     pub paragraphs: usize,
     pub matched_words: usize,
+    /// Preserved for reports recovered from older versions that added English words.
     pub added_english_words: usize,
     pub letter_placeholders: usize,
     pub number_placeholders: usize,
@@ -80,6 +81,7 @@ pub struct ParagraphImport {
     pub ambiguous_words: usize,
     pub grams: GramSizes,
     pub review: Option<LexiconReview>,
+    pub english_review: Option<LexiconReview>,
 }
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -224,16 +226,19 @@ pub fn ingest_corpus_with_order(
 ) -> io::Result<ParagraphImport> {
     require_sources(sources)?;
     let paths = paragraph_snapshot::Paths::new(lexicon, grams)?;
-    let mut destinations = [&paths.lexicon, &paths.grams];
-    destinations.sort_unstable();
-    let _first_lock = lock_destination(destinations[0], false)?;
-    let _second_lock = lock_destination(destinations[1], false)?;
+    let _locks = paths.lock_destinations()?;
     paths.check_destinations()?;
     if let Some(report) = paths.recover(sources)? {
         return Ok(report);
     }
     let mut progress = ProgressReporter::new(sources.len(), &mut notify);
     paragraph::ingest(&paths, sources, max_order, &mut progress)
+}
+
+/// Delete the gram snapshot under the same locks used by paragraph imports.
+/// Returns false when there is no gram snapshot at the requested path.
+pub fn clear_corpus_grams(lexicon: &Path, grams: &Path) -> io::Result<bool> {
+    paragraph_snapshot::Paths::new(lexicon, grams)?.clear_grams()
 }
 
 /// Build a new gram model from contiguous runs of known Han characters.

@@ -3,7 +3,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use si_gram::{GramBuilder, GramOrder};
-use si_lexicon::{IndexId, Lexicon, WordId};
+use si_lexicon::{Lexicon, WordId};
 
 use super::paragraph_review::ParagraphReview;
 use super::paragraph_snapshot::Paths;
@@ -12,7 +12,6 @@ use super::source::read_corpus_lines;
 use super::{CorpusProgress, ParagraphImport, open_compatible_grams};
 use crate::segmentation::{SegmentKind, Segmenter};
 
-const ENGLISH_INDEX: IndexId = IndexId(1);
 const LETTER_TOKEN: &str = "<char>";
 const NUMBER_TOKEN: &str = "<num>";
 
@@ -47,18 +46,10 @@ pub(super) fn ingest(
         }
     }
     progress.phase(CorpusProgress::BuildingGrams);
-    let mut new_words: Vec<_> = counts.new_entries.into_iter().collect();
-    new_words.sort_unstable_by_key(|(_, id)| id.0);
-    for (text, expected_id) in new_words {
-        let id = match text.as_str() {
-            LETTER_TOKEN | NUMBER_TOKEN => lexicon.add_word(&text, 0),
-            _ => {
-                counts.report.added_english_words += 1;
-                let reading = text.to_ascii_lowercase();
-                lexicon.add_reading(ENGLISH_INDEX, reading.as_bytes(), &text, 0)
-            }
-        }
-        .map_err(io::Error::other)?;
+    let mut new_placeholders: Vec<_> = counts.new_placeholders.into_iter().collect();
+    new_placeholders.sort_unstable_by_key(|(_, id)| id.0);
+    for (text, expected_id) in new_placeholders {
+        let id = lexicon.add_word(text, 0).map_err(io::Error::other)?;
         if id != expected_id {
             return Err(io::Error::other(
                 "new corpus token ID changed during import",
@@ -79,7 +70,7 @@ pub(super) fn ingest(
 #[derive(Default)]
 struct Observations {
     words: HashMap<WordId, u64>,
-    new_entries: HashMap<String, WordId>,
+    new_placeholders: HashMap<&'static str, WordId>,
     placeholders: HashMap<&'static str, WordId>,
     existing_words: usize,
     report: ParagraphImport,
@@ -118,7 +109,11 @@ impl Observations {
                 let id = match segment.kind {
                     SegmentKind::Word(id) => id,
                     SegmentKind::UserWord(_) => unreachable!("base-only segmenter"),
-                    SegmentKind::NewEnglishWord => self.pending_id(&text[segment.range])?,
+                    SegmentKind::NewEnglishWord => {
+                        self.review.record_english(&text[segment.range])?;
+                        Self::finish_run(&mut run, builder).map_err(io::Error::other)?;
+                        continue;
+                    }
                     SegmentKind::Letter | SegmentKind::Number => {
                         let token = if segment.kind == SegmentKind::Letter {
                             self.report.letter_placeholders += 1;
@@ -173,17 +168,17 @@ impl Observations {
         }
     }
 
-    fn pending_id(&mut self, text: &str) -> io::Result<WordId> {
-        if let Some(&id) = self.new_entries.get(text) {
+    fn pending_id(&mut self, text: &'static str) -> io::Result<WordId> {
+        if let Some(&id) = self.new_placeholders.get(text) {
             return Ok(id);
         }
         let ordinal = self
             .existing_words
-            .checked_add(self.new_entries.len())
+            .checked_add(self.new_placeholders.len())
             .and_then(|ordinal| u32::try_from(ordinal).ok())
             .ok_or_else(|| io::Error::other("new corpus token ID exceeds the lexicon limit"))?;
         let id = WordId(ordinal);
-        self.new_entries.insert(text.to_owned(), id);
+        self.new_placeholders.insert(text, id);
         Ok(id)
     }
 

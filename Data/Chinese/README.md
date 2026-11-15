@@ -18,12 +18,12 @@ corpus/.venv/bin/python -m pip install -r corpus/requirements-hanlp.txt
 corpus/.venv/bin/python scripts/migrate_chinese_vocabulary.py --fetch-model
 
 # Offline coarse-grained conversion with the locked local model (CPU by default):
-corpus/.venv/bin/python scripts/migrate_chinese_vocabulary.py
+corpus/.venv/bin/python scripts/migrate_chinese_vocabulary.py --source /path/to/legacy/chinese --output /tmp/si-chinese-base.csv
 # Optional Apple Silicon acceleration:
-corpus/.venv/bin/python scripts/migrate_chinese_vocabulary.py --device mps
+corpus/.venv/bin/python scripts/migrate_chinese_vocabulary.py --source /path/to/legacy/chinese --output /tmp/si-chinese-base.csv --device mps
 # Optional fine-grained conversion (prepare its separate model cache first):
 corpus/.venv/bin/python scripts/migrate_chinese_vocabulary.py --granularity fine --fetch-model
-corpus/.venv/bin/python scripts/migrate_chinese_vocabulary.py --granularity fine
+corpus/.venv/bin/python scripts/migrate_chinese_vocabulary.py --source /path/to/legacy/chinese --output /tmp/si-chinese-fine.csv --granularity fine
 ```
 
 The default is HanLP 2.1.3's `COARSE_ELECTRA_SMALL_ZH`, pinned to
@@ -40,7 +40,7 @@ prepare a missing coarse cache, use `--fetch-model`.
 No vocabulary is forced into HanLP. Model terms are recorded in each lock:
 the model remains a local research/teaching tool and is not bundled with the
 app. Original vocabulary attribution and licenses
-remain under `Data/Vocabulary/`; this transformation does not replace them.
+are preserved in the [packaged notices](../../mac/SI/Core/Resources/Chinese/).
 See the [HanLP tokenizer API](https://hanlp.hankcs.com/docs/api/hanlp/components/tokenizers/transformer.html).
 
 Output is UTF-8 CSV with exactly `text,reading,weight` columns. Each token
@@ -70,7 +70,7 @@ The output must be outside the source tree. A complete conversion atomically
 replaces its output CSV; failure preserves any previous output. Rerunning reads
 only the original inputs, so it does not accumulate the previous output again.
 Switching granularity requires a new complete run; a running process keeps its
-loaded model. Use `--output Data/Chinese/base-fine.csv` to compare against an
+loaded model. Use `--output /tmp/si-chinese-fine.csv` to compare against an
 existing coarse result without replacing it (also select `--granularity fine`).
 
 Synthetic checks, without model installation or downloads:

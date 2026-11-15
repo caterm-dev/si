@@ -157,6 +157,7 @@
 			outputPaths = (
 				"$(DERIVED_FILE_DIR)/libsi_macos_bridge.a",
 				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/SIEngine/main.silex",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/SIEngine/words.sigram",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;

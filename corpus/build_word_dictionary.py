@@ -75,7 +75,7 @@ def build(words_directory, frequencies, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--words-directory', type=Path, default=ROOT.parent / 'Data/Vocabulary/chinese')
+    parser.add_argument('--words-directory', type=Path, default=ROOT.parent / 'Data/Chinese')
     parser.add_argument('--frequencies', type=Path, default=CHINESE / 'dictionaries/generated/unigram-reference-v1/frequencies.csv')
     parser.add_argument('--output', type=Path, default=CHINESE / 'dictionaries/generated/unigram-words-v2')
     args = parser.parse_args()

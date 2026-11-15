@@ -5,9 +5,15 @@ SI processes ordinary input locally, with no analytics or raw-keystroke logging.
 ## Local candidate ranking
 
 The Rust decoder scores the current composition with bundled dictionary
-counts and any bundled word grams. Normal conversion uses the marked
-composition and opted-in local preferences. Host text reads are limited to
-the separately enabled Sentence History and AI Completion workflows below.
+counts, word grams and eligible local preferences. For ordinary ranking, SI
+asks the active InputMethodKit client for the complete text before the insertion
+point at composition start and after a prefix commit. Rust uses the last
+sentence for its local word-gram score. Secure input and direct input skip this
+read. Unsupported clients fall back to ranking without field text. This read
+requires no additional system permission. The text and score adjustment stay in
+memory for conversion and are never logged, saved, sent to a service or used as
+training data by this path. Sentence learning and AI Completion have separate
+triggers and data flows described below.
 
 ## Software update requests
 
@@ -33,9 +39,9 @@ Edits and app/window changes invalidate suggestions. Provider, path and key chan
 
 ## Personal Learning
 
-**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. Personal Learning does not read documents, clipboard, window titles, URLs or chat recipients. Optional experimental permissions are described below; SI uses no Input Monitoring permission or global event tap.
+**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. Candidate-choice learning uses SI submissions. The separate sentence-learning switch below controls the additional text-client read. Optional experimental permissions are described below; SI uses no Input Monitoring permission or global event tap.
 
-Each record retains normalized consumed spelling, exact output/language/mixed identity, bounded strength, aggregate usage/nonfirst-choice counts, base score, lexical-unit evidence and last-use time. The currently remembered deliberate choice for a spelling also retains its selection time. A new deliberate nonfirst choice replaces the prior selection marker for that spelling; no chronological sequence is saved by Personal Learning. App identifiers are no longer stored in vocabulary rows. First-choice Space/number/mouse acceptance only updates usage, never preference strength or the selection marker. Every three nonfirst choices add one frequency point up to 32. Separately, one deliberate selection is enough to lead the next exact normalized-spelling search, after any explicit personal-phrase pin. Prefixes save only consumed spelling. Literal, personal/verbatim, punctuation, delimiter and automatic confirmations are excluded, and confirmed sentences do not create additional component-word records.
+Each record retains normalized consumed spelling, exact output/language/mixed identity, bounded strength, aggregate usage/nonfirst-choice counts, base score, lexical-unit evidence and last-use time. The currently remembered deliberate choice for a spelling also retains its selection time. A new deliberate nonfirst choice replaces the prior selection marker for that spelling; no chronological sequence is saved by Personal Learning. App identifiers are no longer stored in vocabulary rows. First-choice Space/number/mouse acceptance only updates usage, never preference strength or the selection marker. Every three nonfirst choices add one frequency point up to 32. Separately, one deliberate selection is enough to lead the next exact normalized-spelling search, after any explicit personal-phrase pin. Prefixes save only consumed spelling. Literal, personal/verbatim, punctuation, delimiter and automatic confirmations are excluded, and a confirmed output is kept as one candidate-choice entry.
 
 **There is no age expiry or strength decay.** Records remain until Forget, clear or capacity eviction; a maximum of 5,000 global records is retained, removing the least recently used entries first with deterministic identity ties when full. This longer retention applies to existing records still present at migration, but cannot restore previously removed data. Personal Learning does not create input history; the separately opted-in Input History feature below has its own retention and deletion. There is no synchronization, learning export/import or remote aggregation.
 
@@ -48,6 +54,14 @@ The archive remains at:
 ```
 
 New writes use vocabulary-only schema 4. The archive has a 64 MiB limit, owner-only directory/file permissions and atomic replacement. SI does not encrypt it; software under the same user, administrators or backups may access it. Saves run off the main actor, coalesce for 300 ms and flush at normal termination; forced termination can lose recent updates. Open/migration errors pause recording and learned suggestions; save/erase errors appear in Settings. Learning consent remains in UserDefaults. The retired per-app learning exclusion key is removed. No personal data is supplied to Sparkle or another network service.
+
+### Sentence learning
+
+**Learn from Submitted Sentences** defaults to on under the default-off **Enable Personal Learning** switch. An explicit opt-out is saved. After a successful manual lexical confirmation in the active client, one unmodified, nonrepeated Return with an empty composition can request the complete text from a compatible InputMethodKit client before the host handles Return. The reported text must be a nonblank single line of at most 1,024 UTF-16 units, with the caret at the end and no selection or marked text. The line can include host edits, pasted text and pre-existing text. SI revalidates consent, focus, direct input and secure input around the host calls. Secure Event Input cannot identify every sensitive field. The feature uses the IMK text client, with no clipboard or additional permissions.
+
+The engine segments each accepted line and updates a local user lexicon, word grams and character-pair counts. The owner-only, unencrypted `SI/Personalization/model.si-user` profile under Application Support retains derived words, counts and opaque batch IDs until cleared. It can grow as new text is learned. The 5,000-entry limit for candidate-choice preferences applies to the separate vocabulary archive. Sentences and app identifiers are not written as history records or sent anywhere. A failed batch remains temporarily in memory for **Retry Sentence Learning**. Normal termination processes pending batches when storage is working. Disabling either learning switch stops new capture and removes sentence-model influence from candidates; accepted pending batches can finish.
+
+**Clear All Learning Data…** removes both candidate-choice preferences and the local sentence model, including pending batches. The former Sentence History consent and app list are retired. Existing raw sentence archives are left unopened and can be removed explicitly with **Delete Old Sentence History…**. Previously exported JSONL files remain usable by the offline text-extraction tool.
 
 ## Input History
 
@@ -66,12 +80,6 @@ The system SQLite database uses schema 1, a 0700 directory, 0600 file and DELETE
 Recording is checked around host insertion, with generation checks for off/on changes during callbacks. Secure event input and the independent direct-input app rules suppress recording. Secure event input cannot detect every sensitive field. Cancelled/unconfirmed compositions, host documents/clipboard, standalone passthrough keys, other input sources and text typed in direct-input apps are not captured. There is no global event tap or added permission. Records are not used for candidates, automatic learning/training or remote services. Explicit export and separately permitted offline training preparation are described below.
 
 Open/save failures visibly pause new recording. Failed accepted writes remain in memory for explicit **Retry Saving History**; **Reopen History** retries opening, and explicit clear can recover corrupt/unsupported data. Existing corrupt/unsupported bytes remain untouched until clear. Normal termination waits for queued writes; forced termination, disk failure or quitting with unretried errors may lose unsaved records. External backups and previously deleted filesystem remnants remain outside SI's deletion controls.
-
-## Sentence History
-
-**Save Complete Sentences** is a separate, default-off opt-in. Enabling it allows capture in all apps where SI conversion is active, without an app allowlist. On Return after a successful SI insertion in the same active client, with the composition empty and no selected text, SI can request at most 1,024 UTF-16 units from the current InputMethodKit text client. InputMethodKit does not expose the field's role, and Secure Event Input cannot identify every sensitive field. The exact single-line text returned by the client may include pre-existing or pasted content, other edits and punctuation inserted by the host. SI checks secure input, direct input, consent and the client boundary before and between calls, and skips unavailable caret/text and invalid single-line text. It does not check document length, require a terminal caret or require the returned text length to match the requested prefix; records may be partial. This feature uses the text client directly, without accessing the clipboard or requesting additional permissions.
-
-The independent owner-only, unencrypted `SI/SentenceHistory/sentences-v1.sqlite3` under Application Support retains the exact text, timestamp and event UUID until deleted. Application bundle identifiers are not stored in sentence records. The retired app allowlist setting is removed without changing recording consent. Turning off recording stops future capture and keeps earlier records. Search, per-entry deletion, clear, retry and the normal termination flush follow the same storage rules as Input History. **Export Saved Sentences…** writes all saved sentences and timestamps to one user-selected JSONL file. Exports are unencrypted and stay outside local deletion controls.
 
 ## User-controlled history export and training contributions
 

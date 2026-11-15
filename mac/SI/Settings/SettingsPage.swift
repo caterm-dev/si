@@ -7,13 +7,12 @@ enum SettingsPage: Hashable {
     case phrases
     case learning
     case inputHistory
-    case sentenceHistory
     case permissions
     case about
 
     static let groups: [(title: String, pages: [Self])] = [
         ("Input", [.typing, .aiCompletion, .directInput]),
-        ("Personal Data", [.phrases, .learning, .inputHistory, .sentenceHistory]),
+        ("Personal Data", [.phrases, .learning, .inputHistory]),
         ("System", [.permissions, .about])
     ]
 
@@ -25,7 +24,6 @@ enum SettingsPage: Hashable {
         case .phrases: "Personal Phrases"
         case .learning: "Personal Learning"
         case .inputHistory: "Input History"
-        case .sentenceHistory: "Sentence History"
         case .permissions: "Experimental Permissions"
         case .about: "About SI"
         }
@@ -47,7 +45,6 @@ enum SettingsPage: Hashable {
         case .phrases: "text.badge.plus"
         case .learning: "sparkles"
         case .inputHistory: "clock"
-        case .sentenceHistory: "text.alignleft"
         case .permissions: "lock.shield"
         case .about: "info.circle"
         }
@@ -68,9 +65,8 @@ enum SettingsPage: Hashable {
         case .aiCompletion: ["Enable AI Completion", "Codex CLI", "Claude Code", "OpenAI API Key", "Accessibility"]
         case .directInput: ["Manage Direct Input…", "Applications", "Terminal", "Toggle Direct Input Shortcut", "Record Shortcut…"]
         case .phrases: ["Manage Personal Phrases…", "Import…", "Export…"]
-        case .learning: ["Manage Learning Data…", "Clear All Learning Data…"]
+        case .learning: ["Manage Learning Data…", "Learn from Submitted Sentences", "Delete Old Sentence History…", "Clear All Learning Data…"]
         case .inputHistory: ["Save Input History", "Export Input History…", "Clear Input History…"]
-        case .sentenceHistory: ["Save Complete Sentences", "Export Saved Sentences…", "Clear Saved Sentences…"]
         case .permissions: ["Accessibility", "Screen Recording"]
         case .about: ["Software Updates", "Check for Updates…", "Version", "Keyboard Shortcuts", "GitHub"]
         }

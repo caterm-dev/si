@@ -3,6 +3,33 @@ import Testing
 @testable import SICore
 
 struct RustConversionIntegrationTests {
+    @Test func precedingTextReachesBothSearchesWithoutBecomingALearnedScore() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SentenceLearningStore(profile: directory.appending(path: "model.si-user"))
+        let learned = try await store.ingest(Array(repeating: "want books", count: 20), batchID: UUID())
+        let model = try #require(learned)
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.english], applicationMemory: ApplicationMemorySnapshot(sentenceModel: model))
+        session.setPrecedingText("First sentence. want ")
+        session.append("books")
+        let contextual = try #require(session.pendingCandidateRequest)
+        let contextualCandidate = try #require(contextual.generate().candidates.first { $0.text == "books" && !$0.isLiteral })
+        let previewCandidate = try #require(contextual.generatePreview().candidates.first { $0.text == "books" && !$0.isLiteral })
+        #expect(contextualCandidate.fieldContextAdjustment > 0)
+        #expect(previewCandidate.fieldContextAdjustment == contextualCandidate.fieldContextAdjustment)
+
+        session.setPrecedingText("")
+        let acceptedObsoleteResult = session.accept(contextual.generate())
+        #expect(!acceptedObsoleteResult)
+        let baseline = try #require(session.pendingCandidateRequest)
+        let baselineCandidate = try #require(baseline.generate().candidates.first { $0.text == "books" && !$0.isLiteral })
+        #expect(baselineCandidate.rankingScore == contextualCandidate.rankingScore)
+        #expect(baselineCandidate.fieldContextAdjustment == 0)
+        #expect((contextualCandidate.presentationScore ?? 0) > (baselineCandidate.presentationScore ?? 0))
+    }
+
     @Test func sharedEngineReturnsBothLanguagesAndLiteral() throws {
         _ = try #require(RustConversion.shared)
         let engine = CandidateEngine()

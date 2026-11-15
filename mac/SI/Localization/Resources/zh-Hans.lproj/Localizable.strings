@@ -141,9 +141,6 @@
 "Personal Learning · %@" = "个人学习 · %@";
 "Enable Personal Learning" = "启用个人学习";
 "Shares learned vocabulary across apps. A deliberate choice of a later candidate becomes the first choice for the same spelling next time, unless a personal phrase is pinned. Frequency rewards remain capped at 32 points. Learning does not decay or expire; turning it off returns to base ranking." = "所有应用共用学习词汇。手动选择非首选候选后，下次输入相同拼写时会优先显示它，个人短语的显式置顶优先。词频奖励仍以 32 分为上限。学习强度不衰减，记录不过期；关闭后恢复基础排序。";
-"Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. No document or clipboard content is read." = "个人学习默认关闭，数据仅保存在本机。统一保留最多 5,000 条记录；达到上限时移除最久未使用的记录。不读取文档或剪贴板内容。";
-"Deletes all learned vocabulary on this Mac. Explicit personal phrases are kept." = "删除本机的所有学习词汇，保留手动添加的个人短语。";
-"Deletes all learned vocabulary, including entries hidden by the search. Explicit personal phrases are kept." = "删除所有学习词汇，包括搜索结果中未显示的记录。保留手动添加的个人短语。";
 "Learned words and counts are shared across apps. Forgetting an entry removes it everywhere." = "所有应用共用学习词汇和使用次数。忘记词条后，它会从所有应用中移除。";
 "Search words or input" = "搜索词语或拼写";
 "No Learning Data" = "暂无学习数据";
@@ -198,23 +195,7 @@
 "To grant either experimental permission, drag SI from the floating panel into the list in System Settings." = "要授予实验权限，请将浮动面板中的 SI 拖入「系统设置」的权限列表。";
 
 "These permissions are for future experiments. macOS may require restarting SI after authorization." = "这些权限供后续实验使用。授权后，macOS 可能要求重新启动 SI。";
-"Clear Saved Sentences" = "清空已保存整句";
-"Clear Saved Sentences…" = "清空已保存整句…";
-"Clear all saved sentences?" = "清空所有已保存的整句？";
-"Each row is the text SI read from the input before passing Return to the app." = "每条记录都是 SI 在把回车键交给 App 前读取的输入文本。";
-"Enable Save Complete Sentences, submit text with SI, then press Return to save available text before the caret. The saved text may be partial." = "开启「保存整句」，用 SI 上屏后按回车，即可保存光标前可读取的文本。保存的文本可能不完整。";
-"Export Saved Sentences" = "导出已保存整句";
-"Export Saved Sentences…" = "导出已保存整句…";
-"Exports all saved sentences and timestamps to one JSONL file. It can contain private text. SI does not upload or send it. Deleting local sentences does not delete exported copies." = "将所有已保存的整句和时间导出到一个 JSONL 文件。文件可能包含私人文字，SI 不会上传或发送。删除本机记录不会删除已导出的副本。";
-"In all apps where SI conversion is active, press Return after submitting text with SI to save available single-line text before the caret. Completeness is not checked; saved text may be partial and may include edits, pasted text and existing content." = "在启用 SI 转换的 App 中，用 SI 上屏后按回车，可保存光标前能读取的单行文本。不检查完整性；保存的文本可能不完整，也可能包含编辑、粘贴或已有的内容。";
-"No Saved Sentences" = "没有已保存的整句";
-"Off by default. Sentences are stored separately on this Mac until deleted. Secure input and direct-input apps are excluded. Stored sentences are not encrypted." = "默认关闭。整句记录单独保存在本机，直到你删除。安全输入和直输 App 不会记录。保存的内容未加密。";
-"Permanently deletes saved and pending sentences. Individual SI submissions are kept." = "永久删除已保存和待写入的整句记录。SI 的逐次提交记录会保留。";
 "Remove Application" = "移除应用";
-"Save Complete Sentences" = "保存整句";
-"Search saved sentences" = "搜索已保存整句";
-"Sentence History" = "整句历史";
-"View Saved Sentences…" = "查看已保存整句…";
 
 // Settings navigation and groups
 "Settings" = "设置";
@@ -335,12 +316,19 @@
 "Record Direct Input Shortcut" = "录制直接输入快捷键";
 "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels." = "按住 Control、Option 或 Command，再按字母、数字或标点键。按 Escape 取消。";
 
-"Sentence capture: waiting for an SI submission in the current input." = "整句采集：等待在当前输入框中用 SI 上屏。";
-"Sentence capture: SI submitted text. Press Return to save available text before the caret." = "整句采集：SI 已上屏，按回车保存光标前可读取的文本。";
-"Sentence capture: captured and queued for saving." = "整句采集：已读取并加入保存队列。";
-"Sentence capture skipped: the input client or recording settings changed during the read." = "已跳过整句采集：读取期间输入客户端或记录设置发生变化。";
-"Sentence capture skipped: the app did not provide the caret range." = "已跳过整句采集：App 未提供光标范围。";
-"Sentence capture skipped: select no text and use a nonempty input of at most 1,024 UTF-16 units." = "已跳过整句采集：请取消文本选择，并使用不超过 1,024 个 UTF-16 单元的非空输入。";
-"Sentence capture skipped: the app still reports marked text." = "已跳过整句采集：App 仍报告有未确认的输入文本。";
-"Sentence capture skipped: the input is blank, multiline, contains control characters or exceeds the limit." = "已跳过整句采集：输入为空白、多行、含控制字符或超过长度限制。";
-"Sentence capture skipped: the app did not return text." = "已跳过整句采集：App 未返回文本。";
+// Sentence learning
+"Sentence Learning" = "整句学习";
+"Learn from Submitted Sentences" = "从提交的整句中学习";
+"After you confirm a candidate and press Return, SI can learn from the complete text in compatible single-line inputs, including edits and pasted text." = "确认候选后按回车，SI 可从兼容的单行输入框中学习完整文本，包括修改和粘贴的内容。";
+"On by default when Personal Learning is enabled. Learned words and word counts stay on this Mac and can change candidate ranking. SI discards the original sentence after processing it." = "启用个人学习后，整句学习默认开启。学习得到的词条和词频仅保存在本机，并可影响候选排序。SI 处理后会丢弃原句。";
+"Retry Sentence Learning" = "重试整句学习";
+"Sentence learning data could not be opened. Clear all learning data to start again." = "无法打开整句学习数据。请清除所有学习数据后重试。";
+"Sentence learning data could not be cleared. Please try clearing it again." = "无法清除整句学习数据。请重试。";
+"Sentence learning could not be saved. Retry while SI is running to process the pending text." = "无法保存整句学习数据。请在 SI 运行期间重试，以处理待学习的文本。";
+"Delete Old Sentence History…" = "删除旧整句历史…";
+"Delete Old Sentence History" = "删除旧整句历史";
+"Delete old Sentence History?" = "删除旧整句历史？";
+"Deletes sentences saved by the former Sentence History feature on this Mac." = "删除此 Mac 上由原整句历史功能保存的句子。";
+"Old Sentence History could not be deleted. Please retry." = "无法删除旧整句历史。请重试。";
+"Deletes learned vocabulary and the sentence model on this Mac. Explicit personal phrases are kept." = "删除此 Mac 上已学习的词汇和整句模型。手动添加的个人短语会保留。";
+"Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. Candidate-choice learning uses the text you confirm." = "个人学习默认关闭，数据仅保存在本机。最多保留 5,000 条全局词汇记录，达到上限时移除最久未使用的记录。候选学习使用你确认的文本。";

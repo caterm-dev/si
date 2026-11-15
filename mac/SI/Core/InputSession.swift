@@ -10,13 +10,14 @@ public struct CandidateRequest: Sendable {
     fileprivate let dictionary: UserDictionary
     fileprivate let now: Date
     fileprivate let context: CandidateContext?
+    fileprivate let precedingText: String
     fileprivate let automaticConfirmationEnabled: Bool
     fileprivate let applicationMemory: ApplicationMemorySnapshot
 
     public func generate() -> CandidateResult {
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context, includesConfirmationEvidence: automaticConfirmationEnabled,
-                                           applicationMemory: applicationMemory)
+                                           applicationMemory: applicationMemory, precedingText: precedingText)
         return CandidateResult(requestID: id, candidates: candidates,
                                confirmationPrefixes: automaticConfirmationEnabled
                                 ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
@@ -26,7 +27,7 @@ public struct CandidateRequest: Sendable {
     public func generatePreview() -> CandidateResult {
         CandidateResult(requestID: id, candidates: engine.previewCandidates(
             for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context,
-            applicationMemory: applicationMemory),
+            applicationMemory: applicationMemory, precedingText: precedingText),
             isPreview: true)
     }
 }
@@ -69,6 +70,7 @@ public struct InputSession: Sendable {
     private var applicationMemory: ApplicationMemorySnapshot = .empty
     private var usesContext = false
     private var recentContext: RecentContext?
+    private var precedingText = ""
     private var contextGeneration: UInt64 = 0
     private var automaticConfirmationEnabled = false
     private var configurationGeneration: UInt64 = 0
@@ -137,6 +139,13 @@ public struct InputSession: Sendable {
         }
         automaticConfirmation.appended(input: buffer, atEnd: wasAtEnd, now: now)
         refresh(now: now)
+    }
+
+    mutating func setPrecedingText(_ text: String) {
+        guard !precedingText.utf8.elementsEqual(text.utf8) else { return }
+        precedingText = text
+        automaticConfirmation = AutomaticConfirmation()
+        if !buffer.isEmpty { refresh() }
     }
 
     public mutating func deleteBackward() {
@@ -227,6 +236,7 @@ public struct InputSession: Sendable {
         pendingCandidateRequest = nil
         hasCandidatePreview = false
         recentContext = nil
+        precedingText = ""
     }
 
     public mutating func breakContext() {
@@ -257,6 +267,7 @@ public struct InputSession: Sendable {
         if let score = candidate.presentationScore { return score }
         let spelling = candidate.consumedInputCount.map { String(buffer.prefix($0)) } ?? buffer
         return learning.rankingScore(for: candidate, input: spelling, now: now, context: currentContext(now: now))
+            + candidate.fieldContextAdjustment
             + CandidateScoring.inputCoverageBonus(for: candidate, spelling: spelling)
     }
 
@@ -269,6 +280,7 @@ public struct InputSession: Sendable {
     private mutating func refresh(now: Date = .now) {
         automaticConfirmationRevision &+= 1
         guard !buffer.isEmpty else {
+            precedingText = ""
             candidates = []
             pendingCandidateRequest = nil
             hasCandidatePreview = false
@@ -276,6 +288,7 @@ public struct InputSession: Sendable {
         }
         let request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
                                        dictionary: dictionary, now: now, context: currentContext(now: now),
+                                       precedingText: precedingText,
                                        automaticConfirmationEnabled: automaticConfirmationEnabled,
                                        applicationMemory: applicationMemory)
         pendingCandidateRequest = request

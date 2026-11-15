@@ -144,8 +144,8 @@ def convert(source, output, tokenizer, batch_size=256, chunk_rows=8192):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source', type=Path, default=ROOT / 'Data/Vocabulary/chinese',
-                        help='Chinese directory; read only base.csv and CSVs recursively under phrase/')
+    parser.add_argument('--source', type=Path,
+                        help='Historical Chinese directory with base.csv and optional phrase/ CSVs')
     parser.add_argument('--output', type=Path, default=ROOT / 'Data/Chinese/base.csv')
     parser.add_argument('--device', choices=('cpu', 'mps'), default='cpu')
     parser.add_argument('--threads', type=int, default=4)
@@ -156,6 +156,8 @@ def main(argv=None):
     parser.add_argument('--fetch-model', action='store_true',
                         help='Explicitly download and lock the selected model, then exit without converting')
     args = parser.parse_args(argv)
+    if not args.fetch_model and args.source is None:
+        parser.error('--source is required for vocabulary conversion')
     if min(args.threads, args.batch_size, args.chunk_rows) < 1:
         parser.error('Thread, batch and chunk sizes must be positive')
     try:

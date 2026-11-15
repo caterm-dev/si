@@ -2,9 +2,9 @@
 
 This is the historical vocabulary-analysis workflow. The local Han-fragment
 bundles and their derived HanLP/token tables were deleted on November 5, 2026
-at the user's request. Maintained application vocabulary/audit records remain;
-a fixed occurrence-count dictionary is retained under
-`chinese/dictionaries/generated/unigram-reference-v1/` for the custom tokenizer.
+at the user's request. The [current vocabulary](../docs/CHINESE_VOCABULARY.md) is maintained as
+counted CSVs. The [unigram tokenizer](UNIGRAM_TOKENIZER.md) accepts separately
+supplied occurrence counts.
 
 This workflow uses HanLP as a **local, offline corpus-analysis tool**. It does
 not add HanLP, a Python interpreter, a neural model or host-text inspection to
@@ -44,78 +44,15 @@ locally for this analysis, without shipping it in SI. Corpus-derived data retain
 their source terms; this analysis does not assert a new blanket license for
 the corpora or derived material.
 
-## Reproduce
+## Reproduction records
 
-Run from the repository root:
+The original analysis used verified fragment bundles and retained per-source
+`text,count,line_count` totals, a candidate review, and manual decisions.
+The tool that joined those totals to the retired vocabulary layout is
+available with the earlier dictionary metadata in Git. The HanLP model
+loader also serves the [Chinese vocabulary migration](../Data/Chinese/README.md).
 
 ```sh
-corpus/.venv/bin/python -m pip install -r corpus/requirements-hanlp.txt
-# Explicit network stage: obtains model, tokenizer and normalization assets only.
-corpus/.venv/bin/python corpus/hanlp_words.py fetch
-# Verify both frozen input bundles first.
-corpus/.venv/bin/python corpus/check.py --bundle corpus/chinese/prepared/chinese-v1
-corpus/.venv/bin/python corpus/check.py --bundle corpus/chinese/prepared/wikipedia-20261001-v1
-# Offline inference; use --device cpu when Metal is unavailable.
-corpus/.venv/bin/python corpus/hanlp_words.py segment \
-  --bundle corpus/chinese/prepared/chinese-v1 \
-  --bundle corpus/chinese/prepared/wikipedia-20261001-v1 \
-  --device mps --batch-size 512 --output corpus/chinese/generated/hanlp-words-v1
-corpus/.venv/bin/python corpus/hanlp_words.py verify \
-  --bundle corpus/chinese/prepared/chinese-v1 \
-  --bundle corpus/chinese/prepared/wikipedia-20261001-v1 \
-  --output corpus/chinese/generated/hanlp-words-v1
-corpus/.venv/bin/python corpus/review_words.py \
-  --segmented corpus/chinese/generated/hanlp-words-v1 \
-  --output corpus/chinese/generated/hanlp-review-v2
-corpus/.venv/bin/python -m unittest discover -s corpus/tests -v
+git show 0509cb3:corpus/review_words.py
+git show 90dae8b^:Data/Vocabulary/Corpus/README.md
 ```
-
-`fetch` records exact model/cache-file hashes and inference-library versions in
-`corpus/.cache/hanlp/model-lock.json`. `segment` verifies this lock and input
-hashes, then blocks network connections. Caches, segmented text, token counts
-and automatic review reports remain under ignored local paths. Completed
-25,000-line chunks have checksums and can be resumed with the identical command
-and configuration. Changed inputs, code, dependencies or device require a fresh
-output directory. Only a complete pass publishes the root `manifest.json`.
-
-Each source has `counts.csv` (`text,count,line_count`), a manifest, and numbered
-chunks containing token JSONL and counts. Token-line order follows source text
-and origins. The review directory contains:
-
-- `frequencies.csv`: every token with per-source counts and initial status.
-- `missing.csv`: absent 2–7-Han-character words eligible for manual review.
-- `existing.csv`: sufficiently supported existing words, readings and weights.
-- `manifest.json`: source/vocabulary hashes, filter counts and weight policy.
-
-## Review and weight boundaries
-
-New-word review considers 2–7-character words and stable terms, matching the
-Chinese lattice's seven-syllable lexical-span bound. It requires at least 20 occurrences in at least 10 distinct
-fragments, plus support in at least two sources (three containing fragments
-per supporting source), or at least 100 containing fragments for a single-source
-term. Single characters, non-Han tokens, lengths outside 2–7 and repeated-single-
-character strings are excluded. These gates do not establish correctness.
-Manual review must additionally remove unverified/incomplete names, incomplete affixes, accidental
-cross-word spans, typos and source-specific noise, and verify explicit readings.
-Rejected frequent proposals need an explicit recorded reason. Low-frequency
-words are excluded from additions, **not deleted from the existing dictionary**.
-
-Raw counts are not in Wanxiang's ranking-weight unit. For a new word, the report
-suggests the median existing positive weight among unambiguous-reading words
-of the same character length and `floor(log2(count))` bin, clamped to 10–5,000.
-This is an editorial prior anchored to the current dictionary, not a measured
-probability or a new global frequency scale. If there are no anchors it uses
-the existing local default of 10. Suggestions require manual review before
-entering an application CSV. Existing weights are never changed automatically.
-
-Base and imported category identities have precedence over local supplements;
-copying an existing word to a new category cannot correct its runtime weight.
-Any reviewed correction must edit the authoritative CSV and retain an explicit
-before/after record. A zero count or genre imbalance alone is not grounds for
-removing or downweighting a word. Prior explicit user adjustments remain intact.
-
-After adopting reviewed changes, regenerate/check runtime resources and run the
-vocabulary tests, shared Swift tests and Debug build as documented in
-[Chinese maintenance](../docs/CHINESE_VOCABULARY.md). Automated checks establish
-data integrity and exercised behavior, not general accuracy or live host
-compatibility. No installation is needed for this offline review.

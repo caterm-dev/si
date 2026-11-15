@@ -7,18 +7,20 @@ use si_gram::GramModel;
 use si_lexicon::Lexicon;
 
 use super::paragraph_review::ParagraphReview;
-use super::{LexiconReview, ParagraphImport};
+use super::{LexiconReview, ParagraphImport, lock_destination};
 
 const STAGING_PREFIX: &str = ".pending.si-corpus.";
 const STAGED_LEXICON: &str = "lexicon.silex";
 const STAGED_GRAMS: &str = "words.sigram";
 const STAGED_REVIEW: &str = "review.csv";
+const STAGED_ENGLISH: &str = "english.csv";
 const PARTNER: &str = "partner";
 
 pub(super) struct Paths {
     pub(super) lexicon: PathBuf,
     pub(super) grams: PathBuf,
     review: PathBuf,
+    english: PathBuf,
 }
 
 impl Paths {
@@ -26,18 +28,40 @@ impl Paths {
         let lexicon = snapshot_path(lexicon, "silex")?;
         let grams = snapshot_path(grams, "sigram")?;
         let review = sidecar_path(&grams, ".review.csv");
+        let english = sidecar_path(&grams, ".english.csv");
         Ok(Self {
             lexicon,
             grams,
             review,
+            english,
         })
     }
 
     pub(super) fn check_destinations(&self) -> io::Result<()> {
-        for path in [&self.lexicon, &self.grams, &self.review] {
+        for path in [&self.lexicon, &self.grams, &self.review, &self.english] {
             snapshot_exists(path)?;
         }
         Ok(())
+    }
+
+    pub(super) fn lock_destinations(&self) -> io::Result<[File; 2]> {
+        let mut paths = [&self.lexicon, &self.grams];
+        paths.sort_unstable();
+        Ok([
+            lock_destination(paths[0], false)?,
+            lock_destination(paths[1], false)?,
+        ])
+    }
+
+    pub(super) fn clear_grams(&self) -> io::Result<bool> {
+        let _locks = self.lock_destinations()?;
+        check_no_pending_ingest(&self.lexicon)?;
+        check_no_pending_ingest(&self.grams)?;
+        if !snapshot_exists(&self.grams)? {
+            return Ok(false);
+        }
+        fs::remove_file(&self.grams)?;
+        Ok(true)
     }
 
     pub(super) fn save(
@@ -57,7 +81,7 @@ impl Paths {
         &self,
         lexicon: &mut Lexicon,
         grams: &GramModel,
-        review: ParagraphReview,
+        mut review: ParagraphReview,
         report: &ParagraphImport,
         sources: &[PathBuf],
     ) -> io::Result<()> {
@@ -65,10 +89,11 @@ impl Paths {
         let grams_stage = StagingDirectory::new(&self.grams)?;
         lexicon.save(lexicon_stage.0.join(STAGED_LEXICON))?;
         grams.save(grams_stage.0.join(STAGED_GRAMS))?;
+        let english_rows = review.save_english(&grams_stage.0.join(STAGED_ENGLISH))?;
         let rows = review.save(lexicon, &grams_stage.0.join(STAGED_REVIEW))?;
         write_synced(
             &lexicon_stage.0.join("report"),
-            &encode_report(report, rows),
+            &encode_report(report, rows, english_rows),
         )?;
         write_synced(&lexicon_stage.0.join("sources"), &encode_sources(sources)?)?;
         for (stage, partner) in [(&lexicon_stage, &self.grams), (&grams_stage, &self.lexicon)] {
@@ -100,15 +125,26 @@ impl Paths {
             ));
         }
 
-        let report = decode_report(&fs::read(lexicon_pending.join("report"))?, &self.review)?;
+        let report = decode_report(
+            &fs::read(lexicon_pending.join("report"))?,
+            &self.review,
+            &self.english,
+        )?;
         let staged_lexicon = lexicon_pending.join(STAGED_LEXICON);
         if grams_ready {
             let updates = [
                 (staged_lexicon, &self.lexicon),
                 (grams_pending.join(STAGED_GRAMS), &self.grams),
                 (grams_pending.join(STAGED_REVIEW), &self.review),
+                (grams_pending.join(STAGED_ENGLISH), &self.english),
             ];
-            let mut ready = [false; 3];
+            let count = if report.english_review.is_some() {
+                4
+            } else {
+                3
+            };
+            let updates = &updates[..count];
+            let mut ready = [false; 4];
             for ((source, destination), ready) in updates.iter().zip(&mut ready) {
                 *ready = snapshot_exists(source)?;
                 if !*ready && !snapshot_exists(destination)? {
@@ -127,6 +163,7 @@ impl Paths {
             || !snapshot_exists(&self.lexicon)?
             || !snapshot_exists(&self.grams)?
             || !snapshot_exists(&self.review)?
+            || (report.english_review.is_some() && !snapshot_exists(&self.english)?)
         {
             return Err(io::Error::other(
                 "pending corpus import is missing its gram stage",
@@ -265,7 +302,7 @@ fn encode_sources(sources: &[PathBuf]) -> io::Result<Vec<u8>> {
     Ok(encoded)
 }
 
-fn encode_report(report: &ParagraphImport, review_rows: usize) -> Vec<u8> {
+fn encode_report(report: &ParagraphImport, review_rows: usize, english_rows: usize) -> Vec<u8> {
     let [two, three, four, five] = report.grams;
     [
         report.paragraphs,
@@ -279,16 +316,17 @@ fn encode_report(report: &ParagraphImport, review_rows: usize) -> Vec<u8> {
         three,
         four,
         review_rows,
+        five,
+        english_rows,
     ]
     .into_iter()
-    .chain((five != 0).then_some(five))
     .map(|value| value.to_string())
     .collect::<Vec<_>>()
     .join(" ")
     .into_bytes()
 }
 
-fn decode_report(bytes: &[u8], review: &Path) -> io::Result<ParagraphImport> {
+fn decode_report(bytes: &[u8], review: &Path, english: &Path) -> io::Result<ParagraphImport> {
     let invalid = || io::Error::other("invalid pending corpus import report");
     let text = std::str::from_utf8(bytes).map_err(|_| invalid())?;
     let values = text
@@ -313,9 +351,10 @@ fn decode_report(bytes: &[u8], review: &Path) -> io::Result<ParagraphImport> {
     else {
         return Err(invalid());
     };
-    let five = match extra {
-        [] => 0,
-        [five] => *five,
+    let (five, english_rows) = match extra {
+        [] => (0, None),
+        [five] => (*five, None),
+        [five, english_rows] => (*five, Some(*english_rows)),
         _ => return Err(invalid()),
     };
     Ok(ParagraphImport {
@@ -330,6 +369,10 @@ fn decode_report(bytes: &[u8], review: &Path) -> io::Result<ParagraphImport> {
         review: Some(LexiconReview {
             path: review.to_owned(),
             rows: *rows,
+        }),
+        english_review: english_rows.map(|rows| LexiconReview {
+            path: english.to_owned(),
+            rows,
         }),
     })
 }
@@ -394,7 +437,7 @@ mod tests {
     #[test]
     fn interrupted_publication_recovers_without_counting_the_corpus_again() -> io::Result<()> {
         let scratch = StagingDirectory::new(&std::env::temp_dir().join("si-ingest-test"))?;
-        for phase in 0..5 {
+        for phase in 0..=5 {
             let paths = Paths::new(
                 &scratch.0.join(format!("lexicons/main-{phase}.silex")),
                 &scratch.0.join(format!("grams/main-{phase}.sigram")),
@@ -413,22 +456,21 @@ mod tests {
             let report = ParagraphImport {
                 paragraphs: 1,
                 matched_words: 2,
-                added_english_words: 1,
                 grams: model.sizes(),
                 review: Some(LexiconReview {
                     path: paths.review.clone(),
                     rows: 0,
                 }),
+                english_review: Some(LexiconReview {
+                    path: paths.english.clone(),
+                    rows: 1,
+                }),
                 ..ParagraphImport::default()
             };
             let sources = [scratch.0.join("source-no-longer-needed.txt")];
-            paths.prepare(
-                &mut lexicon,
-                &model,
-                ParagraphReview::default(),
-                &report,
-                &sources,
-            )?;
+            let mut review = ParagraphReview::default();
+            review.record_english("Unlisted")?;
+            paths.prepare(&mut lexicon, &model, review, &report, &sources)?;
 
             let lexicon_pending = pending_path(&paths.lexicon);
             let grams_pending = pending_path(&paths.grams);
@@ -436,11 +478,12 @@ mod tests {
                 (lexicon_pending.join(STAGED_LEXICON), &paths.lexicon),
                 (grams_pending.join(STAGED_GRAMS), &paths.grams),
                 (grams_pending.join(STAGED_REVIEW), &paths.review),
+                (grams_pending.join(STAGED_ENGLISH), &paths.english),
             ];
             for (source, destination) in updates.into_iter().take(phase) {
                 fs::rename(source, destination)?;
             }
-            if phase == 4 {
+            if phase == 5 {
                 clear_pending(&grams_pending)?;
             } else {
                 let blocked = add_corpus(&paths.lexicon, &paths.grams, &sources).unwrap_err();
@@ -459,6 +502,10 @@ mod tests {
             assert_eq!(saved.lexicon().word(first).unwrap().count, 2);
             assert_eq!(saved.grams().unwrap().count(&[first, second]), Some(1));
             assert_eq!(saved.grams().unwrap().count(&fivegram), Some(3));
+            assert_eq!(
+                fs::read_to_string(&paths.english)?,
+                "text,reading,weight\nUnlisted,unlisted,1\n"
+            );
         }
         Ok(())
     }

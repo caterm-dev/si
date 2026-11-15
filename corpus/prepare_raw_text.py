@@ -4,6 +4,7 @@
 from collections import Counter
 import argparse
 import gzip
+from hashlib import sha256
 import io
 import importlib.metadata
 import json
@@ -15,14 +16,24 @@ import time
 if __package__:
     from .common import CHINESE, ROOT, digest, load_sources, new_directory, verified_archive, write_json
     from .readers import documents
-    from .local_sources import snapshot, si_documents, dialogue_documents, copy_attribution
+    from .local_sources import snapshot, si_documents, dialogue_documents, copy_attribution, local_path
+    from .chatbot_sources import SOURCE as CHATBOT, chatbot_documents, chatbot_snapshot
 else:
     from common import CHINESE, ROOT, digest, load_sources, new_directory, verified_archive, write_json
     from readers import documents
-    from local_sources import snapshot, si_documents, dialogue_documents, copy_attribution
+    from local_sources import snapshot, si_documents, dialogue_documents, copy_attribution, local_path
+    from chatbot_sources import SOURCE as CHATBOT, chatbot_documents, chatbot_snapshot
 
 SURROGATES = re.compile('[\ud800-\udfff]')
 LCCC_TOKEN_SPACES = re.compile(r'(?<=[\u3400-\u9fff，。！？；：、]) +(?=[\u3400-\u9fff，。！？；：、])')
+LOCAL_SOURCES = ('si', 'dialogue', CHATBOT)
+CHATBOT_NOTICE = CHINESE / 'metadata' / 'chinese-chatbot-corpus.md'
+
+
+def local_snapshot(kind, root):
+    if kind == CHATBOT:
+        return chatbot_snapshot(root)
+    return snapshot(kind, root)
 
 
 def raw_documents(source, archive, counts):
@@ -31,6 +42,9 @@ def raw_documents(source, archive, counts):
         return
     if source['kind'] == 'dialogue':
         yield from dialogue_documents(source, archive, counts)
+        return
+    if source['kind'] == CHATBOT:
+        yield from chatbot_documents(source, archive, counts)
         return
     if source['kind'] not in ('lccc', 'mc4'):
         for origin, text in documents(source, archive, counts, include_title=True):
@@ -66,18 +80,23 @@ def extract(source, archive, output):
         except importlib.metadata.PackageNotFoundError as error:
             raise RuntimeError('OASST1 requires corpus/english/requirements.txt (pyarrow).') from error
     archive = Path(archive)
-    local = source['kind'] in ('si', 'dialogue')
+    local = source['kind'] in LOCAL_SOURCES
     if local:
-        inputs = snapshot(source['kind'], archive)
+        inputs = local_snapshot(source['kind'], archive)
         if inputs != source:
             raise ValueError('Local source changed before extraction')
     else:
         inputs = {'size': archive.stat().st_size, 'sha256': digest(archive)}
     initial_stat = archive.stat()
     counts = Counter()
+    dataset_documents = Counter()
     last_report = time.monotonic()
     code = {name: digest(ROOT / name) for name in
             ('prepare_raw_text.py', 'readers.py', 'local_sources.py', 'common.py', 'clean/chinese.py', 'clean/wikipedia.py')}
+    if source['kind'] == CHATBOT:
+        code['chatbot_sources.py'] = digest(ROOT / 'chatbot_sources.py')
+        notice = CHATBOT_NOTICE.read_bytes()
+        inputs = {**inputs, 'attribution_sha256': sha256(notice).hexdigest()}
     if output.exists():
         manifest = json.loads((output / 'manifest.json').read_text())
         if (manifest['source'] != source or manifest['code'] != code
@@ -93,6 +112,8 @@ def extract(source, archive, output):
                 (stage / 'documents.jsonl').open('w', encoding='utf-8', newline='\n') as origins:
             for origin, raw, metadata in raw_documents(source, archive, counts):
                 counts['documents'] += 1
+                if source['kind'] == CHATBOT:
+                    dataset_documents[metadata['dataset']] += 1
                 raw = raw.replace('\r\n', '\n').replace('\r', '\n')
                 raw, removed = SURROGATES.subn('', raw)
                 counts['surrogates_removed'] += removed
@@ -114,8 +135,17 @@ def extract(source, archive, output):
         if not counts['documents']:
             raise ValueError('Source produced no documents: ' + source['id'])
         copy_attribution(source, archive, stage)
+        if source['kind'] == CHATBOT:
+            (stage / 'attribution').mkdir()
+            (stage / 'attribution' / CHATBOT_NOTICE.name).write_bytes(notice)
+            for entry in source['notices']:
+                target = stage / 'attribution' / entry['path']
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(local_path(archive, entry['path']), target)
+                if digest(target) != entry['sha256']:
+                    raise ValueError('Local attribution changed during extraction: ' + entry['path'])
         if local:
-            if snapshot(source['kind'], archive) != source:
+            if local_snapshot(source['kind'], archive) != source:
                 raise ValueError('Local source changed during extraction')
         else:
             current_stat = archive.stat()
@@ -133,10 +163,13 @@ def extract(source, archive, output):
             'extraction': 'JSON text/turns; Markdown prose; namespace-0 nonredirect Wikipedia current wikitext prose '
                           'with title. Existing markup readers remove code/templates/tables/references. '
                           'Line endings are LF; invalid surrogate code points are removed for valid UTF-8. '
-                          'LCCC joins only spaces between adjacent Han/CJK punctuation tokens.',
+                          'LCCC joins only spaces between adjacent Han/CJK punctuation tokens. '
+                          'Chinese Chatbot Corpus emits utterances with subcorpus, record and turn origins.',
             'files': {path.relative_to(stage).as_posix(): {'sha256': digest(path), 'bytes': path.stat().st_size}
                       for path in sorted(stage.rglob('*')) if path.is_file()},
         }
+        if source['kind'] == CHATBOT:
+            manifest['dataset_documents'] = dict(dataset_documents)
         write_json(stage / 'manifest.json', manifest)
     print(f'Extracted {source["id"]}: {counts["documents"]:,} documents / {counts["lines"]:,} text lines', flush=True)
     return manifest
@@ -144,17 +177,21 @@ def extract(source, archive, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source', default='all', help='all, si, dialogue, or a pinned source ID')
+    parser.add_argument('--source', default='all', help=f'all, si, dialogue, {CHATBOT}, or a pinned source ID')
     parser.add_argument('--output', type=Path, default=CHINESE / 'prepared/raw-text-v2')
     parser.add_argument('--raw-root', type=Path, default=CHINESE / 'raw')
     args = parser.parse_args()
-    sources = [] if args.source in ('si', 'dialogue') else load_sources()
-    for kind in ('si', 'dialogue'):
+    sources = [] if args.source in LOCAL_SOURCES else load_sources()
+    local_roots = {}
+    for kind in LOCAL_SOURCES:
         if args.source in ('all', kind):
             root = args.raw_root / kind
             if kind == 'dialogue' and not root.exists():
                 root = args.raw_root / 'dialogue-20261104'
-            sources.append(snapshot(kind, root))
+            if kind == CHATBOT and args.source == 'all' and not root.exists():
+                continue
+            sources.append(local_snapshot(kind, root))
+            local_roots[kind] = root
     if args.source not in {'all', *(source['id'] for source in sources)}:
         parser.error('Unknown source: ' + args.source)
     args.output.mkdir(parents=True, exist_ok=True)
@@ -162,10 +199,8 @@ def main():
         if args.source not in ('all', source['id']):
             continue
         print('Verifying raw archive: ' + source['id'], flush=True)
-        if source['kind'] in ('si', 'dialogue'):
-            archive = args.raw_root / source['kind']
-            if source['kind'] == 'dialogue' and not archive.exists():
-                archive = args.raw_root / 'dialogue-20261104'
+        if source['kind'] in local_roots:
+            archive = local_roots[source['kind']]
         else:
             archive = verified_archive(source, args.raw_root)
         extract(source, archive, args.output / source['id'])

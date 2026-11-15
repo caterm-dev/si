@@ -6,14 +6,16 @@ public struct ApplicationMemorySnapshot: Equatable, Sendable {
     private let revision = UUID()
     public let vocabulary: [ApplicationVocabularyEntry]
     public let learning: LearningProfile
+    public let sentenceModel: SentenceLearningModel?
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.revision == rhs.revision
     }
 
     public init(vocabulary: [ApplicationVocabularyEntry] = [], now: Date = .now,
-                learning: LearningProfile? = nil) {
+                learning: LearningProfile? = nil, sentenceModel: SentenceLearningModel? = nil) {
         self.vocabulary = vocabulary
+        self.sentenceModel = sentenceModel
         self.learning = learning ?? LearningProfile(entries: vocabulary.map(\.preference), now: now, retainsIndefinitely: true)
     }
 

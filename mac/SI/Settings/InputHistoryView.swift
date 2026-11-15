@@ -9,16 +9,9 @@ struct InputHistoryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(history.sectionTitle).font(.title2.bold())
-            Text(L10n.text(history.savesSentences
-                ? "Each row is the text SI read from the input before passing Return to the app."
-                : "Each row is one SI submission. Prefix selections and automatic confirmations appear separately; text typed outside SI is not included."))
+            Text("Each row is one SI submission. Prefix selections and automatic confirmations appear separately; text typed outside SI is not included.")
                 .font(.callout).foregroundStyle(.secondary)
-            if history.savesSentences, history.enabled {
-                Text(history.sentenceCaptureDescription)
-                    .font(.callout).foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-            }
-            TextField(L10n.text(history.savesSentences ? "Search saved sentences" : "Search history spelling or text"), text: $search)
+            TextField("Search history spelling or text", text: $search)
                 .textFieldStyle(.roundedBorder)
             List(history.entries) { entry in
                 InputHistoryRow(entry: entry) { history.remove(id: entry.id) }
@@ -26,10 +19,8 @@ struct InputHistoryView: View {
             .overlay {
                 if history.isReading { ProgressView("Opening input history…") }
                 else if history.entries.isEmpty {
-                    ContentUnavailableView(L10n.text(history.savesSentences ? "No Saved Sentences" : "No Input History"),
-                                           systemImage: "clock", description: Text(L10n.text(history.savesSentences
-                                            ? "Enable Save Complete Sentences, submit text with SI, then press Return to save available text before the caret. The saved text may be partial."
-                                            : "Enable Save Input History to record future SI submissions.")))
+                    ContentUnavailableView("No Input History", systemImage: "clock",
+                                           description: Text("Enable Save Input History to record future SI submissions."))
                 }
             }
             if history.isExporting { ProgressView("Exporting input history…") }
@@ -76,12 +67,11 @@ struct InputHistoryView: View {
 }
 
 extension InputHistorySettings {
-    var sectionTitle: String { L10n.text(savesSentences ? "Sentence History" : "Input History") }
-    var clearTitle: String { L10n.text(savesSentences ? "Clear Saved Sentences…" : "Clear Input History…") }
-    var clearConfirmationTitle: String { L10n.text(savesSentences ? "Clear all saved sentences?" : "Clear all input history?") }
-    var clearAction: String { L10n.text(savesSentences ? "Clear Saved Sentences" : "Clear Input History") }
+    var sectionTitle: String { L10n.text("Input History") }
+    var clearTitle: String { L10n.text("Clear Input History…") }
+    var clearConfirmationTitle: String { L10n.text("Clear all input history?") }
+    var clearAction: String { L10n.text("Clear Input History") }
     var clearMessage: String {
-        L10n.text(savesSentences ? "Permanently deletes saved and pending sentences. Individual SI submissions are kept."
-            : "Permanently deletes saved input history and pending unsaved history. Personal Learning and personal phrases are kept.")
+        L10n.text("Permanently deletes saved input history and pending unsaved history. Personal Learning and personal phrases are kept.")
     }
 }

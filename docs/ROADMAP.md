@@ -4,34 +4,26 @@ SI is currently a development preview. Checked items have implementations; unche
 
 ## macOS conversion migration — 2026-11
 
-The macOS app uses the Rust decoder and a bundled `.silex` dictionary.
-Builds can supply a paired `.sigram` word-gram model. The app uses Rust for
+The macOS app uses the Rust decoder and bundles `main.silex` with its
+paired `words.sigram` model. The app uses Rust for
 lexical search and Swift for InputMethodKit and candidate presentation.
 Native host behavior and parity with the earlier Chinese ranking still
 require verification. See [architecture](ARCHITECTURE.md#rust-conversion)
 and [bridge checks](TESTING.md#automated-checks).
-
-## Chinese migration — 2026-10-21
-
-The October migration used a Swift MSIME adaptation and an SI-maintained dictionary. Its milestones record the earlier implementation. See [the implementation plan](IMPLEMENTATION_PLAN.md) and [algorithm study](MSIME_ALGORITHM.md).
-
-The October 22 dictionary consolidation removes old Chinese sources and their maintenance adapter. English shares the Chinese SQLite schema. The October 29 Wanxiang replacement supersedes the former relative-frequency weight unit with raw upstream ranking weights. The October 27 source migration places both effective dictionaries in SI-maintained `base.csv` files, supports additional category CSVs and centralizes source-level provenance in `Data/Vocabulary/meta.json`; source-level metadata and notices remain attribution records, while superseded wordlists/import pipelines are deleted. Original English import provenance and functionality are retained; complete-candidate calibration remains separate work. Mixed lexical integration now queries those same dictionaries.
 
 ## Foundation — included
 
 - [x] One InputMethodKit input source without internal language modes.
 - [x] Persistent English and Simplified Chinese language preferences.
 - [x] Unified candidate engine with ambiguity preservation and literal fallback.
-- [x] Pinned Wanxiang Chinese/English bases and normal Chinese category dictionaries, with an offline converter and preserved local category data.
-- [x] Shared Chinese/English category CSV compiler, base categories, source-level metadata, SQLite format and versioned upstream-weight weight unit.
+- [x] Maintained Chinese and English category CSVs derived from pinned upstream data and SI additions.
+- [x] Shared Rust lexicon compiler with explicit integer counts and an optional paired word-gram model.
 - [x] Conservatively group existing Chinese vocabulary into base plus geography, organizations, technology, science, medicine, culture/sports, movie and game without changing effective rows or weights.
 - [x] Curate paired Chinese/English titles for 400 selected films from 2007–2026, preserving older movie vocabulary and adding English title typing keys.
 - [ ] Further semantic review, finer categories and broader film coverage beyond the initial movie selection.
-- [x] Multi-source English bootstrap provenance retained inline in metadata, with source versions, filtering and full attribution; superseded import data/tools removed.
-- [x] Selected annotated Rime Ice Chinese character/base vocabulary, preserved SI entries, explicit weighting, local overrides and shared upstream audits.
 - [x] Native marked text, candidate presentation, and commit/cancel integration.
 - [x] English and Simplified Chinese app interface, following macOS app-language preferences independently of input languages.
-- [x] Shared-core tests, build scripts, installation instructions, and CI configuration.
+- [x] Shared-core tests, build scripts, installation instructions, and website CI.
 
 ## Useful everyday input
 
@@ -45,6 +37,8 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [x] Incomplete final mixed-word prediction and bounded preservation of unrecognized spans.
 - [ ] Broader unknown-word/language-boundary detection beyond bounded lexical heuristics.
 - [x] Opt-in global Personal Learning with shared usage/correction counts, neutral first choices, one-correction exact-spelling priority, bounded frequency rewards and global management; no per-app learning controls, decay or age expiry.
+- [x] Sentence learning under opt-in Personal Learning uses bounded Return-time text from compatible hosts and persists the local Rust user lexicon and word grams.
+- [ ] Native sentence learning verification across compatible host fields, focus changes, secure input and Settings accessibility.
 - [x] Remove App History recording/completion; migrate app archives to global vocabulary-only schema 4, merging app counts, preserving schema-3 evidence and resetting older ambiguous ranking evidence.
 - [x] Independently opted-in permanent Input History with exact per-submission spelling/output, repeat preservation, local SQLite pages, search, explicit deletion and error/retry controls; no candidate/training integration.
 - [x] User-controlled single-file history export, one direct save action, checksum-validated offline restoration and unsplit training candidates without purpose flags; no automatic transfer/training.
@@ -52,7 +46,9 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] Native Input History verification, including consent, secure input, prefix/automatic/literal submissions, host reentry, keyboard/VoiceOver and appearance.
 - [ ] Native app-vocabulary verification, including WeChat, editors, Terminal, focus changes, keyboard/mouse selection and accessibility.
 - [x] Existing single-language preferences influence internal tokens with bounded, length-weighted scoring and a separate base beam.
-- [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, without corpus context; former MSNG tables are archived outside the App.
+- [x] Shared heuristic word/spelling/transition scoring across Chinese, English and mixed candidates, with optional paired word grams inside the composition.
+- [x] Local last-sentence word-gram scoring from the preceding text of compatible InputMethodKit clients.
+- [ ] Native field-context verification across hosts, focus changes and secure input.
 - [x] Consumed-spelling-only prefix ranking with a shared matched-input coverage reward, no suffix conversion estimate, learning discount or extra confirmation cost; exact prefix commits and four leading hypotheses followed by word choices in the window.
 - [ ] Broader cross-language quality calibration against representative input.
 - [x] Language-specific word/syllable spelling channels and bounded full-spelling search protection.
@@ -67,9 +63,9 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [x] Add manually requested AI completion with bounded IMK field text, a current-window screenshot, a separate candidate row and a second Tab for acceptance.
 - [ ] Verify AI completion with the three live backends, native hosts, and VoiceOver.
 - [ ] Native experimental permission dialogs/revocation and Settings keyboard/VoiceOver verification.
-- [ ] Unified input-control recognition and automatic input behavior; permission authorization currently inspects no controls and captures no images.
+- [ ] Unified input-control recognition and automatic field-based behavior.
 - [ ] Native direct-input switching, pending-composition, shortcut and app-memory verification.
-- [ ] Preserve exact literal text with a clear, discoverable selection path.
+- [x] Preserve exact literal text with a clear, discoverable selection path.
 
 ## Reliability and distribution
 
@@ -90,13 +86,12 @@ The October 22 dictionary consolidation removes old Chinese sources and their ma
 - [ ] Add providers based on demonstrated user needs and compatible licensed data.
 - [x] User phrase dictionary with explicit editing, import/export, and retention controls.
 - [x] Personal phrase nodes inside longer compositions with fanout/output bounds and learning exclusion.
-- [ ] Native focus-boundary verification and internal pair/sentence context scoring.
 
-Remote inference and keystroke telemetry are not part of the current design. Any proposal that sends typed content off-device requires an explicit product and privacy discussion.
+Ordinary conversion is local. Optional AI Completion has its own consent and an explicit Tab trigger. See the [privacy policy](PRIVACY.md#ai-completion).
 
 ## Offline model experiments
 
-- [x] Independent 7.4M causal character-LM baseline with whole-document corpus preparation, train-only vocabulary, grouped splits, strict resume, held-out token-loss and fixed-pool candidate evaluation, plus inference-only export.
+- [x] Independent 7.4M causal character-LM baseline with whole-document corpus preparation, train-only vocabulary, grouped splits, strict resume, held-out token-loss and standalone supplied-candidate scoring, plus inference-only export.
 - [x] Local 30,000-step small checkpoint and explicit offline FP32 Core ML conversion.
 - [ ] Redesign native AI integration; the former original/AI comparison is removed.
 - [ ] Independent ranking-quality evidence, hard-negative fine-tuning, quantization and native host/VoiceOver verification for future native AI integration.

@@ -6,7 +6,6 @@ struct SettingsView: View {
     var dictionary: UserDictionarySettings = .shared
     var applicationMemory: ApplicationMemorySettings = .shared
     var inputHistory: InputHistorySettings = .shared
-    var sentenceHistory: InputHistorySettings = .sentences
 
     @State private var search = ""
     @State private var selectedPage: SettingsPage = .typing
@@ -31,7 +30,7 @@ struct SettingsView: View {
                             .accessibilityAddTraits(.isHeader)
                         SettingsDetail(
                             page: visiblePage, settings: settings, updater: updater, dictionary: dictionary,
-                            applicationMemory: applicationMemory, inputHistory: inputHistory, sentenceHistory: sentenceHistory
+                            applicationMemory: applicationMemory, inputHistory: inputHistory
                         )
                     }
                     .frame(maxWidth: 700, alignment: .leading)
@@ -56,6 +55,5 @@ struct SettingsView: View {
     SettingsView(settings: LanguageSettings(defaults: UserDefaults(suiteName: "SI.Preview") ?? .standard), updater: AppUpdater(),
                  dictionary: UserDictionarySettings(isPreview: true),
                  applicationMemory: ApplicationMemorySettings(isPreview: true),
-                 inputHistory: InputHistorySettings(isPreview: true),
-                 sentenceHistory: InputHistorySettings(isPreview: true, kind: .sentences))
+                 inputHistory: InputHistorySettings(isPreview: true))
 }
