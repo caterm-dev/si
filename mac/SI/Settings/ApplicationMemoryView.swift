@@ -31,7 +31,7 @@ struct ApplicationMemoryView: View {
             }
             if let error = settings.errorMessage { Text(error).foregroundStyle(.red) }
             HStack {
-                Button("Clear Learning Data…", role: .destructive) { showsClearConfirmation = true }
+                Button("Clear Personal Learning Data…", role: .destructive) { showsClearConfirmation = true }
                     .disabled(!settings.canClearAll)
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
@@ -39,11 +39,11 @@ struct ApplicationMemoryView: View {
         }
         .padding()
         .frame(minWidth: 660, minHeight: 480)
-        .confirmationDialog("Clear saved learning data?", isPresented: $showsClearConfirmation) {
+        .confirmationDialog("Clear personal learning data?", isPresented: $showsClearConfirmation) {
             Button("Clear", role: .destructive) { settings.clearAll() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Deletes learned vocabulary and the sentence model on this Mac. Explicit personal phrases are kept.")
+            Text("Deletes learned vocabulary and candidate preferences on this Mac.")
         }
     }
 }

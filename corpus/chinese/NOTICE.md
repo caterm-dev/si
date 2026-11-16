@@ -2,9 +2,6 @@
 
 SI's preparation tools are GPL-3.0-only. The downloaded text and derived text
 files retain their own data terms; SI's software license does not relicense them.
-The first batch follows the acquisition/cleaning/reading-table organization of
-[chinese-ime-lm](https://github.com/metasequoiaime/chinese-ime-lm/tree/154eb5c59a5ad9b0c93a48b05dc7cd143601d18a/corpus).
-SI's scripts are independently written; no upstream implementation is copied.
 
 The separately supplied local [Chinese Chatbot Corpus](metadata/chinese-chatbot-corpus.md)
 has per-subcorpus provenance and data terms recorded in its own notice.

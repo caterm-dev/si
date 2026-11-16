@@ -277,6 +277,15 @@ impl Lexicon {
         Ok(())
     }
 
+    /// Replace the raw count without changing the word's identity or lookup keys.
+    pub fn set_count(&mut self, id: WordId, count: u64) -> Result<(), EditError> {
+        *self
+            .counts
+            .get_mut(id.0 as usize)
+            .ok_or(EditError::UnknownWord)? = count;
+        Ok(())
+    }
+
     /// Visit words in ascending ID order, including words without lookup keys.
     pub fn words(&self) -> impl ExactSizeIterator<Item = Word<'_>> {
         (0..self.len()).map(|ordinal| self.entry(ordinal as u32))

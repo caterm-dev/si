@@ -10,6 +10,24 @@ struct SentenceLearningSettingsTests {
         var enabled = false
     }
 
+    @Test(arguments: [true, false], [true, false, nil] as [Bool?])
+    func movesOnlyActiveExplicitConsentToTheIndependentSwitch(previousPersonalLearning: Bool, previousSentenceLearning: Bool?) throws {
+        let suite = "si-sentence-consent-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = SentenceLearningStore(profile: FileManager.default.temporaryDirectory.appending(path: suite))
+        defaults.set(previousPersonalLearning, forKey: ApplicationMemorySettings.vocabularyKey)
+        defaults.set(previousSentenceLearning, forKey: "sentenceLearning.enabled")
+
+        let expected = previousPersonalLearning && previousSentenceLearning == true
+        let settings = SentenceLearningSettings(defaults: defaults, store: store)
+        #expect(settings.enabled == expected)
+        #expect(defaults.object(forKey: "sentenceLearning.enabled") == nil)
+        settings.enabled = !expected
+        defaults.set(false, forKey: ApplicationMemorySettings.vocabularyKey)
+        #expect(SentenceLearningSettings(defaults: defaults, store: store).enabled == !expected)
+    }
+
     @Test func appIngestionPublishesPersistentCandidatesAndClearInvalidatesQueuedText() async throws {
         let suite = "si-sentence-learning-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -25,71 +43,98 @@ struct SentenceLearningSettingsTests {
         let profile = directory.appending(path: "model.si-user")
         let store = SentenceLearningStore(profile: profile)
         let secure = SecureInput()
-        defaults.set(false, forKey: "sentenceHistory.enabled")
+        defaults.set(true, forKey: "sentenceHistory.enabled")
         let memory = ApplicationMemorySettings(defaults: defaults,
             store: ApplicationMemoryStore(url: directory.appending(path: "memory.json")),
-            sentenceStore: store, retiredSentenceHistory: InputHistoryStore(url: archive),
             allowsRecording: { !secure.enabled })
-        let settings = memory.sentences
+        let settings = SentenceLearningSettings(defaults: defaults, store: store,
+            retiredHistory: InputHistoryStore(url: archive), allowsRecording: { !secure.enabled })
+        func inputSnapshot() -> ApplicationMemorySnapshot {
+            memory.snapshot(sentenceModel: settings.modelForInput)
+        }
 
-        #expect(settings.enabled)
+        #expect(!settings.enabled)
         #expect(defaults.object(forKey: "sentenceHistory.enabled") == nil)
-        #expect(defaults.object(forKey: "sentenceLearning.enabled") == nil)
-        settings.enabled = false
-        defaults.set(true, forKey: "sentenceHistory.enabled")
-        let restarted = SentenceLearningSettings(defaults: defaults, store: store)
-        #expect(!restarted.enabled)
-        #expect(defaults.object(forKey: "sentenceHistory.enabled") == nil)
-        settings.enabled = true
         await memory.start()
         await settings.start()
         #expect(settings.hasRetiredHistory)
         #expect(try Data(contentsOf: archive) == oldBytes)
         #expect(!memory.usesVocabulary)
-        #expect(memory.snapshot().sentenceModel == nil)
+        #expect(inputSnapshot().sentenceModel == nil)
+        #expect(!settings.canCapture)
 
-        memory.vocabularyEnabled = true
+        settings.enabled = true
         #expect(settings.canCapture)
         let stale = settings.generation
         settings.enabled = false
         settings.enabled = true
         settings.record("Zornax", expectedGeneration: stale)
-        settings.record("one\ntwo", expectedGeneration: settings.generation)
+        settings.reportCapture(.skipped(.incompleteRange), expectedGeneration: stale)
+        settings.record(" \n\t", expectedGeneration: settings.generation)
         await settings.flush()
+        #expect(settings.captureStatus == nil)
         #expect(try await store.load() == nil)
 
         // A file at the profile path makes the first write fail without changing the sample.
         try oldBytes.write(to: profile)
-        settings.record("Zornax Quivora", expectedGeneration: settings.generation)
+        let fullField = String(repeating: "a ", count: 1_100) + "\n"
+            + String(repeating: "Zornax Quivora\n", count: 40) + "Talvexa"
+        settings.record(fullField, expectedGeneration: settings.generation)
+        #expect(settings.captureStatus == .queued)
         await settings.flush()
         #expect(settings.canRetry && !settings.canCapture)
-        #expect(memory.snapshot().sentenceModel == nil)
+        #expect(inputSnapshot().sentenceModel == nil)
         try FileManager.default.removeItem(at: profile)
         settings.retry()
         await settings.flush()
         #expect(!settings.canRetry && settings.errorMessage == nil)
+        #expect(settings.captureStatus == .saved)
         let engine = CandidateEngine()
         func candidates(_ snapshot: ApplicationMemorySnapshot) -> [InputCandidate] {
             engine.candidates(for: "zornax", languages: [.english], applicationMemory: snapshot)
         }
         #expect(candidates(.empty).allSatisfy { $0.text != "Zornax" })
-        #expect(candidates(memory.snapshot()).contains { $0.text == "Zornax" })
+        #expect(candidates(inputSnapshot()).contains { $0.text == "Zornax" })
+        #expect(inputSnapshot().vocabulary.isEmpty)
+        let slot = try String(contentsOf: profile.appending(path: "current"), encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let snapshot = profile.appending(path: "snapshot-\(slot)")
+        #expect(FileManager.default.fileExists(atPath: snapshot.appending(path: "user.silex").path()))
+        #expect(FileManager.default.fileExists(atPath: snapshot.appending(path: "user.sigram").path()))
         let reloaded = try #require(try await store.load())
+        #expect(engine.candidates(for: "talvexa", languages: [.english],
+            applicationMemory: ApplicationMemorySnapshot(sentenceModel: reloaded)).contains { $0.text == "Talvexa" })
         #expect(candidates(ApplicationMemorySnapshot(sentenceModel: reloaded)).contains { $0.text == "Zornax" })
 
         secure.enabled = true
-        #expect(memory.snapshot().sentenceModel == nil)
+        #expect(!settings.canCapture)
+        #expect(settings.modelForInput == nil)
+        #expect(inputSnapshot().sentenceModel == nil)
         secure.enabled = false
+        memory.vocabularyEnabled = true
+        let commit = InputCommit(input: "shi", candidate: InputCandidate(text: "是", language: .simplifiedChinese, score: -7),
+                                 reason: .defaultAcceptance)
+        memory.recordVocabulary(commit)
+        #expect(inputSnapshot().vocabulary.count == 1)
         settings.enabled = false
-        #expect(memory.snapshot().sentenceModel == nil)
+        #expect(inputSnapshot().sentenceModel == nil)
+        #expect(inputSnapshot().vocabulary.count == 1)
         settings.enabled = true
         memory.vocabularyEnabled = false
-        #expect(memory.snapshot().sentenceModel == nil)
-        memory.vocabularyEnabled = true
+        #expect(inputSnapshot().sentenceModel != nil)
+        #expect(inputSnapshot().vocabulary.isEmpty)
 
         settings.record("Vexora", expectedGeneration: settings.generation)
         memory.clearAll()
-        #expect(memory.snapshot().sentenceModel == nil)
+        await memory.flush()
+        #expect(inputSnapshot().sentenceModel != nil)
+        #expect(settings.captureStatus == .queued || settings.captureStatus == .saved)
+        memory.vocabularyEnabled = true
+        memory.recordVocabulary(commit)
+        settings.clear()
+        #expect(inputSnapshot().sentenceModel == nil)
+        #expect(inputSnapshot().vocabulary.count == 1)
+        #expect(settings.captureStatus == nil)
         await settings.flush()
         await memory.flush()
         #expect(try await store.load() == nil)

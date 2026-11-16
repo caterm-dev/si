@@ -10,12 +10,8 @@ import SIStorage
 @MainActor
 @Observable
 final class ApplicationMemorySettings {
-    static let shared = ApplicationMemorySettings(
-        defaults: SettingsDefaults.shared,
-        sentenceStore: SentenceLearningStore(profile: URL.applicationSupportDirectory.appending(path: "SI/Personalization/model.si-user")),
-        retiredSentenceHistory: InputHistoryStore(url: URL.applicationSupportDirectory.appending(path: InputHistoryStore.retiredSentenceDatabasePath))
-    )
-    private static let vocabularyKey = "applicationMemory.vocabularyEnabled"
+    static let shared = ApplicationMemorySettings(defaults: SettingsDefaults.shared)
+    static let vocabularyKey = "applicationMemory.vocabularyEnabled"
 
     var vocabularyEnabled: Bool {
         didSet {
@@ -23,7 +19,6 @@ final class ApplicationMemorySettings {
             if vocabularyEnabled != oldValue { invalidateConsent() }
         }
     }
-    let sentences: SentenceLearningSettings
     private(set) var memory = ApplicationMemory()
     private(set) var generation: UInt64 = 0
     private(set) var isLoading = true
@@ -45,10 +40,8 @@ final class ApplicationMemorySettings {
     var canRetrySaving: Bool { loadSucceeded && errorMessage != nil }
 
     init(defaults: UserDefaults = .standard, store: ApplicationMemoryStore? = nil, isPreview: Bool = false,
-         sentenceStore: SentenceLearningStore? = nil, retiredSentenceHistory: InputHistoryStore? = nil,
          allowsRecording: @escaping @MainActor () -> Bool = { !IsSecureEventInputEnabled() }) {
         self.defaults = defaults
-        sentences = SentenceLearningSettings(defaults: defaults, store: sentenceStore, retiredHistory: retiredSentenceHistory)
         self.allowsRecording = allowsRecording
         vocabularyEnabled = !isPreview && defaults.bool(forKey: Self.vocabularyKey)
         self.store = isPreview ? nil : store ?? ApplicationMemoryStore(
@@ -71,7 +64,7 @@ final class ApplicationMemorySettings {
             memory = try await store.load()
             loadSucceeded = true
         } catch {
-            errorMessage = L10n.text("Personal Learning data could not be opened. Recording and suggestions are paused. Clear all learning data to start again.")
+            errorMessage = L10n.text("Personal Learning data could not be opened. Clear personal learning data to start again.")
         }
         isLoading = false
         invalidateConsent()
@@ -81,13 +74,13 @@ final class ApplicationMemorySettings {
         vocabularyEnabled && loadSucceeded && allowsRecording()
     }
 
-    func snapshot() -> ApplicationMemorySnapshot {
+    func snapshot(sentenceModel: SentenceLearningModel? = nil) -> ApplicationMemorySnapshot {
         // Observe consent invalidation even when a cached snapshot is returned to SwiftUI.
         _ = generation
-        guard usesVocabulary else { return .empty }
-        let model = sentences.enabled ? sentences.model : nil
-        if let sharedSnapshot, sharedSnapshot.sentenceModel === model { return sharedSnapshot }
-        let snapshot = memory.snapshot(vocabularyEnabled: true, sentenceModel: model)
+        let usesSavedVocabulary = vocabularyEnabled && loadSucceeded
+        guard (usesSavedVocabulary || sentenceModel != nil), allowsRecording() else { return .empty }
+        if let sharedSnapshot, sharedSnapshot.sentenceModel === sentenceModel { return sharedSnapshot }
+        let snapshot = memory.snapshot(vocabularyEnabled: usesSavedVocabulary, sentenceModel: sentenceModel)
         sharedSnapshot = snapshot
         return snapshot
     }
@@ -106,13 +99,11 @@ final class ApplicationMemorySettings {
     }
 
     var canClearAll: Bool {
-        !isLoading && !sentences.isLoading && !sentences.isClearing
-            && (!memory.vocabulary.isEmpty || errorMessage != nil || sentences.hasDataOrError)
+        !isLoading && (!memory.vocabulary.isEmpty || errorMessage != nil)
     }
 
     func clearAll() {
         guard canClearAll else { return }
-        sentences.clear()
         pendingWrite?.cancel()
         memory = ApplicationMemory()
         invalidateConsent()

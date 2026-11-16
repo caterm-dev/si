@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import Carbon
 #if SWIFT_PACKAGE
 import SICore
 import SILocalization
@@ -9,13 +10,22 @@ import SIStorage
 @MainActor
 @Observable
 final class SentenceLearningSettings {
-    private static let enabledKey = "sentenceLearning.enabled"
+    static let shared = SentenceLearningSettings(
+        defaults: SettingsDefaults.shared,
+        store: SentenceLearningStore(profile: URL.applicationSupportDirectory.appending(path: "SI/Personalization/model.si-user")),
+        retiredHistory: InputHistoryStore(url: URL.applicationSupportDirectory.appending(path: InputHistoryStore.retiredSentenceDatabasePath))
+    )
+    private static let enabledKey = "sentenceLearning.independentlyEnabled"
+    private static let previousEnabledKey = "sentenceLearning.enabled"
     private static let maximumBatchSize = 32
 
     var enabled: Bool {
         didSet {
             defaults.set(enabled, forKey: Self.enabledKey)
-            if enabled != oldValue { generation &+= 1 }
+            if enabled != oldValue {
+                generation &+= 1
+                captureStatus = nil
+            }
         }
     }
     private(set) var generation: UInt64 = 0
@@ -27,10 +37,35 @@ final class SentenceLearningSettings {
     private(set) var isDeletingRetiredHistory = false
     private(set) var retiredHistoryError: String?
     private(set) var canRetry = false
+    private(set) var captureStatus: CaptureStatus?
+
+    enum CaptureStatus: Equatable {
+        case skipped(SentenceSnapshot.CaptureFailure)
+        case queued
+        case saved
+
+        var message: String {
+            switch self {
+            case .skipped(.unavailableText), .skipped(.incompleteRange):
+                L10n.text("This app did not provide the complete input field.")
+            case .skipped(.invalidText):
+                L10n.text("The input field has no text to learn.")
+            case .skipped(.markedText):
+                L10n.text("Finish the marked text before pressing Return to learn the input field.")
+            case .skipped(.staleClient):
+                L10n.text("Input or learning settings changed during the text read.")
+            case .queued:
+                L10n.text("Input field queued for learning.")
+            case .saved:
+                L10n.text("Sentence model saved.")
+            }
+        }
+    }
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let store: SentenceLearningStore?
     @ObservationIgnored private let retiredHistory: InputHistoryStore?
+    @ObservationIgnored private let allowsRecording: @MainActor () -> Bool
     @ObservationIgnored private var queued: [String] = []
     @ObservationIgnored private var failed: Batch?
     @ObservationIgnored private var delay: Task<Void, Never>?
@@ -44,21 +79,34 @@ final class SentenceLearningSettings {
         let sentences: [String]
     }
 
-    init(defaults: UserDefaults, store: SentenceLearningStore? = nil, retiredHistory: InputHistoryStore? = nil) {
+    init(defaults: UserDefaults, store: SentenceLearningStore? = nil, retiredHistory: InputHistoryStore? = nil,
+         allowsRecording: @escaping @MainActor () -> Bool = { !IsSecureEventInputEnabled() }) {
         self.defaults = defaults
         self.store = store
         self.retiredHistory = retiredHistory
-        enabled = store != nil && (defaults.object(forKey: Self.enabledKey) as? Bool ?? true)
+        self.allowsRecording = allowsRecording
+        enabled = false
         isLoading = store != nil
         if store != nil {
+            if let saved = defaults.object(forKey: Self.enabledKey) as? Bool {
+                enabled = saved
+            } else if let previous = defaults.object(forKey: Self.previousEnabledKey) as? Bool {
+                // Preserve an explicit opt-in only when sentence learning was already active.
+                enabled = previous && defaults.bool(forKey: ApplicationMemorySettings.vocabularyKey)
+                defaults.set(enabled, forKey: Self.enabledKey)
+            }
+            defaults.removeObject(forKey: Self.previousEnabledKey)
             defaults.removeObject(forKey: "sentenceHistory.enabled")
             defaults.removeObject(forKey: "sentenceHistory.applications")
         }
     }
 
     var canCapture: Bool {
-        enabled && !isLoading && !isClearing && errorMessage == nil && queued.count < Self.maximumBatchSize
+        enabled && !isLoading && !isClearing && errorMessage == nil
+            && queued.count < Self.maximumBatchSize && allowsRecording()
     }
+
+    var modelForInput: SentenceLearningModel? { enabled && model != nil && allowsRecording() ? model : nil }
 
     var hasDataOrError: Bool { model != nil || worker != nil || delay != nil || errorMessage != nil }
 
@@ -68,7 +116,7 @@ final class SentenceLearningSettings {
         hasRetiredHistory = await retiredHistory?.hasDatabaseFiles() ?? false
         do { model = try await store.load() }
         catch {
-            errorMessage = L10n.text("Sentence learning data could not be opened. Clear all learning data to start again.")
+            errorMessage = L10n.text("Sentence learning data could not be opened. Clear sentence learning data to start again.")
         }
         isLoading = false
     }
@@ -76,12 +124,18 @@ final class SentenceLearningSettings {
     func record(_ text: String, expectedGeneration: UInt64) {
         guard generation == expectedGeneration, canCapture, SentenceSnapshot.accepts(text) else { return }
         queued.append(text)
+        captureStatus = .queued
         guard delay == nil, worker == nil else { return }
         delay = Task {
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
             delay = nil
             drain()
         }
+    }
+
+    func reportCapture(_ status: CaptureStatus, expectedGeneration: UInt64) {
+        guard enabled, generation == expectedGeneration else { return }
+        captureStatus = status
     }
 
     func retry() {
@@ -96,6 +150,7 @@ final class SentenceLearningSettings {
         delay?.cancel()
         delay = nil
         queued.removeAll()
+        captureStatus = nil
         failed = nil
         canRetry = false
         model = nil
@@ -155,6 +210,7 @@ final class SentenceLearningSettings {
                     failed = nil
                     canRetry = false
                     errorMessage = nil
+                    if captureStatus == .queued, queued.isEmpty, updated != nil { captureStatus = .saved }
                 } catch {
                     guard epoch == storageGeneration else { return }
                     failed = batch

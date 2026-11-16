@@ -169,7 +169,7 @@ pub unsafe extern "C" fn si_engine_ingest_user(
     let (Some(engine), Some(store)) = (unsafe { (engine.as_ref(), user_store(profile)) }) else {
         return false;
     };
-    if batch_id.is_null() || text.is_null() || !(1..=32 * 4096).contains(&len) {
+    if batch_id.is_null() || text.is_null() || len == 0 || len > isize::MAX as usize {
         return false;
     }
     let Ok(batch_id) = (unsafe { CStr::from_ptr(batch_id) }).to_str() else {
@@ -178,9 +178,6 @@ pub unsafe extern "C" fn si_engine_ingest_user(
     let Ok(text) = std::str::from_utf8(unsafe { std::slice::from_raw_parts(text, len) }) else {
         return false;
     };
-    if text.lines().count() > 32 || text.lines().any(|line| line.encode_utf16().count() > 1024) {
-        return false;
-    }
     let lexicon = engine.base().lexicon();
     store
         .ingest(lexicon, batch_id, text.lines().map(Ok))

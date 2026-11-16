@@ -29,9 +29,10 @@ The Release build and its package check require the paired snapshots under
 
 Run `cargo test --locked -p si-engine --test conversion` for the bounded search
 and `cargo test --locked -p si-cli --test workflow` for snapshot/resource
-commands. The CLI fixtures exercise stable word IDs, paired grams, atomic
-publication and retries, explicit readings for polyphonic text, corpus review
-exports, user profiles and concurrent imports.
+commands. The CLI fixtures exercise absolute weight updates, same-source
+reimports, language-filtered CSV snapshots, stable word IDs, paired grams,
+atomic publication and retries, polyphonic readings, corpus review exports,
+user profiles and concurrent imports.
 
 Run `python3 -m unittest discover -s Tests/ScriptTests` for synthetic packaging
 and installer checks. For vocabulary-only changes, use the
@@ -230,11 +231,11 @@ Use a dedicated synthetic profile and an intentionally installed build; never re
 
 ### Sentence learning
 
-- Use a dedicated synthetic profile in TextEdit and a browser or another editor with a single-line field. Confirm **Learn from Submitted Sentences** defaults to on, takes effect only with Personal Learning enabled, remembers an explicit opt-out and stays independent of Input History. Confirm a lexical candidate, type or paste a synthetic unique word such as `Zornax` in the same field, put the caret at the end and press Return. Return should reach the host once. After the background write, `zornax` should offer `Zornax` with English enabled. Restart SI and repeat the lookup. Record which hosts report a complete text range.
-- Test an open composition, repeated and modified Return, focus switches, Escape, selected text, a nonterminal caret, unsupported or partial ranges, multiline text, the 1,024 UTF-16 limit, secure input and direct input. Confirm these cases do not supply a training line. Check that toggling either learning switch suppresses user-model candidates and that clearing during an update does not restore them.
-- Check the Settings switch, error/retry controls and clear dialog with keyboard navigation and VoiceOver. Verify that old Sentence History consent cannot override either learning setting. On a synthetic upgrade, verify the legacy delete action removes only the retired database and sidecars.
+- Use a dedicated synthetic profile in TextEdit and a browser or another editor. Check the default-off sentence-learning switch, then enable it with Personal Learning and Input History off. Verify the independent switch persists after restart. Paste synthetic content containing more than 1,024 UTF-16 units and ending in a unique word such as `Zornax`. Put the caret in the middle or select text, then press plain Return with no pending composition. Verify the host receives Return once. After the background write, `zornax` should offer `Zornax` with English enabled. Restart SI and repeat the lookup.
+- Check fields with an unavailable length, fields lacking range access, focus changes during reads, secure/direct input, marked text, repeated or modified Return and Return with a pending composition. Verify the host key routing and skip status. Check that turning off Sentence Learning suppresses user-model candidates while Personal Learning can still supply candidate preferences. Check that turning off Personal Learning leaves the opted-in sentence model available. Clear Sentence Learning during an update and verify the model stays cleared.
+- Open **Personal Data → Sentence Learning** from the sidebar and through Settings search in English and Chinese. Check the switch, capture status, error/retry controls and clear dialog with keyboard navigation and VoiceOver. Confirm the saved status appears only after the model pair is available. Clear sentence learning and check that pending samples and the sentence model are removed and candidate-choice entries remain. Check that **Clear Personal Learning Data…** clears candidate-choice entries while Sentence Learning keeps its model and pending samples. Verify old Sentence History consent and deletion remain separate.
 
-`SentenceSnapshotReaderTests` covers exact range validation and callback revalidation. `SentenceLearningSettingsTests` verifies the Swift-to-Rust ingestion and ranking path, reload, opt-outs and deletion with a synthetic profile.
+`SentenceSnapshotReaderTests` covers multiline text, nonterminal selections, exact ranges, callback revalidation and range growth in an AppKit text view without a reported length. `SentenceLearningSettingsTests` verifies default-off consent and upgrade behavior, independent capture and ranking with long multiline text, secure-input suppression, and independent deletion.
 
 ### Input History export and receiver tools
 

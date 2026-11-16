@@ -65,6 +65,7 @@ void si_engine_close(SIEngine *engine);
 /* Profile I/O and index construction. Call away from the event handler.
    On success, close any non-NULL returned engine with si_engine_close. */
 bool si_engine_load_user(const SIEngine *engine, const char *profile, SIEngine **out);
+/* UTF-8 text with newlines separating observations. */
 bool si_engine_ingest_user(const SIEngine *engine, const char *profile, const char *batch_id,
                            const uint8_t *text, size_t length);
 bool si_engine_clear_user(const char *profile);

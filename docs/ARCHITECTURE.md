@@ -110,14 +110,18 @@ an unresolved reading fails the import. Unknown unannotated tokens are
 counted in the summary and break the sequence. No gram crosses an unknown
 token or a line boundary. The pre-tokenized import increments gram counts.
 
-Builds require a new destination. Additions use the existing snapshot and
-apply deltas once per command invocation. Keep source CSVs and tokenized
-corpora separately for reproducibility. A sidecar lock serializes import
+Builds require a new destination. `lexicon add` sums each incoming identity
+across the supplied sources and sets the matching word's count to that
+total. New words are appended and entries absent from those sources stay
+in the dictionary. Corpus add continues to accumulate gram counts. Keep
+source CSVs and tokenized corpora separately for reproducibility. A sidecar lock serializes import
 writes to each destination, and the binary snapshot is replaced only
 after the entire import succeeds. Each dictionary has its own file, such
 as `main.silex` or `user.silex`. Pair a gram snapshot with the lexicon that
 assigned its word IDs. Incremental imports preserve existing IDs, so gram
-snapshots remain compatible when words are appended.
+snapshots remain compatible when words are appended. To remove entries,
+build a fresh lexicon and regenerate its word grams. The new build assigns
+its own word IDs.
 
 [SI configuration](../config/si.conf) selects independent maximum counting
 orders and vocabulary thresholds for base and user resources. Base corpus
@@ -149,10 +153,10 @@ respectively. Each run of digits contributes one token. Exact compound
 dictionary matches can include letters or digits. Placeholder IDs are
 stored as unindexed zero-count symbols in the paired lexicon and reused by
 later batches. The importer increments word counts for lexical matches.
-An ambiguous Han match triggers contextual Pinyin conversion for the
-contiguous Han run containing it. The segmenter verifies that the returned
-characters align with the original UTF-8 spans, removes tone marks, and
-compares the full reading with the lexicon, including SI's umlaut aliases.
+An ambiguous Han match passes only the matched word to `pinyin_pro`. The
+Pinyin reader verifies that the returned syllables align with the word's
+characters and removes tone marks. The segmenter compares the full reading
+with the lexicon, including SI's umlaut aliases.
 It counts the match when the reading identifies exactly one existing entry.
 An unresolved spelling consumes its full match and ends the gram sequence.
 Unknown characters, unmatched punctuation, and paragraph boundaries also
@@ -177,8 +181,8 @@ The review CSV at `<grams.sigram>.review.csv` groups unmatched and unresolved
 segments from the latest batch by exact text and reason. It includes counts,
 readable candidate keys from the lexicon, and each entry's first source path
 and 1-based line number. The final `reading` column is blank on export.
-`lexicon add` imports completed rows from this format and uses `count`
-as the reading's count delta. It skips blank readings and leaves previously
+`lexicon add` imports completed rows from this format and uses their
+aggregate `count` as the reading's absolute weight. It skips blank readings and leaves previously
 counted grams intact. The review contains only the header when there are
 no review items. Unix output permissions are owner-only. Import summaries
 contain aggregate counts.
@@ -201,6 +205,9 @@ on the supplied corpus text.
 explicit ID, exact text, count, and optional primary reading. An `alias`
 row holds an ID and an additional key without a separate count. Lookup
 keys that cannot be represented as printable UTF-8 use `key_hex`.
+`--language zh-Hans` or `--language en` filters by primary lookup index.
+The filtered export retains source word IDs and every alias of the
+selected words.
 
 `lexicon restore` reads the snapshot into a new `.silex` file. It restores
 word rows in ID order, then binds aliases to those IDs. Word IDs are dense
@@ -272,7 +279,8 @@ Personal Learning and Input History.
 `UserModelStore` takes supplied sentences and a read-only base
 lexicon. One forward maximum-matching index combines the base lexicon and
 the user's current entries. Identical text, lookup index and primary reading
-resolve to one lexeme. Contextual Pinyin disambiguates known Han readings.
+resolve to one lexeme. The same token-based Pinyin lookup disambiguates known
+Han readings.
 The profile allocates its own word IDs and increments only its own counts,
 including for matches found in the base. New English runs preserve case and
 use lowercase lookup keys in index 1. A Han character outside both lexicons
@@ -471,7 +479,7 @@ A bounded spelling-to-record index maintains one latest deliberate choice per no
 
 `ApplicationMemoryStore` performs actor-isolated I/O at the existing `SI/Personalization/application-memory-v1.json` path, with vocabulary-only schema 4, a 64 MiB file limit, owner-only permissions, atomic replacement and revision-ordered saves/deletion. Schemas 1–3 migrate atomically, stripping app identifiers/history and merging equal record identities: counts are summed with existing one-million caps, latest usage/base metadata is retained, and strength uses the maximum rather than stacking app bonuses. Schema-1/2 mixed default/correction evidence resets to neutral; schema-3 strength/corrections survive. No old schema supplies an exact-choice marker because it lacks a deliberate-selection timestamp. Age alone no longer invalidates retained records. Malformed/unsupported archives remain untouched; migration write failures propagate and pause loading. The retired `preferences-v1.json` archive is never decoded or imported and keeps its explicit deletion control.
 
-Vocabulary retains at most 5,000 records; capacity eviction removes least recently used entries with identity tie-breaking. There is no timed expiry, decay or daily expiry task. Saves coalesce for 300 ms and flush on normal termination. Settings provide global search, Forget and global clear/archive erase under **Personal Learning**, with no application picker, pause or app discovery. Existing learning consent persists; old history flags never grant learning consent. The former App History draft/completion feature and previous-word pair learning remain absent. The separate Input History below does not provide candidates. Candidate-choice learning uses confirmed SI text. The independent sentence learning switch controls the bounded Return-time host read below.
+Vocabulary retains at most 5,000 records; capacity eviction removes least recently used entries with identity tie-breaking. There is no timed expiry, decay or daily expiry task. Saves coalesce for 300 ms and flush on normal termination. Settings provide global search, Forget and global clear/archive erase under **Personal Learning**, with no application picker, pause or app discovery. Existing learning consent persists; old history flags never grant learning consent. The former App History draft/completion feature and previous-word pair learning remain absent. The separate Input History below does not provide candidates. Candidate-choice learning uses confirmed SI text. Sentence Learning uses its own consent, archive and Return-time host read.
 
 ### Input History
 
@@ -483,9 +491,9 @@ Vocabulary retains at most 5,000 records; capacity eviction removes least recent
 
 ### Sentence learning
 
-The `sentenceLearning.enabled` switch defaults to on when no preference is saved and requires global Personal Learning. A successful manual lexical confirmation arms one nonrepeated Return with empty composition. The controller excludes secure/direct input and invalidates eligibility across client, focus and consent/configuration changes. `SentenceSnapshotReader` validates the selection, marked range, reported text length and exact returned UTF-16 length. It rechecks client and consent across host calls. The controller forwards Return normally. The complete single-line input is read before the app handles the key.
+The `sentenceLearning.independentlyEnabled` switch defaults to off. On upgrade, the former `sentenceLearning.enabled` grants consent only if it was explicitly on and Personal Learning was also enabled. SI retires the former key. After migration, each feature uses its own consent and deletion controls. The controller reads the active client's full text on plain, nonrepeated Return with an empty composition and forwards Return normally. The capture revalidates client, consent, secure/direct input and host state around the read. `SentenceSnapshotReader` requests the reported text length from offset zero. When length is unavailable, it grows the proposed range until the client reports an actual range clipped to the text end. The capture accepts multiline text and nonterminal carets or selections, including outside any prior SI submission.
 
-`SentenceLearningSettings` keeps at most 32 queued lines and one in-flight or retry batch in memory. The actor calls the same `UserModelStore` ingestion and word discovery used by the CLI, then loads the paired user resources into a new immutable Rust decoder sharing the existing base resources. The Swift snapshot carries that decoder only for eligible requests. Existing request IDs and settings generations reject obsolete conversion results; clear drops pending samples and runs behind in-flight ingestion. The retired raw SQLite archive is never opened or migrated. Settings offers explicit file/sidecar deletion, and offline extraction still accepts older exports.
+`SentenceLearningSettings` keeps at most 32 queued fields and one in-flight or retry batch in memory. The actor passes the captured text as newline-delimited UTF-8 to the same `UserModelStore` ingestion and word discovery used by the CLI. It then loads the paired user resources into a new immutable Rust decoder sharing the existing base resources. Swift attaches that decoder to eligible conversion requests regardless of candidate-choice learning consent. Existing request IDs and settings generations reject obsolete conversion results. The **Sentence Learning** page under **Personal Data** exposes the switch, transient capture status, retry and sentence-model clear. Clear drops pending samples and runs behind in-flight ingestion. The retired raw SQLite archive stays unopened. The page offers explicit file/sidecar deletion, and offline extraction still accepts older exports.
 
 ### Portable history export
 
@@ -526,8 +534,6 @@ Candidate panels additionally share one weak main-actor visibility owner. Activa
 The controller consumes navigation and number-selection events while composing. `CandidateSelection.action` maps the first Down Arrow while collapsed to expansion without advancing selection, and otherwise maps event key codes/characters to moves or numbered choices; digit lookup reads the active six-column row, while the expanded view renders one four-row page. Left/Right selects in the collapsed strip and changes columns when expanded; expanded Up/Down changes rows. These grid moves clamp within the current page. Page Up/Down and footer buttons use the current page capacity (six or 24), preserving position where possible. There is no `IMKCandidates` instance or dependency on its selection-key display, identifiers, or callbacks. Out-of-range row numbers do not commit another candidate. Shortcuts retain literal passthrough, and outside composition these keys pass through. Candidate edits/reset invalidate the previous selection. Mouse buttons return candidate identities and use the same current-candidate validation/learning path as digit keys.
 
 The panel never becomes key/main, preserving the host's input focus. The controller asks `attributes(forCharacterIndex:lineHeightRectangle:)` for inline index zero. `CandidateAnchor` keeps the first usable rectangle for the composition. Later candidate updates, caret moves and paging reuse it without querying the host again. Composition start, commit, cancellation, client change and loss of presentation ownership reset the anchor. If it no longer belongs to a connected display, a fresh lookup can establish a new anchor. An unavailable first rectangle keeps the panel hidden until a subsequent refresh obtains valid geometry. SI retains its screen, origin and height checks for the first rectangle. `CandidatePlacement` uses the left edge at the rectangle's vertical midpoint to select the display, clamps the panel within its visible frame and flips the panel above when there is insufficient space below. The package's `SIPresentation` target compiles the same selection and AppKit view sources.
-
-This policy adapts the fixed-position mode in the GPLv3 MSIME macOS source at revision `ab1918ff6eaeab26adbbf90a2388b88b46bc94bf`. MSIME exposes a cursor-following setting and enables it by default. SI uses the fixed behavior for its candidate window. See [the anchor policy](https://github.com/metasequoiaime/msime/blob/ab1918ff6eaeab26adbbf90a2388b88b46bc94bf/platforms/macos/src/input/InputController.mm#L4501-L4518) and [the screen selection rule](https://github.com/metasequoiaime/msime/blob/ab1918ff6eaeab26adbbf90a2388b88b46bc94bf/platforms/macos/src/candidate/CandidatePlacement.h#L54-L57).
 
 `SI_DEBUG_CANDIDATE_GEOMETRY=1` in the input method's explicit launch environment enables `CandidateGeometry` debug logs. It records the IMK bundle identifier, presentation revision, the initial host rectangle or reused anchor, the requested panel frame and the frame AppKit reports after showing the panel. The records contain geometry and identifiers only.
 

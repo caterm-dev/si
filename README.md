@@ -40,7 +40,7 @@ The window uses one 27-choice ordinary shortlist, including the exact original i
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 
-Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate preferences and optionally a local sentence model; Input History can retain each submitted spelling/text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
+Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning, Sentence Learning and Input History are independently off by default. Personal Learning retains aggregate candidate preferences. Sentence Learning builds a local language model. Input History can retain each submitted spelling and text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
 Debug and Release bundle `target/si-data/main.silex` and
 `target/si-data/words.sigram`. Xcode checks that the snapshots are
@@ -52,7 +52,7 @@ The macOS input-source menu for SI includes independent **English** and **Chines
 
 ## SI Settings
 
-Open **SI Settings…** from the input menu. **Typing** opens first, with language and composition controls. **AI Completion** is a separate page under **Input**. Use the sidebar or search for a setting such as “punctuation”, “export” or “screen recording”. **Personal Data** groups Personal Phrases, Personal Learning and Input History into separate pages. Experimental permissions and software updates are under **System**.
+Open **SI Settings…** from the input menu. **Typing** opens first, with language and composition controls. **AI Completion** is a separate page under **Input**. Use the sidebar or search for a setting such as “punctuation”, “export” or “screen recording”. **Personal Data** groups Personal Phrases, Personal Learning, Sentence Learning and Input History into separate pages. Experimental permissions and software updates are under **System**.
 
 ## Interface language
 
@@ -66,14 +66,18 @@ Edit the `text,reading,weight` CSVs in [Data/Chinese](Data/Chinese/) and
 [Data/English](Data/English/). The `weight` field is an explicit nonnegative
 integer count. Every flat category CSV is compiled; identical exact
 text/reading pairs sum their counts across rows and files. Different readings,
-case variants and byte-distinct outputs remain separate. The offline HanLP
-[migration tool](Data/Chinese/README.md) defaults to coarse segmentation and is
-separate from ordinary compilation.
+case variants and byte-distinct outputs remain separate.
 
 The Rust resource tools compile and update the snapshots that Xcode packages.
 The packaged source notices and licenses are under
 `mac/SI/Core/Resources/`. Use `./scripts/si-lexicon-build.sh` to build
 a standalone Rust dictionary, or pass a new output path as its argument.
+After editing either language's CSVs, run `./scripts/si-lexicon-import.sh`
+to update the existing `target/si-data/main.silex`. Matching entries take
+their current CSV totals, new entries receive new IDs, and existing entries
+absent from the CSVs stay in the lexicon.
+To remove entries, build a fresh lexicon at a new path and regenerate its
+paired word grams from the selected corpus before using them in the app.
 
 ## Automatic prefix confirmation
 
@@ -119,7 +123,7 @@ When you manually select successive prefixes from one unchanged composition, SI 
 
 For candidate-choice learning, accepting the displayed first candidate by Space, number or mouse only updates usage; it does not increase ranking strength or change the remembered choice. Every three deliberate nonfirst selections also add one frequency-ranking point, up to 32, for whole/prefix and eligible internal-token ranking. This gradual bonus is separate from immediate exact-match placement. Neither strength nor records decay or expire with age. At most 5,000 entries are kept; capacity eviction removes the least recently used entries with deterministic identity ties. Candidate-choice learning retains the selected output as one entry. Literal, personal/verbatim, punctuation, delimiter and automatic-confirmation commits do not train vocabulary. Existing spelling/output size limits remain 128/512 bytes.
 
-**Manage Learning Data…** supports global search and Forget for candidate-choice preferences. Its clear action also removes the sentence model. Forgetting the remembered choice removes its forced placement; clearing does not affect explicit personal phrases. Personal Learning has one global switch, with no per-app pause, filter, deletion or clear controls. Turning learning off, secure input and the separate direct-input rules suppress learned ranking and saved suggestions. Candidate-choice learning uses SI submissions.
+**Manage Learning Data…** supports global search and Forget for candidate-choice preferences. **Clear Personal Learning Data…** removes candidate-choice preferences. Forgetting the remembered choice removes its forced placement. Personal Learning has one global switch, with no per-app pause, filter, deletion or clear controls. Turning learning off, secure input and the separate direct-input rules suppress learned ranking and saved suggestions. Candidate-choice learning uses SI submissions.
 
 The existing `SI/Personalization/application-memory-v1.json` path now uses vocabulary-only schema 4. On successful load, schemas 1–3 migrate atomically into one global vocabulary, dropping app identity and retired history. Identical spelling/language/output records combine bounded usage/correction counts, retain the latest usage/base metadata and use the maximum stored strength rather than adding strengths. Schema-1/2 ambiguous strengths/corrections are reset; schema-3 evidence is retained. Old archives have no deliberate-selection timestamp, so migration does not guess an immediate first choice. Retained old records are not discarded because of age; previously deleted/expired records cannot be recovered. Corrupt or unsupported archives remain untouched with a visible error, and failed migration writes pause loading. Existing learning consent is preserved. The retired per-app exclusion key is removed and no longer scopes learning.
 
@@ -127,9 +131,9 @@ The former App History completion/draft feature and previous-word pair learning 
 
 ### Sentence learning
 
-In **SI Settings → Personal Learning**, turning on **Enable Personal Learning** enables sentence learning by default. Turn off **Learn from Submitted Sentences** to keep only candidate-choice learning. After confirming a lexical candidate, press Return with no pending composition and the caret at the end of a compatible single-line input. SI can use the complete text the host reports, including edits, pasted text and existing content. Return continues to the host. Secure and direct input are excluded.
+In **SI Settings → Personal Data → Sentence Learning**, **Learn from Submitted Sentences** controls the Return-time read. It is independently off by default. If you explicitly enabled Sentence Learning and it was active before upgrading, your choice carries over. When there is no pending composition, a plain Return lets SI learn from the entire text exposed by the active input client, including text after the caret, multiple lines and existing or pasted content. In an editor, the client may expose the entire document. No prior SI submission is required. Return continues to the host. Secure and direct input are excluded.
 
-SI batches the text in memory and reuses the Rust ingestion and word discovery behind `si-cli user ingest` and `si-cli user learn`. Derived vocabulary and word grams can influence subsequent candidates. The profile stays on this Mac. The original line is discarded after processing. **Clear All Learning Data…** also clears the sentence model. Older Sentence History records can be explicitly removed with **Delete Old Sentence History…**. See [sentence learning privacy and retention](docs/PRIVACY.md#sentence-learning) and [native checks](docs/TESTING.md#sentence-learning).
+SI batches the text in memory and reuses the Rust ingestion and word discovery behind `si-cli user ingest` and `si-cli user learn`. Derived vocabulary and word grams can influence subsequent candidates. The profile stays on this Mac. SI discards the captured text after processing it. The **Sentence Learning** page reports skipped reads, queued text and saved models. **Clear Sentence Learning Data…** clears the sentence model and pending samples. Older Sentence History records can be explicitly removed with **Delete Old Sentence History…**. See [sentence learning privacy and retention](docs/PRIVACY.md#sentence-learning) and [native checks](docs/TESTING.md#sentence-learning).
 
 ## Input History
 
@@ -159,8 +163,7 @@ The manager supports search, editing, deletion, clear, and additive JSON import/
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.
 - Rust 1.89 or later with the `aarch64-apple-darwin` and `x86_64-apple-darwin` targets for a universal app.
 - Git LFS for the maintained training CSVs. On macOS, install it with `brew install git-lfs` and run `git lfs install` before cloning.
-- Xcode resolves the pinned Sparkle 2.10.0 update framework on the first app build; no Apple Developer account is needed for an unsigned development build. Chinese vocabulary comes from pinned MSIME sources and context artifacts. English retains attributed SCOWL, CSpell and Rime Ice selections, with wordfreq frequency data.
-- Xcode resolves the pinned Sparkle 2.10.0 update framework on the first app build; no Apple Developer account is needed for an unsigned development build. Chinese context artifacts remain pinned to MSIME. Both base vocabularies come from Wanxiang; historical category data retains attributed SCOWL, CSpell and Rime Ice selections, with wordfreq frequency data.
+- Xcode resolves the pinned Sparkle 2.10.0 update framework on the first app build. Unsigned development builds require no Apple Developer account.
 
 ## Get started
 
@@ -374,8 +377,11 @@ has its own word ID and raw count. A blank reading rejects that import.
 Corpus imports take one pre-tokenized UTF-8 sentence per line, with
 whitespace between tokens. An ambiguous token requires an explicit
 reading in `text|index|reading` form, such as `重|0|chong`.
-`build` creates a new snapshot and `add` applies count deltas to an existing
-snapshot. Import each delta once. See the
+`build` creates a new snapshot. `add` updates an existing lexicon with
+absolute import totals. Repeated rows for the same index, exact text and
+primary reading are summed within one invocation. Importing the same
+sources again leaves those weights unchanged. Use the whole language
+directory when you want the total across its category CSVs. See the
 [resource workflow](docs/ARCHITECTURE.md#rust-resource-workflow) for ID and
 count semantics.
 
@@ -488,10 +494,11 @@ counts. An unlisted run of at least two ASCII letters breaks the word-gram
 sequence and goes to a separate CSV. An isolated ASCII letter contributes `<char>`
 to n-grams, and an independent ASCII digit run such as `404` contributes
 one `<num>`. The paired lexicon records their IDs as unindexed, zero-count
-symbols. For ambiguous Han spellings, `pinyin_pro` reads the surrounding
-Han characters and selects an existing dictionary entry when there is a
-unique match. Spaces preserve context. Unmatched punctuation, unknown
-text, and still-unresolved spellings break the n-gram sequence.
+symbols. For ambiguous Han spellings, `pinyin_pro` reads the matched word
+in isolation. The importer counts the existing dictionary entry whose
+reading uniquely matches the result. Spaces preserve word adjacency.
+Unmatched punctuation, unknown text, and still-unresolved spellings
+break the n-gram sequence.
 
 ```sh
 cargo run --release --locked -p si-cli -- corpus ingest target/si-data/main.silex target/si-data/words.sigram /path/to/paragraphs.txt
@@ -515,7 +522,8 @@ want to add and import the edited file into index `1`:
 cargo run --release --locked -p si-cli -- lexicon add target/si-data/main.silex 1 target/si-data/words.sigram.english.csv
 ```
 
-Import each selection once. Later corpus imports can count the new entries.
+Later corpus imports can count the new entries. If an imported reading
+already exists, set `weight` to the intended final count before importing.
 
 The importer refreshes `words.sigram.review.csv` beside `words.sigram`
 with unmatched characters and unresolved readings from the latest batch.
@@ -529,9 +537,9 @@ the edited CSV directly into the Pinyin index:
 cargo run --release --locked -p si-cli -- lexicon add target/si-data/main.silex 0 target/si-data/words.sigram.review.csv
 ```
 
-Only completed rows are imported. Each row contributes its `count` to the
-selected reading and preserves its ID if it already exists. Import each
-confirmed row once. The import updates the lexicon only, so gram counts
+Only completed rows are imported. Their counts become the selected
+readings' weights, and matching entries keep their IDs. The import
+updates the lexicon only, so gram counts
 from earlier batches stay as recorded. A batch with no review items
 produces only the header.
 
@@ -552,6 +560,7 @@ to `target/si-data/main.silex.csv`. The export requires a new destination.
 
 ```sh
 cargo run --release --locked -p si-cli -- lexicon export target/si-data/main.silex target/si-data/main.silex.csv
+cargo run --release --locked -p si-cli -- lexicon export --language zh-Hans target/si-data/main.silex target/si-data/chinese.silex.csv
 cargo run --release --locked -p si-cli -- lexicon restore target/si-data/main.silex.csv target/si-data/restored.silex
 ```
 
@@ -561,6 +570,13 @@ have been reordered. Keep one word row per ID and retain the full sequence
 of IDs starting at zero. Use new paths for export and restore. A restored
 copy can reuse the original word gram file when each ID still refers to
 the same text and primary reading.
+
+`--language zh-Hans` selects Pinyin entries and `--language en` selects
+English entries by primary reading index. Both use the same snapshot
+columns and preserve original IDs and aliases of the selected words.
+Use a full export for restoration because filtering can leave gaps in the
+word IDs. Continue editing the three-column source CSVs under `Data/` for
+`lexicon add`.
 
 #### Learn Chinese words from a corpus
 
@@ -602,7 +618,7 @@ candidate in a numbered review CSV beside the lexicon. The first
 export for `learned.silex` is `learned.silex.review-1.csv`. Each row
 keeps the original gram count and has an empty `reading` field. Fill the
 correct full Pinyin reading using apostrophes between syllables, and remove
-any rows you do not want to add. Import the reviewed CSV once after supplying
+any rows you do not want to add. Import the reviewed CSV after supplying
 a reading for every remaining row.
 
 ```sh

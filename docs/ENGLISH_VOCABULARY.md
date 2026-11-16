@@ -18,7 +18,7 @@ the vocabulary. [English dictionary notices](../mac/SI/Core/Resources/English/) 
 [common.csv](../Data/English/common.csv) contains SI-authored additions,
 including the article `a`. Continuous spelling such as `sendaenglish`
 can produce `send a english`. Its position depends on search and
-shortlisting. The movie and technology categories have their own CSVs.
+shortlisting. The movie category has its own CSV.
 
 Use the same Rust compiler and validation commands as Chinese vocabulary.
 [Build and validate the lexicon](CHINESE_VOCABULARY.md) · [Candidate ranking](UNIFIED_RANKING.md)

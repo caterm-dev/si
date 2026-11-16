@@ -913,7 +913,7 @@ fn paragraph_ingest_review_imports_completed_readings_and_preserves_word_ids() -
         lexicon.find_reading(IndexId(0), b"chong", "重"),
         Some(chong)
     );
-    assert_eq!(lexicon.word(chong).unwrap().count, 8);
+    assert_eq!(lexicon.word(chong).unwrap().count, 2);
     assert_eq!(lexicon.word(tong).unwrap().count, 7);
     assert!(lexicon.find_word("陌").is_none());
     assert_eq!(fs::read(grams_path)?, gram_bytes);
@@ -921,14 +921,17 @@ fn paragraph_ingest_review_imports_completed_readings_and_preserves_word_ids() -
 }
 
 #[test]
-fn paragraph_ingest_uses_contextual_pinyin_in_word_and_gram_counts() -> io::Result<()> {
+fn paragraph_ingest_reads_ambiguous_words_without_crossing_token_boundaries() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(
         "words.csv",
-        "text,reading,weight\n银,yin,0\n行,hang,10\n行,xing,20\n走,zou,0\n",
+        concat!(
+            "text,reading,weight\n知道,zhi'dao,0\n行为,hang'wei,30\n",
+            "行为,xing'wei,20\n会,hui,0\n伤人,shang'ren,0\n"
+        ),
     )?;
     scratch.run(&["lexicon", "build", "seed.silex", "0", "words.csv"])?;
-    scratch.write("paragraphs.txt", "银行。行走。银行\n")?;
+    scratch.write("paragraphs.txt", "知道行为会伤人。知道行为\n")?;
     let output = scratch.run(&[
         "corpus",
         "ingest",
@@ -937,22 +940,28 @@ fn paragraph_ingest_uses_contextual_pinyin_in_word_and_gram_counts() -> io::Resu
         "paragraphs.txt",
     ])?;
     assert!(String::from_utf8_lossy(&output.stdout).contains("and 0 unresolved matches"));
+    assert_eq!(
+        fs::read_to_string(scratch.0.join("words.sigram.review.csv"))?,
+        "kind,text,count,candidate_readings,first_file,first_line,reading\n"
+    );
     let resources = EngineResources::open(
         &scratch.0.join("seed.silex"),
         Some(&scratch.0.join("words.sigram")),
     )?;
     let lexicon = resources.lexicon();
-    let yin = lexicon.find_word("银").unwrap();
-    let zou = lexicon.find_word("走").unwrap();
-    let hang = lexicon.find_reading(IndexId(0), b"hang", "行").unwrap();
-    let xing = lexicon.find_reading(IndexId(0), b"xing", "行").unwrap();
-    assert_eq!(lexicon.word(hang).unwrap().count, 12);
-    assert_eq!(lexicon.word(xing).unwrap().count, 21);
+    let [know, will, hurt] = ["知道", "会", "伤人"].map(|text| lexicon.find_word(text).unwrap());
+    let hang = lexicon
+        .find_reading(IndexId(0), b"hang'wei", "行为")
+        .unwrap();
+    let xing = lexicon
+        .find_reading(IndexId(0), b"xing'wei", "行为")
+        .unwrap();
+    assert_eq!(lexicon.word(hang).unwrap().count, 30);
+    assert_eq!(lexicon.word(xing).unwrap().count, 22);
     let grams = resources.grams().unwrap();
-    assert_eq!(grams.count(&[yin, hang]), Some(2));
-    assert_eq!(grams.count(&[xing, zou]), Some(1));
-    assert_eq!(grams.count(&[yin, xing]), None);
-    assert_eq!(grams.count(&[hang, zou]), None);
+    assert_eq!(grams.count(&[know, xing]), Some(2));
+    assert_eq!(grams.count(&[know, xing, will, hurt]), Some(1));
+    assert_eq!(grams.count(&[know, hang]), None);
     Ok(())
 }
 
@@ -1043,7 +1052,7 @@ fn paragraph_ingest_counts_letter_and_number_placeholders_only_in_grams() -> io:
     let scratch = ScratchDirectory::new()?;
     scratch.write(
         "chinese.csv",
-        "text,reading,weight\n银,yin,0\n行,hang,0\n行,xing,0\n走,zou,0\n",
+        "text,reading,weight\n银行,yin'hang,0\n行走,xing'zou,0\n",
     )?;
     scratch.write(
         "english.csv",
@@ -1085,8 +1094,8 @@ fn paragraph_ingest_counts_letter_and_number_placeholders_only_in_grams() -> io:
     let lexicon = resources.lexicon();
     let [letter, number, pr] =
         ["<char>", "<num>", "PR"].map(|text| lexicon.find_word(text).unwrap());
-    let hang = lexicon.find_reading(IndexId(0), b"hang", "行").unwrap();
-    let xing = lexicon.find_reading(IndexId(0), b"xing", "行").unwrap();
+    let bank = lexicon.find_word("银行").unwrap();
+    let walk = lexicon.find_word("行走").unwrap();
     for placeholder in [letter, number] {
         let word = lexicon.word(placeholder).unwrap();
         assert_eq!(word.count, 0);
@@ -1109,8 +1118,8 @@ fn paragraph_ingest_counts_letter_and_number_placeholders_only_in_grams() -> io:
     assert_eq!(lexicon.word(pr).unwrap().count, 2);
     let grams = resources.grams().unwrap();
     assert_eq!(grams.count(&[number, pr]), Some(2));
-    assert_eq!(grams.count(&[letter, xing]), Some(1));
-    assert_eq!(grams.count(&[hang, number, pr, letter]), Some(1));
+    assert_eq!(grams.count(&[letter, walk]), Some(1));
+    assert_eq!(grams.count(&[bank, number, pr, letter]), Some(1));
     assert_eq!(grams.count(&[letter, number, pr]), Some(1));
 
     scratch.write("more.txt", "X 13 PR\n")?;
@@ -1320,11 +1329,41 @@ fn snapshot_csv_round_trip_preserves_ids_keys_and_gram_compatibility() -> io::Re
     assert!(!repeat_export.status.success());
     assert_eq!(fs::read_to_string(exported_path)?, exported);
 
-    scratch.write("increment.csv", "text,reading,weight\n深,shen,1\n")?;
-    scratch.run(&["lexicon", "add", "restored.silex", "0", "increment.csv"])?;
+    for (language, index) in [("zh-Hans", "0"), ("en", "1")] {
+        let destination = format!("{language}.silex.csv");
+        scratch.run(&[
+            "lexicon",
+            "export",
+            "--language",
+            language,
+            "original.silex",
+            &destination,
+        ])?;
+        let expected = if index == "0" {
+            concat!(
+                "kind,id,text,weight,index,reading,key_hex\n",
+                "word,0,重,7,0,chong,\nword,1,重,3,0,zhong,\nword,2,庆,120,0,qing,\n",
+                "alias,0,,,2,cz,\nalias,0,,,4294967295,,00ff\n",
+            )
+        } else {
+            concat!(
+                "kind,id,text,weight,index,reading,key_hex\n",
+                "word,3,\"a, \"\"title\"\"\r\n第二行\",18446744073709551615,1,,0080\n",
+            )
+        };
+        assert_eq!(fs::read_to_string(scratch.0.join(destination))?, expected);
+    }
+
+    scratch.write(
+        "updates.csv",
+        "text,reading,weight\n深,shen,1\n重,chong,5\n",
+    )?;
+    scratch.run(&["lexicon", "add", "restored.silex", "0", "updates.csv"])?;
     let extended = EngineResources::open(&scratch.0.join("restored.silex"), Some(&grams_path))?;
     assert_eq!(extended.lexicon().find_word("深").unwrap().0, 5);
     assert_eq!(extended.lexicon().find_word("庆"), Some(qing.id));
+    let aliased = extended.lexicon().exact(IndexId(2), b"cz").next().unwrap();
+    assert_eq!((aliased.id, aliased.count), (chong.id, 5));
     Ok(())
 }
 
@@ -1351,7 +1390,7 @@ fn restore_rejects_inconsistent_ids_and_aliases_without_publishing_a_snapshot() 
 }
 
 #[test]
-fn build_and_add_lexicon_sources_preserve_counts_and_word_ids() -> io::Result<()> {
+fn lexicon_add_replaces_weights_and_preserves_word_ids_and_grams() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     fs::create_dir(scratch.0.join("chinese"))?;
     scratch.write("chinese/b.csv", "text,reading,weight\n重,zhong,3\n")?;
@@ -1384,24 +1423,63 @@ fn build_and_add_lexicon_sources_preserve_counts_and_word_ids() -> io::Result<()
     assert_eq!(title.count, 9);
     assert!(lexicon.exact(IndexId(0), b"atitle").next().is_none());
 
+    scratch.write("tokens.txt", "重|0|chong 重|0|zhong\n")?;
+    scratch.run(&["corpus", "build", "base.silex", "base.sigram", "tokens.txt"])?;
+    let grams_path = scratch.0.join("base.sigram");
+    let grams_bytes = fs::read(&grams_path)?;
     scratch.write(
-        "delta.csv",
+        "updates.csv",
         "text,reading,weight\n重,chong,2\n重,chung,1\n茶,cha,8\n",
     )?;
-    scratch.run(&["lexicon", "add", "base.silex", "0", "delta.csv"])?;
-    let updated = EngineResources::open(&path, None)?;
+    scratch.write("more.csv", "text,reading,weight\n重,chong,1\n")?;
+    scratch.write(
+        "english.csv",
+        "text,reading,weight\n\"a, \"\"title\"\"\",atitle,0\n",
+    )?;
+    let update = [
+        "lexicon",
+        "add",
+        "base.silex",
+        "0",
+        "updates.csv",
+        "0",
+        "more.csv",
+        "1",
+        "english.csv",
+    ];
+    scratch.run(&update)?;
+    let updated = EngineResources::open(&path, Some(&grams_path))?;
     let lexicon = updated.lexicon();
     assert_eq!(
         lexicon.find_reading(IndexId(0), b"chong", "重"),
         Some(word.id)
     );
-    assert_eq!(lexicon.word(word.id).unwrap().count, 9);
+    assert_eq!(lexicon.word(word.id).unwrap().count, 3);
     assert_eq!(lexicon.word(zhong.id).unwrap().count, 3);
+    assert_eq!(lexicon.word(title.id).unwrap().count, 0);
     let chung = lexicon.exact(IndexId(0), b"chung").next().unwrap();
     assert_eq!(chung.count, 1);
     assert_ne!(chung.id, word.id);
     assert_ne!(chung.id, zhong.id);
     assert_eq!(lexicon.exact(IndexId(0), b"cha").next().unwrap().count, 8);
+    assert_eq!(
+        updated.grams().unwrap().count(&[word.id, zhong.id]),
+        Some(1)
+    );
+    let weights = fs::read(&path)?;
+    scratch.run(&update)?;
+    assert_eq!(fs::read(&path)?, weights);
+    assert_eq!(fs::read(&grams_path)?, grams_bytes);
+
+    scratch.write("invalid.csv", "text,reading,weight\n茶,cha,1\n无效,,2\n")?;
+    assert!(
+        !scratch
+            .command(&["lexicon", "add", "base.silex", "0", "invalid.csv"])
+            .output()?
+            .status
+            .success()
+    );
+    assert_eq!(fs::read(&path)?, weights);
     Ok(())
 }
 
@@ -1897,15 +1975,15 @@ fn legacy_files_keep_word_ordinals_and_counts_when_updated() -> io::Result<()> {
     assert_eq!(resources.grams().unwrap().count(&[a, b]), Some(1));
 
     scratch.write(
-        "delta.csv",
+        "updates.csv",
         "text,reading,weight\nalpha,alpha,4\ngamma,gamma,1\n",
     )?;
-    scratch.run(&["lexicon", "add", "main.silex", "0", "delta.csv"])?;
+    scratch.run(&["lexicon", "add", "main.silex", "0", "updates.csv"])?;
     scratch.run(&["corpus", "add", "main.silex", "main.sigram", "words.txt"])?;
     let resources = EngineResources::open(&lexicon_path, Some(&gram_path))?;
     assert_eq!(resources.lexicon().find_word("alpha"), Some(a));
     assert_eq!(resources.lexicon().find_word("beta"), Some(b));
-    assert_eq!(resources.lexicon().word(a).unwrap().count, 6);
+    assert_eq!(resources.lexicon().word(a).unwrap().count, 4);
     assert_eq!(resources.grams().unwrap().count(&[a, b]), Some(2));
     assert_eq!(&fs::read(&lexicon_path)?[..8], b"SILEX\0\x03\0");
     assert_eq!(&fs::read(&gram_path)?[..8], b"SIGRAM\x03\0");
@@ -1913,11 +1991,17 @@ fn legacy_files_keep_word_ordinals_and_counts_when_updated() -> io::Result<()> {
 }
 
 #[test]
-fn simultaneous_adds_accumulate_both_deltas() -> io::Result<()> {
+fn simultaneous_lexicon_adds_serialize_weight_updates() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write("initial.csv", "text,reading,weight\nalpha,alpha,1\n")?;
-    scratch.write("one.csv", "text,reading,weight\nalpha,alpha,2\n")?;
-    scratch.write("two.csv", "text,reading,weight\nalpha,alpha,3\n")?;
+    scratch.write(
+        "one.csv",
+        "text,reading,weight\nalpha,alpha,2\nbeta,beta,8\n",
+    )?;
+    scratch.write(
+        "two.csv",
+        "text,reading,weight\nalpha,alpha,3\ngamma,gamma,9\n",
+    )?;
     scratch.run(&["lexicon", "build", "base.silex", "0", "initial.csv"])?;
     let mut one = scratch
         .command(&["lexicon", "add", "base.silex", "0", "one.csv"])
@@ -1930,15 +2014,11 @@ fn simultaneous_adds_accumulate_both_deltas() -> io::Result<()> {
     assert!(one.wait()?.success());
     assert!(two.wait()?.success());
     let resources = EngineResources::open(&scratch.0.join("base.silex"), None)?;
-    assert_eq!(
-        resources
-            .lexicon()
-            .exact(IndexId(0), b"alpha")
-            .next()
-            .unwrap()
-            .count,
-        6
-    );
+    let lexicon = resources.lexicon();
+    let count = |key| lexicon.exact(IndexId(0), key).next().unwrap().count;
+    assert!(matches!(count(b"alpha"), 2 | 3));
+    assert_eq!(count(b"beta"), 8);
+    assert_eq!(count(b"gamma"), 9);
     Ok(())
 }
 

@@ -38,9 +38,9 @@ fn maximum_matching_preserves_original_byte_ranges() {
 }
 
 #[test]
-fn contextual_pinyin_selects_existing_readings_and_preserves_spans() {
+fn pinyin_uses_selected_word_boundaries_and_preserves_spans() {
     let mut lexicon = Lexicon::new();
-    let hang = lexicon.add_reading(IndexId(0), b"hang", "行", 1).unwrap();
+    lexicon.add_reading(IndexId(0), b"hang", "行", 1).unwrap();
     let xing = lexicon.add_reading(IndexId(0), b"xing", "行", 1).unwrap();
     let chongqing = lexicon
         .add_reading(IndexId(0), b"chong'qing", "重庆", 1)
@@ -61,7 +61,7 @@ fn contextual_pinyin_selects_existing_readings_and_preserves_spans() {
         [
             ("𠼞", SegmentKind::Unknown),
             ("银", SegmentKind::Unknown),
-            ("行", SegmentKind::Word(hang)),
+            ("行", SegmentKind::Word(xing)),
             (" ", SegmentKind::Space),
             ("PR", SegmentKind::NewEnglishWord),
             (" ", SegmentKind::Space),

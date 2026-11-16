@@ -6,6 +6,7 @@ struct SettingsDetail: View {
     let updater: AppUpdater
     let dictionary: UserDictionarySettings
     let applicationMemory: ApplicationMemorySettings
+    let sentenceLearning: SentenceLearningSettings
     let inputHistory: InputHistorySettings
 
     var body: some View {
@@ -20,6 +21,8 @@ struct SettingsDetail: View {
             UserDictionarySection(dictionary: dictionary)
         case .learning:
             ApplicationMemorySection(settings: applicationMemory)
+        case .sentenceLearning:
+            SentenceLearningSection(settings: sentenceLearning)
         case .inputHistory:
             InputHistorySection(history: inputHistory)
         case .permissions:

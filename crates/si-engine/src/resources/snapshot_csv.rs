@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use std::path::Path;
 
-use si_lexicon::{IndexId, Lexicon, Reading, WordId};
+use si_lexicon::{IndexId, Lexicon, Reading, Word, WordId};
 
 use super::LexiconImport;
 use super::csv_output::{PendingCsv, write_field};
@@ -11,23 +11,34 @@ use super::source::{
 
 const HEADER: &str = "kind,id,text,weight,index,reading,key_hex";
 
-pub(super) fn export(lexicon: &Lexicon, destination: &Path) -> io::Result<()> {
+pub(super) fn export(
+    lexicon: &Lexicon,
+    destination: &Path,
+    index: Option<IndexId>,
+) -> io::Result<usize> {
     let header = format!("{HEADER}\n");
     let mut csv = PendingCsv::new(destination, header.as_bytes())?;
     let output = &mut csv.writer;
-    for word in lexicon.words() {
+    let includes = |word: &Word<'_>| {
+        index.is_none_or(|index| word.reading.is_some_and(|reading| reading.index == index))
+    };
+    let mut words = 0;
+    for word in lexicon.words().filter(includes) {
         write!(output, "word,{},", word.id.0)?;
         write_field(output, word.text)?;
         write!(output, ",{},", word.count)?;
         write_reading(output, word.reading)?;
+        words += 1;
     }
     for (reading, id) in lexicon.lookup_keys() {
-        if lexicon.word(id).and_then(|word| word.reading) != Some(reading) {
+        let word = lexicon.word(id).expect("valid lookup word ID");
+        if includes(&word) && word.reading != Some(reading) {
             write!(output, "alias,{},,,", id.0)?;
             write_reading(output, Some(reading))?;
         }
     }
-    csv.finish()?.publish(destination)
+    csv.finish()?.publish(destination)?;
+    Ok(words)
 }
 
 fn write_reading(output: &mut impl Write, reading: Option<Reading<'_>>) -> io::Result<()> {

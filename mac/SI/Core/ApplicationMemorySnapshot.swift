@@ -1,6 +1,6 @@
 import Foundation
 
-/// Immutable global vocabulary, suppressed entirely when learning is disabled or input is secure.
+/// Immutable candidate-choice preferences and sentence model for a conversion request.
 public struct ApplicationMemorySnapshot: Equatable, Sendable {
     public static let empty = ApplicationMemorySnapshot()
     private let revision = UUID()

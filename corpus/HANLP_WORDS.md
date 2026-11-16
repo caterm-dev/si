@@ -50,7 +50,7 @@ The original analysis used verified fragment bundles and retained per-source
 `text,count,line_count` totals, a candidate review, and manual decisions.
 The tool that joined those totals to the retired vocabulary layout is
 available with the earlier dictionary metadata in Git. The HanLP model
-loader also serves the [Chinese vocabulary migration](../Data/Chinese/README.md).
+loader also serves the offline [vocabulary migration script](../scripts/migrate_chinese_vocabulary.py).
 
 ```sh
 git show 0509cb3:corpus/review_words.py

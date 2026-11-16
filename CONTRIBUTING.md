@@ -17,7 +17,9 @@ Use synthetic data for the performance benchmark.
 
 For dictionary changes, edit `Data/Chinese/*.csv` and `Data/English/*.csv`.
 Keep the `text,reading,weight` header and explicit nonnegative integer counts;
-repeated exact identities sum across all files. Validate the Rust dictionary with `si-cli lexicon build` and see
+repeated exact identities sum across all files in the import. Use
+`./scripts/si-lexicon-import.sh` to replace the matching weights in an existing
+local snapshot or `si-cli lexicon build` to validate a fresh dictionary. See
 [vocabulary maintenance](README.md#vocabulary-maintenance).
 Retain source attribution/licenses with the dictionary resources. New external
 sources still require the review below. Private phrases, learning and history
@@ -46,7 +48,7 @@ To stop tracking an artifact accidentally added earlier, use `git rm --cached` w
 - Keep changes focused and use English for code identifiers, comments, documentation, source localization keys, issues, and pull requests. Keep app translations in the matching `Localizable.strings` resources with identical keys and format arguments. Translations, language examples and lexicons use their native scripts.
 - Do not introduce a current-language mode, a language toggle shortcut, or a ranking rule that silently hides other enabled languages.
 - Keep the original input available, including unknown words and identifiers.
-- Keep typed content out of diagnostic logs. Send input and host context to the selected AI provider only within the independent [AI completion consent boundary](docs/PRIVACY.md#ai-completion). Input History retains SI submissions under its own opt-in. Sentence learning defaults to enabled under the Personal Learning opt-in and sends bounded Return-time text-client snapshots to the local Rust model. Keep Input History separate from ranking and learning. Preserve secure-input, deletion and storage-error safeguards. Explicitly shared exports may become private offline candidate data through the documented receiver workflow. Never commit contributions, infer redistribution rights or silently append them to maintained datasets.
+- Keep typed content out of diagnostic logs. Send input and host context to the selected AI provider only within the independent [AI completion consent boundary](docs/PRIVACY.md#ai-completion). Input History retains SI submissions under its own opt-in. Sentence Learning has its own default-off opt-in and sends Return-time text-client snapshots to the local Rust model. Keep Input History separate from ranking and learning. Preserve secure-input, deletion and storage-error safeguards. Explicitly shared exports may become private offline candidate data through the documented receiver workflow. Never commit contributions, infer redistribution rights or silently append them to maintained datasets.
 - Discuss third-party engines, dictionaries, models, and large dependencies in an issue first. Include their license and data provenance.
 - Leave signing identities, provisioning profiles, user-specific Xcode state, and build products out of commits.
 

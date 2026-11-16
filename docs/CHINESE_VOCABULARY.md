@@ -16,13 +16,10 @@ si_vocab_check="$(mktemp -d)"
 cargo run --locked -p si-cli -- check-resources "$si_vocab_check/main.silex"
 ```
 
-The base derives from pinned Wanxiang data and the coarse HanLP vocabulary
-migration. Wanxiang imports removed tones and merged tone-collapsed
-source identities before publication. Current compilation sums the counts
-present in the maintained CSVs. The migration requires an explicit
-historical source directory for reproduction. [Migration workflow](../Data/Chinese/README.md)
+Build a fresh lexicon when removing rows, since incremental imports retain
+entries absent from the input CSVs. Regenerate word grams for the new
+lexicon before packaging the pair.
 
-Keep source terms and notices with any vocabulary contribution.
-Current Wanxiang attribution and the legacy MSIME/Rime Ice notices for
-retained data are packaged with the dictionary. Corpus imports and word
-discovery operate on separately selected local Rust snapshots. [Packaged notices](../mac/SI/Core/Resources/Chinese/) · [Rust resource workflow](ARCHITECTURE.md#rust-resource-workflow)
+Keep source terms and notices with any vocabulary contribution. Wanxiang
+imports remove tones and merge tone-collapsed source identities before
+publication. [Wanxiang attribution](../mac/SI/Core/Resources/English/Wanxiang-NOTICE.txt) · [Chinese corpus notices](../mac/SI/Core/Resources/Chinese/) · [Rust resource workflow](ARCHITECTURE.md#rust-resource-workflow)

@@ -45,8 +45,7 @@
   "character_reading_inventory": {
     "path": "Data/Vocabulary/chinese/base.csv",
     "sha256": "75c6f4d020babc61a5ae38e7498ad79cc777ee2496ed22e018f9a041829a3e52",
-    "metadata": "Data/Vocabulary/meta.json",
-    "notice": "Data/Chinese/MSIME/NOTICE.md"
+    "archived_source_metadata": "455a8e7:Data/Vocabulary/meta.json"
   },
   "counts": {
     "train": {

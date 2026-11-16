@@ -5,8 +5,7 @@ use pinyin_pro::pinyin::get_pinyin;
 use pinyin_pro::pinyin_utils::strip_tone;
 
 /// Return the normalized syllables aligned to the original characters.
-/// A missing syllable remains unresolved so callers can select their own span.
-pub(crate) fn read_syllables(text: &str) -> Option<Vec<Option<String>>> {
+fn read_syllables(text: &str) -> Option<Vec<Option<String>>> {
     let characters: Vec<_> = text.chars().collect();
     let (pinyin, _) = get_pinyin(&characters, SurnameMode::Off, false);
     if pinyin.len() != characters.len() {

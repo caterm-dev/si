@@ -24,8 +24,8 @@ Local SI category texts/readings are retained; their weights were set to 10
 on October 29, 2026. New local entries default to 10. The base owns overlapping weights
 and English casing. Imported Wanxiang categories retain upstream weights over
 legacy category copies; preserved categories supplement other identities.
-Historical MSIME, SCOWL, CSpell, Rime Ice and wordfreq notices remain with
-the distribution for preserved category data and source history.
+See the separate SCOWL, CSpell, Rime Ice and wordfreq notices for
+the historical English vocabulary and frequency data.
 
 No upstream program code, grammar model or runtime is imported by this change.
 SI's independently written conversion script and application remain GPLv3.

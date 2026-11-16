@@ -20,7 +20,7 @@ Usage:
   si-cli [--config <si.conf>] <command> ...
   si-cli lexicon build <output.silex> <index> <csv-or-dir> [<index> <csv-or-dir> ...]
   si-cli lexicon add   <output.silex> <index> <csv-or-dir> [<index> <csv-or-dir> ...]
-  si-cli lexicon export <lexicon.silex> <output.csv>
+  si-cli lexicon export [--language <zh-Hans|en>] <lexicon.silex> <output.csv>
   si-cli lexicon restore <source.csv> <output.silex>
   si-cli lexicon learn <lexicon.silex> <grams.sigram> [<si.conf>]
   si-cli corpus build  [--han] <lexicon.silex> <output.sigram> <source.txt> [<source.txt> ...]
@@ -80,11 +80,9 @@ fn run(args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
             };
             Some(import(Path::new(output), &sources).map(print_lexicon))
         }
-        [scope, action, source, output] if scope == "lexicon" && action == "export" => Some(
-            resources::export_lexicon(Path::new(source), Path::new(output)).map(|words| {
-                println!("Exported {words} words to {}.", Path::new(output).display());
-            }),
-        ),
+        [scope, action, inputs @ ..] if scope == "lexicon" && action == "export" => {
+            export_lexicon(inputs)
+        }
         [scope, action, source, output] if scope == "lexicon" && action == "restore" => Some(
             resources::restore_lexicon(Path::new(source), Path::new(output)).map(print_lexicon),
         ),
@@ -279,6 +277,30 @@ fn run_corpus(action: &OsStr, inputs: &[OsString], max_order: GramOrder) -> Opti
         )
         .map(print_corpus),
     )
+}
+
+fn export_lexicon(inputs: &[OsString]) -> Option<io::Result<()>> {
+    let (result, output) = match inputs {
+        [source, output] => (
+            resources::export_lexicon(Path::new(source), Path::new(output)),
+            output,
+        ),
+        [flag, language, source, output] if flag == "--language" => {
+            let index = match language.to_str()? {
+                "zh-Hans" => IndexId(0),
+                "en" => IndexId(1),
+                _ => return None,
+            };
+            (
+                resources::export_lexicon_index(Path::new(source), Path::new(output), index),
+                output,
+            )
+        }
+        _ => return None,
+    };
+    Some(result.map(|words| {
+        println!("Exported {words} words to {}.", Path::new(output).display());
+    }))
 }
 
 fn lexicon_sources(inputs: &[OsString]) -> Option<Vec<LexiconSource>> {

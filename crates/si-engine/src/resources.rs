@@ -99,19 +99,62 @@ pub struct LexiconReview {
 
 /// Build a new dictionary at its own file path.
 pub fn build_lexicon(output: &Path, sources: &[LexiconSource]) -> io::Result<LexiconImport> {
-    import_lexicon(output, sources, false)
+    require_sources(sources)?;
+    with_destination(output, false, || {
+        let mut lexicon = Lexicon::new();
+        let rows = read_lexicon_sources(sources, &mut lexicon)?;
+        lexicon.save(output)?;
+        Ok(LexiconImport {
+            rows,
+            words: lexicon.len(),
+        })
+    })
 }
 
-/// Apply additional word counts and lookup keys to a saved dictionary.
+/// Import absolute CSV totals, replacing counts for matching words and appending new IDs.
 pub fn add_lexicon(output: &Path, sources: &[LexiconSource]) -> io::Result<LexiconImport> {
-    import_lexicon(output, sources, true)
+    require_sources(sources)?;
+    with_destination(output, true, || {
+        let mut lexicon = Lexicon::open(output)?;
+        let mut input = Lexicon::new();
+        let rows = read_lexicon_sources(sources, &mut input)?;
+        let mut changed = false;
+        for word in input.words() {
+            let reading = word.reading.expect("CSV words have primary lookup keys");
+            if let Some(id) = lexicon.find_reading(reading.index, reading.key, word.text) {
+                if lexicon.word(id).expect("valid word ID").count != word.count {
+                    lexicon
+                        .set_count(id, word.count)
+                        .map_err(io::Error::other)?;
+                    changed = true;
+                }
+            } else {
+                lexicon
+                    .add_reading(reading.index, reading.key, word.text, word.count)
+                    .map_err(io::Error::other)?;
+                changed = true;
+            }
+        }
+        if changed {
+            lexicon.save(output)?;
+        }
+        Ok(LexiconImport {
+            rows,
+            words: lexicon.len(),
+        })
+    })
 }
 
 /// Export all word IDs, counts and lookup keys to a new CSV file.
 pub fn export_lexicon(source: &Path, output: &Path) -> io::Result<usize> {
     let lexicon = Lexicon::open(source)?;
-    snapshot_csv::export(&lexicon, output)?;
-    Ok(lexicon.len())
+    snapshot_csv::export(&lexicon, output, None)
+}
+
+/// Export one primary lookup index and its aliases in the snapshot CSV format.
+pub fn export_lexicon_index(source: &Path, output: &Path, index: IndexId) -> io::Result<usize> {
+    let lexicon = Lexicon::open(source)?;
+    snapshot_csv::export(&lexicon, output, Some(index))
 }
 
 /// Restore a complete CSV snapshot at a new path without renumbering word IDs.
@@ -259,28 +302,12 @@ pub fn add_han_corpus(
     count_corpus_with_progress(lexicon, output, sources, CorpusCountMode::AddHan, |_| {})
 }
 
-fn import_lexicon(
-    output: &Path,
-    sources: &[LexiconSource],
-    update: bool,
-) -> io::Result<LexiconImport> {
-    require_sources(sources)?;
-    with_destination(output, update, || {
-        let mut lexicon = if update {
-            Lexicon::open(output)?
-        } else {
-            Lexicon::new()
-        };
-        let mut rows = 0;
-        for input in sources {
-            rows += source::read_lexicon(input, &mut lexicon)?;
-        }
-        lexicon.save(output)?;
-        Ok(LexiconImport {
-            rows,
-            words: lexicon.len(),
-        })
-    })
+fn read_lexicon_sources(sources: &[LexiconSource], lexicon: &mut Lexicon) -> io::Result<usize> {
+    let mut rows = 0;
+    for input in sources {
+        rows += source::read_lexicon(input, lexicon)?;
+    }
+    Ok(rows)
 }
 
 pub enum CorpusCountMode {

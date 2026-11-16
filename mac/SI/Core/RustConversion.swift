@@ -50,10 +50,10 @@ final class RustConversion: @unchecked Sendable {
     }
 
     func ingestUserSentences(_ sentences: [String], batchID: UUID, at profile: URL) throws {
-        let bytes = Array(sentences.joined(separator: "\n").utf8)
+        var text = sentences.joined(separator: "\n")
         guard profile.withUnsafeFileSystemRepresentation({ path in
             batchID.uuidString.withCString { id in
-                bytes.withUnsafeBufferPointer { si_engine_ingest_user(engine, path, id, $0.baseAddress, $0.count) }
+                text.withUTF8 { si_engine_ingest_user(engine, path, id, $0.baseAddress, $0.count) }
             }
         }) else { throw SentenceLearningStore.StoreError.profile }
     }

@@ -1,13 +1,11 @@
 //! Forward maximum matching of written text against a lexicon.
 
-mod pinyin;
-
 use std::ops::Range;
 
 use si_lexicon::{Lexicon, Word, WordId};
 
-use self::pinyin::ContextualPinyin;
 use crate::han;
+use crate::pinyin::{canonical_syllable, word_reading};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SegmentKind {
@@ -68,7 +66,6 @@ impl<'a> Segmenter<'a> {
     /// Match the longest entry at each position and advance past the entire match.
     pub fn segment<'text>(&'text self, text: &'text str) -> impl Iterator<Item = Segment> + 'text {
         let mut position = 0;
-        let mut contextual_pinyin: Option<ContextualPinyin> = None;
         std::iter::from_fn(move || {
             let remaining = &text[position..];
             let first = remaining.chars().next()?;
@@ -86,32 +83,18 @@ impl<'a> Segmenter<'a> {
             let start = position;
             position += length;
             let range = start..position;
-            let kind =
-                if kind == SegmentKind::Ambiguous && text[range.clone()].chars().all(han::is_han) {
-                    if contextual_pinyin
-                        .as_ref()
-                        .is_none_or(|context| !context.covers(&range))
-                    {
-                        contextual_pinyin = ContextualPinyin::new(text, &range);
-                    }
-                    contextual_pinyin
-                        .as_ref()
-                        .and_then(|pinyin| self.resolve(pinyin, text, &range))
-                        .unwrap_or(kind)
-                } else {
-                    kind
-                };
+            let surface = &text[range.clone()];
+            let kind = if kind == SegmentKind::Ambiguous && surface.chars().all(han::is_han) {
+                self.resolve_han(surface).unwrap_or(kind)
+            } else {
+                kind
+            };
             Some(Segment { range, kind })
         })
     }
 
-    fn resolve(
-        &self,
-        pinyin: &ContextualPinyin,
-        text: &str,
-        range: &Range<usize>,
-    ) -> Option<SegmentKind> {
-        let surface = &text[range.clone()];
+    fn resolve_han(&self, surface: &str) -> Option<SegmentKind> {
+        let prediction = word_reading(surface)?;
         let base = self
             .lexicon
             .words_for_text(surface)
@@ -122,9 +105,15 @@ impl<'a> Segmenter<'a> {
             .flat_map(|lexicon| lexicon.words_for_text(surface))
             .filter(|word| is_user_only(self.lexicon, *word))
             .map(|word| (word, SegmentKind::UserWord(word.id)));
-        let mut matches = base
-            .chain(user)
-            .filter(|(word, _)| pinyin.matches(range, word.reading));
+        let mut matches = base.chain(user).filter(|(word, _)| {
+            word.reading
+                .and_then(|reading| std::str::from_utf8(reading.key).ok())
+                .is_some_and(|key| {
+                    key.split('\'')
+                        .map(canonical_syllable)
+                        .eq(prediction.split('\''))
+                })
+        });
         let (_, kind) = matches.next()?;
         matches.next().is_none().then_some(kind)
     }

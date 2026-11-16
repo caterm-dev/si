@@ -1,34 +1,9 @@
 SI Chinese dictionary notices
 
-Historical Swift algorithm adaptation: MSIME contributors and SI contributors.
-MSIME source: https://github.com/metasequoiaime/msime
-Pinned engine revision: 0fce42f0dd22fe6930b5a1942498280df8073396
-Algorithm code: GPL-3.0-only. SI remains licensed under GPLv3.
-
-Current base and imported categories: rime-wanxiang-data, CC BY 4.0.
-See Wanxiang-NOTICE.txt and Wanxiang-CC-BY-4.0.txt in this directory.
-The following lexical notices apply to retained historical SI category data.
-
-Historical dictionary source: https://github.com/metasequoiaime/msime-dictionary
-Pinned source revision: b32ac7227135255a3351f02ec5bdfc983741e81a
-Lexical sources include Rime Ice, rime-wanxiang (amzxyz), pinyin-data,
-administrative division names, and MSIME-authored additions and corrections.
-Rime Ice data: GPL-3.0. Shared rime-wanxiang weights: CC BY 4.0.
-Full per-source attribution and known provenance limitations are retained
-in the accompanying MSIME-Dictionary-NOTICE.md.
-The pinyin-data copyright and MIT terms are in pinyin-data-MIT.txt.
+Wanxiang data is available under CC BY 4.0. See the shared
+Wanxiang-NOTICE.txt and Wanxiang-CC-BY-4.0.txt in the English notice directory.
 Administrative division names retain the accompanying
 Administrative-divisions-of-China-WTFPL.txt.
 
-Historical word-context artifacts: MSIME dictionary release dict-v2.0.24.
-https://github.com/metasequoiaime/msime-dictionary/releases/tag/dict-v2.0.24
-Adapted from Chinese Wikipedia contributors, September 1, 2026 dump:
-https://dumps.wikimedia.org/zhwiki/20260901/
-Corpus and derived bigram/trigram tables retain CC BY-SA 4.0 attribution:
-https://creativecommons.org/licenses/by-sa/4.0/
-The source subset and exact artifact checksums are in
-SI Git history at revision 90dae8b^ under Data/Chinese/MSIME/resources.lock.json.
-
 SI maintains counted category CSVs and compiles them into a Rust lexicon.
-The former SQLite import and MSIME reading corrections are recorded in
-SI Git history at revision 90dae8b^ under Data/Vocabulary/meta.json.
+For corpus data and review attribution, see the accompanying Corpus-NOTICE.txt.

@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Testing
 import SICore
 @testable import SIPresentation
@@ -6,42 +6,62 @@ import SICore
 struct SentenceSnapshotReaderTests {
     private let noMarkedText = NSRange(location: NSNotFound, length: 0)
 
-    @Test func readsExactUTF16RangeAtEndOfText() {
-        let text = "你好，世界！👩‍💻 "
-        let caret = NSRange(location: text.utf16.count, length: 0)
-        let captured = SentenceSnapshotReader.read(isCurrent: { true }, selection: { caret },
-            markedRange: { noMarkedText }, textLength: { caret.location }, textInRange: { range in
-                #expect(range == NSRange(location: 0, length: caret.location))
+    @Test func readsBothSidesOfASelectionAndAcceptsMultilineText() {
+        let text = "你好👩‍💻\n" + String(repeating: "学", count: 2_000) + "\nZornax"
+        let range = NSRange(location: 0, length: text.utf16.count)
+        let snapshot = SentenceSnapshotReader.read(isCurrent: { true },
+            selection: { NSRange(location: 2, length: 5) }, markedRange: { noMarkedText },
+            textLength: { range.length }, textInRange: {
+                #expect($0 == range)
                 return text
-            })
-        #expect(captured?.utf8.elementsEqual(text.utf8) == true)
-
-        for available in ["你好", text + "世界"] {
-            #expect(SentenceSnapshotReader.read(isCurrent: { true }, selection: { caret },
-                markedRange: { noMarkedText }, textLength: { caret.location }, textInRange: { _ in available }) == nil)
-        }
+            }, textWithActualRange: { _ in nil })
+        #expect(snapshot?.utf8.elementsEqual(text.utf8) == true)
     }
 
-    @Test func skipsInvalidHostRangesBeforeReadingText() {
+    @MainActor
+    @Test func nativeTextViewReturnsItsFullValueWhenLengthIsUnavailable() {
+        let host = NSTextView(frame: NSRect(x: 0, y: 0, width: 320, height: 100))
+        // The first proposed range splits the emoji's surrogate pair.
+        let text = String(repeating: "学", count: 4_095) + "🙂\nZornax"
+        host.string = text
+        host.setSelectedRange(NSRange(location: 2, length: 0))
+        var requests: [Int] = []
+        let snapshot = SentenceSnapshotReader.read(
+            isCurrent: { true }, selection: host.selectedRange, markedRange: host.markedRange,
+            textLength: { NSNotFound }, textInRange: { _ in nil },
+            textWithActualRange: { range in
+                requests.append(range.length)
+                var actual = NSRange(location: NSNotFound, length: 0)
+                guard let returned = host.attributedSubstring(forProposedRange: range, actualRange: &actual) else { return nil }
+                return (returned.string, actual)
+            }
+        )
+        #expect(requests.count > 1)
+        #expect(snapshot?.utf8.elementsEqual(text.utf8) == true)
+    }
+
+    @Test func skipsPartialResponsesAndMarkedText() {
         let caret = NSRange(location: 2, length: 0)
-        for (selection, marked, length) in [
-            (NSRange(location: NSNotFound, length: 0), noMarkedText, 2),
-            (NSRange(location: 2, length: 1), noMarkedText, 2),
-            (NSRange(location: 1_025, length: 0), noMarkedText, 1_025),
-            (caret, NSRange(location: 0, length: 2), 2),
-            (caret, noMarkedText, 5),
-            (caret, noMarkedText, NSNotFound)
-        ] {
-            #expect(SentenceSnapshotReader.read(isCurrent: { true }, selection: { selection },
-                markedRange: { marked }, textLength: { length }, textInRange: { _ in
-                    Issue.record("An invalid range must stop the text read.")
-                    return "你好"
-                }) == nil)
-        }
+        #expect(SentenceSnapshotReader.read(
+            isCurrent: { true }, selection: { caret }, markedRange: { noMarkedText },
+            textLength: { 3 }, textInRange: { _ in "你好" }, textWithActualRange: { _ in nil }
+        ) == nil)
+
+        #expect(SentenceSnapshotReader.read(
+            isCurrent: { true }, selection: { caret }, markedRange: { noMarkedText },
+            textLength: { NSNotFound }, textInRange: { _ in nil },
+            textWithActualRange: { _ in ("你好", NSRange(location: 1, length: 2)) }
+        ) == nil)
+
+        #expect(SentenceSnapshotReader.read(
+            isCurrent: { true }, selection: { caret }, markedRange: { NSRange(location: 0, length: 2) },
+            textLength: { Issue.record("Reading must stop when the host reports marked text."); return 2 },
+            textInRange: { _ in nil }, textWithActualRange: { _ in nil }
+        ) == nil)
     }
 
     @Test func revalidatesAfterEveryHostCallback() {
-        for invalidatingCall in 1...6 {
+        for invalidatingCall in 1...7 {
             var calls = 0
             var active = true
             var failure: SentenceSnapshot.CaptureFailure?
@@ -52,7 +72,7 @@ struct SentenceSnapshotReaderTests {
             }
             let result = SentenceSnapshotReader.read(isCurrent: { active }, selection: {
                 callback()
-                return NSRange(location: 2, length: 0)
+                return NSRange(location: 1, length: 0)
             }, markedRange: {
                 callback()
                 return noMarkedText
@@ -62,7 +82,7 @@ struct SentenceSnapshotReaderTests {
             }, textInRange: { _ in
                 callback()
                 return "你好"
-            }, onFailure: { failure = $0 })
+            }, textWithActualRange: { _ in nil }, onFailure: { failure = $0 })
             #expect(result == nil)
             #expect(failure == .staleClient)
             #expect(calls == invalidatingCall)

@@ -80,7 +80,7 @@ public struct ApplicationMemory: Equatable, Sendable {
                          now: Date = .now, sentenceModel: SentenceLearningModel? = nil) -> ApplicationMemorySnapshot {
         ApplicationMemorySnapshot(vocabulary: vocabularyEnabled ? Array(words.values) : [], now: now,
                                   learning: vocabularyEnabled ? profile : LearningProfile(retainsIndefinitely: true),
-                                  sentenceModel: vocabularyEnabled ? sentenceModel : nil)
+                                  sentenceModel: sentenceModel)
     }
 
     public mutating func removeVocabulary(id: String) {
