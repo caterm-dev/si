@@ -33,6 +33,9 @@ final class SentenceLearningSettings {
     private(set) var isClearing = false
     private(set) var errorMessage: String?
     private(set) var model: SentenceLearningModel?
+    private(set) var recentSamples: [String] = []
+    private(set) var entries: [UserLexiconEntry] = []
+    private(set) var isEditing = false
     private(set) var hasRetiredHistory = false
     private(set) var isDeletingRetiredHistory = false
     private(set) var retiredHistoryError: String?
@@ -41,8 +44,8 @@ final class SentenceLearningSettings {
 
     enum CaptureStatus: Equatable {
         case skipped(SentenceSnapshot.CaptureFailure)
-        case queued
-        case saved
+        case queued(SentenceSnapshot.Coverage)
+        case saved(SentenceSnapshot.Coverage)
 
         var message: String {
             switch self {
@@ -54,10 +57,14 @@ final class SentenceLearningSettings {
                 L10n.text("Finish the marked text before pressing Return to learn the input field.")
             case .skipped(.staleClient):
                 L10n.text("Input or learning settings changed during the text read.")
-            case .queued:
+            case .queued(.fullField):
                 L10n.text("Input field queued for learning.")
-            case .saved:
+            case .saved(.fullField):
                 L10n.text("Sentence model saved.")
+            case .queued(.beforeCaret):
+                L10n.text("Only the text before the caret could be read and was queued for learning.")
+            case .saved(.beforeCaret):
+                L10n.text("Sentence model saved using the text before the caret.")
             }
         }
     }
@@ -70,6 +77,7 @@ final class SentenceLearningSettings {
     @ObservationIgnored private var failed: Batch?
     @ObservationIgnored private var delay: Task<Void, Never>?
     @ObservationIgnored private var worker: Task<Void, Never>?
+    @ObservationIgnored private var entryEdit: Task<SentenceLearningStore.Snapshot, Error>?
     @ObservationIgnored private var deletion: Task<Void, Never>?
     @ObservationIgnored private var started = false
     @ObservationIgnored private var storageGeneration: UInt64 = 0
@@ -102,7 +110,7 @@ final class SentenceLearningSettings {
     }
 
     var canCapture: Bool {
-        enabled && !isLoading && !isClearing && errorMessage == nil
+        enabled && !isLoading && !isClearing && !isEditing && errorMessage == nil
             && queued.count < Self.maximumBatchSize && allowsRecording()
     }
 
@@ -114,17 +122,56 @@ final class SentenceLearningSettings {
         guard !started, let store else { return }
         started = true
         hasRetiredHistory = await retiredHistory?.hasDatabaseFiles() ?? false
-        do { model = try await store.load() }
-        catch {
+        do {
+            let snapshot = try await store.load()
+            model = snapshot.model
+            recentSamples = snapshot.recentSamples
+            entries = snapshot.entries
+        } catch {
             errorMessage = L10n.text("Sentence learning data could not be opened. Clear sentence learning data to start again.")
         }
         isLoading = false
     }
 
-    func record(_ text: String, expectedGeneration: UInt64) {
+    var canEditEntries: Bool { !isLoading && !isClearing && !isEditing && errorMessage == nil }
+
+    func editEntry(old: UserLexiconEntry?, new: UserLexiconEntry?) async throws {
+        guard canEditEntries, let store else { throw SentenceLearningStore.StoreError.profile }
+        isEditing = true
+        defer { isEditing = false; entryEdit = nil }
+        // Finish accepted captures first so an older batch cannot resurrect a deleted row.
+        delay?.cancel()
+        delay = nil
+        drain()
+        let previous = worker
+        let task = Task {
+            await previous?.value
+            guard errorMessage == nil else { throw SentenceLearningStore.StoreError.profile }
+            return try await store.edit(old: old, new: new)
+        }
+        entryEdit = task
+        let snapshot: SentenceLearningStore.Snapshot
+        do {
+            snapshot = try await task.value
+        } catch {
+            // A concurrent profile writer may have changed the row. Refresh the editor's
+            // source without hiding the failed operation or pending learning errors.
+            if let current = try? await store.load() {
+                model = current.model
+                recentSamples = current.recentSamples
+                entries = current.entries
+            }
+            throw error
+        }
+        model = snapshot.model
+        recentSamples = snapshot.recentSamples
+        entries = snapshot.entries
+    }
+
+    func record(_ text: String, coverage: SentenceSnapshot.Coverage = .fullField, expectedGeneration: UInt64) {
         guard generation == expectedGeneration, canCapture, SentenceSnapshot.accepts(text) else { return }
         queued.append(text)
-        captureStatus = .queued
+        captureStatus = .queued(coverage)
         guard delay == nil, worker == nil else { return }
         delay = Task {
             do { try await Task.sleep(for: .seconds(1)) } catch { return }
@@ -144,7 +191,7 @@ final class SentenceLearningSettings {
     }
 
     func clear() {
-        guard let store, !isLoading, !isClearing else { return }
+        guard let store, !isLoading, !isClearing, !isEditing else { return }
         generation &+= 1
         storageGeneration &+= 1
         delay?.cancel()
@@ -154,6 +201,8 @@ final class SentenceLearningSettings {
         failed = nil
         canRetry = false
         model = nil
+        recentSamples = []
+        entries = []
         isClearing = true
         let previous = worker
         worker = Task {
@@ -185,6 +234,7 @@ final class SentenceLearningSettings {
     }
 
     func flush() async {
+        _ = try? await entryEdit?.value
         await deletion?.value
         delay?.cancel()
         delay = nil
@@ -206,11 +256,15 @@ final class SentenceLearningSettings {
                 do {
                     let updated = try await store.ingest(batch.sentences, batchID: batch.id)
                     guard epoch == storageGeneration else { return }
-                    model = updated
+                    model = updated.model
+                    recentSamples = updated.recentSamples
+                    entries = updated.entries
                     failed = nil
                     canRetry = false
                     errorMessage = nil
-                    if captureStatus == .queued, queued.isEmpty, updated != nil { captureStatus = .saved }
+                    if case .queued(let coverage) = captureStatus, queued.isEmpty, updated.model != nil {
+                        captureStatus = .saved(coverage)
+                    }
                 } catch {
                     guard epoch == storageGeneration else { return }
                     failed = batch

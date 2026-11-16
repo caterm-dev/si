@@ -15,7 +15,7 @@ struct SentenceLearningSection: View {
                     .labelsHidden()
                     .disabled(settings.isLoading || settings.isClearing)
             }
-            Text("Off by default. Learned words and word counts stay on this Mac and can change candidate ranking. SI discards the captured text after processing it.")
+            Text("Off by default. Learned words, word counts, and the last 10 processed text samples stay on this Mac.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             if settings.enabled, settings.errorMessage == nil, let status = settings.captureStatus {
@@ -32,7 +32,7 @@ struct SentenceLearningSection: View {
                     Button("Clear Sentence Learning Data", role: .destructive, action: settings.clear)
                     Button("Cancel", role: .cancel) {}
                 } message: {
-                    Text("Deletes the sentence model and pending sentence samples on this Mac.")
+                    Text("Deletes the sentence model and recent and pending text samples on this Mac.")
                 }
             if settings.isLoading { ProgressView("Opening sentence learning data…") }
             if settings.isClearing { ProgressView("Clearing sentence learning data…") }
@@ -40,6 +40,25 @@ struct SentenceLearningSection: View {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
                 if settings.canRetry {
                     Button("Retry Sentence Learning", action: settings.retry)
+                }
+            }
+        }
+
+        SettingsGroup("Recent Learning Samples") {
+            if settings.recentSamples.isEmpty {
+                Text("No processed samples yet.")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(settings.recentSamples.indices.reversed(), id: \.self) { index in
+                    let sample = settings.recentSamples[index]
+                    DisclosureGroup {
+                        Text(verbatim: sample)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } label: {
+                        Text(verbatim: String(sample.prefix(160)))
+                            .lineLimit(2)
+                    }
                 }
             }
         }

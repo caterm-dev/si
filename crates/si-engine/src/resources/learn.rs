@@ -59,7 +59,7 @@ pub(super) fn add_words(
     Ok(added)
 }
 
-fn has_full_han_reading(text: &str, key: &[u8]) -> bool {
+pub(super) fn has_full_han_reading(text: &str, key: &[u8]) -> bool {
     let mut syllables = key.split(|&byte| byte == b'\'');
     !text.is_empty()
         && text.chars().all(|character| {

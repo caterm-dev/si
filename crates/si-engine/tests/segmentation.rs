@@ -2,7 +2,7 @@ use si_engine::segmentation::{SegmentKind, Segmenter};
 use si_lexicon::{IndexId, Lexicon};
 
 #[test]
-fn maximum_matching_preserves_original_byte_ranges() {
+fn frequency_segmentation_preserves_original_byte_ranges() {
     let mut lexicon = Lexicon::new();
     let short = lexicon.add_reading(IndexId(0), b"a", "𠼞", 10).unwrap();
     let long = lexicon
@@ -104,4 +104,66 @@ fn consecutive_ascii_letters_stay_together() {
             ("G", SegmentKind::Letter),
         ]
     );
+}
+
+#[test]
+fn complete_path_uses_frequencies_and_preserves_valid_long_words() {
+    let rows = [
+        ("没有", "mei'you", 78_908_345),
+        ("没有输", "mei'you'shu", 155),
+        ("输入法", "shu'ru'fa", 472_646),
+        ("输入", "shu'ru", 2_986_706),
+        ("入", "ru", 1_746_243),
+        ("法", "fa", 2_191_827),
+        ("甲", "jia", 1_000_000),
+        ("乙", "yi", 1_000_000),
+        ("甲乙", "jia'yi", 0),
+    ];
+    for reverse in [false, true] {
+        let mut lexicon = Lexicon::new();
+        let mut ordered = rows.to_vec();
+        if reverse {
+            ordered.reverse();
+        }
+        for (text, reading, count) in ordered {
+            lexicon
+                .add_reading(IndexId(0), reading.as_bytes(), text, count)
+                .unwrap();
+        }
+        let segmenter = Segmenter::new(&lexicon);
+        for (text, expected) in [
+            ("没有输入法", vec!["没有", "输入法"]),
+            ("没有输入", vec!["没有", "输入"]),
+            ("没有输", vec!["没有输"]),
+            // Fewer words is not itself the objective.
+            ("甲乙", vec!["甲", "乙"]),
+        ] {
+            let parts: Vec<_> = segmenter
+                .segment(text)
+                .map(|part| {
+                    assert!(matches!(part.kind, SegmentKind::Word(_)));
+                    &text[part.range]
+                })
+                .collect();
+            assert_eq!(parts, expected);
+        }
+    }
+}
+
+#[test]
+fn empty_unknown_and_long_mixed_text_preserve_every_byte() {
+    let lexicon = Lexicon::new();
+    let segmenter = Segmenter::new(&lexicon);
+    assert_eq!(segmenter.segment("").count(), 0);
+    let text = format!("{}𠼞e\u{301} PR 404\r\n未知。", "A".repeat(20_000));
+    let parts: Vec<_> = segmenter.segment(&text).collect();
+    assert_eq!(parts[0].range, 0..20_000);
+    assert_eq!(parts[0].kind, SegmentKind::NewEnglishWord);
+    let mut end = 0;
+    for part in parts {
+        assert_eq!(part.range.start, end);
+        assert!(!text[part.range.clone()].is_empty());
+        end = part.range.end;
+    }
+    assert_eq!(end, text.len());
 }

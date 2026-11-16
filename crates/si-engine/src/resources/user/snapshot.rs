@@ -7,19 +7,17 @@ use si_gram::{GramBuilder, GramModel};
 use si_lexicon::Lexicon;
 
 use super::super::{lock_destination, open_compatible_grams};
+use super::recent;
 
 pub(super) const LEXICON: &str = "user.silex";
 pub(super) const GRAMS: &str = "user.sigram";
-const HAN: &str = "characters.silex";
-const HAN_GRAMS: &str = "characters.sigram";
 const BATCHES: &str = "batches";
 
 pub(super) struct State {
     pub(super) lexicon: Lexicon,
     pub(super) grams: GramModel,
-    pub(super) han: Lexicon,
-    pub(super) han_grams: GramModel,
     pub(super) batches: BTreeSet<String>,
+    pub(super) recent_samples: Vec<String>,
 }
 
 impl State {
@@ -27,17 +25,13 @@ impl State {
         Self {
             lexicon: Lexicon::new(),
             grams: empty_grams(),
-            han: Lexicon::new(),
-            han_grams: empty_grams(),
             batches: BTreeSet::new(),
+            recent_samples: Vec::new(),
         }
     }
 
-    pub(super) fn take_grams(&mut self) -> (GramBuilder, GramBuilder) {
-        (
-            std::mem::replace(&mut self.grams, empty_grams()).into_builder(),
-            std::mem::replace(&mut self.han_grams, empty_grams()).into_builder(),
-        )
+    pub(super) fn take_grams(&mut self) -> GramBuilder {
+        std::mem::replace(&mut self.grams, empty_grams()).into_builder()
     }
 }
 
@@ -149,24 +143,18 @@ impl<'a> Profile<'a> {
         let directory = self.slot(active);
         let lexicon = Lexicon::open(directory.join(LEXICON))?;
         let grams = open_compatible_grams(&directory.join(GRAMS), &lexicon)?;
-        let han = Lexicon::open(directory.join(HAN))?;
-        let han_grams = GramModel::open(directory.join(HAN_GRAMS))?;
-        if !han_grams.uses_surface_tokens() {
-            return Err(invalid("invalid user profile character grams"));
-        }
-        han_grams.check_lexicon(&han)?;
         let mut batches = BTreeSet::new();
         for id in fs::read_to_string(directory.join(BATCHES))?.lines() {
             if !valid_batch_id(id) || !batches.insert(id.to_owned()) {
                 return Err(invalid("invalid user profile batch IDs"));
             }
         }
+        self.remove_legacy_character_files(active)?;
         Ok(State {
             lexicon,
             grams,
-            han,
-            han_grams,
             batches,
+            recent_samples: recent::read(&directory)?,
         })
     }
 
@@ -179,14 +167,13 @@ impl<'a> Profile<'a> {
         private_directory(&directory, false)?;
         state.lexicon.save(directory.join(LEXICON))?;
         state.grams.save(directory.join(GRAMS))?;
-        state.han.save(directory.join(HAN))?;
-        state.han_grams.save(directory.join(HAN_GRAMS))?;
         let mut batches = BufWriter::new(private_file(&directory.join(BATCHES))?);
         for id in &state.batches {
             writeln!(batches, "{id}")?;
         }
         batches.flush()?;
         batches.get_ref().sync_all()?;
+        recent::save(&directory, &state.recent_samples)?;
         sync_directory(&directory)?;
         self.publish_pointer(match next {
             Slot::First => b"a\n",
@@ -198,6 +185,28 @@ impl<'a> Profile<'a> {
     pub(super) fn clear(&self) -> io::Result<()> {
         self.publish_pointer(b"empty\n")?;
         self.clean_inactive(None)
+    }
+
+    /// Retire the obsolete sidecars after opening a valid word model under the profile lock.
+    pub(super) fn remove_legacy_character_files(&self, active: Slot) -> io::Result<()> {
+        for slot in [Slot::First, Slot::Second] {
+            let directory = self.slot(slot);
+            match fs::symlink_metadata(&directory) {
+                Ok(metadata) if metadata.is_dir() => {}
+                Ok(_) if slot != active => continue,
+                Ok(_) => return Err(invalid("user snapshot must be a regular directory")),
+                Err(error) if slot != active && error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error),
+            }
+            let mut removed = false;
+            for name in ["characters.silex", "characters.sigram"] {
+                removed |= remove_if_present(&directory.join(name), |path| fs::remove_file(path))?;
+            }
+            if removed {
+                sync_directory(&directory)?;
+            }
+        }
+        Ok(())
     }
 
     fn publish_pointer(&self, contents: &[u8]) -> io::Result<()> {
@@ -249,7 +258,7 @@ fn private_directory(path: &Path, recursive: bool) -> io::Result<()> {
     builder.create(path)
 }
 
-fn private_file(path: &Path) -> io::Result<File> {
+pub(super) fn private_file(path: &Path) -> io::Result<File> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
@@ -260,10 +269,13 @@ fn private_file(path: &Path) -> io::Result<File> {
     options.open(path)
 }
 
-fn remove_if_present(path: &Path, remove: impl FnOnce(&Path) -> io::Result<()>) -> io::Result<()> {
+fn remove_if_present(
+    path: &Path,
+    remove: impl FnOnce(&Path) -> io::Result<()>,
+) -> io::Result<bool> {
     match remove(path) {
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-        result => result,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        result => result.map(|()| true),
     }
 }
 

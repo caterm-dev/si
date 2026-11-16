@@ -63,11 +63,28 @@ typedef struct SICandidateView {
 SIEngine *si_engine_open(const char *lexicon, const char *grams);
 void si_engine_close(SIEngine *engine);
 /* Profile I/O and index construction. Call away from the event handler.
-   On success, close any non-NULL returned engine with si_engine_close. */
-bool si_engine_load_user(const SIEngine *engine, const char *profile, SIEngine **out);
-/* UTF-8 text with newlines separating observations. */
+   On success, release any non-NULL outputs with the matching close/free functions. */
+typedef struct SIUserEntryView {
+    const uint8_t *text;
+    size_t text_bytes;
+    const uint8_t *reading;
+    size_t reading_bytes;
+    uint32_t index; /* UINT32_MAX means no reading. */
+    uint64_t count;
+} SIUserEntryView;
+/* Returned slices borrow engine. Edits compare the exact old entry under the profile lock. */
+bool si_engine_user_entry(const SIEngine *engine, size_t offset, SIUserEntryView *view);
+bool si_engine_edit_user_entry(const char *profile, const SIUserEntryView *old_entry,
+                               const SIUserEntryView *new_entry);
+typedef struct SIRecentUserSamples SIRecentUserSamples;
+bool si_engine_load_user(const SIEngine *engine, const char *profile, SIEngine **out,
+                         SIRecentUserSamples **samples);
+/* Borrowed UTF-8 in chronological order. Returns NULL when the index is out of range. */
+const uint8_t *si_recent_user_sample(const SIRecentUserSamples *samples, size_t index, size_t *length);
+void si_recent_user_samples_free(SIRecentUserSamples *samples);
+/* Concatenated UTF-8 captures with their exclusive end offsets in bytes. */
 bool si_engine_ingest_user(const SIEngine *engine, const char *profile, const char *batch_id,
-                           const uint8_t *text, size_t length);
+                           const uint8_t *text, size_t length, const size_t *ends, size_t count);
 bool si_engine_clear_user(const char *profile);
 
 /* Language bits are 1 for Chinese and 2 for English. Offsets count UTF-8 bytes. */

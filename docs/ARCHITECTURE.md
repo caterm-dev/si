@@ -140,8 +140,22 @@ Suspending a process keeps its lock until the process exits.
 ### Paragraph corpus import
 
 `corpus ingest` reads explicitly supplied UTF-8 text, one paragraph per
-nonempty line. The Rust segmenter indexes exact output spellings and chooses
-the longest match from left to right using UTF-8 byte ranges. Matches end
+nonempty line. The shared Rust segmenter indexes exact output spellings and
+uses a DAG with one best predecessor per source byte boundary to maximize
+the sum of smoothed unigram log probabilities over a complete path. Word
+counts are summed across readings of the same exact written form, with one
+added pseudo-count per form and a half-count unknown-scalar fallback. When
+a user lexicon is present, its counts add at most 32 pseudo-counts per form;
+paired base/user entries remain one lexeme. Scores are precomputed when the
+immutable index is built. Equal path scores prefer the longer final edge,
+independently of word-ID allocation. Matching edges are visited without
+materializing every path, and per-call state grows linearly with source bytes.
+No gram scores or model dependencies are added to segmentation.
+
+This allows `没有 / 输入法` to beat `没有输 / 入 / 法` while preserving exact
+UTF-8 byte ranges. The same algorithm serves user ingestion and preceding-field
+context. ASCII-starting runs retain their longest known spelling or whole-run
+fallback, including existing letter/number classification. Matches end
 at the boundary of a consecutive ASCII letter run. Unlisted runs of at
 least two letters end the gram sequence. The importer groups them by
 exact capitalization and exports `text,reading,weight` to
@@ -277,35 +291,45 @@ Personal Learning and Input History.
 ## Rust user model
 
 `UserModelStore` takes supplied sentences and a read-only base
-lexicon. One forward maximum-matching index combines the base lexicon and
+lexicon. One immutable frequency-scored segmentation index combines the base lexicon and
 the user's current entries. Identical text, lookup index and primary reading
 resolve to one lexeme. The same token-based Pinyin lookup disambiguates known
 Han readings.
 The profile allocates its own word IDs and increments only its own counts,
 including for matches found in the base. New English runs preserve case and
-use lowercase lookup keys in index 1. A Han character outside both lexicons
+use lowercase lookup keys in index 1. Isolated ASCII letters are skipped even
+when present in either lexicon; they end the word-gram sequence without adding
+or incrementing user vocabulary. Existing entries and counts remain intact.
+This policy is local to user ingestion; base paragraph imports retain their
+English review and letter-placeholder handling. A Han character outside both lexicons
 uses a derived reading when available. Spaces preserve word adjacency.
 Punctuation, numbers and unresolved text end a word-gram sequence, as does
 each sentence boundary.
 
-An independent Han-character bigram table tracks adjacent characters
-regardless of word boundaries. User learning applies its own occurrence,
-directional-share and lift thresholds, skips existing Chinese words, and
-adds two-character words with complete Pinyin readings. A newly learned word
-starts with its observed character-pair count and participates in later
-segmentation. Earlier word grams retain the segmentation used when imported.
+User learning applies its occurrence, directional-share and lift thresholds
+to bigrams in `user.sigram` whose two tokens have full Han Pinyin readings
+in `user.silex`. It joins their text, skips existing Chinese words and
+derives a full Pinyin reading for the new compound. The compound starts
+with the observed word-pair count and participates in later segmentation.
+Earlier word grams retain the segmentation used when imported. A newly
+discovered compound competes by score rather than automatically winning by
+length. All sentences in one ingestion batch use its starting snapshot;
+counts are applied only after segmentation completes. Existing statistics
+are not retokenized automatically. Rebuilding base statistics requires the
+original corpus; retained user samples are not a complete training history.
 Base and user snapshots can be loaded together as independent
 `EngineResources`, each with its own lexicon-to-gram ID mapping.
 
 The profile serializes updates with a stable lock. It writes the paired
-lexicon and gram snapshots, character evidence and batch receipts into an
+lexicon and gram snapshots and batch receipts into an
 inactive generation. One atomic pointer change publishes the generation.
 Readers load the selected pair under the same lock. An interrupted write
 leaves either the previous generation or the fully published generation
 readable. A repeat batch ID prevents recounting, and the next update
-removes any inactive generation. Clear publishes an empty profile and
-deletes both generations. Only derived words, counts and opaque batch IDs
-are retained. The `.si-user` directory is ignored by Git.
+removes any inactive generation. Opening a valid word pair removes obsolete
+character files under the same profile lock and preserves the word pair
+and batch receipts. Clear publishes an empty profile and
+deletes both generations. The profile retains derived words, counts, opaque batch IDs and an optional list of the 10 newest processed app captures. The recent-sample sidecar is committed in the same generation as the word pair and receipts. The `.si-user` directory is ignored by Git.
 
 ## Rust lexicon
 
@@ -465,7 +489,7 @@ The UI-independent `LearningProfile` and `LearnedPreference` models remain share
 
 `PrivateArchiveFile` shares regular-file validation, bounded reads, owner-only permissions, atomic replacement and erase mechanics across the remaining storage actors. App memory provides an actor-isolated existence/deletion operation for the retired `preferences-v1.json` path without decoding its contents. Settings exposes explicit deletion with independent progress/error feedback. Old consent flags are ignored and removed only with that deletion. Existing files are not erased or assigned to guessed app scopes; the inactive old archive receives no automatic retention maintenance.
 
-`UserDictionarySettings` owns the separate explicit phrase dictionary and uses `UserDictionaryStore` for local persistence and file import/export preparation. JSON imports validate all phrases, merge into a copy, preserve existing content/pin settings, and apply only if no intervening edit/clear changed the revision. Capacity errors leave the entire import unapplied. Storage and import/export errors remain distinct so a later successful save cannot hide a failed import. Phrases retain until explicit deletion, independent of learning. Cached code/identity indexes support direct full/prefix matches and intermediate lattice nodes; any derived path containing a personal node is excluded from automatic learning and prior-word context.
+Personal Phrases now displays `SentenceLearningSettings.entries`, copied from the same immutable Rust user snapshot as the decoder and recent samples. `SentenceLearningStore` serializes explicit entry edits with ingestion. The C ABI uses borrowed UTF-8 views for reads and owned exact old/new rows for edits. Rust validates the original row under the profile lock, rebuilds the paired lexicon/grams, remaps surviving IDs and aliases, and atomically publishes. Frequency-only edits retain grams; changed/deleted identities lose their grams. The UI removes old pins and JSON import/export; the app no longer opens `phrases-v1.json` or passes its phrases into conversion. Core phrase fixtures remain supported. The existing Sentence Learning consent still gates user-model ranking; explicit management does not change consent.
 
 ### Personal Learning
 
@@ -491,9 +515,9 @@ Vocabulary retains at most 5,000 records; capacity eviction removes least recent
 
 ### Sentence learning
 
-The `sentenceLearning.independentlyEnabled` switch defaults to off. On upgrade, the former `sentenceLearning.enabled` grants consent only if it was explicitly on and Personal Learning was also enabled. SI retires the former key. After migration, each feature uses its own consent and deletion controls. The controller reads the active client's full text on plain, nonrepeated Return with an empty composition and forwards Return normally. The capture revalidates client, consent, secure/direct input and host state around the read. `SentenceSnapshotReader` requests the reported text length from offset zero. When length is unavailable, it grows the proposed range until the client reports an actual range clipped to the text end. The capture accepts multiline text and nonterminal carets or selections, including outside any prior SI submission.
+The `sentenceLearning.independentlyEnabled` switch defaults to off. On upgrade, the former `sentenceLearning.enabled` grants consent only if it was explicitly on and Personal Learning was also enabled. SI retires the former key. After migration, each feature uses its own consent and deletion controls. The controller reads the active client's full text on plain, nonrepeated Return with an empty composition and forwards Return normally. The capture revalidates client, consent, secure/direct input and host state around the read. `SentenceSnapshotReader` requests a positive reported text length from offset zero. For zero or unavailable lengths, it grows the proposed range until the client reports an actual range clipped to the text end. If the full read is unavailable or incomplete, the reader tries the former Sentence History range from offset zero to the caret using the attributed substring API. The returned UTF-16 length must match that requested range before it can be queued. The reader revalidates the client and host state on either path. The capture accepts multiline text and nonterminal carets or selections, including outside any prior SI submission.
 
-`SentenceLearningSettings` keeps at most 32 queued fields and one in-flight or retry batch in memory. The actor passes the captured text as newline-delimited UTF-8 to the same `UserModelStore` ingestion and word discovery used by the CLI. It then loads the paired user resources into a new immutable Rust decoder sharing the existing base resources. Swift attaches that decoder to eligible conversion requests regardless of candidate-choice learning consent. Existing request IDs and settings generations reject obsolete conversion results. The **Sentence Learning** page under **Personal Data** exposes the switch, transient capture status, retry and sentence-model clear. Clear drops pending samples and runs behind in-flight ingestion. The retired raw SQLite archive stays unopened. The page offers explicit file/sidecar deletion, and offline extraction still accepts older exports.
+`SentenceLearningSettings` keeps at most 32 queued fields and one in-flight or retry batch in memory. The actor passes UTF-8 with field boundaries to the same `UserModelStore` ingestion and word discovery used by the CLI. Rust processes each field line by line and retains up to 10 original app captures. Length-prefixed UTF-8 in the optional owner-only sidecar preserves multiline text and embedded NULs. A retried batch ID cannot append the same samples twice. Earlier profiles have an empty recent list. It then loads the paired user resources into a new immutable Rust decoder sharing the existing base resources. Swift attaches that decoder to eligible conversion requests regardless of candidate-choice learning consent. Existing request IDs and settings generations reject obsolete conversion results. The **Sentence Learning** page under **Personal Data** exposes the switch, transient capture status including prefix fallback, retry and sentence-model clear. Settings receives recent captures separately from its decoder snapshot. Clear removes recent samples, drops pending samples and runs behind in-flight ingestion. The retired raw SQLite archive stays unopened. The page offers explicit file/sidecar deletion, and offline extraction still accepts older exports.
 
 ### Portable history export
 
@@ -529,7 +553,7 @@ Candidate panels additionally share one weak main-actor visibility owner. Activa
 
 `InputCandidate.lexicalTokenCount` carries transient lexical evidence independently of identity, score and commit text. Deduplication preserves single-lexical-unit evidence when a stronger composed derivation shares an identity. `rankingScore`/`inputScore` retain base lexical scores; `InputSession.presentationScore` adds learning/context and the consumed-input coverage reward used by `CandidateEngine.merge`. Keeping coverage outside the decoders leaves same-span terminal/prefix beam selection and automatic-confirmation evidence unchanged. Prefix preferences retain their full capped bonus and never use pending spelling. Punctuation variants embed only the prefix's lexical/preferences score, so coverage is added once during their own merge. Exact personal pins retain their explicit override.
 
-`CandidateShortlist` supplies a 27-choice ordinary budget including exact literal input, plus independently pageable generated Chinese dictionary characters. Only the first four ranked choices may contribute constructed sentences or multiword fragments, across Chinese, English and mixed candidates. Remaining ordinary capacity is filled with single lexical units, explicit personal phrases and punctuation choices; mixed/verbatim spans do not qualify as ordinary word choices. Words already ranked in the leading four keep their own positions rather than causing lower sentences to be promoted. Every retained nonliteral candidate keeps engine order, with no language reservation; the literal remains last. Font filtering precedes the budget. Compact/expanded pages, numbers and mouse actions use the same client-local shortlist. Base lexical scores, coverage rewards, search bounds, committed bytes and candidate identities are unchanged by this presentation restriction.
+`CandidateShortlist` supplies a 27-choice ordinary budget including exact literal input, plus independently pageable generated exact Chinese dictionary characters. Only the first four ranked choices may contribute constructed sentences, multiword fragments or dictionary completions, across Chinese, English and mixed candidates. A completion counts as constructed even with one lexical unit. At most nine exact word choices, including exact prefixes and explicit personal phrases, are retained in engine order. Chinese dictionary characters and punctuation do not consume this nine-word budget; mixed/verbatim spans do not qualify as ordinary word choices. Words already ranked in the leading four keep their own positions rather than causing lower sentences to be promoted. Every retained nonliteral candidate keeps engine order, with no language reservation; the literal remains last. Font filtering precedes the budget. Compact/expanded pages, numbers and mouse actions use the same client-local shortlist. Base lexical scores, coverage rewards, search bounds, committed bytes and candidate identities are unchanged by this presentation restriction.
 
 The controller consumes navigation and number-selection events while composing. `CandidateSelection.action` maps the first Down Arrow while collapsed to expansion without advancing selection, and otherwise maps event key codes/characters to moves or numbered choices; digit lookup reads the active six-column row, while the expanded view renders one four-row page. Left/Right selects in the collapsed strip and changes columns when expanded; expanded Up/Down changes rows. These grid moves clamp within the current page. Page Up/Down and footer buttons use the current page capacity (six or 24), preserving position where possible. There is no `IMKCandidates` instance or dependency on its selection-key display, identifiers, or callbacks. Out-of-range row numbers do not commit another candidate. Shortcuts retain literal passthrough, and outside composition these keys pass through. Candidate edits/reset invalidate the previous selection. Mouse buttons return candidate identities and use the same current-candidate validation/learning path as digit keys.
 

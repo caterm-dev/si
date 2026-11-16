@@ -36,7 +36,7 @@ sentence to help rank the first word of each candidate. This context stays in
 memory. If the host cannot provide the text, conversion uses the composition
 and local resources as usual.
 
-The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated Chinese dictionary character that the system font can display. Only the first four ranked choices may include constructed sentences or multiword fragments. Remaining ordinary slots are single-character/word choices, including exact prefixes, so sentence alternatives cannot fill later pages. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Before shortlisting, the window excludes nonliteral candidates containing missing glyphs, including system LastResort placeholders; supported rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices show a small arrow and consume only their exact source spelling: choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Provisional hints may change when full results arrive. Live host compatibility remains unverified.
+The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character that the system font can display. Only the first four ranked choices may include constructed sentences, multiword fragments or dictionary completions. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Before shortlisting, the window excludes nonliteral candidates containing missing glyphs, including system LastResort placeholders; supported rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices show a small arrow and consume only their exact source spelling: choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Provisional hints may change when full results arrive. Live host compatibility remains unverified.
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 
@@ -135,7 +135,9 @@ The former App History completion/draft feature and previous-word pair learning 
 
 In **SI Settings → Personal Data → Sentence Learning**, **Learn from Submitted Sentences** controls the Return-time read. It is independently off by default. If you explicitly enabled Sentence Learning and it was active before upgrading, your choice carries over. When there is no pending composition, a plain Return lets SI learn from the entire text exposed by the active input client, including text after the caret, multiple lines and existing or pasted content. In an editor, the client may expose the entire document. No prior SI submission is required. Return continues to the host. Secure and direct input are excluded.
 
-SI batches the text in memory and reuses the Rust ingestion and word discovery behind `si-cli user ingest` and `si-cli user learn`. Derived vocabulary and word grams can influence subsequent candidates. The profile stays on this Mac. SI discards the captured text after processing it. The **Sentence Learning** page reports skipped reads, queued text and saved models. **Clear Sentence Learning Data…** clears the sentence model and pending samples. Older Sentence History records can be explicitly removed with **Delete Old Sentence History…**. See [sentence learning privacy and retention](docs/PRIVACY.md#sentence-learning) and [native checks](docs/TESTING.md#sentence-learning).
+When an app cannot provide the full field, SI tries the same text interface used by the former Sentence History. It can learn the text before the caret when the entire requested prefix is available. Settings reports when that fallback was used.
+
+SI batches the text in memory and reuses the Rust ingestion and word discovery behind `si-cli user ingest` and `si-cli user learn`. Derived vocabulary and word grams can influence subsequent candidates. The profile stays on this Mac. The **Sentence Learning** page reports skipped reads, queued text and saved models. **Recent Learning Samples** shows the last 10 processed captures, newest first, including their original line breaks. Older captures roll off automatically. **Clear Sentence Learning Data…** clears the sentence model and both recent and pending samples. Older Sentence History records can be explicitly removed with **Delete Old Sentence History…**. See [sentence learning privacy and retention](docs/PRIVACY.md#sentence-learning) and [native checks](docs/TESTING.md#sentence-learning).
 
 ## Input History
 
@@ -155,9 +157,9 @@ The independent owner-only SQLite database is `~/Library/Application Support/SI/
 
 ## Personal phrases
 
-Open **SI Settings → Personal Phrases → Manage Personal Phrases…** to add a code such as `xm` and the exact text to insert. Choose its candidate language and optionally prefer it for a full-code match. Phrases work even with learning off, respect enabled languages, and remain until manually deleted. They are not copied into learning records or used as preceding-word context.
+Open **SI Settings → Personal Phrases** to view and search the active `user.silex` entries. Add, edit or delete words, their Pinyin/English readings and frequency counts directly. This is the same private vocabulary used by Sentence Learning; its existing switch still controls use of the user model for conversion. Management does not enable automatic learning.
 
-The manager supports search, editing, deletion, clear, and additive JSON import/export, with at most 1,000 phrases. Imports preserve existing phrases and pin settings; invalid or over-capacity imports leave the dictionary unchanged. Saved codes also participate in longer Pinyin/mixed paths: saving `xm` → `小明` lets `woaixm` offer `我爱小明`. Any path containing a personal phrase stays excluded from automatic learning and previous-word context. Exported files contain phrase text and must be handled as personal data. See [phrase format and controls](docs/USER_PHRASES.md).
+The former separate shortcut dictionary, pins and JSON import/export have been removed from the app. Existing `phrases-v1.json` files are left untouched and are no longer loaded or migrated. Edits atomically update the paired user model; deleting or changing a word identity removes its associated word grams while keeping unrelated entries and counts. Clearing Sentence Learning data also clears these entries. See [storage and controls](docs/USER_PHRASES.md).
 
 ## Requirements
 
@@ -462,6 +464,12 @@ lexicon and word-gram counts use their own IDs and include only observations
 from that profile. The base lexicon helps segment sentences. Its counts and
 the base gram file stay independent.
 
+User ingestion automatically adds English words with lowercase lookup keys
+and preserves their output casing. Isolated ASCII letters are excluded from
+new vocabulary and gram observations and break word adjacency, even if already
+listed in a lexicon. Existing entries and counts are retained. This user-only
+rule does not change base `corpus ingest` review or placeholder handling.
+
 ```sh
 cargo run --release --locked -p si-cli -- user ingest target/si-data/profile.si-user target/si-data/main.silex batch-001 /path/to/sentences.txt
 cargo run --release --locked -p si-cli -- user learn target/si-data/profile.si-user target/si-data/main.silex
@@ -474,24 +482,31 @@ batch ID for each set of new observations and reuse that ID when retrying the
 same batch. A distinct batch ID counts repeated sentences as new observations.
 
 `user learn` uses the `[user]` section of [SI configuration](config/si.conf)
-and the profile's Han-character bigrams. The defaults require five
+and bigrams from the profile's `user.sigram`. It joins adjacent Han tokens
+with full Pinyin readings from `user.silex`. The defaults require five
 occurrences, a 30% share in each direction, and lift of at least 2. To set
 different thresholds for a profile, select a configuration with `--config`.
-Learned two-character words enter Pinyin index
+Learned compounds enter Pinyin index
 `0` immediately and contribute word grams on subsequent imports.
 
-The profile stores derived words, counts and batch IDs locally. Sentence
-lines and source paths are discarded after processing. On Unix the profile
-directory is owner-only. `user clear` removes its derived data and batch
-IDs. The Rust library entry point is
+The profile stores derived words, word grams and batch IDs locally.
+App captures also retain the last 10 processed samples for Settings.
+CLI imports discard their source lines and paths after processing.
+Opening a valid word pair removes legacy character files. On Unix the
+profile directory is owner-only. `user clear` removes its derived data,
+batch IDs and recent samples. The Rust library entry point is
 [`UserModelStore`](crates/si-engine/src/resources/user.rs).
 See [user model storage](docs/ARCHITECTURE.md#rust-user-model).
 
 #### Import unsegmented paragraphs
 
 `corpus ingest` takes UTF-8 text with one paragraph per nonempty line. It
-matches the longest exact dictionary spelling from left to right and keeps
-consecutive ASCII letters together. Only known words contribute lexical
+selects a complete segmentation by smoothed dictionary word frequencies,
+so `没有输入法` can resolve to `没有 / 输入法` instead of greedily taking
+`没有输`. Consecutive ASCII letters stay together. The same segmenter serves
+user ingestion and preceding-field context. User counts provide a bounded
+adjustment; previously saved counts and grams are not automatically rebuilt.
+Only known words contribute lexical
 counts. An unlisted run of at least two ASCII letters breaks the word-gram
 sequence and goes to a separate CSV. An isolated ASCII letter contributes `<char>`
 to n-grams, and an independent ASCII digit run such as `404` contributes

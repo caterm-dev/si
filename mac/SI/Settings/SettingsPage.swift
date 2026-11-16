@@ -67,9 +67,9 @@ enum SettingsPage: Hashable {
              "Show punctuation candidates", "Punctuation during composition"] + PunctuationBehavior.allCases.map(\.displayName)
         case .aiCompletion: ["Enable AI Completion", "Codex CLI", "Claude Code", "OpenAI API Key", "Accessibility"]
         case .directInput: ["Manage Direct Input…", "Applications", "Terminal", "Toggle Direct Input Shortcut", "Record Shortcut…"]
-        case .phrases: ["Manage Personal Phrases…", "Import…", "Export…"]
+        case .phrases: ["Add Phrase…", "Edit", "Delete", "Frequency", "user.silex"]
         case .learning: ["Manage Learning Data…", "Clear Personal Learning Data…"]
-        case .sentenceLearning: ["Learn from Submitted Sentences", "Clear Sentence Learning Data…", "Delete Old Sentence History…"]
+        case .sentenceLearning: ["Learn from Submitted Sentences", "Recent Learning Samples", "Clear Sentence Learning Data…", "Delete Old Sentence History…"]
         case .inputHistory: ["Save Input History", "Export Input History…", "Clear Input History…"]
         case .permissions: ["Accessibility", "Screen Recording"]
         case .about: ["Software Updates", "Check for Updates…", "Version", "Keyboard Shortcuts", "GitHub"]

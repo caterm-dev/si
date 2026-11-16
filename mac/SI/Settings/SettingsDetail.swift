@@ -4,7 +4,6 @@ struct SettingsDetail: View {
     let page: SettingsPage
     let settings: LanguageSettings
     let updater: AppUpdater
-    let dictionary: UserDictionarySettings
     let applicationMemory: ApplicationMemorySettings
     let sentenceLearning: SentenceLearningSettings
     let inputHistory: InputHistorySettings
@@ -18,7 +17,7 @@ struct SettingsDetail: View {
         case .directInput:
             ApplicationPassthroughSection(settings: settings)
         case .phrases:
-            UserDictionarySection(dictionary: dictionary)
+            UserDictionarySection(dictionary: sentenceLearning)
         case .learning:
             ApplicationMemorySection(settings: applicationMemory)
         case .sentenceLearning:

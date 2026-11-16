@@ -465,6 +465,55 @@ fn constructed_output_bounds_leave_long_direct_words_and_literal_available() -> 
 }
 
 #[test]
+fn user_ingestion_skips_single_letters_without_bridging_grams() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, EN, "a", "a", 20);
+    add(&mut lexicon, EN, "alpha", "alpha", 20);
+    add(&mut lexicon, ZH, "yun", "云", 20);
+    let base = directory.resources(&mut lexicon, None)?;
+    let store = UserModelStore::new(directory.path("letters.si-user"));
+    let existing = si_engine::resources::user::UserEntry {
+        text: "I".into(),
+        reading: Some((1, b"i".to_vec())),
+        count: 7,
+    };
+    store.edit_entry(None, Some(&existing))?;
+    for batch in ["first", "second"] {
+        store.ingest(
+            base.lexicon(),
+            batch,
+            [Ok(
+                "alpha a Beta. alpha I Beta. alpha Z Beta. alpha Beta 云",
+            )],
+        )?;
+    }
+    let user = store.load()?.unwrap();
+    assert!(user.lexicon().find_word("a").is_none());
+    assert!(user.lexicon().find_word("Z").is_none());
+    let saved_i = user.lexicon().find_word("I").unwrap();
+    assert_eq!(user.lexicon().word(saved_i).unwrap().count, 7);
+    let alpha = user.lexicon().find_word("alpha").unwrap();
+    let beta = user.lexicon().find_reading(EN, b"beta", "Beta").unwrap();
+    let cloud = user.lexicon().find_word("云").unwrap();
+    assert_eq!(user.lexicon().word(beta).unwrap().count, 8);
+    let grams = user.grams().unwrap();
+    assert_eq!(grams.count(&[alpha, beta]), Some(2));
+    assert_eq!(grams.count(&[beta, cloud]), Some(2));
+    assert_eq!(grams.count(&[alpha, saved_i]), None);
+    assert_eq!(grams.count(&[saved_i, beta]), None);
+    assert_eq!(
+        base.lexicon()
+            .word(base.lexicon().find_word("a").unwrap())
+            .unwrap()
+            .count,
+        20
+    );
+    assert!(base.lexicon().find_word("Beta").is_none());
+    Ok(())
+}
+
+#[test]
 fn user_word_and_gram_evidence_follow_lexeme_identity_across_files() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
@@ -665,4 +714,36 @@ impl Drop for Scratch {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
+}
+
+#[test]
+fn field_context_uses_the_complete_frequency_segmentation() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "mei'you", "没有", 78_908_345);
+    add(&mut lexicon, ZH, "mei'you'shu", "没有输", 155);
+    let ime = add(&mut lexicon, ZH, "shu'ru'fa", "输入法", 472_646);
+    add(&mut lexicon, ZH, "ru", "入", 1_746_243);
+    add(&mut lexicon, ZH, "fa", "法", 2_191_827);
+    let good = add(&mut lexicon, ZH, "hao", "好", 100);
+    add(&mut lexicon, ZH, "hao", "豪", 200);
+    let mut grams = GramBuilder::new();
+    grams.add(&[ime, good], 1_000).unwrap();
+    let base = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&base, None);
+    let convert = |context| {
+        engine.convert_with_context(
+            "hao",
+            CHINESE,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            context,
+        )
+    };
+    let actual = convert("没有输入法");
+    assert_eq!(actual, convert("输入法"));
+    assert!(find(&actual, "好", CandidateLanguage::Chinese, 3).context_adjustment > 0.0);
+    assert_ne!(actual, convert("入法"));
+    Ok(())
 }

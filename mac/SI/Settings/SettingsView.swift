@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var settings: LanguageSettings
     var updater: AppUpdater
-    var dictionary: UserDictionarySettings = .shared
     var applicationMemory: ApplicationMemorySettings = .shared
     var sentenceLearning: SentenceLearningSettings = .shared
     var inputHistory: InputHistorySettings = .shared
@@ -30,7 +29,7 @@ struct SettingsView: View {
                             .font(.largeTitle.bold())
                             .accessibilityAddTraits(.isHeader)
                         SettingsDetail(
-                            page: visiblePage, settings: settings, updater: updater, dictionary: dictionary,
+                            page: visiblePage, settings: settings, updater: updater,
                             applicationMemory: applicationMemory, sentenceLearning: sentenceLearning, inputHistory: inputHistory
                         )
                     }
@@ -54,7 +53,6 @@ struct SettingsView: View {
 
 #Preview {
     SettingsView(settings: LanguageSettings(defaults: UserDefaults(suiteName: "SI.Preview") ?? .standard), updater: AppUpdater(),
-                 dictionary: UserDictionarySettings(isPreview: true),
                  applicationMemory: ApplicationMemorySettings(isPreview: true),
                  sentenceLearning: SentenceLearningSettings(defaults: .standard),
                  inputHistory: InputHistorySettings(isPreview: true))

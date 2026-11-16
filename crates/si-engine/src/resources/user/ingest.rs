@@ -16,7 +16,7 @@ pub(super) fn observe<S: AsRef<str>>(
     sentences: impl IntoIterator<Item = io::Result<S>>,
     max_order: GramOrder,
 ) -> io::Result<UserImport> {
-    let (mut words, mut characters) = state.take_grams();
+    let mut words = state.take_grams();
     words.set_max_order(max_order);
     let mut report = UserImport::default();
     let segmenter = Segmenter::with_user(base, &state.lexicon);
@@ -36,6 +36,13 @@ pub(super) fn observe<S: AsRef<str>>(
         report.sentences += 1;
         for segment in segmenter.segment(text) {
             let surface = &text[segment.range];
+            // Exclude isolated ASCII letters even when an existing lexicon knows them.
+            // They break adjacency rather than creating grams across the skipped text.
+            if surface.len() == 1 && surface.as_bytes()[0].is_ascii_alphabetic() {
+                report.skipped_spans += 1;
+                finish_run(&mut run, &mut words)?;
+                continue;
+            }
             let reading = match segment.kind {
                 SegmentKind::Space => continue,
                 SegmentKind::UserWord(id) => {
@@ -45,7 +52,7 @@ pub(super) fn observe<S: AsRef<str>>(
                     continue;
                 }
                 SegmentKind::Word(id) => base.word(id).and_then(|word| word.reading),
-                SegmentKind::NewEnglishWord | SegmentKind::Letter => {
+                SegmentKind::NewEnglishWord => {
                     let spelling = surface.to_ascii_lowercase();
                     run.push(changes.observe(
                         &state.lexicon,
@@ -84,13 +91,10 @@ pub(super) fn observe<S: AsRef<str>>(
             }
         }
         finish_run(&mut run, &mut words)?;
-        observe_characters(text, &mut state.han, &mut characters)?;
     }
     changes.apply(&mut state.lexicon)?;
     state.grams = words.finish().map_err(io::Error::other)?;
     state.grams.bind_lexicon(&state.lexicon)?;
-    state.han_grams = characters.finish().map_err(io::Error::other)?;
-    state.han_grams.bind_surface_lexicon(&state.han)?;
     report.words = state.lexicon.len();
     report.grams = state.grams.sizes();
     Ok(report)
@@ -145,27 +149,6 @@ impl WordChanges {
         }
         Ok(())
     }
-}
-
-fn observe_characters(
-    text: &str,
-    lexicon: &mut Lexicon,
-    grams: &mut GramBuilder,
-) -> io::Result<()> {
-    let mut previous = None;
-    for character in text.chars() {
-        if !han::is_han(character) {
-            previous = None;
-            continue;
-        }
-        let mut bytes = [0; 4];
-        let surface = character.encode_utf8(&mut bytes);
-        let id = lexicon.add_word(surface, 0).map_err(io::Error::other)?;
-        if let Some(left) = previous.replace(id) {
-            grams.add(&[left, id], 1).map_err(io::Error::other)?;
-        }
-    }
-    Ok(())
 }
 
 fn finish_run(run: &mut Vec<WordId>, grams: &mut GramBuilder) -> io::Result<()> {

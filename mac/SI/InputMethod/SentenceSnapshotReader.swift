@@ -3,13 +3,18 @@ import Foundation
 import SICore
 #endif
 
-/// Reads the active text client's full value, revalidating after each host callback.
+/// Reads the active text client's full value when available.
 enum SentenceSnapshotReader {
+    struct Capture {
+        let text: String
+        let coverage: SentenceSnapshot.Coverage
+    }
+
     static func read(isCurrent: () -> Bool, selection: () -> NSRange, markedRange: () -> NSRange,
                      textLength: () -> Int, textInRange: (NSRange) -> String?,
                      textWithActualRange: (NSRange) -> (text: String, range: NSRange)?,
-                     onFailure: (SentenceSnapshot.CaptureFailure) -> Void = { _ in }) -> String? {
-        func fail(_ reason: SentenceSnapshot.CaptureFailure) -> String? {
+                     onFailure: (SentenceSnapshot.CaptureFailure) -> Void = { _ in }) -> Capture? {
+        func fail(_ reason: SentenceSnapshot.CaptureFailure) -> Capture? {
             onFailure(reason)
             return nil
         }
@@ -23,31 +28,49 @@ enum SentenceSnapshotReader {
 
         let length = textLength()
         guard isCurrent() else { return fail(.staleClient) }
-        let text: String
-        if length == NSNotFound {
-            switch readWithoutLength(isCurrent: isCurrent, textWithActualRange: textWithActualRange) {
-            case .success(let value): text = value
-            case .failure(let reason): return fail(reason)
-            }
+        let fullRead: Result<String, SentenceSnapshot.CaptureFailure>
+        if length <= 0 || length == NSNotFound {
+            // A zero length can also mean that the host did not supply a length.
+            fullRead = readWithoutLength(isCurrent: isCurrent, textWithActualRange: textWithActualRange)
         } else {
-            guard length > 0 else { return fail(.invalidText) }
             let snapshot = textInRange(NSRange(location: 0, length: length))
             guard isCurrent() else { return fail(.staleClient) }
-            guard let snapshot else { return fail(.unavailableText) }
-            guard snapshot.utf16.count == length else { return fail(.incompleteRange) }
-            text = snapshot
-        }
-
-        guard SentenceSnapshot.accepts(text) else { return fail(.invalidText) }
-        if selected.location != NSNotFound {
-            let (end, overflow) = selected.location.addingReportingOverflow(selected.length)
-            guard !overflow, selected.location >= 0, selected.length >= 0, end <= text.utf16.count else {
-                return fail(.incompleteRange)
+            if let snapshot {
+                fullRead = snapshot.utf16.count == length ? .success(snapshot) : .failure(.incompleteRange)
+            } else {
+                fullRead = .failure(.unavailableText)
             }
         }
+
+        let capture: Capture
+        switch fullRead {
+        case .success(let text) where selectionFits(selected, length: text.utf16.count):
+            capture = Capture(text: text, coverage: .fullField)
+        case .failure(.staleClient):
+            return fail(.staleClient)
+        case .success, .failure:
+            // The former Sentence History could read this range even when the full field was unavailable.
+            guard selected.location > 0, selected.location != NSNotFound else {
+                if case .failure(let reason) = fullRead { return fail(reason) }
+                return fail(.incompleteRange)
+            }
+            let prefix = textInRange(NSRange(location: 0, length: selected.location))
+            guard isCurrent() else { return fail(.staleClient) }
+            guard let prefix else { return fail(.unavailableText) }
+            guard prefix.utf16.count == selected.location else { return fail(.incompleteRange) }
+            capture = Capture(text: prefix, coverage: .beforeCaret)
+        }
+
         guard selection() == selected, isCurrent(), markedRange() == marked, isCurrent(),
               textLength() == length, isCurrent() else { return fail(.staleClient) }
-        return text
+        guard SentenceSnapshot.accepts(capture.text) else { return fail(.invalidText) }
+        return capture
+    }
+
+    private static func selectionFits(_ selected: NSRange, length: Int) -> Bool {
+        if selected.location == NSNotFound { return true }
+        let (end, overflow) = selected.location.addingReportingOverflow(selected.length)
+        return !overflow && selected.location >= 0 && selected.length >= 0 && end <= length
     }
 
     private static func readWithoutLength(

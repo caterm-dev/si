@@ -71,11 +71,11 @@ struct ChineseSentenceAlternativesTests {
         let mixed = InputCandidate(text: "甲word", language: .simplifiedChinese, score: 1, isMixed: true)
         let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
         let result = CandidateShortlist.candidates(from: [pin, readings[0]] + words + Array(readings.dropFirst()) + [english, mixed, literal])
-        #expect(result.count == 27 && result.first == pin && result.last == literal)
+        #expect(result.count == 11 && result.first == pin && result.last == literal)
         #expect(result.contains(readings[0]))
         #expect(!readings.dropFirst().contains(where: result.contains))
         #expect(!result.contains(english) && !result.contains(mixed))
-        #expect(result == [pin, readings[0]] + Array(words.prefix(24)) + [literal])
+        #expect(result == [pin, readings[0]] + Array(words.prefix(8)) + [literal])
         #expect(result.filter { $0.isChineseSentence || $0.isMixed }.count == 1)
     }
 
@@ -93,7 +93,7 @@ struct ChineseSentenceAlternativesTests {
         let literal = InputCandidate(text: "SyntheticInput", language: nil, score: 0)
         let ranked = leaders + words + [otherSentence, otherWord, literal]
         let shortlist = CandidateShortlist.candidates(from: ranked)
-        #expect(shortlist == leaders + Array(words.prefix(22)) + [literal])
+        #expect(shortlist == leaders + Array(words.prefix(9)) + [literal])
         #expect(CandidateShortlist.candidates(from: ranked) == shortlist)
         let higherWord = InputCandidate(text: otherWord.text, language: other, score: 99,
             rankingScore: 99.5, lexicalTokenCount: 1)

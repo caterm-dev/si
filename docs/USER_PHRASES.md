@@ -1,51 +1,17 @@
 # Personal phrases
 
-Open **SI Settings → Personal Phrases → Manage Personal Phrases…**. Add an input code, the exact phrase text, and a candidate language. Enabling that language makes the phrase available; no active-language mode is introduced.
+**SI Settings → Personal Phrases** directly lists the active `user.silex` vocabulary in `~/Library/Application Support/SI/Personalization/model.si-user/`. It includes entries created by Sentence Learning and entries explicitly added here. Search by text or reading, then use **Add Phrase…**, **Edit** or **Delete**.
 
-- Codes are case-insensitive ASCII letters with optional internal apostrophes, at most 64 normalized bytes. Leading/trailing or repeated apostrophes, digits, and unreachable codes are rejected. Chinese codes normalize ü/`u:` to `v`; type `v` through SI.
-- Phrase text is preserved exactly, including case, spaces, and emoji. Empty/whitespace-only text, line breaks, control characters, or more than 1,024 UTF-8 bytes are rejected. Unicode joiners are allowed for joined emoji and scripts.
-- **Prefer this phrase for its full code** gives an exact full-code match explicit priority. In composed paths, the Rust engine uses a fixed insertion prior, applies a cost to incomplete spellings, and gives pinned phrases a one-bit preference. Other enabled-language candidates and literal input remain available.
-- Candidate labels identify personal phrases. Their language comes from the saved setting; it is not guessed from the output script.
-- Editing preserves the entry identifier. Identical code/language/text entries cannot be added twice; multiple different outputs for one code are allowed.
-- Personal phrases are independent of automatic learning. They do not create learning records or become prior-word context. Clearing learning data leaves phrases intact; clearing the phrase dictionary leaves unrelated learned preferences intact.
-- Secure event input suppresses phrase suggestions conservatively. It does not delete phrases.
+The editor exposes exact output text, Chinese/English reading and unsigned integer frequency. Readings use lowercase ASCII letters and apostrophes (use `v` for ü), up to 256 bytes. Text is nonempty, at most 4,096 UTF-8 bytes and cannot contain control characters. Entries without a reading remain visible and editable; they do not provide a spelling lookup until a reading is assigned. Duplicate text/reading/index identities are rejected. There is no separate 1,000-entry phrase limit, pin, shortcut expansion, or JSON import/export.
+
+Management works independently of recording consent. The existing Sentence Learning switch still controls whether the stored user model participates in conversion. Enabled languages and secure/direct-input safeguards continue to apply. These are ordinary dictionary entries and can participate in statistical ranking and learning under the existing consents.
 
 ## Storage and deletion
 
-The dictionary retains up to 1,000 entries without automatic expiry, until the user edits, deletes, or clears them. The local path is:
+The profile retains owner-only snapshot directories and atomically publishes the paired `user.silex` and `user.sigram`. File access and rebuilding run on the storage actor, away from the key-event path. Edits compare the exact original row under the Rust profile lock; stale or duplicate edits fail visibly. Reopen the editor to retry against the latest entry after learning updates it.
 
-```text
-~/Library/Application Support/SI/UserDictionary/phrases-v1.json
-```
+Frequency-only edits preserve associated grams. Deleting or changing a word's text/reading drops grams involving that identity and remaps surviving word IDs, preserving unrelated counts and lookup aliases. Accepted queued learning completes before an edit. Future learning can add a deleted word again; deletion is not a permanent exclusion rule. Entries have no automatic expiry. **Clear Sentence Learning Data…** clears this shared vocabulary, word grams and recent samples. Personal Learning and Input History remain separate.
 
-The directory uses owner-only access (0700), and the file uses owner read/write access (0600). Files are not encrypted by SI. Saves run on an actor and use atomic replacement; older queued writes cannot undo newer deletions. Settings reports save failures and supports retry. Corrupt or unsupported files are preserved until explicit clearing. No cloud sync or automatic import runs.
+The old `SI/UserDictionary/phrases-v1.json` archive is no longer loaded, changed or migrated. Existing copies remain on disk for manual recovery/deletion. Core personal-phrase types remain available to library fixtures but are no longer fed by the app.
 
-## Import and export
-
-**Import…** accepts an SI dictionary JSON file, at most 4 MiB. Import validates every entry and the complete result before replacing in-memory state. It adds new phrases, skips content duplicates, preserves local pin settings, and assigns a new identifier when an imported identifier collides with a different local entry. It never silently drops old entries to fit the capacity. Changes during an asynchronous import cancel application of that import, preventing a late result from undoing a clear or edit.
-
-**Export…** creates a snapshot containing only manually saved phrases, not learning data. The standard save dialog lets the user choose its location. Exported copies contain personal text and are not deleted when SI's private dictionary is cleared. Keep their location and access permissions appropriate to their content.
-
-Format example:
-
-```json
-{
-  "format": "SI User Dictionary",
-  "version": 1,
-  "entries": [
-    {
-      "id": "CA6D0233-55CE-4F39-8624-9A1DA2083101",
-      "input": "xm",
-      "text": "项目代号",
-      "language": "zh-Hans",
-      "isPinned": true
-    }
-  ]
-}
-```
-
-Supported language identifiers are `en` and `zh-Hans`. Entries are data, never executable instructions. Chinese codes also form nodes in longer Chinese compositions: `xm` → `小明` can supply a personal path for `woaixm`. Saved codes augment the ordinary Chinese reading rather than replacing it. Personal codes can also be selected as explicit leading prefixes, leaving the remaining spelling editable. Apostrophes constrain typed boundaries. All direct saved prefix choices stay available independently of the constructed-node fanout. The exact saved text is concatenated without added spaces, so include a space in the phrase itself when one is required.
-
-The Rust bridge has automated phrase coverage. Native dialogs, secure-field behavior and host insertion require [manual phrase checks](TESTING.md#personal-phrase-checks).
-
-Constructed paths use at most 12 personal alternatives per language for each matching code, with preferred phrases first, and stop before output would exceed 4,096 UTF-8 bytes. Direct full-code/prefix matches retain all alternatives independently of that search bound. Prefix selection allows a long expansion to be confirmed in pieces without truncating text. Any constructed path containing a personal phrase is excluded from automatic learning and previous-word context, even when its other words came from the built-in vocabulary.
+Native keyboard, VoiceOver, appearance and host checks are listed in [testing](TESTING.md#personal-phrase-checks).

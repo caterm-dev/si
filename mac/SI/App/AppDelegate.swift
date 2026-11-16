@@ -20,11 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.server = server
         updater.start()
         Task {
-            async let phrases: Void = UserDictionarySettings.shared.start()
             async let appMemory: Void = ApplicationMemorySettings.shared.start()
             async let history: Void = InputHistorySettings.shared.start()
             async let sentences: Void = SentenceLearningSettings.shared.start()
-            _ = await (phrases, appMemory, history, sentences)
+            _ = await (appMemory, history, sentences)
         }
         Task.detached(priority: .userInitiated) { [logger] in
             if RustConversion.shared == nil { logger.error("Unable to load the Rust conversion resources.") }
@@ -43,11 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {
-            async let phrases: Void = UserDictionarySettings.shared.flush()
             async let appMemory: Void = ApplicationMemorySettings.shared.flush()
             async let history: Void = InputHistorySettings.shared.flush()
             async let sentences: Void = SentenceLearningSettings.shared.flush()
-            _ = await (phrases, appMemory, history, sentences)
+            _ = await (appMemory, history, sentences)
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

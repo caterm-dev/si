@@ -1,6 +1,9 @@
 //! Local user-model updates from explicitly supplied sentences.
 
+mod edit;
+pub use edit::UserEntry;
 mod ingest;
+mod recent;
 mod snapshot;
 
 use std::io;
@@ -48,6 +51,18 @@ impl UserModelStore {
 
     /// Read a consistent user dictionary and word-gram pair, with user-local IDs.
     pub fn load(&self) -> io::Result<Option<EngineResources>> {
+        Ok(self.load_snapshot(false)?.map(|(resources, _)| resources))
+    }
+
+    /// Read the word pair and recent app samples from the same generation.
+    pub fn load_with_recent(&self) -> io::Result<Option<(EngineResources, Vec<String>)>> {
+        self.load_snapshot(true)
+    }
+
+    fn load_snapshot(
+        &self,
+        include_recent: bool,
+    ) -> io::Result<Option<(EngineResources, Vec<String>)>> {
         let Some(profile) = snapshot::Profile::open(&self.directory, false)? else {
             return Ok(None);
         };
@@ -55,11 +70,17 @@ impl UserModelStore {
             return Ok(None);
         };
         let directory = profile.slot(active);
-        EngineResources::open(
+        let resources = EngineResources::open(
             &directory.join(snapshot::LEXICON),
             Some(&directory.join(snapshot::GRAMS)),
-        )
-        .map(Some)
+        )?;
+        let samples = if include_recent {
+            recent::read(&directory)?
+        } else {
+            Vec::new()
+        };
+        profile.remove_legacy_character_files(active)?;
+        Ok(Some((resources, samples)))
     }
 
     /// Add each supplied sentence once for a caller-generated opaque batch ID.
@@ -87,6 +108,33 @@ impl UserModelStore {
         sentences: impl IntoIterator<Item = io::Result<S>>,
         max_order: GramOrder,
     ) -> io::Result<UserImport> {
+        self.ingest_batch(base, batch_id, sentences, max_order, &[])
+    }
+
+    /// Ingest app captures line by line, retaining the ten newest complete captures for Settings.
+    pub fn ingest_fields(
+        &self,
+        base: &Lexicon,
+        batch_id: &str,
+        fields: &[&str],
+    ) -> io::Result<UserImport> {
+        self.ingest_batch(
+            base,
+            batch_id,
+            fields.iter().flat_map(|field| field.lines()).map(Ok),
+            SiConfig::default().user_max_order,
+            fields,
+        )
+    }
+
+    fn ingest_batch<S: AsRef<str>>(
+        &self,
+        base: &Lexicon,
+        batch_id: &str,
+        sentences: impl IntoIterator<Item = io::Result<S>>,
+        max_order: GramOrder,
+        fields: &[&str],
+    ) -> io::Result<UserImport> {
         if !snapshot::valid_batch_id(batch_id) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -108,12 +156,13 @@ impl UserModelStore {
         let report = ingest::observe(&mut state, base, sentences, max_order)?;
         if report.sentences != 0 {
             state.batches.insert(batch_id.to_owned());
+            recent::append(&mut state.recent_samples, fields);
             profile.publish(active, &mut state)?;
         }
         Ok(report)
     }
 
-    /// Discover two-character words from this user's Han bigrams.
+    /// Discover compounds from adjacent Pinyin words in this user's word model.
     pub fn learn(&self, base: &Lexicon, config: &UserLearningConfig) -> io::Result<UserLearning> {
         let Some(profile) = snapshot::Profile::open(&self.directory, false)? else {
             return Ok(UserLearning::default());
@@ -124,11 +173,19 @@ impl UserModelStore {
             return Ok(UserLearning::default());
         };
         let mut state = profile.read(Some(active))?;
-        let candidates = learn::qualifying_bigrams(state.han_grams.bigrams(), &config.0, |_| true);
+        let candidates = learn::qualifying_bigrams(state.grams.bigrams(), &config.0, |words| {
+            words.into_iter().all(|id| {
+                let word = state.lexicon.word(id).expect("validated gram word ID");
+                word.reading.is_some_and(|reading| {
+                    reading.index == PINYIN_INDEX
+                        && learn::has_full_han_reading(word.text, reading.key)
+                })
+            })
+        });
         let mut report = UserLearning::default();
         for ([left, right], count) in candidates {
-            let left = state.han.word(left).expect("validated Han gram ID");
-            let right = state.han.word(right).expect("validated Han gram ID");
+            let left = state.lexicon.word(left).expect("validated gram word ID");
+            let right = state.lexicon.word(right).expect("validated gram word ID");
             let mut text = String::from(left.text);
             text.push_str(right.text);
             if [base, &state.lexicon].into_iter().any(|lexicon| {

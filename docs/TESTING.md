@@ -32,7 +32,16 @@ and `cargo test --locked -p si-cli --test workflow` for snapshot/resource
 commands. The CLI fixtures exercise absolute weight updates, same-source
 reimports, language-filtered CSV snapshots, stable word IDs, paired grams,
 atomic publication and retries, polyphonic readings, corpus review exports,
-user profiles and concurrent imports.
+user compound discovery from word grams, removal of retired user character
+files, and concurrent imports.
+
+Segmentation regressions cover `没有输入法` → `没有 / 输入法` in base
+paragraph ingestion, user ingestion and preceding-field ranking, bounded
+user frequency influence, source-byte coverage and ASCII-run preservation.
+After rebuilding the app, verify these boundaries with synthetic Sentence
+Learning captures and preceding-field context in a representative host.
+Existing saved statistics are retained; use a fresh synthetic profile when
+checking newly counted grams.
 
 Run `python3 -m unittest discover -s Tests/ScriptTests` for synthetic packaging
 and installer checks. For vocabulary-only changes, use the
@@ -82,6 +91,11 @@ office app. Include ordinary and secure fields, using dummy input.
 - Type `iwanttobuild`, `IWANTTOBUILD`, `woxiangyaodeploy` and `MySwiftType`.
   Inspect English word spacing, case and mixed output. Return and shortcuts
   must preserve the exact pending spelling. Escape clears the composition.
+- Type `youshihou` and verify dictionary completions such as `有时候是`
+  appear only if ranked in the leading four choices. Check that at most nine
+  exact word choices remain, while Chinese dictionary characters and exact
+  original input stay pageable. Repeat with English completions and verify
+  number/mouse selection in compact and expanded layouts.
 - Verify collapsed/expanded candidate navigation, whole-page movement and
   numbers 1–6 relative to the selected row. Check that scrolling does not
   navigate. Verify Home/End, backward/forward Delete and UTF-16 marked ranges
@@ -240,10 +254,10 @@ Use a dedicated synthetic profile and an intentionally installed build; never re
 ### Sentence learning
 
 - Use a dedicated synthetic profile in TextEdit and a browser or another editor. Check the default-off sentence-learning switch, then enable it with Personal Learning and Input History off. Verify the independent switch persists after restart. Paste synthetic content containing more than 1,024 UTF-16 units and ending in a unique word such as `Zornax`. Put the caret in the middle or select text, then press plain Return with no pending composition. Verify the host receives Return once. After the background write, `zornax` should offer `Zornax` with English enabled. Restart SI and repeat the lookup.
-- Check fields with an unavailable length, fields lacking range access, focus changes during reads, secure/direct input, marked text, repeated or modified Return and Return with a pending composition. Verify the host key routing and skip status. Check that turning off Sentence Learning suppresses user-model candidates while Personal Learning can still supply candidate preferences. Check that turning off Personal Learning leaves the opted-in sentence model available. Clear Sentence Learning during an update and verify the model stays cleared.
-- Open **Personal Data → Sentence Learning** from the sidebar and through Settings search in English and Chinese. Check the switch, capture status, error/retry controls and clear dialog with keyboard navigation and VoiceOver. Confirm the saved status appears only after the model pair is available. Clear sentence learning and check that pending samples and the sentence model are removed and candidate-choice entries remain. Check that **Clear Personal Learning Data…** clears candidate-choice entries while Sentence Learning keeps its model and pending samples. Verify old Sentence History consent and deletion remain separate.
+- Check fields with an unavailable length, fields that expose only a verifiable prefix, fields lacking range access, focus changes during reads, secure/direct input, marked text, repeated or modified Return and Return with a pending composition. Verify the host key routing and skip status. Check that turning off Sentence Learning suppresses user-model candidates while Personal Learning can still supply candidate preferences. Check that turning off Personal Learning leaves the opted-in sentence model available. Clear Sentence Learning during an update and verify the model stays cleared.
+- Open **Personal Data → Sentence Learning** from the sidebar and through Settings search in English and Chinese. Check the switch, capture status, error/retry controls and clear dialog with keyboard navigation and VoiceOver. Confirm the saved status and recent samples appear only after the model pair is available. Submit 11 distinct synthetic fields and verify that the most recent 10 appear in reverse submission order, expand to show exact multiline text, and survive restart. Clear sentence learning and check that recent and pending samples and the sentence model are removed and candidate-choice entries remain. Check that **Clear Personal Learning Data…** clears candidate-choice entries while Sentence Learning keeps its model and pending samples. Verify old Sentence History consent and deletion remain separate.
 
-`SentenceSnapshotReaderTests` covers multiline text, nonterminal selections, exact ranges, callback revalidation and range growth in an AppKit text view without a reported length. `SentenceLearningSettingsTests` verifies default-off consent and upgrade behavior, independent capture and ranking with long multiline text, secure-input suppression, and independent deletion.
+`SentenceSnapshotReaderTests` covers multiline text, nonterminal selections, exact ranges, callback revalidation and range growth in an AppKit text view with zero or unavailable reported length. It distinguishes a confirmed blank field from an unavailable or incomplete response and verifies the legacy prefix fallback and its client checks. `SentenceLearningSettingsTests` verifies default-off consent and upgrade behavior, independent capture and ranking with long multiline text, secure-input suppression, and independent deletion.
 
 ### Input History export and receiver tools
 
@@ -278,13 +292,9 @@ Core regression tests and a successful build do not establish these native host 
 
 ## Personal phrase checks
 
-Use synthetic phrases in a test profile. Add `xm` → `测试项目`, choose its language, and verify full-code and prefix suggestions with learning off. Prefer a full-code phrase and verify other languages and literal input remain available. Disable its language and check it disappears.
+Use an isolated synthetic `.si-user` profile. Verify Personal Phrases lists the same text, readings and counts as its active `user.silex`, including entries generated by Sentence Learning and entries without readings. Search, add, edit frequency, edit text/reading, and delete. Restart and verify persistence. Check duplicate/invalid/stale edits show errors without changing unrelated rows. Frequency edits preserve word grams; identity edits/deletions remove only associated grams and preserve unrelated counts/aliases.
 
-Enter `woaixm` and verify the saved phrase participates in a longer composition. Confirm it with learning enabled; neither the derived candidate nor its phrase text should appear in learning records or previous-word context. Use isolated fixtures for many colliding codes and long expansions; direct matches/literal fallback must remain available and constructed text must never be silently truncated.
-
-Edit its code/text, delete it, and clear the dictionary; each change must survive restart and must refresh an in-progress composition on the next event. Cancel clear/editor dialogs and verify no unintended changes. Personal phrases must not appear in automatic learning records or become previous-word context.
-
-Export a test JSON file, inspect its fields, then import it with duplicates and different local pin settings. Existing local content wins. Invalid/unsupported/oversized/capacity-exceeding imports must preserve all existing phrases. Cancelling import/export must not show a failure. Check search, keyboard focus, VoiceOver row/button labels, error persistence, retry, and long phrase layout. Native file dialogs and real secure-field suppression still require manual inspection; automated tests cover codec/model/storage behavior only.
+Verify management with Sentence Learning off does not enable capture or model ranking. Enable it and check the edited vocabulary in conversion, language filtering and secure/direct-input suppression. Clear Sentence Learning data and verify the list empties; unrelated Personal Learning and Input History remain. Old `phrases-v1.json` must remain untouched and must not supply candidates. There are no old pin/import/export controls. Check keyboard focus, cancel/save shortcuts, VoiceOver labels, both appearances and long rows. Automated storage/bridge tests and builds do not establish these native checks.
 
 ## Candidate font coverage
 

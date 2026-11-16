@@ -64,6 +64,6 @@ struct XianshiRankingTests {
         #expect(selection.candidate(number: 4)?.id == words[2].id)
         #expect(selection.candidates.contains { $0.id == prefix.id })
         #expect(selection.candidates.contains { $0.id == literal.id })
-        #expect(selection.candidates.count == CandidateShortlist.ordinaryCandidateLimit)
+        #expect(selection.candidates.count == CandidateShortlist.wordCandidateLimit + 1)
     }
 }

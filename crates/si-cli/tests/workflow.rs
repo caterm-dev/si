@@ -195,7 +195,7 @@ fn user_sentences_grow_an_independent_model_and_learn_words() -> io::Result<()> 
     let scratch = ScratchDirectory::new()?;
     scratch.write(
         "base.csv",
-        "text,reading,weight\n白茶,bai'cha,900\n鹤,he,600\n云,yun,500\n",
+        "text,reading,weight\n白茶,bai'cha,900\n鹤,he,600\n云,yun,500\n星光,xing'guang,30\n塔,ta,25\n",
     )?;
     scratch.write("base.txt", "云 鹤 白茶\n")?;
     scratch.run(&["lexicon", "build", "base.silex", "0", "base.csv"])?;
@@ -271,9 +271,35 @@ fn user_sentences_grow_an_independent_model_and_learn_words() -> io::Result<()> 
         "sentences.txt",
     ])?;
     let updated = store.load()?.unwrap();
-    assert_eq!(updated.lexicon().word(word.id).unwrap().count, 6);
-    assert_eq!(updated.grams().unwrap().count(&[word.id, beacon]), Some(1));
-    assert_eq!(updated.grams().unwrap().count(&[cloud, crane]), Some(5));
+    // A newly discovered low-count compound remains available, but no longer
+    // overrides the more probable component path just because it is longer.
+    assert_eq!(updated.lexicon().word(word.id).unwrap().count, 5);
+    assert_eq!(updated.grams().unwrap().count(&[word.id, beacon]), None);
+    assert_eq!(updated.grams().unwrap().count(&[cloud, crane]), Some(6));
+
+    let base = EngineResources::open(&scratch.0.join("base.silex"), None)?;
+    store.ingest(
+        base.lexicon(),
+        "compound",
+        (0..5).flat_map(|_| [Ok("星光塔"), Ok("星光。塔")]),
+    )?;
+    let observed = store.load()?.unwrap();
+    let starlight = observed.lexicon().find_word("星光").unwrap();
+    let tower = observed.lexicon().find_word("塔").unwrap();
+    assert_eq!(
+        observed.grams().unwrap().count(&[starlight, tower]),
+        Some(5)
+    );
+    assert!(observed.lexicon().find_word("星光塔").is_none());
+    assert!(String::from_utf8_lossy(&scratch.run(&learn)?.stdout).contains("Added 1 user words"));
+    let compound = store.load()?.unwrap();
+    let word = compound
+        .lexicon()
+        .exact(IndexId(0), b"xing'guang'ta")
+        .next()
+        .unwrap();
+    assert_eq!((word.text, word.count), ("星光塔", 5));
+    assert!(compound.lexicon().find_word("光塔").is_none());
     assert_eq!(fs::read(scratch.0.join("base.silex"))?, base_lexicon);
     assert_eq!(fs::read(scratch.0.join("base.sigram"))?, base_grams);
 
@@ -363,9 +389,29 @@ fn user_ingest_retries_and_concurrent_updates_publish_one_consistent_pair() -> i
     assert!(store.load()?.is_none());
     store.ingest(base.lexicon(), "retry", [Ok("甲乙")])?;
 
-    // An interrupted writer can leave a partial inactive slot and pointer.
     let directory = scratch.0.join("profile.si-user");
-    fs::create_dir(directory.join("snapshot-b"))?;
+    let active = directory.join("snapshot-a");
+    let inactive = directory.join("snapshot-b");
+    let before = ["user.silex", "user.sigram", "batches"].map(|name| fs::read(active.join(name)));
+    fs::create_dir(&inactive)?;
+    // Retired sidecars need not decode. Opening the word pair leaves its bytes and receipt intact.
+    for name in ["characters.silex", "characters.sigram"] {
+        fs::write(active.join(name), b"synthetic retired file")?;
+        fs::write(inactive.join(name), b"synthetic retired file")?;
+    }
+    assert!(store.load()?.is_some());
+    for name in ["characters.silex", "characters.sigram"] {
+        assert!(!active.join(name).exists());
+        assert!(!inactive.join(name).exists());
+    }
+    for (bytes, name) in before
+        .into_iter()
+        .zip(["user.silex", "user.sigram", "batches"])
+    {
+        assert_eq!(fs::read(active.join(name))?, bytes?);
+    }
+
+    // An interrupted writer can leave a partial inactive slot and pointer.
     fs::write(directory.join("snapshot-b/user.silex"), b"incomplete")?;
     fs::write(directory.join("current.next"), b"b\n")?;
     let loaded = store.load()?.unwrap();
@@ -409,6 +455,16 @@ fn user_ingest_retries_and_concurrent_updates_publish_one_consistent_pair() -> i
     let second = model.lexicon().find_word("乙").unwrap();
     assert_eq!(model.lexicon().word(first).unwrap().count, 3);
     assert_eq!(model.grams().unwrap().count(&[first, second]), Some(3));
+    let snapshot = match fs::read(directory.join("current"))?.as_slice() {
+        b"a\n" => "snapshot-a",
+        b"b\n" => "snapshot-b",
+        _ => panic!("missing active snapshot"),
+    };
+    let mut files = fs::read_dir(directory.join(snapshot))?
+        .map(|entry| entry.map(|entry| entry.file_name()))
+        .collect::<io::Result<Vec<_>>>()?;
+    files.sort_unstable();
+    assert_eq!(files, ["batches", "user.sigram", "user.silex"]);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -416,18 +472,7 @@ fn user_ingest_retries_and_concurrent_updates_publish_one_consistent_pair() -> i
             fs::metadata(&directory)?.permissions().mode() & 0o777,
             0o700
         );
-        let snapshot = match fs::read(directory.join("current"))?.as_slice() {
-            b"a\n" => "snapshot-a",
-            b"b\n" => "snapshot-b",
-            _ => panic!("missing active snapshot"),
-        };
-        for file in [
-            "batches",
-            "user.silex",
-            "user.sigram",
-            "characters.silex",
-            "characters.sigram",
-        ] {
+        for file in files {
             assert_eq!(
                 fs::metadata(directory.join(snapshot).join(file))?
                     .permissions()
@@ -2104,3 +2149,58 @@ min_forward_percent_2 = 30
 min_backward_percent_2 = 30
 min_lift_2 = 2
 ";
+
+#[test]
+fn paragraph_and_user_ingestion_choose_the_complete_frequency_path() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write("words.csv", "text,reading,weight\n没有,mei'you,78908345\n没有输,mei'you'shu,155\n输入法,shu'ru'fa,472646\n入,ru,1746243\n法,fa,2191827\n")?;
+    scratch.write("sentences.txt", "没有输入法\n没有输入法\n")?;
+    scratch.run(&["lexicon", "build", "base.silex", "0", "words.csv"])?;
+    let store = UserModelStore::new(scratch.0.join("profile.si-user"));
+    // Existing incorrect user evidence must not overwhelm the base frequencies.
+    store.edit_entry(
+        None,
+        Some(&si_engine::resources::user::UserEntry {
+            text: "没有输".into(),
+            reading: Some((0, b"mei'you'shu".to_vec())),
+            count: u64::MAX - 1,
+        }),
+    )?;
+    scratch.run(&[
+        "user",
+        "ingest",
+        "profile.si-user",
+        "base.silex",
+        "first",
+        "sentences.txt",
+    ])?;
+    let user = store.load()?.unwrap();
+    let no = user.lexicon().find_word("没有").unwrap();
+    let ime = user.lexicon().find_word("输入法").unwrap();
+    assert_eq!(user.lexicon().word(no).unwrap().count, 2);
+    assert_eq!(user.lexicon().word(ime).unwrap().count, 2);
+    assert!(user.lexicon().find_word("入").is_none());
+    assert_eq!(user.grams().unwrap().count(&[no, ime]), Some(2));
+    let old = user.lexicon().find_word("没有输").unwrap();
+    assert_eq!(user.lexicon().word(old).unwrap().count, u64::MAX - 1);
+
+    scratch.run(&[
+        "corpus",
+        "ingest",
+        "base.silex",
+        "words.sigram",
+        "sentences.txt",
+    ])?;
+    let base = EngineResources::open(
+        &scratch.0.join("base.silex"),
+        Some(&scratch.0.join("words.sigram")),
+    )?;
+    let no = base.lexicon().find_word("没有").unwrap();
+    let ime = base.lexicon().find_word("输入法").unwrap();
+    let wrong = base.lexicon().find_word("没有输").unwrap();
+    assert_eq!(base.lexicon().word(no).unwrap().count, 78_908_347);
+    assert_eq!(base.lexicon().word(ime).unwrap().count, 472_648);
+    assert_eq!(base.lexicon().word(wrong).unwrap().count, 155);
+    assert_eq!(base.grams().unwrap().count(&[no, ime]), Some(2));
+    Ok(())
+}

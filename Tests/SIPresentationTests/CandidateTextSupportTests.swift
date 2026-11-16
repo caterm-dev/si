@@ -56,7 +56,7 @@ struct CandidateTextSupportTests {
         let literal = InputCandidate(text: "synthetic", language: nil, score: 0)
         var selection = CandidateSelection()
         selection.update(unsupported + supported + [literal])
-        #expect(selection.candidates == Array(supported.prefix(26)) + [literal])
+        #expect(selection.candidates == Array(supported.prefix(9)) + [literal])
     }
 
     @Test func reportedSpellingUsesTheSameFilteredListForRenderingNumbersAndMouse() throws {

@@ -280,7 +280,7 @@ struct CandidateViewTests {
     func scrollingNeverChangesCandidatePages(expanded: Bool, pending: Bool) throws {
         var selection = CandidateSelection()
         selection.setExpanded(expanded)
-        selection.update((0..<27).map { InputCandidate(text: "Synthetic \($0)", language: .english, score: 100, lexicalTokenCount: 1) })
+        selection.update(pageableCandidates(27, wordPrefix: "Synthetic "))
         selection.movePage(by: 1)
         let selected = selection.selected
         let view = CandidateListView()
@@ -334,7 +334,7 @@ struct CandidateViewTests {
 
     @Test func compactRowsShareOneLineAndExpansionPreservesMouseAndNumberMapping() throws {
         var selection = CandidateSelection()
-        selection.update((0..<22).map { InputCandidate(text: "测试候选\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) })
+        selection.update(pageableCandidates(22, wordPrefix: "测试候选"))
         let view = CandidateListView()
         var clicked: String?
         view.onSelect = { clicked = $0 }
@@ -619,7 +619,7 @@ struct CandidateViewTests {
     }
 
     @Test func compactSinglePageHidesFooterAndPageButtonsStillNavigate() {
-        let candidates = (0..<30).map { InputCandidate(text: "词\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) }
+        let candidates = pageableCandidates(30, wordPrefix: "词")
         var selection = CandidateSelection()
         selection.setExpanded(true)
         selection.update(Array(candidates.prefix(3)))
@@ -643,7 +643,7 @@ struct CandidateViewTests {
     @Test func renderedNumbersHighlightAndKeyboardChoiceStayInSync() throws {
         var selection = CandidateSelection()
         selection.setExpanded(true)
-        selection.update((0..<22).map { InputCandidate(text: "测试\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) })
+        selection.update(pageableCandidates(22, wordPrefix: "测试"))
         let view = CandidateListView()
         view.render(selection)
         #expect(view.rows.map { $0.numberLabel.stringValue } == (0..<22).map { String($0 % 6 + 1) })
@@ -668,7 +668,7 @@ struct CandidateViewTests {
     @Test func mouseActionUsesTheSameCandidateIdentityAsItsNumber() throws {
         var selection = CandidateSelection()
         selection.setExpanded(true)
-        selection.update((0..<20).map { InputCandidate(text: "word\($0)", language: .english, score: 100, lexicalTokenCount: 1) })
+        selection.update(pageableCandidates(20, wordPrefix: "word"))
         selection.navigate(.row(1))
         let view = CandidateListView()
         var clicked: String?
@@ -698,5 +698,13 @@ struct CandidateViewTests {
         #expect(panel.styleMask.contains(.nonactivatingPanel))
         #expect(!panel.isVisible)
         panel.close()
+    }
+
+    private func pageableCandidates(_ count: Int, wordPrefix: String) -> [InputCandidate] {
+        // Keep nine words plus characters so navigation still exercises multiple pages.
+        (0..<count).map {
+            InputCandidate(text: $0 < 9 ? "\(wordPrefix)\($0)" : String(UnicodeScalar(0x4E00 + $0)!),
+                           language: .simplifiedChinese, score: 100, lexicalTokenCount: 1)
+        }
     }
 }

@@ -1,4 +1,4 @@
-//! Forward maximum matching of written text against a lexicon.
+//! Frequency-scored segmentation of written text against immutable lexicons.
 
 use std::ops::Range;
 
@@ -31,7 +31,25 @@ pub struct Segment {
 pub struct Segmenter<'a> {
     lexicon: &'a Lexicon,
     user: Option<&'a Lexicon>,
-    entries: Vec<(&'a str, SegmentKind)>,
+    entries: Vec<Entry<'a>>,
+    unknown_score: f64,
+}
+
+// User observations add at most this many pseudo-counts per written word.
+const USER_COUNT_LIMIT: f64 = 32.0;
+
+#[derive(Clone, Copy)]
+struct Entry<'a> {
+    text: &'a str,
+    kind: SegmentKind,
+    score: f64,
+}
+
+#[derive(Clone, Copy)]
+struct Step {
+    score: f64,
+    previous: usize,
+    kind: SegmentKind,
 }
 
 impl<'a> Segmenter<'a> {
@@ -44,53 +62,142 @@ impl<'a> Segmenter<'a> {
     }
 
     fn with_overlay(lexicon: &'a Lexicon, user: Option<&'a Lexicon>) -> Self {
-        let mut entries: Vec<_> = lexicon
+        let mut rows: Vec<_> = lexicon
             .words()
-            .map(|word| (word.text, SegmentKind::Word(word.id)))
+            .map(|word| {
+                let observed = user.and_then(|user| {
+                    let reading = word.reading?;
+                    user.find_reading(reading.index, reading.key, word.text)
+                        .and_then(|id| user.word(id))
+                });
+                (
+                    word.text,
+                    SegmentKind::Word(word.id),
+                    word.count as f64,
+                    observed.map_or(0.0, |word| word.count as f64),
+                )
+            })
             .collect();
         if let Some(user) = user {
-            entries.extend(
+            rows.extend(
                 user.words()
                     .filter(|word| is_user_only(lexicon, *word))
-                    .map(|word| (word.text, SegmentKind::UserWord(word.id))),
+                    .map(|word| {
+                        (
+                            word.text,
+                            SegmentKind::UserWord(word.id),
+                            0.0,
+                            word.count as f64,
+                        )
+                    }),
             );
         }
-        entries.sort_unstable_by(|left, right| left.0.cmp(right.0));
+        // Sort counts too, so summation and ties do not depend on word IDs/import order.
+        rows.sort_unstable_by(|left, right| {
+            left.0
+                .cmp(right.0)
+                .then_with(|| left.2.total_cmp(&right.2))
+                .then_with(|| left.3.total_cmp(&right.3))
+        });
+        let mut entries = Vec::new();
+        let mut position = 0;
+        while position < rows.len() {
+            let (text, mut kind, _, _) = rows[position];
+            let end = position + rows[position..].partition_point(|row| row.0 == text);
+            let base_count: f64 = rows[position..end].iter().map(|row| row.2).sum();
+            let user_count: f64 = rows[position..end].iter().map(|row| row.3).sum();
+            if end - position > 1
+                || matches!(kind, SegmentKind::Word(id)
+                if lexicon.word(id).unwrap().reading.is_none())
+            {
+                kind = SegmentKind::Ambiguous;
+            }
+            entries.push(Entry {
+                text,
+                kind,
+                score: base_count + user_count.min(USER_COUNT_LIMIT) + 1.0,
+            });
+            position = end;
+        }
+        // Add-one word smoothing and a half-count unknown outcome. Precompute logs
+        // once per immutable index, outside the per-request segmentation path.
+        let total = 0.5 + entries.iter().map(|entry| entry.score).sum::<f64>();
+        for entry in &mut entries {
+            entry.score = (entry.score / total).ln();
+        }
         Self {
             lexicon,
             user,
             entries,
+            unknown_score: (0.5 / total).ln(),
         }
     }
 
-    /// Match the longest entry at each position and advance past the entire match.
-    pub fn segment<'text>(&'text self, text: &'text str) -> impl Iterator<Item = Segment> + 'text {
-        let mut position = 0;
-        std::iter::from_fn(move || {
-            let remaining = &text[position..];
-            let first = remaining.chars().next()?;
-            let fallback = match first {
-                '\r' | '\n' | '\u{2028}' | '\u{2029}' => SegmentKind::Boundary,
-                character if character.is_whitespace() => SegmentKind::Space,
-                character if character.is_alphanumeric() => SegmentKind::Unknown,
-                _ => SegmentKind::Boundary,
+    /// Choose the highest-scoring complete path, preserving exact source byte ranges.
+    /// ASCII runs keep their existing whole-run/known-spelling rules.
+    pub fn segment(&self, text: &str) -> std::vec::IntoIter<Segment> {
+        let mut steps = vec![None; text.len() + 1];
+        steps[0] = Some(Step {
+            score: 0.0,
+            previous: 0,
+            kind: SegmentKind::Boundary,
+        });
+        for (start, first) in text.char_indices() {
+            let Some(previous) = steps[start] else {
+                continue;
             };
-            let (length, kind) = if fallback == SegmentKind::Unknown {
-                self.alphanumeric(remaining, first)
+            let mut offer = |length: usize, kind: SegmentKind, score: f64| {
+                let next = Step {
+                    score: previous.score + score,
+                    previous: start,
+                    kind,
+                };
+                let slot = &mut steps[start + length];
+                // Equal scores prefer the longer final edge. Traversal and ties are
+                // independent of lexicon word-ID allocation.
+                if slot.is_none_or(|old: Step| {
+                    next.score > old.score
+                        || (next.score == old.score && next.previous < old.previous)
+                }) {
+                    *slot = Some(next);
+                }
+            };
+            let remaining = &text[start..];
+            if first.is_ascii_alphanumeric() {
+                let (length, kind, score) = self.ascii(remaining, first);
+                offer(length, kind, score);
+            } else if first.is_alphanumeric() {
+                self.matches(remaining, |length, entry| {
+                    offer(length, entry.kind, entry.score)
+                });
+                // A single unknown scalar remains available even when a longer word
+                // matches, so a poor match cannot hide a better following word.
+                offer(first.len_utf8(), SegmentKind::Unknown, self.unknown_score);
             } else {
-                (first.len_utf8(), fallback)
-            };
-            let start = position;
-            position += length;
-            let range = start..position;
+                let kind = match first {
+                    '\r' | '\n' | '\u{2028}' | '\u{2029}' => SegmentKind::Boundary,
+                    character if character.is_whitespace() => SegmentKind::Space,
+                    _ => SegmentKind::Boundary,
+                };
+                offer(first.len_utf8(), kind, 0.0);
+            }
+        }
+        let mut segments = Vec::new();
+        let mut end = text.len();
+        while end != 0 {
+            let step = steps[end].expect("every source scalar has a fallback");
+            let range = step.previous..end;
             let surface = &text[range.clone()];
-            let kind = if kind == SegmentKind::Ambiguous && surface.chars().all(han::is_han) {
-                self.resolve_han(surface).unwrap_or(kind)
+            let kind = if step.kind == SegmentKind::Ambiguous && surface.chars().all(han::is_han) {
+                self.resolve_han(surface).unwrap_or(step.kind)
             } else {
-                kind
+                step.kind
             };
-            Some(Segment { range, kind })
-        })
+            segments.push(Segment { range, kind });
+            end = step.previous;
+        }
+        segments.reverse();
+        segments.into_iter()
     }
 
     fn resolve_han(&self, surface: &str) -> Option<SegmentKind> {
@@ -118,31 +225,33 @@ impl<'a> Segmenter<'a> {
         matches.next().is_none().then_some(kind)
     }
 
-    fn alphanumeric(&self, text: &str, first: char) -> (usize, SegmentKind) {
-        let longest = self.longest(text);
+    fn ascii(&self, text: &str, first: char) -> (usize, SegmentKind, f64) {
+        let mut longest = None;
+        self.matches(text, |length, entry| {
+            longest = Some((length, entry.kind, entry.score))
+        });
         if first.is_ascii_digit() {
             let digits = text.bytes().take_while(u8::is_ascii_digit).count();
             return longest
-                .filter(|(length, _)| *length > digits)
-                .unwrap_or((digits, SegmentKind::Number));
+                .filter(|(length, _, _)| *length > digits)
+                .unwrap_or((digits, SegmentKind::Number, self.unknown_score));
         }
         if first.is_ascii_alphabetic() {
-            if let Some(matched) = longest.filter(|(length, _)| *length > 1) {
+            if let Some(matched) = longest.filter(|(length, _, _)| *length > 1) {
                 return matched;
             }
             let letters = text.bytes().take_while(u8::is_ascii_alphabetic).count();
             return if letters == 1 {
-                (1, SegmentKind::Letter)
+                (1, SegmentKind::Letter, self.unknown_score)
             } else {
-                (letters, SegmentKind::NewEnglishWord)
+                (letters, SegmentKind::NewEnglishWord, self.unknown_score)
             };
         }
-        longest.unwrap_or((first.len_utf8(), SegmentKind::Unknown))
+        unreachable!("ASCII alphanumeric input")
     }
 
-    fn longest(&self, text: &str) -> Option<(usize, SegmentKind)> {
+    fn matches(&self, text: &str, mut visit: impl FnMut(usize, Entry<'a>)) {
         let mut entries = self.entries.as_slice();
-        let mut longest = None;
         for (offset, character) in text.char_indices() {
             if matches!(character, '\r' | '\n' | '\u{2028}' | '\u{2029}') {
                 break;
@@ -150,33 +259,22 @@ impl<'a> Segmenter<'a> {
             let end = offset + character.len_utf8();
             let unit = &text[offset..end];
             // Every entry in this range already matches the preceding UTF-8 bytes.
-            let start = entries.partition_point(|(word, _)| &word[offset..] < unit);
+            let start = entries.partition_point(|entry| &entry.text[offset..] < unit);
             entries = &entries[start..];
             let end_of_range =
-                entries.partition_point(|(word, _)| word[offset..].starts_with(unit));
+                entries.partition_point(|entry| entry.text[offset..].starts_with(unit));
             entries = &entries[..end_of_range];
-            let Some(&(word, kind)) = entries.first() else {
+            let Some(&entry) = entries.first() else {
                 break;
             };
             let splits_run = text.as_bytes().get(end).is_some_and(|next| {
                 (character.is_ascii_alphabetic() && next.is_ascii_alphabetic())
                     || (character.is_ascii_digit() && next.is_ascii_digit())
             });
-            if word.len() == end && !splits_run {
-                let multiple = entries.get(1).is_some_and(|(word, _)| word.len() == end);
-                let unresolved = match kind {
-                    SegmentKind::Word(id) => self.lexicon.word(id).unwrap().reading.is_none(),
-                    _ => false,
-                };
-                let kind = if multiple || unresolved {
-                    SegmentKind::Ambiguous
-                } else {
-                    kind
-                };
-                longest = Some((end, kind));
+            if entry.text.len() == end && !splits_run {
+                visit(end, entry);
             }
         }
-        longest
     }
 }
 

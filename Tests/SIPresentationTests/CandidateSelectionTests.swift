@@ -145,7 +145,14 @@ struct CandidateSelectionTests {
     }
 
     private func candidates(_ count: Int) -> [InputCandidate] {
-        (0..<count).map { InputCandidate(text: "word\($0)", language: .english, score: count - $0, lexicalTokenCount: 1) }
+        // Character choices remain pageable beyond the word budget.
+        (0..<count).map { InputCandidate(text: String(UnicodeScalar(0x4E00 + $0)!),
+                                       language: .simplifiedChinese, score: count - $0, lexicalTokenCount: 1) }
+    }
+
+    private func words(_ count: Int) -> [InputCandidate] {
+        (0..<count).map { InputCandidate(text: "word\($0)", language: .english,
+                                       score: count - $0, lexicalTokenCount: 1) }
     }
 
     @Test func arrowsAndDigitsReferToTheSamePage() throws {
@@ -226,7 +233,7 @@ struct CandidateSelectionTests {
 
     @Test(arguments: [false, true])
     func largeResultSetsKeepRankedOrderWithoutLanguageReservationsAndPreserveExactLiteral(expanded: Bool) throws {
-        let whole = candidates(900)
+        let whole = words(900)
         let chinese = InputCandidate(text: "word0", language: .simplifiedChinese, score: 0)
         let mixed = InputCandidate(text: "你好world", language: .simplifiedChinese, score: 0, isMixed: true)
         let literal = InputCandidate(text: "SyntheticID", language: nil, score: 0)
@@ -238,9 +245,9 @@ struct CandidateSelectionTests {
         selection.setExpanded(expanded)
         selection.update(values)
         let shortlist = selection.candidates
-        #expect(shortlist.count == 27)
-        #expect(selection.pageCount == (expanded ? 2 : 5))
-        #expect(shortlist == [whole[0], chinese] + Array(whole.dropFirst().prefix(24)) + [literal])
+        #expect(shortlist.count == 11)
+        #expect(selection.pageCount == (expanded ? 1 : 2))
+        #expect(shortlist == [whole[0], chinese] + Array(whole.dropFirst().prefix(8)) + [literal])
         #expect(shortlist.contains(whole[0]) && shortlist.contains(chinese) && !shortlist.contains(mixed))
         #expect(shortlist.last == literal)
         #expect(Set(shortlist.map(\.id)).count == shortlist.count)
@@ -256,13 +263,13 @@ struct CandidateSelectionTests {
         #expect(values.count == 915)
     }
 
-    @Test(arguments: [26, 27, 28, 900])
+    @Test(arguments: [8, 9, 10, 26, 27, 28, 900])
     func shortlistKeepsRankedChoicesAndLiteralAcrossTheLimit(count: Int) {
-        let ranked = candidates(count - 1)
+        let ranked = words(count - 1)
         let literal = InputCandidate(text: "UnchangedID", language: nil, score: 0)
         var selection = CandidateSelection()
         selection.update(ranked + [literal])
-        #expect(selection.candidates == Array(ranked.prefix(min(count, 27) - 1)) + [literal])
+        #expect(selection.candidates == Array(ranked.prefix(min(count - 1, 9))) + [literal])
         selection.update([literal])
         #expect(selection.candidates == [literal])
         selection.update([])

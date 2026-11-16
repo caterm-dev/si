@@ -25,7 +25,7 @@ let package = Package(
                           "SettingsView.swift", "SettingsPage.swift", "SettingsSidebar.swift", "SettingsDetail.swift",
                           "SettingsGroup.swift", "SettingsRow.swift", "TypingSettingsPage.swift", "AboutSettingsPage.swift",
                           "UserDictionarySection.swift", "UserDictionaryView.swift",
-                          "UserPhraseEditor.swift", "UserDictionaryDocument.swift", "PhraseEditorRequest.swift",
+                          "UserPhraseEditor.swift", "PhraseEditorRequest.swift",
                           "UpdateSettingsSection.swift", "ApplicationMemorySection.swift", "ApplicationMemoryView.swift",
                           "ApplicationMemoryRow.swift", "SentenceLearningSection.swift", "ApplicationPassthroughSection.swift",
                           "ApplicationPassthroughView.swift", "ApplicationPassthroughRow.swift",

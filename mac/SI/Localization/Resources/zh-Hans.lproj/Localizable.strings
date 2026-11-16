@@ -320,20 +320,24 @@
 "Input or learning settings changed during the text read." = "读取期间，输入状态或学习设置发生了变化。";
 "Sentence model saved." = "整句学习模型已保存。";
 "When you press Return outside a composition, SI can learn from the entire input field, including existing or pasted text and text after the caret." = "在没有待转换内容时按回车，SI 可从整个输入框学习，包括已有内容、粘贴内容和光标后的文字。";
-"Off by default. Learned words and word counts stay on this Mac and can change candidate ranking. SI discards the captured text after processing it." = "默认关闭。学习得到的词条和词频仅保存在本机，并可影响候选排序。SI 处理后会丢弃读取的原文。";
+"Off by default. Learned words, word counts, and the last 10 processed text samples stay on this Mac." = "默认关闭。学习得到的词条、词频和最近 10 条已处理的文本样本均保存在本机。";
 "This app did not provide the complete input field." = "此 App 未提供完整的输入框内容。";
 "The input field has no text to learn." = "输入框没有可学习的文本。";
 "Finish the marked text before pressing Return to learn the input field." = "请先结束正在转换的输入，再按回车学习输入框内容。";
 "Input field queued for learning." = "输入框内容已加入学习队列。";
+"Only the text before the caret could be read and was queued for learning." = "只能读取光标前的文本，已加入学习队列。";
+"Sentence model saved using the text before the caret." = "已用光标前的文本更新整句学习模型。";
 "Retry Sentence Learning" = "重试整句学习";
 "Sentence learning data could not be opened. Clear sentence learning data to start again." = "无法打开整句学习数据。请清除整句学习数据后重试。";
 "Sentence learning data could not be cleared. Please try clearing it again." = "无法清除整句学习数据。请重试。";
 "Sentence learning could not be saved. Retry while SI is running to process the pending text." = "无法保存整句学习数据。请在 SI 运行期间重试，以处理待学习的文本。";
+"Recent Learning Samples" = "最近学习样本";
+"No processed samples yet." = "暂无已处理的样本。";
 "Sentence Model" = "整句模型";
 "Clear Sentence Learning Data…" = "清除整句学习数据…";
 "Clear Sentence Learning Data" = "清除整句学习数据";
 "Clear sentence learning data?" = "清除整句学习数据？";
-"Deletes the sentence model and pending sentence samples on this Mac." = "删除此 Mac 上的整句模型和尚未处理的整句样本。";
+"Deletes the sentence model and recent and pending text samples on this Mac." = "删除此 Mac 上的整句模型、最近的文本样本和尚未处理的文本。";
 "Opening sentence learning data…" = "正在打开整句学习数据…";
 "Clearing sentence learning data…" = "正在清除整句学习数据…";
 "Delete Old Sentence History…" = "删除旧整句历史…";
@@ -343,3 +347,15 @@
 "Old Sentence History could not be deleted. Please retry." = "无法删除旧整句历史。请重试。";
 "Deletes learned vocabulary and candidate preferences on this Mac." = "删除此 Mac 上已学习的词汇和候选偏好。";
 "Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. Candidate-choice learning uses the text you confirm." = "个人学习默认关闭，数据仅保存在本机。最多保留 5,000 条全局词汇记录，达到上限时移除最久未使用的记录。候选学习使用你确认的文本。";
+
+"Manage entries in user.silex. Changes also update the local sentence model." = "管理 user.silex 中的词条。修改也会更新本地句子模型。";
+
+"No reading" = "无读音";
+
+"Frequency" = "词频";
+
+"Enter lowercase Pinyin or English spelling. Entries use dictionary ranking; there is no pin or shortcut expansion." = "请输入小写拼音或英文拼写。词条使用词典排序，不支持置顶或快捷短语展开。";
+
+"The entry could not be saved. It may have changed; refresh and try again." = "无法保存词条。词条可能已变更，请重新打开后重试。";
+
+"The entry could not be saved. Check the spelling and duplicates, or reopen the editor if the entry changed." = "无法保存词条。请检查拼写和重复项；若词条已变更，请重新打开编辑器。";

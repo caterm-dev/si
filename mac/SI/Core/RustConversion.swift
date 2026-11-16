@@ -41,19 +41,63 @@ final class RustConversion: @unchecked Sendable {
 
     deinit { si_engine_close(engine) }
 
-    func loadUserModel(at profile: URL) throws -> RustConversion? {
+    func loadUserModel(at profile: URL) throws -> (conversion: RustConversion?, recentSamples: [String]) {
         var handle: OpaquePointer?
-        guard profile.withUnsafeFileSystemRepresentation({ si_engine_load_user(engine, $0, &handle) }) else {
+        var samples: OpaquePointer?
+        guard profile.withUnsafeFileSystemRepresentation({ si_engine_load_user(engine, $0, &handle, &samples) }) else {
             throw SentenceLearningStore.StoreError.profile
         }
-        return handle.map(RustConversion.init(engine:))
+        defer { si_recent_user_samples_free(samples) }
+        var recent: [String] = []
+        var length = 0
+        while let bytes = si_recent_user_sample(samples, recent.count, &length) {
+            recent.append(String(decoding: UnsafeBufferPointer(start: bytes, count: length), as: UTF8.self))
+        }
+        return (handle.map(RustConversion.init(engine:)), recent)
+    }
+
+    var userEntries: [UserLexiconEntry] {
+        var entries: [UserLexiconEntry] = []
+        var row = SIUserEntryView()
+        while si_engine_user_entry(engine, entries.count, &row) {
+            let text = String(decoding: UnsafeBufferPointer(start: row.text, count: row.text_bytes), as: UTF8.self)
+            let reading = String(decoding: UnsafeBufferPointer(start: row.reading, count: row.reading_bytes), as: UTF8.self)
+            entries.append(UserLexiconEntry(text: text, reading: reading, index: row.index, count: row.count))
+        }
+        return entries
+    }
+
+    static func editUserEntry(at profile: URL, old: UserLexiconEntry?, new: UserLexiconEntry?) throws {
+        func withEntry<T>(_ entry: UserLexiconEntry?, _ body: (UnsafePointer<SIUserEntryView>?) -> T) -> T {
+            guard let entry else { return body(nil) }
+            return Array(entry.text.utf8).withUnsafeBufferPointer { text in
+                Array(entry.reading.utf8).withUnsafeBufferPointer { reading in
+                    var row = SIUserEntryView(text: text.baseAddress, text_bytes: text.count,
+                                              reading: reading.baseAddress, reading_bytes: reading.count,
+                                              index: entry.index, count: entry.count)
+                    return withUnsafePointer(to: &row, body)
+                }
+            }
+        }
+        let saved = profile.withUnsafeFileSystemRepresentation { path in
+            withEntry(old) { old in withEntry(new) { si_engine_edit_user_entry(path, old, $0) } }
+        }
+        guard saved else { throw SentenceLearningStore.StoreError.profile }
     }
 
     func ingestUserSentences(_ sentences: [String], batchID: UUID, at profile: URL) throws {
-        var text = sentences.joined(separator: "\n")
+        var bytes: [UInt8] = []
+        let ends = sentences.map { sentence in
+            bytes.append(contentsOf: sentence.utf8)
+            return bytes.count
+        }
         guard profile.withUnsafeFileSystemRepresentation({ path in
             batchID.uuidString.withCString { id in
-                text.withUTF8 { si_engine_ingest_user(engine, path, id, $0.baseAddress, $0.count) }
+                bytes.withUnsafeBufferPointer { text in
+                    ends.withUnsafeBufferPointer {
+                        si_engine_ingest_user(engine, path, id, text.baseAddress, text.count, $0.baseAddress, $0.count)
+                    }
+                }
             }
         }) else { throw SentenceLearningStore.StoreError.profile }
     }

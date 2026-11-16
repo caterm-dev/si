@@ -281,7 +281,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         if secureInput { session.setPrecedingText("") }
         session.configure(languages: languages.enabledLanguages,
                           learning: memory.learning,
-                          dictionary: UserDictionarySettings.shared.dictionaryForInput,
+                          dictionary: UserDictionary(),
                           contextGeneration: sessionContextGeneration,
                           automaticConfirmationEnabled: languages.automaticConfirmationEnabled && !secureInput,
                           configurationGeneration: languages.configurationGeneration,
@@ -853,7 +853,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         guard isCurrent() else { return }
 
-        guard let text = SentenceSnapshotReader.read(
+        guard let capture = SentenceSnapshotReader.read(
             isCurrent: isCurrent, selection: { client.selectedRange() }, markedRange: { client.markedRange() },
             textLength: { client.length() }, textInRange: { client.attributedSubstring(from: $0)?.string },
             textWithActualRange: { range in
@@ -866,6 +866,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                 sentences.reportCapture(.skipped(reason), expectedGeneration: sentenceGeneration)
             }
         ), isCurrent() else { return }
-        sentences.record(text, expectedGeneration: sentenceGeneration)
+        sentences.record(capture.text, coverage: capture.coverage, expectedGeneration: sentenceGeneration)
     }
 }

@@ -2,6 +2,11 @@ import Foundation
 
 /// Validation shared by field capture and the learning store.
 public enum SentenceSnapshot {
+    public enum Coverage: Equatable, Sendable {
+        case fullField
+        case beforeCaret
+    }
+
     public enum CaptureFailure: Error, Equatable, Sendable {
         case staleClient
         case markedText

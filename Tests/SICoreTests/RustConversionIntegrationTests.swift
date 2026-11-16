@@ -9,7 +9,7 @@ struct RustConversionIntegrationTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = SentenceLearningStore(profile: directory.appending(path: "model.si-user"))
         let learned = try await store.ingest(Array(repeating: "want books", count: 20), batchID: UUID())
-        let model = try #require(learned)
+        let model = try #require(learned.model)
         var session = InputSession(candidateGeneration: .deferred)
         session.configure(languages: [.english], applicationMemory: ApplicationMemorySnapshot(sentenceModel: model))
         session.setPrecedingText("First sentence. want ")

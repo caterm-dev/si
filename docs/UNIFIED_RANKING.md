@@ -46,9 +46,13 @@ score and then identity determine the order. Nonempty input always retains
 its exact spelling as the final literal candidate.
 
 The window filters unsupported glyphs, then uses a 27-result ordinary
-budget that includes the literal. Generated displayable Chinese
+budget that includes the literal. Generated displayable exact Chinese
 dictionary characters remain pageable beyond that budget. Only the first
-four ranked positions can retain ordinary constructed multiword results.
+four ranked positions can retain ordinary constructed multiword results or
+dictionary completions, including single-entry completions. At most nine
+exact word choices (including prefixes and personal phrases) remain, in
+engine order. Chinese dictionary characters and punctuation do not consume
+the nine-word budget.
 The engine and Settings preview have access to the full result set.
 See [candidate presentation](ARCHITECTURE.md#candidate-presentation).
 

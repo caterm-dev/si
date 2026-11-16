@@ -131,33 +131,174 @@ unsafe fn user_store(profile: *const c_char) -> Option<UserModelStore> {
     Some(UserModelStore::new(path))
 }
 
+#[repr(C)]
+pub struct SIUserEntryView {
+    text: *const u8,
+    text_bytes: usize,
+    reading: *const u8,
+    reading_bytes: usize,
+    index: u32,
+    count: u64,
+}
+
 /// # Safety
-/// The engine must be live, profile must be a UTF-8 C string, and out must be writable.
-/// On success, out receives an owned engine or null for an empty profile.
+/// Engine must be live and view writable. Returned byte slices borrow the engine.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_user_entry(
+    engine: *const SIEngine,
+    offset: usize,
+    view: *mut SIUserEntryView,
+) -> bool {
+    let (Some(engine), Some(view)) = (unsafe { (engine.as_ref(), view.as_mut()) }) else {
+        return false;
+    };
+    let resources = unsafe { engine.resources.0.as_ref() };
+    let Some(word) = resources
+        .1
+        .as_ref()
+        .and_then(|r| r.lexicon().words().nth(offset))
+    else {
+        return false;
+    };
+    *view = SIUserEntryView {
+        text: word.text.as_ptr(),
+        text_bytes: word.text.len(),
+        reading: word.reading.map_or(ptr::null(), |r| r.key.as_ptr()),
+        reading_bytes: word.reading.map_or(0, |r| r.key.len()),
+        index: word.reading.map_or(u32::MAX, |r| r.index.0),
+        count: word.count,
+    };
+    true
+}
+
+unsafe fn owned_entry(view: &SIUserEntryView) -> Option<si_engine::resources::user::UserEntry> {
+    if view.text.is_null()
+        || view.text_bytes == 0
+        || view.text_bytes > 4096
+        || view.reading_bytes > 256
+    {
+        return None;
+    }
+    let text =
+        std::str::from_utf8(unsafe { std::slice::from_raw_parts(view.text, view.text_bytes) })
+            .ok()?
+            .to_owned();
+    let reading = if view.index == u32::MAX {
+        None
+    } else {
+        if view.reading.is_null() || view.reading_bytes == 0 {
+            return None;
+        }
+        Some((
+            view.index,
+            unsafe { std::slice::from_raw_parts(view.reading, view.reading_bytes) }.to_vec(),
+        ))
+    };
+    Some(si_engine::resources::user::UserEntry {
+        text,
+        reading,
+        count: view.count,
+    })
+}
+
+/// # Safety
+/// Profile is a UTF-8 C string; optional entry pointers and their byte slices must be live.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_edit_user_entry(
+    profile: *const c_char,
+    old: *const SIUserEntryView,
+    new: *const SIUserEntryView,
+) -> bool {
+    let Some(store) = (unsafe { user_store(profile) }) else {
+        return false;
+    };
+    let old = match unsafe { old.as_ref() } {
+        Some(v) => match unsafe { owned_entry(v) } {
+            Some(v) => Some(v),
+            None => return false,
+        },
+        None => None,
+    };
+    let new = match unsafe { new.as_ref() } {
+        Some(v) => match unsafe { owned_entry(v) } {
+            Some(v) => Some(v),
+            None => return false,
+        },
+        None => None,
+    };
+    store.edit_entry(old.as_ref(), new.as_ref()).is_ok()
+}
+
+pub struct SIRecentUserSamples(Vec<String>);
+
+/// # Safety
+/// The engine must be live, profile must be a UTF-8 C string, and outputs must be writable.
+/// On success, non-null outputs are owned by the caller.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn si_engine_load_user(
     engine: *const SIEngine,
     profile: *const c_char,
     out: *mut *mut SIEngine,
+    samples: *mut *mut SIRecentUserSamples,
 ) -> bool {
-    let (Some(engine), Some(store), Some(out)) =
-        (unsafe { (engine.as_ref(), user_store(profile), out.as_mut()) })
-    else {
+    let (Some(engine), Some(store), Some(out), Some(samples)) = (unsafe {
+        (
+            engine.as_ref(),
+            user_store(profile),
+            out.as_mut(),
+            samples.as_mut(),
+        )
+    }) else {
         return false;
     };
-    let Ok(user) = store.load() else { return false };
-    *out = user.map_or(ptr::null_mut(), |user| {
-        Box::into_raw(Box::new(SIEngine::new(
+    let Ok(snapshot) = store.load_with_recent() else {
+        return false;
+    };
+    if let Some((user, recent)) = snapshot {
+        *out = Box::into_raw(Box::new(SIEngine::new(
             Arc::clone(engine.base()),
             Some(user),
-        )))
-    });
+        )));
+        *samples = Box::into_raw(Box::new(SIRecentUserSamples(recent)));
+    } else {
+        *out = ptr::null_mut();
+        *samples = ptr::null_mut();
+    }
     true
 }
 
 /// # Safety
+/// Samples must be null or live and length must be writable. Text borrows the samples handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_recent_user_sample(
+    samples: *const SIRecentUserSamples,
+    index: usize,
+    length: *mut usize,
+) -> *const u8 {
+    let (Some(text), Some(length)) = (unsafe {
+        (
+            samples.as_ref().and_then(|samples| samples.0.get(index)),
+            length.as_mut(),
+        )
+    }) else {
+        return ptr::null();
+    };
+    *length = text.len();
+    text.as_ptr()
+}
+
+/// # Safety
+/// Samples must be null or uniquely owned, with no outstanding borrows.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_recent_user_samples_free(samples: *mut SIRecentUserSamples) {
+    if !samples.is_null() {
+        unsafe { drop(Box::from_raw(samples)) };
+    }
+}
+
+/// # Safety
 /// The engine must be live. Profile and batch ID must be UTF-8 C strings.
-/// Text must point to len initialized bytes of newline-delimited UTF-8.
+/// Text must point to len initialized UTF-8 bytes and ends to count initialized byte offsets.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn si_engine_ingest_user(
     engine: *const SIEngine,
@@ -165,11 +306,19 @@ pub unsafe extern "C" fn si_engine_ingest_user(
     batch_id: *const c_char,
     text: *const u8,
     len: usize,
+    ends: *const usize,
+    count: usize,
 ) -> bool {
     let (Some(engine), Some(store)) = (unsafe { (engine.as_ref(), user_store(profile)) }) else {
         return false;
     };
-    if batch_id.is_null() || text.is_null() || len == 0 || len > isize::MAX as usize {
+    if batch_id.is_null()
+        || text.is_null()
+        || len == 0
+        || len > isize::MAX as usize
+        || ends.is_null()
+        || !(1..=32).contains(&count)
+    {
         return false;
     }
     let Ok(batch_id) = (unsafe { CStr::from_ptr(batch_id) }).to_str() else {
@@ -178,10 +327,21 @@ pub unsafe extern "C" fn si_engine_ingest_user(
     let Ok(text) = std::str::from_utf8(unsafe { std::slice::from_raw_parts(text, len) }) else {
         return false;
     };
+    let ends = unsafe { std::slice::from_raw_parts(ends, count) };
+    let mut start = 0;
+    let mut fields = Vec::with_capacity(count);
+    for &end in ends {
+        let Some(field) = text.get(start..end).filter(|field| !field.is_empty()) else {
+            return false;
+        };
+        fields.push(field);
+        start = end;
+    }
+    if start != len {
+        return false;
+    }
     let lexicon = engine.base().lexicon();
-    store
-        .ingest(lexicon, batch_id, text.lines().map(Ok))
-        .is_ok()
+    store.ingest_fields(lexicon, batch_id, &fields).is_ok()
         && store.learn(lexicon, &UserLearningConfig::default()).is_ok()
 }
 
