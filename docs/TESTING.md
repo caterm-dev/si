@@ -110,14 +110,22 @@ office app. Include ordinary and secure fields, using dummy input.
 `CandidatePlacementTests` covers a plausible upper-right host rectangle arriving
 after the composition has acquired a lower-middle anchor. The panel stays near
 the first position and a reset lets a new composition acquire the new position.
-Fixtures also cover invalid initial rectangles, display selection at a boundary,
-disconnected displays and the above/below placement rules.
+Fixtures also cover a plausible stale first rectangle corrected by two matching
+deferred samples, isolated startup outliers, invalid samples breaking correction
+evidence, bounded retries, delayed valid geometry without another key, reset
+isolation, display selection at a boundary, disconnected displays and the
+above/below placement rules.
 
-On an intentionally installed build, verify that typing, wrapping, caret edits
-and paging retain the composition anchor in TextEdit and a browser. Commit,
+On an intentionally installed build, open a new chat or previously unused text
+field and type one synthetic character, then wait without typing. Verify that
+the panel settles beside the composition after startup layout. Repeat with rapid
+typing and with Escape, commit, direct input, focus switches and a new composition
+during the startup retry window: old tasks must not restore or move a new panel.
+Verify that typing, wrapping, caret edits and paging retain the settled
+composition anchor in TextEdit and a browser. Commit,
 cancel or switch focus and verify that the next composition acquires a new
 anchor. With `SI_DEBUG_CANDIDATE_GEOMETRY=1` in the launch environment, compare
-the `selected-inline` or `selected-pinned` rectangle with `panel-requested` and
+the `inline`/`inline-recheck` samples and `selected-inline` or `selected-pinned` rectangle with `panel-requested` and
 `panel-applied` for an observed jump. A scroll or window move during composition
 leaves the fixed anchor in place. Live host behavior remains unverified.
 

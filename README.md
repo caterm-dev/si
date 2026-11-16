@@ -46,6 +46,8 @@ Debug and Release bundle `target/si-data/main.silex` and
 `target/si-data/words.sigram`. Xcode checks that the snapshots are
 compatible before including them in `SI.app`.
 
+Candidate positioning briefly rechecks the host after a composition starts, allowing a newly opened input field to finish layout. Two matching corrected positions can replace the initial anchor; after the bounded startup checks, the panel stays anchored until the composition ends. Native new-chat and focus-switch behavior still requires the [positioning checks](docs/TESTING.md#candidate-positioning).
+
 ## Input languages
 
 The macOS input-source menu for SI includes independent **English** and **Chinese (Simplified)** checkmarks. Click either to enable or disable that input language without opening Settings. These global preferences stay synchronized with Settings and allow both languages together or neither (exact original input remains available). Changing a checkmark refreshes the active composition without committing its spelling or moving its caret. No keyboard shortcut is assigned. Per-application direct input still takes precedence; to convert Chinese in an app such as Terminal, first turn off its direct-input rule in Settings.

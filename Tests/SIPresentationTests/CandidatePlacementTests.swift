@@ -30,6 +30,57 @@ struct CandidatePlacementTests {
         #expect(queries == 2)
     }
 
+    @Test func staleInitialGeometryRecoversAfterTheHostFinishesLayout() {
+        var anchor = CandidateAnchor()
+        let stale = CGRect(x: 1380, y: 810, width: 1, height: 20)
+        let actual = CGRect(x: 620, y: 300, width: 1, height: 20)
+        #expect(anchor.resolve(screens: [primary]) { stale } == stale)
+        #expect(anchor.resolve(screens: [primary], recheck: true) { actual } == stale)
+        #expect(anchor.resolve(screens: [primary], recheck: true) { actual } == actual)
+        #expect(anchor.resolve(screens: [primary]) { stale } == actual)
+    }
+
+    @Test func transientStartupOutliersDoNotMoveACorrectAnchor() {
+        var anchor = CandidateAnchor()
+        let actual = CGRect(x: 620, y: 300, width: 1, height: 20)
+        let displaced = CGRect(x: 1380, y: 810, width: 1, height: 20)
+        _ = anchor.resolve(screens: [primary]) { actual }
+        for rect in [displaced, .zero, displaced, actual] {
+            #expect(anchor.resolve(screens: [primary], recheck: true) { rect } == actual)
+        }
+        #expect(!anchor.needsRecheck)
+        var queried = false
+        for _ in 0..<3 {
+            #expect(anchor.resolve(screens: [primary], recheck: true) {
+                queried = true
+                return displaced
+            } == actual)
+        }
+        #expect(!queried)
+    }
+
+    @Test func delayedLayoutCanShowCandidatesWithoutAnotherKeyOrCandidateResult() {
+        var anchor = CandidateAnchor()
+        let actual = CGRect(x: 620, y: 300, width: 0, height: 20)
+        #expect(anchor.resolve(screens: [primary]) { .zero } == nil)
+        #expect(anchor.resolve(screens: [primary], recheck: true) { .zero } == nil)
+        #expect(anchor.resolve(screens: [primary], recheck: true) { actual }
+                == CGRect(x: 620, y: 300, width: 1, height: 20))
+    }
+
+    @Test func aNewCompositionDoesNotInheritPendingCorrectionEvidence() {
+        var anchor = CandidateAnchor()
+        let old = CGRect(x: 1380, y: 810, width: 1, height: 20)
+        let correction = CGRect(x: 620, y: 300, width: 1, height: 20)
+        let new = CGRect(x: 200, y: 600, width: 1, height: 20)
+        _ = anchor.resolve(screens: [primary]) { old }
+        _ = anchor.resolve(screens: [primary], recheck: true) { correction }
+        anchor.reset()
+        #expect(anchor.needsRecheck)
+        #expect(anchor.resolve(screens: [primary]) { new } == new)
+        #expect(anchor.resolve(screens: [primary], recheck: true) { correction } == new)
+    }
+
     @Test(arguments: [CGRect.zero, CGRect.null, CGRect.infinite,
                       CGRect(x: CGFloat.nan, y: 100, width: 1, height: 20),
                       CGRect(x: 0, y: 0, width: 1, height: 20),

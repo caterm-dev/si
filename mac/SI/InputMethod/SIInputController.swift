@@ -20,6 +20,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var markedTextState = MarkedTextState()
     private var presentationRevision: UInt64 = 0
     private var candidateAnchor = CandidateAnchor()
+    private var candidateAnchorGeneration: UInt64 = 0
+    private var candidateAnchorTask: Task<Void, Never>?
     private let tracesCandidateGeometry = ProcessInfo.processInfo.environment["SI_DEBUG_CANDIDATE_GEOMETRY"] == "1"
     private let geometryLogger = Logger(subsystem: "com.caterm.si", category: "CandidateGeometry")
     private var explicitlyNavigated = false
@@ -53,7 +55,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         panel.onLosePresentation = { [weak self] in
             guard let self else { return }
             self.presentationRevision &+= 1
-            self.candidateAnchor.reset()
+            self.resetCandidateAnchor()
             self.session.setPrecedingText("")
             self.invalidateAICompletion()
         }
@@ -300,7 +302,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         candidateClient = nil
         selection.update([])
         explicitlyNavigated = false
-        candidateAnchor.reset()
+        resetCandidateAnchor()
         markedTextState.reset()
         // Preserve only the pending spelling, once, without learning or a space.
         if !spelling.isEmpty { insert(spelling, into: client) }
@@ -373,7 +375,36 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         updateAISelection(to: client)
     }
 
-    private func presentCandidates(to client: any IMKTextInput) {
+    private func resetCandidateAnchor() {
+        candidateAnchorGeneration &+= 1
+        candidateAnchorTask?.cancel()
+        candidateAnchorTask = nil
+        candidateAnchor.reset()
+    }
+
+    private func scheduleCandidateAnchorRechecks() {
+        guard candidateAnchorTask == nil, candidateAnchor.needsRecheck else { return }
+        let generation = candidateAnchorGeneration
+        candidateAnchorTask = Task { [weak self] in
+            // These are bounded layout retries, not a polling loop or a latency promise.
+            for delay in [30, 60, 120, 240] {
+                do { try await Task.sleep(for: .milliseconds(delay)) } catch { return }
+                guard !Task.isCancelled, let self,
+                      generation == self.candidateAnchorGeneration,
+                      self.candidatePanel.ownsPresentation,
+                      !self.session.buffer.isEmpty, self.markedTextState.text != nil,
+                      !IsSecureEventInputEnabled(),
+                      !LanguageSettings.shared.usesPassthrough(in: self.applicationID),
+                      let client = self.candidateClient, let activeClient = self.client(),
+                      (client as AnyObject) === (activeClient as AnyObject) else { return }
+                // Resolve current geometry only; never replay old candidates or marked text.
+                self.presentCandidates(to: client, recheckAnchor: true)
+            }
+            // Keep the completed task until reset, so refreshes cannot restart the retry window.
+        }
+    }
+
+    private func presentCandidates(to client: any IMKTextInput, recheckAnchor: Bool = false) {
         guard candidatePanel.ownsPresentation, markedTextState.text != nil else { return }
         let revision = presentationRevision
         let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
@@ -384,7 +415,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             // Explicit diagnostic mode records geometry only, never spelling/output or key events.
             geometryLogger.debug("app=\(applicationID ?? "unknown", privacy: .public) revision=\(revision) source=\(source, privacy: .public) index=\(index ?? -1) rect=\(String(describing: rect), privacy: .public)")
         } : nil
-        let caret = nextAnchor.resolve(screens: screens, trace: trace) {
+        let caret = nextAnchor.resolve(screens: screens, recheck: recheckAnchor, trace: trace) {
             var rect = NSRect.zero
             _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
             return rect
@@ -392,6 +423,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let clientLevel = Int(client.windowLevel())
         guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
         candidateAnchor = nextAnchor
+        scheduleCandidateAnchorRechecks()
         guard let caret else { candidatePanel.orderOut(nil); return }
         let traceFrame: ((NSRect, NSRect) -> Void)? = trace.map { trace in
             { requested, applied in
@@ -420,7 +452,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             presentationRevision &+= 1
             invalidateAICompletion()
 
-            candidateAnchor.reset()
+            resetCandidateAnchor()
             markedTextState.reset()
             session.setPrecedingText("")
             memoryClient = nil
@@ -440,7 +472,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             candidatePreviewPipeline.invalidate()
             candidateClient = nil
             markedTextState.reset()
-            candidateAnchor.reset()
+            resetCandidateAnchor()
             candidatePanel.releasePresentation()
         }
         super.deactivateServer(sender)
@@ -513,10 +545,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let sameClient = candidateClient.map { ($0 as AnyObject) === (client as AnyObject) } ?? false
         if !sameClient {
             markedTextState.reset()
-            candidateAnchor.reset()
+            resetCandidateAnchor()
         }
         candidateClient = client
-        if markedTextState.text == nil { candidateAnchor.reset() }
+        if markedTextState.text == nil { resetCandidateAnchor() }
         selection.update(session.candidates)
         explicitlyNavigated = false
         let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
@@ -533,7 +565,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             markedTextState.reset()
             candidatePipeline.invalidate()
             candidatePreviewPipeline.invalidate()
-            candidateAnchor.reset()
+            resetCandidateAnchor()
             candidatePanel.orderOut(nil)
         } else if let request = session.pendingCandidateRequest {
             presentCandidates(to: client)
@@ -763,7 +795,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         candidatePreviewPipeline.invalidate()
         candidateClient = nil
         markedTextState.reset()
-        candidateAnchor.reset()
+        resetCandidateAnchor()
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         guard revision == presentationRevision else { return false }
         selection.update([])
