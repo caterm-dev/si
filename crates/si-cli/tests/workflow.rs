@@ -395,12 +395,12 @@ fn user_ingest_retries_and_concurrent_updates_publish_one_consistent_pair() -> i
     let before = ["user.silex", "user.sigram", "batches"].map(|name| fs::read(active.join(name)));
     fs::create_dir(&inactive)?;
     // Retired sidecars need not decode. Opening the word pair leaves its bytes and receipt intact.
-    for name in ["characters.silex", "characters.sigram"] {
+    for name in ["characters.silex", "characters.sigram", "recent-samples-v1"] {
         fs::write(active.join(name), b"synthetic retired file")?;
         fs::write(inactive.join(name), b"synthetic retired file")?;
     }
     assert!(store.load()?.is_some());
-    for name in ["characters.silex", "characters.sigram"] {
+    for name in ["characters.silex", "characters.sigram", "recent-samples-v1"] {
         assert!(!active.join(name).exists());
         assert!(!inactive.join(name).exists());
     }

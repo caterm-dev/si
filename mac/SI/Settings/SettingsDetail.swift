@@ -20,8 +20,6 @@ struct SettingsDetail: View {
             UserDictionarySection(dictionary: sentenceLearning)
         case .learning:
             ApplicationMemorySection(settings: applicationMemory)
-        case .sentenceLearning:
-            SentenceLearningSection(settings: sentenceLearning)
         case .inputHistory:
             InputHistorySection(history: inputHistory)
         case .permissions:

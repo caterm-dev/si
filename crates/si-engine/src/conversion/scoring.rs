@@ -6,6 +6,7 @@ use si_lexicon::{Lexicon, WordId};
 use super::lookup::{Lexeme, Lookup};
 use super::{Language, WordIds};
 use crate::han;
+use crate::ranking_features::PathEvidence;
 use crate::resources::EngineResources;
 
 const USER_UNIGRAM_PRIOR: f64 = 32.0;
@@ -119,9 +120,15 @@ impl<'a> Scoring<'a> {
         }
     }
 
-    pub(super) fn session(&self, initial_history: History) -> ScoreSession<'_, 'a> {
+    pub(super) fn session(
+        &self,
+        initial_history: History,
+        capture_evidence: bool,
+    ) -> ScoreSession<'_, 'a> {
         ScoreSession {
             model: self,
+            capture_evidence: capture_evidence && !self.has_user(),
+            evidence: None,
             initial_history,
             base_cache: HashMap::new(),
             user_cache: HashMap::new(),
@@ -208,18 +215,25 @@ type ContextCache<'a> = HashMap<ContextKey, Prepared<'a>>;
 
 pub(super) struct ScoreSession<'model, 'data> {
     model: &'model Scoring<'data>,
+    capture_evidence: bool,
+    evidence: Option<Box<PathEvidence>>,
     initial_history: History,
     base_cache: ContextCache<'data>,
     user_cache: ContextCache<'data>,
 }
 
 impl ScoreSession<'_, '_> {
+    pub(super) fn take_evidence(&mut self) -> Option<Box<PathEvidence>> {
+        self.evidence.take()
+    }
+
     pub(super) fn has_user(&self) -> bool {
         self.model.has_user()
     }
 
     pub(super) fn start(&mut self, word: Lexeme<'_>, missing: usize) -> (History, Scores, Scores) {
         let (history, scores) = self.step(History::default(), word, missing);
+        let mut evidence = self.evidence.take();
         let mut adjustment = Scores::default();
         if self.initial_history.last == Some(word.language)
             && word.personal.is_none()
@@ -227,9 +241,16 @@ impl ScoreSession<'_, '_> {
         {
             // Compare the same first word with and without preceding grams, using the same costs.
             let (_, conditioned) = self.score_word(self.initial_history, word, missing, None);
+            if let (Some(base), Some(context)) = (&mut evidence, self.evidence.take()) {
+                base.context_history_words = self.initial_history.base.len;
+                base.context_matched = context.gram_hit_tokens > 0;
+                base.context_gram_order = context.max_gram_order;
+                base.context_log_support = context.gram_log_support;
+            }
             adjustment.base = conditioned.base - scores.base;
             adjustment.personalized = conditioned.personalized - scores.personalized;
         }
+        self.evidence = evidence;
         (history, scores, adjustment)
     }
 
@@ -249,6 +270,7 @@ impl ScoreSession<'_, '_> {
         missing: usize,
         previous_language: Option<Language>,
     ) -> (History, Scores) {
+        self.evidence = None;
         let language = word.language;
         if word.verbatim {
             let score = -24.0 - (word.text.chars().count() as f64) * 4.0;
@@ -302,19 +324,25 @@ impl ScoreSession<'_, '_> {
             let user_probability = user.count(word.ids.user) / user_vocab.count.max(1.0);
             priors.personalized = blend(union_prior, user_probability, user_weight);
         }
-        for (observed, mass) in continuations(
+        let mut gram_order = 0;
+        let mut gram_support = 0.0;
+        for (observed, mass, order) in continuations(
             &mut self.base_cache,
             base,
             history.base,
             word,
             word.ids.base,
         ) {
+            if self.capture_evidence && observed > 0.0 {
+                gram_order = order;
+                gram_support = observed;
+            }
             let total = mass + BASE_GRAM_PRIOR;
             priors.base = (observed + BASE_GRAM_PRIOR * priors.base) / total;
             priors.personalized = (observed + BASE_GRAM_PRIOR * priors.personalized) / total;
         }
         if let Some(user) = self.model.user {
-            for (observed, mass) in continuations(
+            for (observed, mass, _) in continuations(
                 &mut self.user_cache,
                 user,
                 history.user,
@@ -333,6 +361,36 @@ impl ScoreSession<'_, '_> {
         };
         if missing > 0 {
             cost += 4.0 + missing as f64;
+        }
+        if self.capture_evidence {
+            let scalars = word.text.chars().count();
+            let language_cost_bits = language_cost(previous_language, language);
+            let spelling_cost_bits = if missing > 0 {
+                4.0 + missing as f64
+            } else {
+                0.0
+            };
+            self.evidence = Some(Box::new(PathEvidence {
+                gram_model_available: base.grams.is_some(),
+                unigram_bits: base_prior.log2(),
+                gram_adjustment_bits: priors.base.log2() - base_prior.log2(),
+                token_cost_bits: cost - language_cost_bits - spelling_cost_bits,
+                language_cost_bits,
+                spelling_cost_bits,
+                gram_hit_tokens: usize::from(gram_order > 0),
+                max_gram_order: gram_order,
+                gram_log_support: gram_support.ln_1p(),
+                tokens: 1,
+                single_character_tokens: usize::from(
+                    language == Language::Chinese && han::single(word.text).is_some(),
+                ),
+                min_token_scalars: scalars,
+                max_token_scalars: scalars,
+                language_switches: usize::from(
+                    previous_language.is_some_and(|previous| previous != language),
+                ),
+                ..Default::default()
+            }));
         }
         let next = self.model.extend_history(history, language, word.ids);
         (
@@ -363,7 +421,7 @@ fn continuations<'cache, 'data>(
     history: HistoryIds,
     word: Lexeme<'_>,
     id: Option<WordId>,
-) -> impl Iterator<Item = (f64, f64)> + 'cache
+) -> impl Iterator<Item = (f64, f64, usize)> + 'cache
 where
     'data: 'cache,
 {
@@ -401,6 +459,6 @@ where
                 return None;
             }
             let count = id.and_then(|id| row.context.count(id)).unwrap_or(0) as f64;
-            Some((count, row.mass))
+            Some((count, row.mass, key.len + 1))
         })
 }

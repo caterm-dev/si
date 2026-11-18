@@ -12,7 +12,7 @@ sentence for its local word-gram score. Secure input and direct input skip this
 read. Unsupported clients fall back to ranking without field text. This read
 requires no additional system permission. The text and score adjustment stay in
 memory for conversion and are never logged, saved, sent to a service or used as
-training data by this path. Sentence learning and AI Completion have separate
+training data by this path. AI Completion has separate
 triggers and data flows described below.
 
 ## Software update requests
@@ -39,7 +39,7 @@ Edits and app/window changes invalidate suggestions. Provider, path and key chan
 
 ## Personal Learning
 
-**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. Candidate-choice learning uses SI submissions. The separate sentence-learning switch below controls the additional text-client read. Optional experimental permissions are described below; SI uses no Input Monitoring permission or global event tap.
+**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. Candidate-choice learning and the default local user model both use confirmed SI candidates. Optional experimental permissions are described below; SI uses no Input Monitoring permission or global event tap.
 
 Each record retains normalized consumed spelling, exact output/language/mixed identity, bounded strength, aggregate usage/nonfirst-choice counts, base score, lexical-unit evidence and last-use time. The currently remembered deliberate choice for a spelling also retains its selection time. A new deliberate nonfirst choice replaces the prior selection marker for that spelling; no chronological sequence is saved by Personal Learning. App identifiers are no longer stored in vocabulary rows. First-choice Space/number/mouse acceptance only updates usage, never preference strength or the selection marker. Every three nonfirst choices add one frequency point up to 32. Separately, one deliberate selection is enough to lead the next exact normalized-spelling search, after any explicit personal-phrase pin. Prefixes save only consumed spelling. Literal, personal/verbatim, punctuation, delimiter and automatic confirmations are excluded, and a confirmed output is kept as one candidate-choice entry.
 
@@ -57,11 +57,11 @@ New writes use vocabulary-only schema 4. The archive has a 64 MiB limit, owner-o
 
 ### Sentence learning
 
-**Learn from Submitted Sentences** is an independent default-off switch under **Personal Data → Sentence Learning**. An earlier explicit opt-in carries over only if the feature was active before the upgrade. A plain, nonrepeated Return with an empty composition can read the full text exposed by the active InputMethodKit client before the host handles Return. This can include multiple lines, text on both sides of the caret, pasted text and existing content. In an editor, the client may expose an entire document. If the host cannot provide the full field, SI can read the verified text range before the caret and indicates this in Settings. SI may capture the same content again on a later Return. SI revalidates consent, focus, direct input and secure input around the host calls. Secure Event Input cannot identify every sensitive field. The feature uses the IMK text client, with no clipboard or additional permissions.
+SI learns by default from the lexical text of candidates successfully submitted through manual confirmation. It combines successive confirmed parts of one unchanged composition once the last part is submitted. Secure/direct input, literal text, punctuation, personal or verbatim candidates, automatic confirmations, delimiter acceptance and AI completions are excluded. The feature receives candidate output only. Existing or pasted host text is outside this flow.
 
-The engine segments each accepted line, updates the local user lexicon and word grams, and uses those grams to discover compound words. The owner-only, unencrypted `SI/Personalization/model.si-user` profile under Application Support retains derived words, counts and opaque batch IDs until cleared. It can grow as new text is learned. The 5,000-entry limit for candidate-choice preferences applies to the separate vocabulary archive. The same owner-only snapshot keeps exact text from the last 10 processed app captures for review in **Recent Learning Samples**, including any existing or pasted field content the app exposed. New captures evict the oldest. Earlier text is not backfilled, and CLI imports do not populate the list. Disabling Sentence Learning keeps the existing samples available in Settings. Samples contain no app identifiers and stay on this Mac. A failed batch remains temporarily in memory for **Retry Sentence Learning**. Normal termination processes pending batches when storage is working. Disabling Sentence Learning stops new capture and removes its model from candidate ranking; accepted pending batches can finish.
+The engine segments the queued text and updates the owner-only, unencrypted `SI/Personalization/model.si-user` profile under Application Support. It saves derived words, word frequencies, word grams and opaque batch IDs. Confirmed text is held in memory until processed and discarded after the batch succeeds. Failed batches can be retried while SI is running. Normal termination flushes pending work when storage is available. Opening a valid profile removes the retired recent-samples files without decoding them. Existing derived statistics are retained.
 
-**Clear Sentence Learning Data…** on the **Sentence Learning** page under **Personal Data** removes the local sentence model, recent samples and pending batches. **Clear Personal Learning Data…** removes candidate-choice preferences from their separate archive. The former Sentence History consent and app list are retired. Existing raw sentence archives are left unopened and can be removed explicitly from the Sentence Learning page with **Delete Old Sentence History…**. Previously exported JSONL files remain usable by the offline text-extraction tool.
+**Personal Phrases → Delete All…** clears the derived model, manually added entries and pending learning. New confirmed candidates can populate the model again. Candidate-choice preferences and Input History have separate controls. **Delete Old Sentence History…** under **Personal Phrases** can delete the older retired SQLite archive, whose contents remain unopened.
 
 ## Input History
 
@@ -103,7 +103,7 @@ That file is never opened for ranking, imported, updated, expired or automatical
 
 ## Explicit personal phrases
 
-The [Personal Phrases page](USER_PHRASES.md) manages the private Sentence Learning profile's `user.silex` entries: exact text, optional reading/index and frequency. Add/edit/delete are explicit local actions and do not enable capture. Entries have no automatic expiry. Deleting or changing an identity removes associated word grams; future opted-in learning may recreate it. Clearing Sentence Learning data clears these entries too. The separate shortcut archive, pins and JSON import/export are retired; existing `phrases-v1.json` files are preserved but never loaded or migrated.
+The [Personal Phrases page](USER_PHRASES.md) manages the private user model’s `user.silex` entries, including their text, optional reading and frequency. Entries have no automatic expiry. Deleting or changing an identity removes associated word grams. Future confirmations can recreate deleted words. **Delete All…** clears the shared model. The separate shortcut archive `phrases-v1.json` stays on disk as retired data.
 
 There is no app-vocabulary export/import, synchronization, remote aggregation or automatic document harvesting.
 

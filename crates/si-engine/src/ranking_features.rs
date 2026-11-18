@@ -1,0 +1,251 @@
+//! Versioned, label-free features for offline candidate reranking experiments.
+//! This does not change production conversion or load a model.
+use crate::{Candidate, CandidateLanguage};
+
+/// Evidence from the exact derivation supplying the candidate's score.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PathEvidence {
+    pub gram_model_available: bool,
+    pub unigram_bits: f64,
+    pub gram_adjustment_bits: f64,
+    pub token_cost_bits: f64,
+    pub language_cost_bits: f64,
+    pub spelling_cost_bits: f64,
+    pub gram_hit_tokens: usize,
+    pub max_gram_order: usize,
+    pub gram_log_support: f64,
+    pub context_history_words: usize,
+    pub context_matched: bool,
+    pub context_gram_order: usize,
+    pub context_log_support: f64,
+    pub tokens: usize,
+    pub single_character_tokens: usize,
+    pub min_token_scalars: usize,
+    pub max_token_scalars: usize,
+    pub language_switches: usize,
+    pub abbreviated_tokens: usize,
+    pub pinyin_syllables: usize,
+    pub aligned_separators: usize,
+    pub word_boundary_separators: usize,
+    pub has_direct_match: bool,
+}
+
+impl PathEvidence {
+    pub(crate) fn append(&self, next: &Self) -> Self {
+        Self {
+            unigram_bits: self.unigram_bits + next.unigram_bits,
+            gram_adjustment_bits: self.gram_adjustment_bits + next.gram_adjustment_bits,
+            token_cost_bits: self.token_cost_bits + next.token_cost_bits,
+            language_cost_bits: self.language_cost_bits + next.language_cost_bits,
+            spelling_cost_bits: self.spelling_cost_bits + next.spelling_cost_bits,
+            gram_hit_tokens: self.gram_hit_tokens + next.gram_hit_tokens,
+            max_gram_order: self.max_gram_order.max(next.max_gram_order),
+            gram_log_support: self.gram_log_support + next.gram_log_support,
+            tokens: self.tokens + next.tokens,
+            single_character_tokens: self.single_character_tokens + next.single_character_tokens,
+            min_token_scalars: self.min_token_scalars.min(next.min_token_scalars),
+            max_token_scalars: self.max_token_scalars.max(next.max_token_scalars),
+            language_switches: self.language_switches + next.language_switches,
+            abbreviated_tokens: self.abbreviated_tokens + next.abbreviated_tokens,
+            pinyin_syllables: self.pinyin_syllables + next.pinyin_syllables,
+            aligned_separators: self.aligned_separators + next.aligned_separators,
+            word_boundary_separators: self.word_boundary_separators + next.word_boundary_separators,
+            has_direct_match: false,
+            ..self.clone()
+        }
+    }
+}
+
+pub const SCHEMA: &str = "si-rank-features-v2";
+pub const V1_NAMES: [&str; 12] = [
+    "lexical_bits",
+    "context_bits",
+    "effective_bits",
+    "consumed_scalars",
+    "output_scalars",
+    "lexical_tokens",
+    "bits_per_source_scalar",
+    "bits_per_output_scalar",
+    "is_chinese",
+    "is_english",
+    "is_mixed",
+    "separator_count",
+];
+
+pub const NAMES: [&str; 38] = [
+    "lexical_bits",
+    "context_bits",
+    "effective_bits",
+    "consumed_scalars",
+    "output_scalars",
+    "lexical_tokens",
+    "bits_per_source_scalar",
+    "bits_per_output_scalar",
+    "is_chinese",
+    "is_english",
+    "is_mixed",
+    "separator_count",
+    "unigram_bits",
+    "gram_adjustment_bits",
+    "token_cost_bits",
+    "language_cost_bits",
+    "spelling_cost_bits",
+    "gram_hit_fraction",
+    "max_gram_order",
+    "gram_log_support",
+    "gram_model_available",
+    "context_available",
+    "context_history_words",
+    "context_matched",
+    "context_gram_order",
+    "context_log_support",
+    "best_path_tokens",
+    "has_direct_match",
+    "single_character_tokens",
+    "min_token_scalars",
+    "max_token_scalars",
+    "language_switches",
+    "abbreviated_tokens",
+    "pinyin_syllables",
+    "aligned_separators",
+    "normalized_input_units",
+    "bits_per_normalized_unit",
+    "word_boundary_separators",
+];
+
+/// Only complete, noncompletion dictionary paths are eligible in protocol v1.
+/// Prefixes, personal and verbatim paths need separate supervision and policies.
+pub fn extract_v1(source: &str, candidate: &Candidate) -> Option<[f64; 12]> {
+    if source.is_empty()
+        || candidate.consumed_bytes != source.len()
+        || candidate.language == CandidateLanguage::Literal
+        || candidate.completion
+        || candidate.personal
+        || candidate.verbatim
+        || candidate.preferred
+    {
+        return None;
+    }
+    let score = candidate.score_bits?;
+    let input_len = source.chars().count() as f64;
+    let output_len = candidate.text.chars().count() as f64;
+    if output_len == 0.0 {
+        return None;
+    }
+    let values = [
+        score,
+        candidate.context_adjustment,
+        score + candidate.context_adjustment,
+        input_len,
+        output_len,
+        candidate.lexical_tokens as f64,
+        score / input_len,
+        score / output_len,
+        f64::from(candidate.language == CandidateLanguage::Chinese),
+        f64::from(candidate.language == CandidateLanguage::English),
+        f64::from(candidate.language == CandidateLanguage::Mixed),
+        source.chars().filter(|c| *c == '\'').count() as f64,
+    ];
+    values
+        .iter()
+        .all(|value| value.is_finite())
+        .then_some(values)
+}
+
+/// V2 keeps the first twelve columns byte-compatible with the v1 feature meanings.
+pub fn extract(source: &str, context: &str, candidate: &Candidate) -> Option<Vec<f64>> {
+    let mut values = extract_v1(source, candidate)?.to_vec();
+    let evidence = candidate.ranking_evidence.as_ref()?;
+    let units = crate::conversion::normalized_units(source) as f64;
+    if evidence.tokens == 0 || units == 0.0 {
+        return None;
+    }
+    values.extend([
+        evidence.unigram_bits,
+        evidence.gram_adjustment_bits,
+        evidence.token_cost_bits,
+        evidence.language_cost_bits,
+        evidence.spelling_cost_bits,
+        evidence.gram_hit_tokens as f64 / evidence.tokens as f64,
+        evidence.max_gram_order as f64,
+        evidence.gram_log_support,
+        f64::from(evidence.gram_model_available),
+        f64::from(!context.is_empty()),
+        evidence.context_history_words as f64,
+        f64::from(evidence.context_matched),
+        evidence.context_gram_order as f64,
+        evidence.context_log_support,
+        evidence.tokens as f64,
+        f64::from(evidence.has_direct_match),
+        evidence.single_character_tokens as f64,
+        evidence.min_token_scalars as f64,
+        evidence.max_token_scalars as f64,
+        evidence.language_switches as f64,
+        evidence.abbreviated_tokens as f64,
+        evidence.pinyin_syllables as f64,
+        evidence.aligned_separators as f64,
+        units,
+        candidate.score_bits? / units,
+        evidence.word_boundary_separators as f64,
+    ]);
+    values
+        .iter()
+        .all(|value| value.is_finite())
+        .then_some(values)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate() -> Candidate {
+        Candidate {
+            text: "绿色".into(),
+            language: CandidateLanguage::Chinese,
+            consumed_bytes: 5,
+            score_bits: Some(-8.0),
+            context_adjustment: 2.0,
+            completion: false,
+            lexical_tokens: 1,
+            source_boundaries: vec![5],
+            confirmation_boundaries: vec![],
+            personal: false,
+            preferred: false,
+            verbatim: false,
+            token_bonus: 0.0,
+            ranking_evidence: None,
+        }
+    }
+
+    #[test]
+    fn unicode_lengths_and_context_have_stable_units() {
+        let mut row = candidate();
+        let source = "lüse";
+        row.consumed_bytes = source.len();
+        let features = extract_v1(source, &row).unwrap();
+        assert_eq!(
+            &features[..8],
+            &[-8.0, 2.0, -6.0, 4.0, 2.0, 1.0, -2.0, -4.0]
+        );
+        assert_eq!(&features[8..], &[1.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn ineligible_paths_and_invalid_scores_never_enter_training() {
+        let row = candidate();
+        assert!(extract_v1("luse", &row).is_none()); // Not a complete byte span.
+        for mutate in [
+            |c: &mut Candidate| c.personal = true,
+            |c: &mut Candidate| c.verbatim = true,
+            |c: &mut Candidate| c.completion = true,
+            |c: &mut Candidate| c.preferred = true,
+            |c: &mut Candidate| c.language = CandidateLanguage::Literal,
+            |c: &mut Candidate| c.score_bits = Some(f64::NAN),
+            |c: &mut Candidate| c.context_adjustment = f64::INFINITY,
+        ] {
+            let mut changed = row.clone();
+            mutate(&mut changed);
+            assert!(extract_v1("lüse", &changed).is_none());
+        }
+    }
+}

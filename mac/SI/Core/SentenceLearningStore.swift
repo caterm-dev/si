@@ -3,7 +3,7 @@ import Foundation
 /// Runs profile I/O and builds immutable decoder snapshots away from the main actor.
 public actor SentenceLearningStore {
     public enum StoreError: Error { case profile }
-    public typealias Snapshot = (model: SentenceLearningModel?, recentSamples: [String], entries: [UserLexiconEntry])
+    public typealias Snapshot = (model: SentenceLearningModel?, entries: [UserLexiconEntry])
 
     private let profile: URL
 
@@ -13,14 +13,14 @@ public actor SentenceLearningStore {
 
     public func load() throws -> Snapshot {
         guard let base = RustConversion.shared else { throw StoreError.profile }
-        let snapshot = try base.loadUserModel(at: profile)
-        return (snapshot.conversion.map(SentenceLearningModel.init(conversion:)), snapshot.recentSamples, snapshot.conversion?.userEntries ?? [])
+        let conversion = try base.loadUserModel(at: profile)
+        return (conversion.map(SentenceLearningModel.init(conversion:)), conversion?.userEntries ?? [])
     }
 
     /// A batch ID makes retries safe even if ingestion succeeded but rebuilding the decoder failed.
     public func ingest(_ sentences: [String], batchID: UUID) throws -> Snapshot {
         guard let base = RustConversion.shared,
-              !sentences.isEmpty, sentences.count <= 32, sentences.allSatisfy(SentenceSnapshot.accepts) else {
+              !sentences.isEmpty, sentences.count <= 32, sentences.allSatisfy({ (1...4_096).contains($0.utf8.count) }) else {
             throw StoreError.profile
         }
         try base.ingestUserSentences(sentences, batchID: batchID, at: profile)

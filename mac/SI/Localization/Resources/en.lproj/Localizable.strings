@@ -314,32 +314,17 @@
 "Record Direct Input Shortcut" = "Record Direct Input Shortcut";
 "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels." = "Press a letter, number or punctuation key with Control, Option or Command. Escape cancels.";
 
-// Sentence learning
-"Sentence Learning" = "Sentence Learning";
-"Learn from Submitted Sentences" = "Learn from Submitted Sentences";
-"Input or learning settings changed during the text read." = "Input or learning settings changed during the text read.";
-"Sentence model saved." = "Sentence model saved.";
-"When you press Return outside a composition, SI can learn from the entire input field, including existing or pasted text and text after the caret." = "When you press Return outside a composition, SI can learn from the entire input field, including existing or pasted text and text after the caret.";
-"Off by default. Learned words, word counts, and the last 10 processed text samples stay on this Mac." = "Off by default. Learned words, word counts, and the last 10 processed text samples stay on this Mac.";
-"This app did not provide the complete input field." = "This app did not provide the complete input field.";
-"The input field has no text to learn." = "The input field has no text to learn.";
-"Finish the marked text before pressing Return to learn the input field." = "Finish the marked text before pressing Return to learn the input field.";
-"Input field queued for learning." = "Input field queued for learning.";
-"Only the text before the caret could be read and was queued for learning." = "Only the text before the caret could be read and was queued for learning.";
-"Sentence model saved using the text before the caret." = "Sentence model saved using the text before the caret.";
+// Personal phrases and local learning
 "Retry Sentence Learning" = "Retry Sentence Learning";
-"Sentence learning data could not be opened. Clear sentence learning data to start again." = "Sentence learning data could not be opened. Clear sentence learning data to start again.";
-"Sentence learning data could not be cleared. Please try clearing it again." = "Sentence learning data could not be cleared. Please try clearing it again.";
 "Sentence learning could not be saved. Retry while SI is running to process the pending text." = "Sentence learning could not be saved. Retry while SI is running to process the pending text.";
-"Recent Learning Samples" = "Recent Learning Samples";
-"No processed samples yet." = "No processed samples yet.";
-"Sentence Model" = "Sentence Model";
-"Clear Sentence Learning Data…" = "Clear Sentence Learning Data…";
-"Clear Sentence Learning Data" = "Clear Sentence Learning Data";
-"Clear sentence learning data?" = "Clear sentence learning data?";
-"Deletes the sentence model and recent and pending text samples on this Mac." = "Deletes the sentence model and recent and pending text samples on this Mac.";
-"Opening sentence learning data…" = "Opening sentence learning data…";
-"Clearing sentence learning data…" = "Clearing sentence learning data…";
+"Personal phrases could not be opened. Delete all phrases to start again." = "Personal phrases could not be opened. Delete all phrases to start again.";
+"Personal phrases could not be deleted. Please try again." = "Personal phrases could not be deleted. Please try again.";
+"Deleting personal phrases…" = "Deleting personal phrases…";
+"Delete All…" = "Delete All…";
+"Delete All" = "Delete All";
+"Delete all personal phrases?" = "Delete all personal phrases?";
+"Deletes all personal phrases and the local word statistics learned from confirmed candidates." = "Deletes all personal phrases and the local word statistics learned from confirmed candidates.";
+"SI learns from candidates you confirm and stores the resulting words and counts on this Mac." = "SI learns from candidates you confirm and stores the resulting words and counts on this Mac.";
 "Delete Old Sentence History…" = "Delete Old Sentence History…";
 "Delete Old Sentence History" = "Delete Old Sentence History";
 "Delete old Sentence History?" = "Delete old Sentence History?";
@@ -348,7 +333,6 @@
 "Deletes learned vocabulary and candidate preferences on this Mac." = "Deletes learned vocabulary and candidate preferences on this Mac.";
 "Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. Candidate-choice learning uses the text you confirm." = "Personal Learning is off by default and stays on this Mac. It keeps up to 5,000 global entries; when full, the least recently used entries are removed. Candidate-choice learning uses the text you confirm.";
 
-"Manage entries in user.silex. Changes also update the local sentence model." = "Manage entries in user.silex. Changes also update the local sentence model.";
 
 "No reading" = "No reading";
 

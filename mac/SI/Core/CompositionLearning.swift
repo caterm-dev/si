@@ -23,9 +23,7 @@ struct CompositionLearning: Sendable {
 
     mutating func record(_ commit: InputCommit) -> InputCommit? {
         defer { if commit.remainingInput.isEmpty { self = Self() } }
-        guard !blocked, let candidate = commit.candidate, let candidateLanguage = candidate.language,
-              candidate.canLearn, !candidate.isPunctuation,
-              commit.reason == .explicitSelection || commit.reason == .defaultAcceptance,
+        guard !blocked, commit.canLearn, let candidate = commit.candidate, let candidateLanguage = candidate.language,
               !commit.input.isEmpty, !commit.text.isEmpty,
               remainder.map({ $0.utf8.elementsEqual((commit.input + commit.remainingInput).utf8) }) ?? true,
               candidate.consumedInputCount == (commit.remainingInput.isEmpty ? nil : commit.input.count)

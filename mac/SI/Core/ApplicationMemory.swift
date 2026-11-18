@@ -40,8 +40,7 @@ public struct ApplicationMemory: Equatable, Sendable {
 
     @discardableResult
     public mutating func recordVocabulary(_ commit: InputCommit, now: Date = .now) -> Bool {
-        guard let candidate = commit.candidate, candidate.canLearn,
-              commit.reason == .explicitSelection || commit.reason == .defaultAcceptance else { return false }
+        guard commit.canLearn, let candidate = commit.candidate else { return false }
         let input = LearningProfile.normalizedInput(commit.input, language: candidate.language ?? .english)
         let identity = LearnedPreference.identity(input: input, language: candidate.language ?? .english,
                                                   text: candidate.text, isMixed: candidate.isMixed)

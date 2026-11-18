@@ -77,6 +77,8 @@ pub struct ConversionPreferences<'a> {
 /// One possible conversion of a prefix or the whole input.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Candidate {
+    /// Optional diagnostics captured only by the offline feature export entry point.
+    pub ranking_evidence: Option<Box<crate::ranking_features::PathEvidence>>,
     pub text: String,
     pub language: CandidateLanguage,
     /// Exact length in UTF-8 bytes from the start of the original input.
@@ -168,6 +170,47 @@ impl<'a> CandidateEngine<'a> {
         preferences: ConversionPreferences<'_>,
         preceding_text: &str,
     ) -> Vec<Candidate> {
+        self.convert_internal(
+            text,
+            languages,
+            preview,
+            phrases,
+            preferences,
+            preceding_text,
+            false,
+        )
+    }
+
+    /// Capture scored-path evidence with empty personal state for offline experiments.
+    /// Engines with a user resource pair return ordinary candidates without evidence.
+    pub fn candidates_with_evidence(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preceding_text: &str,
+    ) -> Vec<Candidate> {
+        self.convert_internal(
+            text,
+            languages,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            preceding_text,
+            true,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn convert_internal(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preview: bool,
+        phrases: &[PersonalPhrase<'_>],
+        preferences: ConversionPreferences<'_>,
+        preceding_text: &str,
+        capture_evidence: bool,
+    ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();
         }
@@ -183,7 +226,7 @@ impl<'a> CandidateEngine<'a> {
                 &Input::new(text),
                 languages,
                 &self.lookup,
-                self.scoring.session(history),
+                self.scoring.session(history, capture_evidence),
                 preview,
                 &personal,
                 preferences,
@@ -192,6 +235,7 @@ impl<'a> CandidateEngine<'a> {
             Vec::new()
         };
         candidates.push(Candidate {
+            ranking_evidence: None,
             text: text.to_owned(),
             language: CandidateLanguage::Literal,
             consumed_bytes: text.len(),
@@ -243,4 +287,8 @@ impl Language {
 struct WordIds {
     base: Option<WordId>,
     user: Option<WordId>,
+}
+
+pub(crate) fn normalized_units(source: &str) -> usize {
+    Input::new(source).len()
 }

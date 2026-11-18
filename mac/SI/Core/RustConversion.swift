@@ -41,19 +41,12 @@ final class RustConversion: @unchecked Sendable {
 
     deinit { si_engine_close(engine) }
 
-    func loadUserModel(at profile: URL) throws -> (conversion: RustConversion?, recentSamples: [String]) {
+    func loadUserModel(at profile: URL) throws -> RustConversion? {
         var handle: OpaquePointer?
-        var samples: OpaquePointer?
-        guard profile.withUnsafeFileSystemRepresentation({ si_engine_load_user(engine, $0, &handle, &samples) }) else {
+        guard profile.withUnsafeFileSystemRepresentation({ si_engine_load_user(engine, $0, &handle) }) else {
             throw SentenceLearningStore.StoreError.profile
         }
-        defer { si_recent_user_samples_free(samples) }
-        var recent: [String] = []
-        var length = 0
-        while let bytes = si_recent_user_sample(samples, recent.count, &length) {
-            recent.append(String(decoding: UnsafeBufferPointer(start: bytes, count: length), as: UTF8.self))
-        }
-        return (handle.map(RustConversion.init(engine:)), recent)
+        return handle.map(RustConversion.init(engine:))
     }
 
     var userEntries: [UserLexiconEntry] {

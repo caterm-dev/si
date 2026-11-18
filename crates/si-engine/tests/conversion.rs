@@ -747,3 +747,111 @@ fn field_context_uses_the_complete_frequency_segmentation() -> io::Result<()> {
     assert_ne!(actual, convert("入法"));
     Ok(())
 }
+
+#[test]
+fn offline_evidence_tracks_winning_derivation_and_preserves_conversion() -> io::Result<()> {
+    use si_engine::ranking_features;
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let me = add(&mut lexicon, ZH, "wo", "我", 100);
+    let look = add(&mut lexicon, ZH, "kan", "看", 100);
+    let book = add(&mut lexicon, ZH, "shu", "书", 100);
+    add(&mut lexicon, ZH, "kan'shu", "看书", 0);
+    add(&mut lexicon, ZH, "lv'se", "绿色", 10);
+    add(&mut lexicon, EN, "book", "book", 30);
+    let mut grams = GramBuilder::new();
+    grams.add(&[look, book], 10_000).unwrap();
+    grams.add(&[me, look], 10_000).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    for source in [
+        "kanshu", "kan'shu", "ks", "lvse", "lüse", "lu:se", "kanbook", "missing",
+    ] {
+        for context in ["", "我", "🦉"] {
+            let ordinary = engine.convert_with_context(
+                source,
+                BILINGUAL,
+                false,
+                &[],
+                ConversionPreferences::default(),
+                context,
+            );
+            let mut captured = engine.candidates_with_evidence(source, BILINGUAL, context);
+            for candidate in &mut captured {
+                if let Some(evidence) = candidate.ranking_evidence.take() {
+                    let reconstructed = evidence.unigram_bits + evidence.gram_adjustment_bits
+                        - evidence.token_cost_bits
+                        - evidence.language_cost_bits
+                        - evidence.spelling_cost_bits;
+                    assert!((candidate.score_bits.unwrap() - reconstructed).abs() < 1e-10);
+                }
+            }
+            assert_eq!(ordinary, captured, "capturing evidence changed conversion");
+        }
+    }
+    let rows = engine.candidates_with_evidence("kanshu", BILINGUAL, "我");
+    let candidate = find(&rows, "看书", CandidateLanguage::Chinese, 6);
+    let evidence = candidate.ranking_evidence.as_ref().unwrap();
+    assert_eq!(candidate.lexical_tokens, 1); // Existing presentation metadata.
+    assert_eq!(evidence.tokens, 2); // The stronger scoring derivation.
+    assert!(evidence.has_direct_match);
+    assert_eq!(evidence.gram_hit_tokens, 1);
+    assert_eq!(evidence.max_gram_order, 2);
+    assert!((evidence.gram_log_support - 10_000_f64.ln_1p()).abs() < 1e-12);
+    assert!(evidence.context_matched);
+    assert_eq!(evidence.context_history_words, 1);
+    let absent = engine.candidates_with_evidence("kanshu", BILINGUAL, "🦉");
+    assert!(
+        !find(&absent, "看书", CandidateLanguage::Chinese, 6)
+            .ranking_evidence
+            .as_ref()
+            .unwrap()
+            .context_matched
+    );
+    let abbreviation = engine.candidates_with_evidence("ks", BILINGUAL, "");
+    let evidence = find(&abbreviation, "看书", CandidateLanguage::Chinese, 2)
+        .ranking_evidence
+        .as_ref()
+        .unwrap();
+    assert_eq!(evidence.abbreviated_tokens, 1);
+    assert_eq!(evidence.pinyin_syllables, 2);
+    assert_eq!(evidence.spelling_cost_bits, 7.0);
+    let user_engine = CandidateEngine::new(&resources, Some(&resources));
+    assert!(
+        user_engine
+            .candidates_with_evidence("kanshu", BILINGUAL, "我")
+            .iter()
+            .all(|candidate| candidate.ranking_evidence.is_none())
+    );
+    let units = ranking_features::NAMES
+        .iter()
+        .position(|name| *name == "normalized_input_units")
+        .unwrap();
+    for source in ["lvse", "lüse", "lu:se", "lu\u{308}se"] {
+        let rows = engine.candidates_with_evidence(source, BILINGUAL, "");
+        let candidate = find(&rows, "绿色", CandidateLanguage::Chinese, source.len());
+        assert_eq!(
+            ranking_features::extract(source, "", candidate).unwrap()[units],
+            4.0
+        );
+    }
+    let separated = engine.candidates_with_evidence("kan'shu", BILINGUAL, "");
+    assert_eq!(
+        find(&separated, "看书", CandidateLanguage::Chinese, 7)
+            .ranking_evidence
+            .as_ref()
+            .unwrap()
+            .aligned_separators,
+        1
+    );
+    let mixed = engine.candidates_with_evidence("kanbook", BILINGUAL, "");
+    assert_eq!(
+        find(&mixed, "看 book", CandidateLanguage::Mixed, 7)
+            .ranking_evidence
+            .as_ref()
+            .unwrap()
+            .language_switches,
+        1
+    );
+    Ok(())
+}

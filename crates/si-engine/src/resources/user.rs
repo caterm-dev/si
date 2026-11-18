@@ -3,7 +3,6 @@
 mod edit;
 pub use edit::UserEntry;
 mod ingest;
-mod recent;
 mod snapshot;
 
 use std::io;
@@ -51,18 +50,6 @@ impl UserModelStore {
 
     /// Read a consistent user dictionary and word-gram pair, with user-local IDs.
     pub fn load(&self) -> io::Result<Option<EngineResources>> {
-        Ok(self.load_snapshot(false)?.map(|(resources, _)| resources))
-    }
-
-    /// Read the word pair and recent app samples from the same generation.
-    pub fn load_with_recent(&self) -> io::Result<Option<(EngineResources, Vec<String>)>> {
-        self.load_snapshot(true)
-    }
-
-    fn load_snapshot(
-        &self,
-        include_recent: bool,
-    ) -> io::Result<Option<(EngineResources, Vec<String>)>> {
         let Some(profile) = snapshot::Profile::open(&self.directory, false)? else {
             return Ok(None);
         };
@@ -74,13 +61,8 @@ impl UserModelStore {
             &directory.join(snapshot::LEXICON),
             Some(&directory.join(snapshot::GRAMS)),
         )?;
-        let samples = if include_recent {
-            recent::read(&directory)?
-        } else {
-            Vec::new()
-        };
-        profile.remove_legacy_character_files(active)?;
-        Ok(Some((resources, samples)))
+        profile.remove_legacy_sidecars(active)?;
+        Ok(Some(resources))
     }
 
     /// Add each supplied sentence once for a caller-generated opaque batch ID.
@@ -108,33 +90,6 @@ impl UserModelStore {
         sentences: impl IntoIterator<Item = io::Result<S>>,
         max_order: GramOrder,
     ) -> io::Result<UserImport> {
-        self.ingest_batch(base, batch_id, sentences, max_order, &[])
-    }
-
-    /// Ingest app captures line by line, retaining the ten newest complete captures for Settings.
-    pub fn ingest_fields(
-        &self,
-        base: &Lexicon,
-        batch_id: &str,
-        fields: &[&str],
-    ) -> io::Result<UserImport> {
-        self.ingest_batch(
-            base,
-            batch_id,
-            fields.iter().flat_map(|field| field.lines()).map(Ok),
-            SiConfig::default().user_max_order,
-            fields,
-        )
-    }
-
-    fn ingest_batch<S: AsRef<str>>(
-        &self,
-        base: &Lexicon,
-        batch_id: &str,
-        sentences: impl IntoIterator<Item = io::Result<S>>,
-        max_order: GramOrder,
-        fields: &[&str],
-    ) -> io::Result<UserImport> {
         if !snapshot::valid_batch_id(batch_id) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -156,7 +111,6 @@ impl UserModelStore {
         let report = ingest::observe(&mut state, base, sentences, max_order)?;
         if report.sentences != 0 {
             state.batches.insert(batch_id.to_owned());
-            recent::append(&mut state.recent_samples, fields);
             profile.publish(active, &mut state)?;
         }
         Ok(report)

@@ -1,5 +1,9 @@
 # SI ranking evaluation
 
+The separate [LambdaRank starter experiment](lambdarank/README.md) has editable
+training and validation data; it checks overlap against this frozen test suite
+and does not train or tune on its answers.
+
 This directory contains one authored [220-query ranking test set](ranking/test.jsonl).
 
 | File | Purpose |

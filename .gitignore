@@ -81,3 +81,7 @@ SI-Sentence-History*.jsonl
 
 # Old local neural-model staging directory.
 /mac/SI/Core/Resources/Reranker/
+
+# Offline LambdaRank generated pools, models and reports (may contain private data)
+/eval/lambdarank/prepared/
+/eval/lambdarank/runs/

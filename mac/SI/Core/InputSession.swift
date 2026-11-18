@@ -248,7 +248,7 @@ public struct InputSession: Sendable {
         refresh()
     }
 
-    /// Call only after a successful, revalidated host insertion with learning consent.
+    /// Call only after a successful host insertion eligible for local learning.
     /// The returned value is learning evidence only, never another insertion/history event.
     public mutating func recordSuccessfulCommit(_ commit: InputCommit) -> InputCommit? {
         guard compositionLearningEnabled, buffer.utf8.elementsEqual(commit.remainingInput.utf8) else {

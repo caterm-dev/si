@@ -69,6 +69,14 @@ impl Match<'_> {
         cuts
     }
 
+    pub(super) fn syllables(self) -> usize {
+        if self.word.language == Language::Chinese {
+            self.reading.split('\'').count()
+        } else {
+            0
+        }
+    }
+
     pub(super) fn is_abbreviated(self) -> bool {
         self.abbreviated
     }

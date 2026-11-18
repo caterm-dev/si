@@ -3,6 +3,7 @@
 mod conversion;
 mod han;
 mod pinyin;
+pub mod ranking_features;
 pub mod resources;
 pub mod segmentation;
 

@@ -40,7 +40,7 @@ The window uses one 27-choice ordinary shortlist, including the exact original i
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 
-Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning, Sentence Learning and Input History are independently off by default. Personal Learning retains aggregate candidate preferences. Sentence Learning builds a local language model. Input History can retain each submitted spelling and text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
+Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate candidate preferences. SI builds a local user model from confirmed candidates by default. Input History can retain each submitted spelling and text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
 Debug and Release bundle `target/si-data/main.silex` and
 `target/si-data/words.sigram`. Xcode checks that the snapshots are
@@ -54,7 +54,7 @@ The macOS input-source menu for SI includes independent **English** and **Chines
 
 ## SI Settings
 
-Open **SI Settings…** from the input menu. **Typing** opens first, with language and composition controls. **AI Completion** is a separate page under **Input**. Use the sidebar or search for a setting such as “punctuation”, “export” or “screen recording”. **Personal Data** groups Personal Phrases, Personal Learning, Sentence Learning and Input History into separate pages. Experimental permissions and software updates are under **System**.
+Open **SI Settings…** from the input menu. **Typing** opens first, with language and composition controls. **AI Completion** is a separate page under **Input**. Use the sidebar or search for a setting such as “punctuation”, “export” or “screen recording”. **Personal Data** groups Personal Phrases, Personal Learning and Input History into separate pages. Experimental permissions and software updates are under **System**.
 
 ## Interface language
 
@@ -133,11 +133,9 @@ The former App History completion/draft feature and previous-word pair learning 
 
 ### Sentence learning
 
-In **SI Settings → Personal Data → Sentence Learning**, **Learn from Submitted Sentences** controls the Return-time read. It is independently off by default. If you explicitly enabled Sentence Learning and it was active before upgrading, your choice carries over. When there is no pending composition, a plain Return lets SI learn from the entire text exposed by the active input client, including text after the caret, multiple lines and existing or pasted content. In an editor, the client may expose the entire document. No prior SI submission is required. Return continues to the host. Secure and direct input are excluded.
+SI learns locally from successfully submitted candidates you confirm with Space, a number key or a click. This runs by default, independently of Personal Learning. Confirming several parts of an unchanged composition supplies one combined observation after the last part is submitted. An interrupted chain discards its pending fragments. Secure and direct input, literal text, punctuation, automatic confirmations and AI completions are excluded. Return outside composition passes through to the app.
 
-When an app cannot provide the full field, SI tries the same text interface used by the former Sentence History. It can learn the text before the caret when the entire requested prefix is available. Settings reports when that fallback was used.
-
-SI batches the text in memory and reuses the Rust ingestion and word discovery behind `si-cli user ingest` and `si-cli user learn`. Derived vocabulary and word grams can influence subsequent candidates. The profile stays on this Mac. The **Sentence Learning** page reports skipped reads, queued text and saved models. **Recent Learning Samples** shows the last 10 processed captures, newest first, including their original line breaks. Older captures roll off automatically. **Clear Sentence Learning Data…** clears the sentence model and both recent and pending samples. Older Sentence History records can be explicitly removed with **Delete Old Sentence History…**. See [sentence learning privacy and retention](docs/PRIVACY.md#sentence-learning) and [native checks](docs/TESTING.md#sentence-learning).
+SI batches confirmed text in memory and reuses the Rust ingestion and word discovery behind `si-cli user ingest` and `si-cli user learn`. Only derived words, counts and batch IDs are saved. On upgrade, SI removes the old recent-samples files and keeps the existing derived model. Use **Personal Phrases → Delete All…** to clear the local vocabulary and word grams. See [sentence learning privacy and retention](docs/PRIVACY.md#sentence-learning) and [native checks](docs/TESTING.md#sentence-learning).
 
 ## Input History
 
@@ -157,9 +155,9 @@ The independent owner-only SQLite database is `~/Library/Application Support/SI/
 
 ## Personal phrases
 
-Open **SI Settings → Personal Phrases** to view and search the active `user.silex` entries. Add, edit or delete words, their Pinyin/English readings and frequency counts directly. This is the same private vocabulary used by Sentence Learning; its existing switch still controls use of the user model for conversion. Management does not enable automatic learning.
+Open **SI Settings → Personal Phrases** to view and search the active `user.silex` entries. Add, edit or delete words, their Pinyin/English readings and frequency counts directly. This is the same private vocabulary that SI learns from confirmed candidates and uses for conversion.
 
-The former separate shortcut dictionary, pins and JSON import/export have been removed from the app. Existing `phrases-v1.json` files are left untouched and are no longer loaded or migrated. Edits atomically update the paired user model; deleting or changing a word identity removes its associated word grams while keeping unrelated entries and counts. Clearing Sentence Learning data also clears these entries. See [storage and controls](docs/USER_PHRASES.md).
+The former separate shortcut dictionary, pins and JSON import/export have been removed from the app. Existing `phrases-v1.json` files are left untouched and are no longer loaded or migrated. Edits atomically update the paired user model; deleting or changing a word identity removes its associated word grams while keeping unrelated entries and counts. **Delete All…** clears the shared vocabulary and word grams, including queued learning. See [storage and controls](docs/USER_PHRASES.md).
 
 ## Requirements
 
@@ -490,11 +488,10 @@ Learned compounds enter Pinyin index
 `0` immediately and contribute word grams on subsequent imports.
 
 The profile stores derived words, word grams and batch IDs locally.
-App captures also retain the last 10 processed samples for Settings.
-CLI imports discard their source lines and paths after processing.
-Opening a valid word pair removes legacy character files. On Unix the
-profile directory is owner-only. `user clear` removes its derived data,
-batch IDs and recent samples. The Rust library entry point is
+App submissions and CLI imports discard the source text after processing.
+Opening a valid word pair removes obsolete character and recent-sample files.
+On Unix the profile directory is owner-only. `user clear` removes its derived
+data and batch IDs. The Rust library entry point is
 [`UserModelStore`](crates/si-engine/src/resources/user.rs).
 See [user model storage](docs/ARCHITECTURE.md#rust-user-model).
 
@@ -647,6 +644,12 @@ count and share thresholds can still admit common fragments, so corpus
 coverage and word quality require separate evaluation.
 
 ## Model training experiments
+
+The [offline LambdaRank experiment](eval/lambdarank/README.md) provides editable,
+separate synthetic training/validation sets, Rust candidate/feature export and
+Python LightGBM training with reproducible baseline comparisons. The v2 feature
+schema adds scoring-path evidence and supports same-pool feature-group ablations. Models remain
+offline and are not loaded by the app.
 
 The [ranking evaluation dataset](eval/README.md) contains 220 synthetic queries
 covering documented Pinyin regressions, 100 short Chinese ambiguity cases, English

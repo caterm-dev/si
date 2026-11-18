@@ -76,13 +76,8 @@ typedef struct SIUserEntryView {
 bool si_engine_user_entry(const SIEngine *engine, size_t offset, SIUserEntryView *view);
 bool si_engine_edit_user_entry(const char *profile, const SIUserEntryView *old_entry,
                                const SIUserEntryView *new_entry);
-typedef struct SIRecentUserSamples SIRecentUserSamples;
-bool si_engine_load_user(const SIEngine *engine, const char *profile, SIEngine **out,
-                         SIRecentUserSamples **samples);
-/* Borrowed UTF-8 in chronological order. Returns NULL when the index is out of range. */
-const uint8_t *si_recent_user_sample(const SIRecentUserSamples *samples, size_t index, size_t *length);
-void si_recent_user_samples_free(SIRecentUserSamples *samples);
-/* Concatenated UTF-8 captures with their exclusive end offsets in bytes. */
+bool si_engine_load_user(const SIEngine *engine, const char *profile, SIEngine **out);
+/* Concatenated UTF-8 submissions with their exclusive end offsets in bytes. */
 bool si_engine_ingest_user(const SIEngine *engine, const char *profile, const char *batch_id,
                            const uint8_t *text, size_t length, const size_t *ends, size_t count);
 bool si_engine_clear_user(const char *profile);

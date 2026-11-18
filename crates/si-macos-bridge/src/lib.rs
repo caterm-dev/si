@@ -229,71 +229,30 @@ pub unsafe extern "C" fn si_engine_edit_user_entry(
     store.edit_entry(old.as_ref(), new.as_ref()).is_ok()
 }
 
-pub struct SIRecentUserSamples(Vec<String>);
-
 /// # Safety
-/// The engine must be live, profile must be a UTF-8 C string, and outputs must be writable.
-/// On success, non-null outputs are owned by the caller.
+/// The engine must be live, profile must be a UTF-8 C string, and out must be writable.
+/// On success, a non-null output is owned by the caller.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn si_engine_load_user(
     engine: *const SIEngine,
     profile: *const c_char,
     out: *mut *mut SIEngine,
-    samples: *mut *mut SIRecentUserSamples,
 ) -> bool {
-    let (Some(engine), Some(store), Some(out), Some(samples)) = (unsafe {
-        (
-            engine.as_ref(),
-            user_store(profile),
-            out.as_mut(),
-            samples.as_mut(),
-        )
-    }) else {
+    let (Some(engine), Some(store), Some(out)) =
+        (unsafe { (engine.as_ref(), user_store(profile), out.as_mut()) })
+    else {
         return false;
     };
-    let Ok(snapshot) = store.load_with_recent() else {
+    let Ok(user) = store.load() else {
         return false;
     };
-    if let Some((user, recent)) = snapshot {
-        *out = Box::into_raw(Box::new(SIEngine::new(
+    *out = user.map_or(ptr::null_mut(), |user| {
+        Box::into_raw(Box::new(SIEngine::new(
             Arc::clone(engine.base()),
             Some(user),
-        )));
-        *samples = Box::into_raw(Box::new(SIRecentUserSamples(recent)));
-    } else {
-        *out = ptr::null_mut();
-        *samples = ptr::null_mut();
-    }
+        )))
+    });
     true
-}
-
-/// # Safety
-/// Samples must be null or live and length must be writable. Text borrows the samples handle.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn si_recent_user_sample(
-    samples: *const SIRecentUserSamples,
-    index: usize,
-    length: *mut usize,
-) -> *const u8 {
-    let (Some(text), Some(length)) = (unsafe {
-        (
-            samples.as_ref().and_then(|samples| samples.0.get(index)),
-            length.as_mut(),
-        )
-    }) else {
-        return ptr::null();
-    };
-    *length = text.len();
-    text.as_ptr()
-}
-
-/// # Safety
-/// Samples must be null or uniquely owned, with no outstanding borrows.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn si_recent_user_samples_free(samples: *mut SIRecentUserSamples) {
-    if !samples.is_null() {
-        unsafe { drop(Box::from_raw(samples)) };
-    }
 }
 
 /// # Safety
@@ -315,9 +274,9 @@ pub unsafe extern "C" fn si_engine_ingest_user(
     if batch_id.is_null()
         || text.is_null()
         || len == 0
-        || len > isize::MAX as usize
         || ends.is_null()
         || !(1..=32).contains(&count)
+        || len > count * 4096
     {
         return false;
     }
@@ -329,19 +288,28 @@ pub unsafe extern "C" fn si_engine_ingest_user(
     };
     let ends = unsafe { std::slice::from_raw_parts(ends, count) };
     let mut start = 0;
-    let mut fields = Vec::with_capacity(count);
+    let mut submissions = Vec::with_capacity(count);
     for &end in ends {
-        let Some(field) = text.get(start..end).filter(|field| !field.is_empty()) else {
+        let Some(submission) = text
+            .get(start..end)
+            .filter(|text| (1..=4096).contains(&text.len()))
+        else {
             return false;
         };
-        fields.push(field);
+        submissions.push(submission);
         start = end;
     }
     if start != len {
         return false;
     }
     let lexicon = engine.base().lexicon();
-    store.ingest_fields(lexicon, batch_id, &fields).is_ok()
+    store
+        .ingest(
+            lexicon,
+            batch_id,
+            submissions.into_iter().flat_map(str::lines).map(Ok),
+        )
+        .is_ok()
         && store.learn(lexicon, &UserLearningConfig::default()).is_ok()
 }
 

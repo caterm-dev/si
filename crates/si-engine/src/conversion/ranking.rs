@@ -11,6 +11,7 @@ pub(super) struct Results {
 }
 
 struct Evidence {
+    ranking_evidence: Option<Box<crate::ranking_features::PathEvidence>>,
     score: f64,
     context_adjustment: f64,
     effective_score: f64,
@@ -32,6 +33,7 @@ impl Results {
         let completion = candidate.completion;
         use std::collections::hash_map::Entry;
         let evidence = Evidence {
+            ranking_evidence: candidate.ranking_evidence,
             score,
             context_adjustment: candidate.context_adjustment,
             effective_score,
@@ -53,6 +55,10 @@ impl Results {
             }
             Entry::Occupied(mut row) => {
                 let current = row.get_mut();
+                let has_direct_match = [&current.ranking_evidence, &evidence.ranking_evidence]
+                    .into_iter()
+                    .flatten()
+                    .any(|row| row.has_direct_match);
                 let direct = current.lexical_tokens == 1 || evidence.lexical_tokens == 1;
                 if (evidence.preferred && !current.preferred)
                     || (evidence.preferred == current.preferred
@@ -68,6 +74,9 @@ impl Results {
                     current
                         .confirmation_boundaries
                         .retain(|boundary| evidence.confirmation_boundaries.contains(boundary));
+                }
+                if let Some(row) = &mut current.ranking_evidence {
+                    row.has_direct_match = has_direct_match;
                 }
                 if direct {
                     current.lexical_tokens = 1;
@@ -92,6 +101,7 @@ impl Results {
         );
         rows.into_iter()
             .map(|((consumed_bytes, language, text), evidence)| Candidate {
+                ranking_evidence: evidence.ranking_evidence,
                 text,
                 language,
                 consumed_bytes,

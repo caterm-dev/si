@@ -7,7 +7,6 @@ use si_gram::{GramBuilder, GramModel};
 use si_lexicon::Lexicon;
 
 use super::super::{lock_destination, open_compatible_grams};
-use super::recent;
 
 pub(super) const LEXICON: &str = "user.silex";
 pub(super) const GRAMS: &str = "user.sigram";
@@ -17,7 +16,6 @@ pub(super) struct State {
     pub(super) lexicon: Lexicon,
     pub(super) grams: GramModel,
     pub(super) batches: BTreeSet<String>,
-    pub(super) recent_samples: Vec<String>,
 }
 
 impl State {
@@ -26,7 +24,6 @@ impl State {
             lexicon: Lexicon::new(),
             grams: empty_grams(),
             batches: BTreeSet::new(),
-            recent_samples: Vec::new(),
         }
     }
 
@@ -149,12 +146,11 @@ impl<'a> Profile<'a> {
                 return Err(invalid("invalid user profile batch IDs"));
             }
         }
-        self.remove_legacy_character_files(active)?;
+        self.remove_legacy_sidecars(active)?;
         Ok(State {
             lexicon,
             grams,
             batches,
-            recent_samples: recent::read(&directory)?,
         })
     }
 
@@ -173,7 +169,6 @@ impl<'a> Profile<'a> {
         }
         batches.flush()?;
         batches.get_ref().sync_all()?;
-        recent::save(&directory, &state.recent_samples)?;
         sync_directory(&directory)?;
         self.publish_pointer(match next {
             Slot::First => b"a\n",
@@ -188,7 +183,7 @@ impl<'a> Profile<'a> {
     }
 
     /// Retire the obsolete sidecars after opening a valid word model under the profile lock.
-    pub(super) fn remove_legacy_character_files(&self, active: Slot) -> io::Result<()> {
+    pub(super) fn remove_legacy_sidecars(&self, active: Slot) -> io::Result<()> {
         for slot in [Slot::First, Slot::Second] {
             let directory = self.slot(slot);
             match fs::symlink_metadata(&directory) {
@@ -199,7 +194,7 @@ impl<'a> Profile<'a> {
                 Err(error) => return Err(error),
             }
             let mut removed = false;
-            for name in ["characters.silex", "characters.sigram"] {
+            for name in ["characters.silex", "characters.sigram", "recent-samples-v1"] {
                 removed |= remove_if_present(&directory.join(name), |path| fs::remove_file(path))?;
             }
             if removed {

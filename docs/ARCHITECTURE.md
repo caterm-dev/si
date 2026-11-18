@@ -321,15 +321,13 @@ Base and user snapshots can be loaded together as independent
 `EngineResources`, each with its own lexicon-to-gram ID mapping.
 
 The profile serializes updates with a stable lock. It writes the paired
-lexicon and gram snapshots and batch receipts into an
-inactive generation. One atomic pointer change publishes the generation.
-Readers load the selected pair under the same lock. An interrupted write
-leaves either the previous generation or the fully published generation
-readable. A repeat batch ID prevents recounting, and the next update
-removes any inactive generation. Opening a valid word pair removes obsolete
-character files under the same profile lock and preserves the word pair
-and batch receipts. Clear publishes an empty profile and
-deletes both generations. The profile retains derived words, counts, opaque batch IDs and an optional list of the 10 newest processed app captures. The recent-sample sidecar is committed in the same generation as the word pair and receipts. The `.si-user` directory is ignored by Git.
+lexicon and gram snapshots and batch receipts into an inactive generation.
+One atomic pointer change publishes the generation. Readers load the selected
+pair under the same lock. A repeat batch ID prevents recounting. Opening a
+valid word pair removes obsolete character and recent-sample files without
+reading them. Clear publishes an empty profile and deletes both generations.
+The profile retains derived words, counts and opaque batch IDs. Git ignores
+the `.si-user` directory.
 
 ## Rust lexicon
 
@@ -489,7 +487,7 @@ The UI-independent `LearningProfile` and `LearnedPreference` models remain share
 
 `PrivateArchiveFile` shares regular-file validation, bounded reads, owner-only permissions, atomic replacement and erase mechanics across the remaining storage actors. App memory provides an actor-isolated existence/deletion operation for the retired `preferences-v1.json` path without decoding its contents. Settings exposes explicit deletion with independent progress/error feedback. Old consent flags are ignored and removed only with that deletion. Existing files are not erased or assigned to guessed app scopes; the inactive old archive receives no automatic retention maintenance.
 
-Personal Phrases now displays `SentenceLearningSettings.entries`, copied from the same immutable Rust user snapshot as the decoder and recent samples. `SentenceLearningStore` serializes explicit entry edits with ingestion. The C ABI uses borrowed UTF-8 views for reads and owned exact old/new rows for edits. Rust validates the original row under the profile lock, rebuilds the paired lexicon/grams, remaps surviving IDs and aliases, and atomically publishes. Frequency-only edits retain grams; changed/deleted identities lose their grams. The UI removes old pins and JSON import/export; the app no longer opens `phrases-v1.json` or passes its phrases into conversion. Core phrase fixtures remain supported. The existing Sentence Learning consent still gates user-model ranking; explicit management does not change consent.
+Personal Phrases now displays `SentenceLearningSettings.entries`, copied from the same immutable Rust user snapshot as the decoder. `SentenceLearningStore` serializes explicit entry edits with ingestion. The C ABI uses borrowed UTF-8 views for reads and owned exact old/new rows for edits. Rust validates the original row under the profile lock, rebuilds the paired lexicon/grams, remaps surviving IDs and aliases, and atomically publishes. Frequency-only edits retain grams; changed/deleted identities lose their grams. The UI removes old pins and JSON import/export; the app no longer opens `phrases-v1.json` or passes its phrases into conversion. Core phrase fixtures remain supported. User-model ranking applies in eligible conversion sessions, including with Personal Learning disabled.
 
 ### Personal Learning
 
@@ -503,7 +501,7 @@ A bounded spelling-to-record index maintains one latest deliberate choice per no
 
 `ApplicationMemoryStore` performs actor-isolated I/O at the existing `SI/Personalization/application-memory-v1.json` path, with vocabulary-only schema 4, a 64 MiB file limit, owner-only permissions, atomic replacement and revision-ordered saves/deletion. Schemas 1–3 migrate atomically, stripping app identifiers/history and merging equal record identities: counts are summed with existing one-million caps, latest usage/base metadata is retained, and strength uses the maximum rather than stacking app bonuses. Schema-1/2 mixed default/correction evidence resets to neutral; schema-3 strength/corrections survive. No old schema supplies an exact-choice marker because it lacks a deliberate-selection timestamp. Age alone no longer invalidates retained records. Malformed/unsupported archives remain untouched; migration write failures propagate and pause loading. The retired `preferences-v1.json` archive is never decoded or imported and keeps its explicit deletion control.
 
-Vocabulary retains at most 5,000 records; capacity eviction removes least recently used entries with identity tie-breaking. There is no timed expiry, decay or daily expiry task. Saves coalesce for 300 ms and flush on normal termination. Settings provide global search, Forget and global clear/archive erase under **Personal Learning**, with no application picker, pause or app discovery. Existing learning consent persists; old history flags never grant learning consent. The former App History draft/completion feature and previous-word pair learning remain absent. The separate Input History below does not provide candidates. Candidate-choice learning uses confirmed SI text. Sentence Learning uses its own consent, archive and Return-time host read.
+Vocabulary retains at most 5,000 records; capacity eviction removes least recently used entries with identity tie-breaking. There is no timed expiry, decay or daily expiry task. Saves coalesce for 300 ms and flush on normal termination. Settings provide global search, Forget and global clear/archive erase under **Personal Learning**, with no application picker, pause or app discovery. Existing learning consent persists; old history flags never grant learning consent. The former App History draft/completion feature and previous-word pair learning remain absent. The separate Input History below does not provide candidates. Candidate-choice learning uses confirmed SI text. Sentence Learning uses confirmed candidate output and a separate Rust archive.
 
 ### Input History
 
@@ -515,9 +513,9 @@ Vocabulary retains at most 5,000 records; capacity eviction removes least recent
 
 ### Sentence learning
 
-The `sentenceLearning.independentlyEnabled` switch defaults to off. On upgrade, the former `sentenceLearning.enabled` grants consent only if it was explicitly on and Personal Learning was also enabled. SI retires the former key. After migration, each feature uses its own consent and deletion controls. The controller reads the active client's full text on plain, nonrepeated Return with an empty composition and forwards Return normally. The capture revalidates client, consent, secure/direct input and host state around the read. `SentenceSnapshotReader` requests a positive reported text length from offset zero. For zero or unavailable lengths, it grows the proposed range until the client reports an actual range clipped to the text end. If the full read is unavailable or incomplete, the reader tries the former Sentence History range from offset zero to the caret using the attributed substring API. The returned UTF-16 length must match that requested range before it can be queued. The reader revalidates the client and host state on either path. The capture accepts multiline text and nonterminal carets or selections, including outside any prior SI submission.
+The controller submits evidence after successful host insertion and client and settings revalidation. Both local learning paths use the existing bounded per-client composition accumulator. Sentence Learning passes either the completed aggregate or the final eligible candidate to the store. Incomplete prefixes are held only by the accumulator and never written as individual observations. Return uses normal host routing outside composition. Preceding-field context still feeds transient ranking.
 
-`SentenceLearningSettings` keeps at most 32 queued fields and one in-flight or retry batch in memory. The actor passes UTF-8 with field boundaries to the same `UserModelStore` ingestion and word discovery used by the CLI. Rust processes each field line by line and retains up to 10 original app captures. Length-prefixed UTF-8 in the optional owner-only sidecar preserves multiline text and embedded NULs. A retried batch ID cannot append the same samples twice. Earlier profiles have an empty recent list. It then loads the paired user resources into a new immutable Rust decoder sharing the existing base resources. Swift attaches that decoder to eligible conversion requests regardless of candidate-choice learning consent. Existing request IDs and settings generations reject obsolete conversion results. The **Sentence Learning** page under **Personal Data** exposes the switch, transient capture status including prefix fallback, retry and sentence-model clear. Settings receives recent captures separately from its decoder snapshot. Clear removes recent samples, drops pending samples and runs behind in-flight ingestion. The retired raw SQLite archive stays unopened. The page offers explicit file/sidecar deletion, and offline extraction still accepts older exports.
+`SentenceLearningSettings` keeps up to 32 queued submissions and one in-flight or retry batch. The actor sends bounded UTF-8 submissions with byte offsets to the Rust bridge, which calls the same user ingestion and compound discovery used by the CLI. A batch ID prevents duplicate counts after a retry. Swift loads the published lexicon and grams into an immutable decoder. Personal Phrases exposes the entries, storage errors, retry and Delete All. Clearing invalidates pending work and waits for any in-flight writer before deleting both snapshots. Only the derived model and batch IDs persist. The legacy raw SQLite archive remains accessible for explicit deletion only.
 
 ### Portable history export
 
@@ -592,6 +590,19 @@ New publications increment the Xcode patch/build metadata after preflight and co
 DMGs use compressed UDZO with an explicit HFS+ filesystem. This avoids inheriting APFS from the staging volume and its reproduced source-folder image-sizing failure; see [DMG troubleshooting](RELEASING.md#dmg-creation-reports-no-space).
 
 ## Offline model experiments
+
+The [offline LambdaRank workflow](../eval/lambdarank/README.md) uses the Rust
+`ranking_features` module and `si-cli rank-features` to export a versioned
+first-64 complete, noncompletion dictionary candidate pool. Python trains and
+evaluates LightGBM against separate synthetic train/validation sources. Source,
+resource, exporter and feature identities are recorded in immutable local bundles.
+V2 optionally collects best-path score components, gram support, preceding-context
+state, spelling alignment and token structure during the same search. Candidate
+merging retains this evidence from the selected scoring derivation and aggregates
+exact direct-match availability separately. Normal conversion disables diagnostic
+allocation. Python supports v1 bundles and same-pool additive/removal ablations.
+The current conversion pipeline does not load these models; prefix ranking,
+personalization, native presentation and automatic confirmation are unchanged.
 
 `corpus/prepare_raw_text.py` extracts sources into versioned
 `chinese/prepared/raw-text-v2` bundles. Six archives retain their existing pins;

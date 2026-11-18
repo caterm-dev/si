@@ -46,6 +46,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private weak var memoryClient: (any IMKTextInput)?
     private var applicationID: String?
     private var memoryGeneration: UInt64?
+    private var sentenceLearningGeneration: UInt64?
     private var memoryLanguageGeneration: UInt64?
     private var sessionContextGeneration: UInt64 = 0
     private var keyEventGeneration: UInt64 = 0
@@ -158,11 +159,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             update(client)
             return true
         case 36, 76: // Return / keypad Enter: preserve the original spelling.
-            guard !session.buffer.isEmpty else {
-                session.breakContext()
-                if !event.isARepeat, !event.modifierFlags.contains(.shift) { captureSentence(from: client) }
-                return false
-            }
+            guard !session.buffer.isEmpty else { session.breakContext(); return false }
             commitLiteral(to: client)
             return true
         case 49: // Space
@@ -275,7 +272,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             }
         }
         let appSettings = ApplicationMemorySettings.shared
-        let memory = appSettings.snapshot(sentenceModel: SentenceLearningSettings.shared.modelForInput)
+        let sentences = SentenceLearningSettings.shared
+        if sentenceLearningGeneration != sentences.generation {
+            session.discardCompositionLearning()
+            sentenceLearningGeneration = sentences.generation
+        }
+        let memory = appSettings.snapshot(sentenceModel: sentences.modelForInput)
         let languages = LanguageSettings.shared
         let secureInput = IsSecureEventInputEnabled()
         if secureInput { session.setPrecedingText("") }
@@ -286,7 +288,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           automaticConfirmationEnabled: languages.automaticConfirmationEnabled && !secureInput,
                           configurationGeneration: languages.configurationGeneration,
                           applicationMemory: memory,
-                          compositionLearningEnabled: appSettings.usesVocabulary && !secureInput,
+                          compositionLearningEnabled: !secureInput,
                           punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled)
         return true
     }
@@ -809,6 +811,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let memory = ApplicationMemorySettings.shared
         let generation = memory.generation
         let contextGeneration = sessionContextGeneration
+        let languageGeneration = LanguageSettings.shared.configurationGeneration
+        let sentences = SentenceLearningSettings.shared
+        let sentenceGeneration = sentences.generation
+        let recordsSentences = app != nil && sentences.canRecord
         let recordsVocabulary = memory.usesVocabulary && !IsSecureEventInputEnabled()
         var acceptedLearning = false
         defer { if !acceptedLearning { session.discardCompositionLearning() } }
@@ -822,50 +828,27 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return
         }
         if recordsHistory { history.record(commit, suffix: suffix, expectedGeneration: historyGeneration) }
-        if recordsVocabulary, generation == memory.generation, memory.usesVocabulary, !IsSecureEventInputEnabled(),
+        if (recordsVocabulary || recordsSentences),
            (memoryClient as AnyObject?) === (client as AnyObject),
-           (self.client() as AnyObject?) === (client as AnyObject), contextGeneration == sessionContextGeneration {
-            // As with individual vocabulary, a final acceptance space is not part of the word.
-            let combined = session.recordSuccessfulCommit(commit)
-            memory.recordVocabulary(commit)
-            if let combined { memory.recordVocabulary(combined) }
-            acceptedLearning = true
+           (self.client() as AnyObject?) === (client as AnyObject), contextGeneration == sessionContextGeneration,
+           languageGeneration == LanguageSettings.shared.configurationGeneration, !IsSecureEventInputEnabled() {
+            let learnsVocabulary = recordsVocabulary && generation == memory.generation && memory.usesVocabulary
+            let learnsSentences = recordsSentences && sentenceGeneration == sentences.generation && sentences.canRecord
+            if learnsVocabulary || learnsSentences {
+                let combined = session.recordSuccessfulCommit(commit)
+                if learnsVocabulary {
+                    memory.recordVocabulary(commit)
+                    if let combined { memory.recordVocabulary(combined) }
+                }
+                if learnsSentences {
+                    sentences.record(combined ?? commit, expectedGeneration: sentenceGeneration)
+                }
+                acceptedLearning = true
+            }
         }
         if configureSession(for: client), !session.buffer.isEmpty, refreshPrecedingText(for: client) {
             update(client)
         }
     }
 
-    private func captureSentence(from client: any IMKTextInput) {
-        let sentences = SentenceLearningSettings.shared
-        let language = LanguageSettings.shared
-        let app = applicationID
-        let sentenceGeneration = sentences.generation
-        let languageGeneration = language.configurationGeneration
-        let revision = presentationRevision
-        let keyGeneration = keyEventGeneration
-        func isCurrent() -> Bool {
-            revision == presentationRevision && keyGeneration == keyEventGeneration
-                && (memoryClient as AnyObject?) === (client as AnyObject) && candidatePanel.ownsPresentation
-                && app != nil && app == applicationID && !language.usesPassthrough(in: app)
-                && languageGeneration == language.configurationGeneration && !language.enabledLanguages.isEmpty
-                && sentenceGeneration == sentences.generation && sentences.canCapture && session.buffer.isEmpty
-        }
-        guard isCurrent() else { return }
-
-        guard let capture = SentenceSnapshotReader.read(
-            isCurrent: isCurrent, selection: { client.selectedRange() }, markedRange: { client.markedRange() },
-            textLength: { client.length() }, textInRange: { client.attributedSubstring(from: $0)?.string },
-            textWithActualRange: { range in
-                var actual = NSRange(location: NSNotFound, length: 0)
-                guard let text = client.string(from: range, actualRange: &actual) else { return nil }
-                return (text, actual)
-            },
-            onFailure: { reason in
-                guard keyGeneration == keyEventGeneration, sentences.canCapture else { return }
-                sentences.reportCapture(.skipped(reason), expectedGeneration: sentenceGeneration)
-            }
-        ), isCurrent() else { return }
-        sentences.record(capture.text, coverage: capture.coverage, expectedGeneration: sentenceGeneration)
-    }
 }

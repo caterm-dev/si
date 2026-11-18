@@ -5,6 +5,7 @@ struct UserDictionaryView: View {
     @State private var search = ""
     @State private var editor: PhraseEditorRequest?
     @State private var errorMessage: String?
+    @State private var showsDeleteAllConfirmation = false
 
     private var visibleEntries: [UserLexiconEntry] {
         dictionary.entries.filter {
@@ -14,11 +15,22 @@ struct UserDictionaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Manage entries in user.silex. Changes also update the local sentence model.")
+            Text("SI learns from candidates you confirm and stores the resulting words and counts on this Mac.")
                 .font(.callout).foregroundStyle(.secondary)
             TextField("Search phrases or input codes", text: $search).textFieldStyle(.roundedBorder)
-            Button("Add Phrase…") { editor = PhraseEditorRequest(phrase: nil) }
-                .disabled(!dictionary.canEditEntries)
+            HStack {
+                Button("Add Phrase…") { editor = PhraseEditorRequest(phrase: nil) }
+                    .disabled(!dictionary.canEditEntries)
+                Spacer()
+                Button("Delete All…", role: .destructive) { showsDeleteAllConfirmation = true }
+                    .disabled(!dictionary.canClearAll)
+                    .confirmationDialog("Delete all personal phrases?", isPresented: $showsDeleteAllConfirmation) {
+                        Button("Delete All", role: .destructive, action: deleteAll)
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("Deletes all personal phrases and the local word statistics learned from confirmed candidates.")
+                    }
+            }
             List(visibleEntries) { phrase in
                 HStack {
                     VStack(alignment: .leading) {
@@ -47,11 +59,18 @@ struct UserDictionaryView: View {
                                            description: Text("Add a phrase or try another search."))
                 }
             }
-            if dictionary.isLoading || dictionary.isEditing { ProgressView().controlSize(.small) }
-            if let error = errorMessage ?? dictionary.errorMessage { Text(error).foregroundStyle(.red) }
+            if dictionary.isClearing { ProgressView("Deleting personal phrases…").controlSize(.small) }
+            else if dictionary.isLoading || dictionary.isEditing { ProgressView().controlSize(.small) }
+            if let error = dictionary.errorMessage ?? errorMessage { Text(error).foregroundStyle(.red) }
+            if dictionary.canRetry { Button("Retry Sentence Learning", action: dictionary.retry) }
             Text(L10n.format("Personal phrases: %ld", dictionary.entries.count))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .sheet(item: $editor) { request in UserPhraseEditor(dictionary: dictionary, phrase: request.phrase) }
+    }
+
+    private func deleteAll() {
+        errorMessage = nil
+        dictionary.clear()
     }
 }

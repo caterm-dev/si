@@ -6,14 +6,13 @@ enum SettingsPage: Hashable {
     case directInput
     case phrases
     case learning
-    case sentenceLearning
     case inputHistory
     case permissions
     case about
 
     static let groups: [(title: String, pages: [Self])] = [
         ("Input", [.typing, .aiCompletion, .directInput]),
-        ("Personal Data", [.phrases, .learning, .sentenceLearning, .inputHistory]),
+        ("Personal Data", [.phrases, .learning, .inputHistory]),
         ("System", [.permissions, .about])
     ]
 
@@ -24,7 +23,6 @@ enum SettingsPage: Hashable {
         case .directInput: "Direct Input by Application"
         case .phrases: "Personal Phrases"
         case .learning: "Personal Learning"
-        case .sentenceLearning: "Sentence Learning"
         case .inputHistory: "Input History"
         case .permissions: "Experimental Permissions"
         case .about: "About SI"
@@ -46,7 +44,6 @@ enum SettingsPage: Hashable {
         case .directInput: "macwindow"
         case .phrases: "text.badge.plus"
         case .learning: "sparkles"
-        case .sentenceLearning: "text.alignleft"
         case .inputHistory: "clock"
         case .permissions: "lock.shield"
         case .about: "info.circle"
@@ -67,9 +64,8 @@ enum SettingsPage: Hashable {
              "Show punctuation candidates", "Punctuation during composition"] + PunctuationBehavior.allCases.map(\.displayName)
         case .aiCompletion: ["Enable AI Completion", "Codex CLI", "Claude Code", "OpenAI API Key", "Accessibility"]
         case .directInput: ["Manage Direct Input…", "Applications", "Terminal", "Toggle Direct Input Shortcut", "Record Shortcut…"]
-        case .phrases: ["Add Phrase…", "Edit", "Delete", "Frequency", "user.silex"]
+        case .phrases: ["Add Phrase…", "Edit", "Delete", "Delete All…", "Frequency", "user.silex"]
         case .learning: ["Manage Learning Data…", "Clear Personal Learning Data…"]
-        case .sentenceLearning: ["Learn from Submitted Sentences", "Recent Learning Samples", "Clear Sentence Learning Data…", "Delete Old Sentence History…"]
         case .inputHistory: ["Save Input History", "Export Input History…", "Clear Input History…"]
         case .permissions: ["Accessibility", "Screen Recording"]
         case .about: ["Software Updates", "Check for Updates…", "Version", "Keyboard Shortcuts", "GitHub"]

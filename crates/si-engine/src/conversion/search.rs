@@ -1,3 +1,4 @@
+use crate::ranking_features::PathEvidence;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -310,10 +311,26 @@ impl<'a> TokenBonuses<'a> {
 }
 
 impl Search<'_, '_, '_, '_> {
+    fn edge_evidence(&mut self, edge: Match<'_>, start: usize) -> Option<Box<PathEvidence>> {
+        let mut evidence = self.scoring.take_evidence()?;
+        evidence.abbreviated_tokens = usize::from(edge.is_abbreviated());
+        evidence.spelling_cost_bits += evidence.abbreviated_tokens as f64 * ABBREVIATION_BITS;
+        evidence.pinyin_syllables = edge.syllables();
+        evidence.aligned_separators = self.input.separators(start, edge.end).count();
+        evidence.word_boundary_separators = usize::from(
+            self.input
+                .separators(start, edge.end)
+                .any(|offset| offset == edge.end - start),
+        );
+        evidence.has_direct_match = start == 0 && edge.missing == 0 && !edge.is_abbreviated();
+        Some(evidence)
+    }
+
     fn seed_verbatim(&mut self, edge: Match<'_>) {
         let (history, score) = self.scoring.step(History::default(), edge.word, 0);
         let mask = Language::English.mask();
         let path = Path {
+            ranking_evidence: None,
             output: edge.word.text.to_owned(),
             score,
             context_adjustment: Scores::default(),
@@ -356,6 +373,7 @@ impl Search<'_, '_, '_, '_> {
             score.base -= ABBREVIATION_BITS;
             score.personalized -= ABBREVIATION_BITS;
         }
+        let ranking_evidence = self.edge_evidence(edge, 0);
         let personal = edge.word.personal.is_some();
         let output = render(edge, self.input.source_span(0, edge.end));
         let direct_adjustment = if personal {
@@ -372,6 +390,7 @@ impl Search<'_, '_, '_, '_> {
         }
         let details = Rc::new(EdgeDetails::new(edge, self.input, 0));
         let candidate = Candidate {
+            ranking_evidence: ranking_evidence.clone(),
             text: output.to_string(),
             language: candidate_language(mask),
             consumed_bytes: self.input.source_end(edge.end),
@@ -413,6 +432,7 @@ impl Search<'_, '_, '_, '_> {
             )
         };
         let path = Path {
+            ranking_evidence,
             output: output.into_owned(),
             score,
             context_adjustment,
@@ -487,6 +507,7 @@ impl Search<'_, '_, '_, '_> {
                     .boundaries(!path.confirmation_ambiguous && !path.personal && !path.verbatim);
                 self.results.insert(
                     Candidate {
+                        ranking_evidence: path.ranking_evidence.clone(),
                         text: path.output.clone(),
                         language: candidate_language(mask),
                         consumed_bytes: self.input.source_end(end),
@@ -549,6 +570,11 @@ impl Search<'_, '_, '_, '_> {
                     delta.base -= ABBREVIATION_BITS;
                     delta.personalized -= ABBREVIATION_BITS;
                 }
+                let ranking_evidence = self.edge_evidence(edge, start).and_then(|edge| {
+                    path.ranking_evidence
+                        .as_ref()
+                        .map(|previous| Box::new(previous.append(&edge)))
+                });
                 let score = path.score + delta;
                 let context_adjustment = if private {
                     Scores::default()
@@ -605,6 +631,7 @@ impl Search<'_, '_, '_, '_> {
                 };
                 target.insert(
                     Path {
+                        ranking_evidence,
                         output,
                         score,
                         context_adjustment,
@@ -726,6 +753,7 @@ impl Frontier {
 
 #[derive(Clone)]
 struct Path {
+    ranking_evidence: Option<Box<PathEvidence>>,
     output: String,
     score: Scores,
     context_adjustment: Scores,
