@@ -5,6 +5,20 @@ import SICore
 
 @MainActor
 struct LanguageSettingsTests {
+    @Test func pinyinCorrectionSettingPersistsAndDefaultsOff() throws {
+        let name = "SI.PinyinCorrectionTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = LanguageSettings(defaults: defaults)
+        #expect(settings.pinyinCorrectionMode == .off)
+        let generation = settings.configurationGeneration
+        settings.pinyinCorrectionMode = .higherRecall
+        #expect(settings.configurationGeneration == generation + 1)
+        #expect(LanguageSettings(defaults: defaults).pinyinCorrectionMode == .higherRecall)
+        defaults.set(256, forKey: LanguageSettings.pinyinCorrectionKey)
+        #expect(LanguageSettings(defaults: defaults).pinyinCorrectionMode == .off)
+    }
+
     @Test func languageSwitchesPersistIndependentlyWithoutChangingDirectInputOrConsent() throws {
         let name = "SI.LanguageSwitchTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))

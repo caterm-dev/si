@@ -2,6 +2,18 @@ import Testing
 @testable import SICore
 
 struct CandidateShortlistLimitTests {
+    @Test func correctionAfterTheConstructedHeadRemainsSelectable() {
+        let ordinary = (0..<6).map {
+            InputCandidate(text: "Sentence \($0)", language: .simplifiedChinese, score: 100 - $0,
+                           lexicalTokenCount: 2)
+        }
+        let correction = InputCandidate(text: "你好世界", language: .simplifiedChinese, score: 80,
+                                        lexicalTokenCount: 2, isPinyinCorrection: true)
+        let literal = InputCandidate(text: "nihoashijie", language: nil, score: 0)
+        let ranked = ordinary + [correction, literal]
+        #expect(CandidateShortlist.candidates(from: ranked) == Array(ordinary.prefix(4)) + [correction, literal])
+    }
+
     @Test(arguments: InputLanguage.allCases)
     func singleEntryCompletionsShareTheConstructedHead(language: InputLanguage) {
         let completions = (0..<7).map {

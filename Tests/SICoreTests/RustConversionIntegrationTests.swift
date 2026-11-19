@@ -1,8 +1,78 @@
+import CSIRust
 import Foundation
 import Testing
 @testable import SICore
 
 struct RustConversionIntegrationTests {
+    @Test func pinyinCorrectionChangesDoNotAcceptObsoleteResults() throws {
+        _ = try #require(RustConversion.shared)
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.simplifiedChinese], pinyinCorrectionMode: .conservative)
+        session.append("nihoa")
+        let request = try #require(session.pendingCandidateRequest)
+        let enabled = request.generate()
+        #expect(enabled.candidates.contains { $0.text == "你好" && $0.isPinyinCorrection })
+        session.configure(languages: [.simplifiedChinese], pinyinCorrectionMode: .off)
+        let acceptedObsolete = session.accept(enabled)
+        #expect(!acceptedObsolete)
+        let disabled = try #require(session.pendingCandidateRequest).generate()
+        let acceptedCurrent = session.accept(disabled)
+        #expect(acceptedCurrent)
+        #expect(!session.candidates.contains { $0.isPinyinCorrection })
+    }
+
+    @Test func nativeCorrectionModeAndByteSpan() throws {
+        let path = try #require(ProcessInfo.processInfo.environment["SI_ENGINE_RESOURCE_DIRECTORY"])
+        let url = URL(fileURLWithPath: path).appendingPathComponent("main.silex")
+        let engine = try #require(url.withUnsafeFileSystemRepresentation { si_engine_open($0, nil) })
+        defer { si_engine_close(engine) }
+
+        func correctionForHello() throws -> SICorrectionView? {
+            let input = Array("nihoa".utf8)
+            let rows = try #require(input.withUnsafeBufferPointer {
+                si_engine_candidates(engine, $0.baseAddress, $0.count, nil, 0, 1, true,
+                                     nil, 0, nil, 0, nil, 0)
+            })
+            defer { si_candidates_free(rows) }
+            for index in 0..<si_candidates_count(rows) {
+                var row = SICandidateView()
+                var correction = SICorrectionView()
+                guard si_candidates_get(rows, index, &row),
+                      si_candidates_get_correction(rows, index, &correction) else { continue }
+                let text = String(decoding: UnsafeBufferPointer(start: row.text, count: row.text_bytes), as: UTF8.self)
+                if text == "你好" {
+                    #expect(row.confirmation_boundary_count == 0)
+                    return correction
+                }
+            }
+            return nil
+        }
+
+        #expect(try correctionForHello() == nil)
+        for mode: UInt8 in [1, 2] {
+            try #require(si_engine_set_correction(engine, mode))
+            let view = try #require(try correctionForHello())
+            #expect(view.kind == 4)
+            #expect(view.word_start_bytes == 0)
+            #expect(view.word_end_bytes == 5)
+        }
+        #expect(!si_engine_set_correction(engine, 255))
+        #expect(try correctionForHello() != nil)
+        try #require(si_engine_set_correction(engine, 0))
+        #expect(try correctionForHello() == nil)
+    }
+
+    @Test func swiftCorrectionCandidateCannotTrainOrAutomaticallyConfirm() throws {
+        let path = try #require(ProcessInfo.processInfo.environment["SI_ENGINE_RESOURCE_DIRECTORY"])
+        let url = URL(fileURLWithPath: path).appendingPathComponent("main.silex")
+        let engine = try #require(RustConversion(lexicon: url, correctionMode: .conservative))
+        let candidates = engine.candidates(for: "nihoa", languages: [.simplifiedChinese], includesConfirmation: true)
+        let correction = try #require(candidates.first { $0.text == "你好" && $0.isPinyinCorrection })
+        #expect(!correction.canLearn)
+        #expect(!correction.isPartial)
+        #expect(correction.confirmationBoundaries.isEmpty)
+    }
+
     @Test func precedingTextReachesBothSearchesWithoutBecomingALearnedScore() async throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -128,5 +198,31 @@ struct RustConversionIntegrationTests {
         #expect(commit.text == "绿" && commit.input == "lu:'" && session.buffer == "se")
         let acceptedStaleResult = session.accept(request.generate())
         #expect(!acceptedStaleResult)
+    }
+}
+
+private struct TypoSuggestionProvider: CandidateProvider {
+    let language: InputLanguage = .simplifiedChinese
+
+    func candidates(for input: String) -> [InputCandidate] {
+        guard input == "nihoa" else { return [] }
+        return [InputCandidate(text: "你好", language: language, score: 100, isPinyinCorrection: true)]
+    }
+}
+
+extension RustConversionIntegrationTests {
+    @Test func correctionRequiresExplicitSelectionInSession() throws {
+        let engine = CandidateEngine(providers: [TypoSuggestionProvider()], punctuationCandidatesEnabled: true)
+        var session = InputSession(engine: engine)
+        for reason: CommitReason in [.defaultAcceptance, .passthrough, .explicitSelection] {
+            session.append("nihoa")
+            let suggestion = try #require(session.candidates.first { $0.isPinyinCorrection })
+            let commit = session.commitResult(suggestion, reason: reason)
+            #expect(commit.input == "nihoa")
+            #expect(commit.text == (reason == .explicitSelection ? "你好" : "nihoa"))
+            #expect(!commit.canLearn)
+        }
+        session.append("nihoa.")
+        #expect(!session.candidates.contains { $0.text == "你好。" })
     }
 }

@@ -5,6 +5,7 @@ import os
 /// Owns one immutable Rust engine. The C ABI supports simultaneous const queries.
 final class RustConversion: @unchecked Sendable {
     private let engine: OpaquePointer
+    private let correctionMode: PinyinCorrectionMode
     private static let ready = OSAllocatedUnfairLock<RustConversion?>(initialState: nil)
     static var loaded: RustConversion? { ready.withLock { $0 } }
 
@@ -27,17 +28,27 @@ final class RustConversion: @unchecked Sendable {
         return engine
     }()
 
-    init?(lexicon: URL, grams: URL? = nil) {
+    typealias PinyinCorrectionMode = CandidateEngine.PinyinCorrectionMode
+
+    init?(lexicon: URL, grams: URL? = nil, correctionMode: PinyinCorrectionMode = .off) {
         guard let handle = lexicon.withUnsafeFileSystemRepresentation({ lexiconPath in
             if let grams {
                 return grams.withUnsafeFileSystemRepresentation { si_engine_open(lexiconPath, $0) }
             }
             return si_engine_open(lexiconPath, nil)
         }) else { return nil }
+        if correctionMode != .off && !si_engine_set_correction(handle, correctionMode.rawValue) {
+            si_engine_close(handle)
+            return nil
+        }
         engine = handle
+        self.correctionMode = correctionMode
     }
 
-    private init(engine: OpaquePointer) { self.engine = engine }
+    private init(engine: OpaquePointer, correctionMode: PinyinCorrectionMode) {
+        self.engine = engine
+        self.correctionMode = correctionMode
+    }
 
     deinit { si_engine_close(engine) }
 
@@ -46,7 +57,7 @@ final class RustConversion: @unchecked Sendable {
         guard profile.withUnsafeFileSystemRepresentation({ si_engine_load_user(engine, $0, &handle) }) else {
             throw SentenceLearningStore.StoreError.profile
         }
-        return handle.map(RustConversion.init(engine:))
+        return handle.map { RustConversion(engine: $0, correctionMode: correctionMode) }
     }
 
     var userEntries: [UserLexiconEntry] {
@@ -110,7 +121,9 @@ final class RustConversion: @unchecked Sendable {
     func candidates(for input: String, languages: Set<InputLanguage>, preview: Bool = false,
                     dictionary: UserDictionary = UserDictionary(), includesConfirmation: Bool = false,
                     learning: LearningProfile = LearningProfile(), now: Date = .now,
-                    context: CandidateContext? = nil, precedingText: String = "") -> [InputCandidate] {
+                    context: CandidateContext? = nil, precedingText: String = "",
+                    correctionMode: PinyinCorrectionMode? = nil) -> [InputCandidate] {
+        let mode = correctionMode ?? self.correctionMode
         var mask: UInt8 = 0
         if languages.contains(.simplifiedChinese) { mask |= 1 }
         if languages.contains(.english) { mask |= 2 }
@@ -124,9 +137,9 @@ final class RustConversion: @unchecked Sendable {
         guard let result = withRows(dictionary.entries, learned, paths, { phrases, tokens, paths in
             bytes.withUnsafeBufferPointer { input in
                 precedingText.withUTF8 { preceding in
-                    si_engine_candidates(engine, input.baseAddress, input.count, preceding.baseAddress, preceding.count,
+                    si_engine_candidates_for_mode(engine, input.baseAddress, input.count, preceding.baseAddress, preceding.count,
                                          mask, preview, phrases.baseAddress, phrases.count,
-                                         tokens.baseAddress, tokens.count, paths.baseAddress, paths.count)
+                                         tokens.baseAddress, tokens.count, paths.baseAddress, paths.count, mode.rawValue)
                 }
             }
         }) else { return [] }
@@ -137,6 +150,8 @@ final class RustConversion: @unchecked Sendable {
                   let start = row.text, row.text_bytes > 0, row.score_bits.isFinite,
                   let characters = offsets[row.consumed_bytes], characters > 0,
                   (1...3).contains(row.language) else { return nil }
+            var correction = SICorrectionView()
+            let isCorrection = mode != .off && si_candidates_get_correction(result, index, &correction)
             let output = String(decoding: UnsafeBufferPointer(start: start, count: row.text_bytes), as: UTF8.self)
             let language: InputLanguage = row.language == 2 ? .english : .simplifiedChinese
             let boundaries = UnsafeBufferPointer(start: row.source_boundaries, count: row.source_boundary_count)
@@ -156,8 +171,8 @@ final class RustConversion: @unchecked Sendable {
                 rankingScore: row.score_bits, hasCompletion: row.completion, tokenLearningBonus: row.token_bonus,
                 isPreferred: row.preferred,
                 lexicalTokenCount: row.lexical_tokens,
-                confirmationBoundaries: confirmation).withDisplaySourceBoundaries(boundaries)
-            if candidate.canLearn && row.context_adjustment.isFinite {
+                confirmationBoundaries: confirmation, isPinyinCorrection: isCorrection).withDisplaySourceBoundaries(boundaries)
+            if (candidate.canLearn || isCorrection) && row.context_adjustment.isFinite {
                 candidate.fieldContextAdjustment = row.context_adjustment
             }
             return row.language == 1 && row.lexical_tokens > 1 ? candidate.withChineseSentenceOrigin() : candidate

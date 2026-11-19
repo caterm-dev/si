@@ -29,3 +29,19 @@ struct CandidateLearningTests {
         #expect(selection.confirmationReason(for: chinese) == .explicitSelection)
     }
 }
+
+extension CandidateLearningTests {
+    @Test func correctionOnlyResultsInitiallySelectTheOriginalSpelling() {
+        let correction = InputCandidate(text: "你好", language: .simplifiedChinese, score: 100,
+                                        isPinyinCorrection: true)
+        let literal = InputCandidate(text: "nihoa", language: nil, score: 0)
+        var selection = CandidateSelection()
+        selection.update([correction, literal])
+        #expect(selection.selected?.id == literal.id)
+        #expect(selection.candidate(number: 1)?.id == correction.id)
+        #expect(selection.confirmationReason(for: correction) == .explicitSelection)
+        selection.move(by: -1)
+        #expect(selection.selected?.id == correction.id)
+        #expect(selection.confirmationReason(for: selection.selected) == .explicitSelection)
+    }
+}

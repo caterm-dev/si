@@ -343,3 +343,11 @@
 "The entry could not be saved. It may have changed; refresh and try again." = "The entry could not be saved. It may have changed; refresh and try again.";
 
 "The entry could not be saved. Check the spelling and duplicates, or reopen the editor if the entry changed." = "The entry could not be saved. Check the spelling and duplicates, or reopen the editor if the entry changed.";
+
+"Spelling correction" = "Spelling correction";
+"Spelling correction · %@" = "Spelling correction · %@";
+"Pinyin correction" = "Pinyin correction";
+"Offer spelling suggestions that require explicit selection." = "Offer spelling suggestions that require explicit selection.";
+"Conservative" = "Conservative";
+"Higher recall" = "Higher recall";
+"Off" = "Off";

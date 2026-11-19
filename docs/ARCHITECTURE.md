@@ -66,6 +66,74 @@ and use only the source consumed by each path. Whole results sort ahead of
 prefixes, longer prefixes precede shorter ones, and score and stable
 identity break ties within a span. The engine retains distinct languages
 for identical output and keeps the exact literal last. The macOS app and the Rust CLI share this lexical scoring.
+The Rust API exposes an opt-in Pinyin typo search through
+`CandidateEngine::with_pinyin_correction`. It explores one missing key,
+neighboring-key substitution or adjacent swap within a dictionary syllable.
+Every typed letter is retained in the spelling alignment. Existing completion
+handles unfinished spellings. The search visits only branches present in
+the sorted dictionary prefix ranges under per-position and per-composition
+probe budgets and a 48-letter dictionary match window, reserving work for
+edits late in the input. It keeps a
+separate four-path correction beam per position in both search modes.
+A backward reachability pass skips edits
+whose remaining input cannot be decoded with exact dictionary words.
+The first opt-in prepares a bounded shortlist for unusually dense
+spellings using the same unigram prior as the decoder, including a paired user
+lexicon when available. Toggling correction on the same engine reuses this
+index. If none of its entries can accommodate the edit
+and separators, a bounded set of alternate syllable-boundary patterns is
+checked. Equivalent spellings such as `lü` and `lv` share a pattern.
+Ordinary lookup order is preserved. Equivalent edits
+leading to the same dictionary entry and source endpoint are scored once
+with their lowest valid edit cost. A missing key or adjacent swap costs
+eight bits. A neighboring-key substitution costs eleven bits.
+
+A complete exact path supplies a pruning threshold as soon as the search
+reaches the end of the input. Subsequent lexical steps add nonpositive scores,
+so corrected paths that cannot clear the threshold can be discarded. The same
+upper bound skips scoring a transition that cannot enter its destination
+correction beam. Paths traversing the same lexical edge reuse its unigram
+prior and fixed token cost. Their word-gram evidence is scored against each
+path's own history. Corrected paths receive no spelling preference bonuses. They preserve original UTF-8
+consumption spans and explicit apostrophes. Explicit multi-byte umlaut aliases
+stay intact during key edits. Each result set contains at most four whole
+Chinese suggestions, each bounded to 4,096 output bytes.
+
+An exact enabled English dictionary match, an exact personal phrase code,
+uppercase letters or non-Pinyin units skip correction search. Inputs under
+four normalized letters also skip correction.
+A regular result
+wins an identical corrected result, and regular whole results rank ahead of
+corrected results. A suggestion must lead the strongest complete exact-spelling
+Chinese or English path after paying its edit cost. Conservative mode
+requires a lead of more than two bits. Higher-recall mode requires any
+positive lead. Both modes use preceding-text evidence to score corrections
+and use the stronger exact path score with or without that evidence as their
+threshold.
+Higher-recall mode also lets a corrected path fall back to its score without
+preceding-text evidence minus a two-bit cost when that is stronger. The same score
+governs correction pruning and ranking.
+Abbreviations and completions are excluded from this threshold. The
+`Candidate::correction` metadata identifies suggestions that require explicit
+acceptance by the caller. Callers can use `Candidate::default_for_whole_input`
+to choose an ordinary whole candidate or fall back to the original text.
+The metadata gives the edit kind and the edited dictionary
+word's span in the original UTF-8 input. Such candidates carry no
+automatic-confirmation evidence. The native bridge exposes this metadata
+through a separate accessor and accepts an explicit correction mode on a live
+engine under exclusive access. Configure it away from the event handler.
+The Swift adapter carries the correction marker and excludes suggestions
+from learning and automatic confirmation. The session requires explicit
+selection to commit a suggestion. If a suggestion leads the displayed
+list, initial selection falls back to an ordinary whole candidate or the
+original spelling. Suggestions share the overall shortlist capacity and
+preserve their relative engine order. The compact window uses a pencil icon and the expanded
+window displays the spelling-correction label. The accessibility label
+includes this information. Punctuation variants use ordinary candidates only. Typing Settings defaults to Off. Each candidate request captures its
+correction mode. The bridge prepares the lookup index when the base or user
+engine opens, and queries can select a mode without mutating the shared
+engine. Secure input disables suggestions.
+
 The app passes opted-in token and consumed-spelling preferences to the search.
 Their larger value counts toward the shared 32-point frequency cap.
 
@@ -596,11 +664,14 @@ The [offline LambdaRank workflow](../eval/lambdarank/README.md) uses the Rust
 first-64 complete, noncompletion dictionary candidate pool. Python trains and
 evaluates LightGBM against separate synthetic train/validation sources. Source,
 resource, exporter and feature identities are recorded in immutable local bundles.
-V2 optionally collects best-path score components, gram support, preceding-context
-state, spelling alignment and token structure during the same search. Candidate
-merging retains this evidence from the selected scoring derivation and aggregates
-exact direct-match availability separately. Normal conversion disables diagnostic
-allocation. Python supports v1 bundles and same-pool additive/removal ablations.
+V3 captures the selected path for offline word-frequency, internal N-gram,
+whole-candidate context, spelling, structure, user-snapshot and correction features.
+External history is retained through the diagnostic candidate probability calculation;
+production first-word context scoring stays unchanged. Missing observations are
+explicit nulls. Correction evidence retains the decoder's actual edit kind and cost.
+Normal conversion disables diagnostic allocation. Python supports legacy v1/v2
+bundles and v3 removal ablations. User snapshots must predate the evaluated queries;
+the authored starter data does not establish personalized quality.
 The current conversion pipeline does not load these models; prefix ranking,
 personalization, native presentation and automatic confirmation are unchanged.
 

@@ -77,21 +77,46 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(sum(c['label'] for c in result[0]['candidates']), 1)
             self.assertEqual(result[1]['candidates'], [])
 
+    def test_correction_export_and_missing_values(self):
+        import subprocess
+        binary = ROOT / 'target/release/si-cli'
+        if not binary.exists():
+            self.skipTest('Build si-cli in Release first')
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / 'words.csv').write_text("text,reading,weight\n你好,ni'hao,100\n")
+            subprocess.run([str(binary), 'lexicon', 'build', str(tmp / 'base.silex'), '0', str(tmp / 'words.csv')], check=True, capture_output=True)
+            row = query('a', 'nihoa', '你好')
+            row['languages'] = ['zh-Hans']
+            result = p.export_rows(binary, tmp / 'base.silex', None, [row], correction=True)
+            features = dict(zip(p.FEATURES, result[0]['candidates'][0]['features']))
+            self.assertEqual(features['correction_adjacent_swap'], 1)
+            self.assertEqual(features['correction_cost_bits'], 8)
+            self.assertEqual(features['is_exact_spelling'], 0)
+            self.assertIsNone(features['user_word_hit_ratio'])
+            self.assertIsNone(features['at_sentence_start'])
+            row['context_available'] = True
+            result = p.export_rows(binary, tmp / 'base.silex', None, [row], correction=True)
+            features = dict(zip(p.FEATURES, result[0]['candidates'][0]['features']))
+            self.assertEqual(features['at_sentence_start'], 1)
+            # JSON remains standards-compliant; missing values are null, not NaN.
+            json.dumps(result, allow_nan=False)
+
     def test_feature_ablation_preserves_candidates_labels_and_legacy_columns(self):
         rows = [dict(id='a', category='x', candidates=[candidate('first', 0), candidate('second', 1)])]
         for row in rows[0]['candidates']:
             row['features'] = list(range(len(p.FEATURES)))
         original = copy.deepcopy(rows)
-        legacy, names = p.select_features(rows, p.FEATURES, 'v1')
+        legacy, names = p.select_features(rows, p.V2_FEATURES, 'v1')
         self.assertEqual(names, p.V1_FEATURES)
         self.assertEqual(legacy[0]['candidates'][0]['features'], list(range(12)))
-        for selection in p.FEATURE_SETS:
+        for selection in [s for s in p.FEATURE_SETS if s != 'v1']:
             projected, names = p.select_features(rows, p.FEATURES, selection)
             self.assertEqual([c['label'] for c in projected[0]['candidates']], [0, 1])
             self.assertEqual([c['text'] for c in projected[0]['candidates']], ['first', 'second'])
             self.assertEqual(projected[0]['candidates'][0]['features'], [p.FEATURES.index(name) for name in names])
         self.assertEqual(original, rows)
-        with self.assertRaisesRegex(ValueError, 'v2'):
+        with self.assertRaisesRegex(ValueError, 'incompatible'):
             p.select_features(legacy, p.V1_FEATURES, 'add_spelling')
 
     def test_aliases_can_share_a_training_family(self):

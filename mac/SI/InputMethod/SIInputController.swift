@@ -167,7 +167,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             resolveCandidates(to: client)
             let selected = currentCandidate
             let commit = session.commitResult(selected, reason: selection.confirmationReason(for: selected))
-            let suffix = commit.remainingInput.isEmpty && selected?.appendsSpaceOnAcceptance != false ? " " : ""
+            let spacingCandidate = selected?.isPinyinCorrection == true ? commit.candidate : selected
+            let suffix = commit.remainingInput.isEmpty && spacingCandidate?.appendsSpaceOnAcceptance != false ? " " : ""
             apply(commit, suffix: suffix, to: client)
             return true
         case 115, 119: // Home / End
@@ -255,7 +256,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         guard configureSession(for: client) else { return }
         resolveCandidates(to: client)
         guard let current = session.candidates.first(where: {
-            $0.id == candidate.id && $0.text.utf8.elementsEqual(candidate.text.utf8)
+            $0.id == candidate.id && $0.isPinyinCorrection == candidate.isPinyinCorrection
+                && $0.text.utf8.elementsEqual(candidate.text.utf8)
         }) else { update(client); return }
         let commit = session.commitResult(current, reason: selection.confirmationReason(for: current))
         apply(commit, to: client)
@@ -289,7 +291,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           configurationGeneration: languages.configurationGeneration,
                           applicationMemory: memory,
                           compositionLearningEnabled: !secureInput,
-                          punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled)
+                          punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
+                          pinyinCorrectionMode: secureInput ? .off : languages.pinyinCorrectionMode)
         return true
     }
 
@@ -662,8 +665,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return true
         }
         guard session.buffer.utf8.count <= 512,
-              let candidate = (currentCandidate?.isPartial == false ? currentCandidate : nil)
-                ?? session.candidates.first(where: { !$0.isPartial }), !candidate.isPunctuation,
+              let candidate = (currentCandidate.flatMap { !$0.isPartial && !$0.isPinyinCorrection ? $0 : nil })
+                ?? session.candidates.first(where: { !$0.isPartial && !$0.isPinyinCorrection }), !candidate.isPunctuation,
               candidate.text.utf8.count <= 512 else {
             showAIPhase(.selectWholeCandidate, requestID: requestID, to: client)
             return true

@@ -47,6 +47,14 @@ final class LanguageSettings {
     }
 
 
+    static let pinyinCorrectionKey = "typing.pinyinCorrection"
+    var pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode {
+        didSet {
+            defaults.set(Int(pinyinCorrectionMode.rawValue), forKey: Self.pinyinCorrectionKey)
+            if oldValue != pinyinCorrectionMode { configurationGeneration &+= 1 }
+        }
+    }
+
     var punctuationCandidatesEnabled: Bool {
         didSet {
             defaults.set(punctuationCandidatesEnabled, forKey: Self.punctuationCandidatesKey)
@@ -108,6 +116,8 @@ final class LanguageSettings {
         englishEnabled = defaults.bool(forKey: Self.englishKey)
         chineseEnabled = defaults.bool(forKey: Self.chineseKey)
         automaticConfirmationEnabled = defaults.bool(forKey: Self.automaticConfirmationKey)
+        pinyinCorrectionMode = UInt8(exactly: defaults.integer(forKey: Self.pinyinCorrectionKey))
+            .flatMap(CandidateEngine.PinyinCorrectionMode.init(rawValue:)) ?? .off
         punctuationCandidatesEnabled = defaults.bool(forKey: Self.punctuationCandidatesKey)
         if let saved = defaults.string(forKey: Self.punctuationKey) {
             punctuationBehavior = PunctuationBehavior(rawValue: saved) ?? .asTyped

@@ -29,8 +29,8 @@ Usage:
   si-cli corpus ingest <lexicon.silex> <grams.sigram> <source.txt> [<source.txt> ...]
   si-cli corpus clear-grams <lexicon.silex> <grams.sigram>
   si-cli corpus prune  --order <2|3|4|5> --min-count <count> <lexicon.silex> <grams.sigram>
-  si-cli rank-features <base.silex> [--grams <base.sigram>]
-  si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--languages <zh-Hans,en|zh-Hans|en|none>]
+  si-cli rank-features <base.silex> [--grams <base.sigram>] [--pinyin-correction] [--user-lexicon <user.silex>] [--user-grams <user.sigram>] [--legacy-v2]
+  si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--languages <zh-Hans,en|zh-Hans|en|none>] [--pinyin-correction <on|higher-recall|off>] [--search <full|preview>] [--preceding <text>]
   si-cli user ingest <profile.si-user> <base.silex> <batch-id> <sentences.txt|->
   si-cli user learn  <profile.si-user> <base.silex> [<si.conf>]
   si-cli user status <profile.si-user>

@@ -82,6 +82,19 @@ bool si_engine_ingest_user(const SIEngine *engine, const char *profile, const ch
                            const uint8_t *text, size_t length, const size_t *ends, size_t count);
 bool si_engine_clear_user(const char *profile);
 
+/* Configure off (0), conservative (1), or higher recall (2).
+   Call with exclusive access away from the event handler. Suggestions require
+   explicit selection. Existing engines default to off. */
+bool si_engine_set_correction(SIEngine *engine, uint8_t mode);
+
+typedef struct SICorrectionView {
+    uint8_t kind; /* 2 missing, 3 neighboring, 4 adjacent swap */
+    size_t word_start_bytes;
+    size_t word_end_bytes;
+} SICorrectionView;
+/* Returns false for ordinary candidates and leaves the view untouched. */
+bool si_candidates_get_correction(const SICandidates *results, size_t index, SICorrectionView *view);
+
 /* Language bits are 1 for Chinese and 2 for English. Offsets count UTF-8 bytes. */
 SICandidates *si_engine_candidates(const SIEngine *engine, const uint8_t *text,
                                    size_t length, const uint8_t *preceding_text,
@@ -89,6 +102,13 @@ SICandidates *si_engine_candidates(const SIEngine *engine, const uint8_t *text,
                                    const SIUserPhrase *phrases, size_t phrase_count,
                                    const SILearnedToken *tokens, size_t token_count,
                                    const SILearnedPath *paths, size_t path_count);
+/* Per-query mode, using the same values as si_engine_set_correction. */
+SICandidates *si_engine_candidates_for_mode(const SIEngine *engine, const uint8_t *text,
+                                   size_t length, const uint8_t *preceding_text,
+                                   size_t preceding_length, uint8_t languages, bool preview,
+                                   const SIUserPhrase *phrases, size_t phrase_count,
+                                   const SILearnedToken *tokens, size_t token_count,
+                                   const SILearnedPath *paths, size_t path_count, uint8_t mode);
 bool si_engine_has_english_word_prefix(const SIEngine *engine, const uint8_t *text,
                                        size_t length, size_t minimum);
 size_t si_candidates_count(const SICandidates *results);

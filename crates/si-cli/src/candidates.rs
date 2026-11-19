@@ -4,7 +4,10 @@ use std::path::Path;
 
 use si_engine::resources::EngineResources;
 use si_engine::resources::user::UserModelStore;
-use si_engine::{Candidate, CandidateEngine, CandidateLanguage, EnabledLanguages};
+use si_engine::{
+    Candidate, CandidateEngine, CandidateLanguage, ConversionPreferences, CorrectionSensitivity,
+    EnabledLanguages,
+};
 
 pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
     let (options, tail) = args.as_chunks::<2>();
@@ -14,12 +17,31 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
     let mut grams = None;
     let mut profile = None;
     let mut languages = None;
+    let mut pinyin_correction = None;
+    let mut preview = None;
+    let mut preceding = None;
     for [flag, value] in options {
         match flag.to_str()? {
             "--grams" if grams.is_none() => grams = Some(Path::new(value)),
             "--user" if profile.is_none() => profile = Some(UserModelStore::new(Path::new(value))),
             "--languages" if languages.is_none() => {
                 languages = Some(parse_languages(value.to_str()?)?)
+            }
+            "--preceding" if preceding.is_none() => preceding = Some(value.to_str()?),
+            "--search" if preview.is_none() => {
+                preview = Some(match value.to_str()? {
+                    "preview" => true,
+                    "full" => false,
+                    _ => return None,
+                });
+            }
+            "--pinyin-correction" if pinyin_correction.is_none() => {
+                pinyin_correction = Some(match value.to_str()? {
+                    "on" => Some(CorrectionSensitivity::Conservative),
+                    "higher-recall" => Some(CorrectionSensitivity::HigherRecall),
+                    "off" => None,
+                    _ => return None,
+                });
             }
             _ => return None,
         }
@@ -31,11 +53,21 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
             .map(UserModelStore::load)
             .transpose()?
             .flatten();
-        let engine = CandidateEngine::new(&base, user.as_ref());
+        let engine = CandidateEngine::new(&base, user.as_ref())
+            .with_correction_sensitivity(pinyin_correction.flatten());
         let mut output = BufWriter::new(io::stdout().lock());
         for line in io::stdin().lock().lines() {
             let line = line?;
-            for candidate in engine.candidates(&line, languages.unwrap_or_default()) {
+            let languages = languages.unwrap_or_default();
+            let rows = engine.convert_with_context(
+                &line,
+                languages,
+                preview.unwrap_or_default(),
+                &[],
+                ConversionPreferences::default(),
+                preceding.unwrap_or_default(),
+            );
+            for candidate in rows {
                 write_candidate(&mut output, &candidate, line.len())?;
             }
             writeln!(output)?;
@@ -71,6 +103,8 @@ fn write_candidate(
         "literal"
     } else if candidate.consumed_bytes < input_bytes {
         "prefix"
+    } else if candidate.is_corrected() {
+        "correction"
     } else if candidate.completion {
         "completion"
     } else {

@@ -183,3 +183,25 @@ struct CompositionBoundaryTests {
         #expect(CompositionBoundary.resolve(text: ",", selected: incomplete, explicitlySelected: true, behavior: .confirmCandidate).candidate == incomplete)
     }
 }
+
+extension CompositionBoundaryTests {
+    @Test func punctuationAndTabDoNotImplicitlyConfirmCorrectionSuggestions() {
+        let suggestion = InputCandidate(text: "你好", language: .simplifiedChinese, score: 100,
+                                        isPinyinCorrection: true)
+        for behavior: PunctuationBehavior in [.confirmCandidate, .smart] {
+            for navigated in [false, true] {
+                let comma = CompositionBoundary.resolve(text: ",", selected: suggestion,
+                                                        explicitlySelected: navigated, behavior: behavior)
+                #expect(comma.candidate == nil)
+                #expect(comma.replacement == nil)
+                #expect(comma.continuesComposition)
+
+                let tab = CompositionBoundary.resolve(text: "\t", selected: suggestion,
+                                                      explicitlySelected: navigated, behavior: behavior)
+                #expect(tab.candidate == nil)
+                #expect(tab.replacement == nil)
+                #expect(!tab.continuesComposition)
+            }
+        }
+    }
+}

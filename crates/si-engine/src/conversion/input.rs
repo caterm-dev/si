@@ -86,6 +86,13 @@ impl<'a> Input<'a> {
         &self.source[self.ends[start]..self.ends[end]]
     }
 
+    pub(super) fn single_letter_key(&self, position: usize) -> Option<u8> {
+        match self.source_span(position, position + 1).as_bytes() {
+            [key @ b'a'..=b'z'] | [key @ b'a'..=b'z', b'\''] => Some(*key),
+            _ => None,
+        }
+    }
+
     pub(super) fn separators(
         &self,
         start: usize,

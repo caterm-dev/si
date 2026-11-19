@@ -1,4 +1,4 @@
-//! C ABI for the macOS Swift client. Candidate engines and their backing data are immutable.
+//! C ABI for the macOS Swift client. Engines are shared immutably during decoding.
 
 use std::ffi::{CStr, c_char};
 use std::path::Path;
@@ -9,7 +9,8 @@ use si_engine::resources::EngineResources;
 use si_engine::resources::user::{UserLearningConfig, UserModelStore};
 use si_engine::{
     Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionPreferences,
-    EnabledLanguages, PathPreference, PersonalPhrase, TokenPreference,
+    CorrectionKind, CorrectionSensitivity, EnabledLanguages, PathPreference, PersonalPhrase,
+    TokenPreference,
 };
 
 struct OwnedResources(NonNull<(Arc<EngineResources>, Option<EngineResources>)>);
@@ -23,17 +24,26 @@ impl Drop for OwnedResources {
 
 pub struct SIEngine {
     decoder: CandidateEngine<'static>,
+    correction_sensitivity: Option<CorrectionSensitivity>,
     // Field drop order keeps the resources alive until after the decoder drops.
     resources: OwnedResources,
 }
 
 impl SIEngine {
-    fn new(base: Arc<EngineResources>, user: Option<EngineResources>) -> Self {
+    fn new(
+        base: Arc<EngineResources>,
+        user: Option<EngineResources>,
+        sensitivity: Option<CorrectionSensitivity>,
+    ) -> Self {
         let resources = OwnedResources(NonNull::from(Box::leak(Box::new((base, user)))));
         // SAFETY: the allocation outlives the decoder and its data is immutable.
         let (base, user) = unsafe { resources.0.as_ref() };
+        let mut decoder =
+            CandidateEngine::new(base, user.as_ref()).with_correction_sensitivity(sensitivity);
+        decoder.prepare_pinyin_correction();
         Self {
-            decoder: CandidateEngine::new(base, user.as_ref()),
+            decoder,
+            correction_sensitivity: sensitivity,
             resources,
         }
     }
@@ -42,6 +52,31 @@ impl SIEngine {
         // SAFETY: the resource allocation stays live for the engine's lifetime.
         &unsafe { self.resources.0.as_ref() }.0
     }
+}
+
+/// # Safety
+/// The engine must be live and exclusively accessible for this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_set_correction(engine: *mut SIEngine, mode: u8) -> bool {
+    let Some(engine) = (unsafe { engine.as_mut() }) else {
+        return false;
+    };
+    let sensitivity = match mode {
+        0 => None,
+        1 => Some(CorrectionSensitivity::Conservative),
+        2 => Some(CorrectionSensitivity::HigherRecall),
+        _ => return false,
+    };
+    engine.decoder.set_correction_sensitivity(sensitivity);
+    engine.correction_sensitivity = sensitivity;
+    true
+}
+
+#[repr(C)]
+pub struct SICorrectionView {
+    kind: u8,
+    word_start_bytes: usize,
+    word_end_bytes: usize,
 }
 
 pub struct SICandidates(Vec<Candidate>);
@@ -120,7 +155,7 @@ pub unsafe extern "C" fn si_engine_open(
     let Ok(resources) = EngineResources::open(Path::new(lexicon), grams) else {
         return ptr::null_mut();
     };
-    Box::into_raw(Box::new(SIEngine::new(Arc::new(resources), None)))
+    Box::into_raw(Box::new(SIEngine::new(Arc::new(resources), None, None)))
 }
 
 unsafe fn user_store(profile: *const c_char) -> Option<UserModelStore> {
@@ -250,6 +285,7 @@ pub unsafe extern "C" fn si_engine_load_user(
         Box::into_raw(Box::new(SIEngine::new(
             Arc::clone(engine.base()),
             Some(user),
+            engine.correction_sensitivity,
         )))
     });
     true
@@ -348,8 +384,55 @@ pub unsafe extern "C" fn si_engine_candidates(
     paths: *const SILearnedPath,
     path_count: usize,
 ) -> *mut SICandidates {
+    // SAFETY: forward the same pointers and lengths under this function's contract.
+    unsafe {
+        si_engine_candidates_for_mode(
+            engine,
+            text,
+            len,
+            preceding_text,
+            preceding_len,
+            languages,
+            preview,
+            phrases,
+            phrase_count,
+            tokens,
+            token_count,
+            paths,
+            path_count,
+            u8::MAX,
+        )
+    }
+}
+
+/// # Safety
+/// The engine must be live. Every nonempty pointer/length pair must point to initialized values.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_candidates_for_mode(
+    engine: *const SIEngine,
+    text: *const u8,
+    len: usize,
+    preceding_text: *const u8,
+    preceding_len: usize,
+    languages: u8,
+    preview: bool,
+    phrases: *const SIUserPhrase,
+    phrase_count: usize,
+    tokens: *const SILearnedToken,
+    token_count: usize,
+    paths: *const SILearnedPath,
+    path_count: usize,
+    mode: u8,
+) -> *mut SICandidates {
     let Some(engine) = (unsafe { engine.as_ref() }) else {
         return ptr::null_mut();
+    };
+    let correction = match mode {
+        0 => None,
+        1 => Some(CorrectionSensitivity::Conservative),
+        2 => Some(CorrectionSensitivity::HigherRecall),
+        u8::MAX => engine.correction_sensitivity,
+        _ => return ptr::null_mut(),
     };
     let bytes = if len == 0 {
         &[]
@@ -479,7 +562,7 @@ pub unsafe extern "C" fn si_engine_candidates(
             })
         })
         .collect();
-    let rows = engine.decoder.convert_with_context(
+    let rows = engine.decoder.convert_with_correction(
         text,
         languages,
         preview,
@@ -489,6 +572,7 @@ pub unsafe extern "C" fn si_engine_candidates(
             paths: &paths,
         },
         preceding_text,
+        correction,
     );
     Box::into_raw(Box::new(SICandidates(rows)))
 }
@@ -560,6 +644,38 @@ pub unsafe extern "C" fn si_candidates_get(
             preferred: candidate.preferred,
             verbatim: candidate.verbatim,
             token_bonus: candidate.token_bonus,
+        });
+    }
+    true
+}
+
+/// # Safety
+/// Results must be live and view must be writable when nonnull.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_candidates_get_correction(
+    results: *const SICandidates,
+    index: usize,
+    view: *mut SICorrectionView,
+) -> bool {
+    let Some(correction) = (unsafe { results.as_ref() })
+        .and_then(|rows| rows.0.get(index))
+        .and_then(|row| row.correction)
+    else {
+        return false;
+    };
+    if view.is_null() {
+        return false;
+    }
+    let kind = match correction.kind {
+        CorrectionKind::MissingKey => 2,
+        CorrectionKind::NeighborKey => 3,
+        CorrectionKind::AdjacentSwap => 4,
+    };
+    unsafe {
+        view.write(SICorrectionView {
+            kind,
+            word_start_bytes: correction.word_start_bytes,
+            word_end_bytes: correction.word_end_bytes,
         });
     }
     true

@@ -66,6 +66,61 @@ The bundled dictionary has `找` (`zhao`), `几处` (`ji'chu`) and `句子`
 (`ju'zi`). The known issue remains tracked by
 [`ChineseSentenceAlternativesTests`](../Tests/SICoreTests/ChineseSentenceAlternativesTests.swift).
 
+### Pinyin correction evaluation
+
+Run the CLI with the same lexicon and paired grams that will be evaluated.
+
+```sh
+cargo build --release --locked -p si-cli
+python3 scripts/eval-pinyin-correction.py --grams target/si-data/words.sigram
+python3 scripts/eval-pinyin-correction.py --grams target/si-data/words.sigram --offset 5000 --seed 361
+python3 scripts/eval-pinyin-correction.py --grams target/si-data/words.sigram --search preview
+python3 scripts/eval-pinyin-correction.py --grams target/si-data/words.sigram --vocabulary diming --show-errors
+```
+
+The script samples maintained public vocabulary and synthesizes a missing key,
+neighboring-key substitution, or adjacent swap per selected spelling.
+Its JSON report includes clean suggestion counts, typo
+recall by edit type and Release CLI round-trip timings. It also distinguishes
+misses with and without an ordinary complete Chinese result, excluding
+targets already in the ordinary top four. It checks literal
+fallback, full consumption, the suggestion cap and identical ordinary rows
+with correction on and off. Use separate frequency bands and seeds for
+calibration and evaluation. Use `--vocabulary` to sample a maintained
+dictionary such as place names (`diming`) or notable people (`mingren`).
+Use `--explicit-boundaries` to keep syllable apostrophes in both the clean
+and mistyped spelling. Use `--cross-row-neighbors` to generate neighboring
+substitutions across QWERTY rows. Use `--length-band long` for five- to
+seven-character vocabulary, for example with `--vocabulary shici`. The clean ordinary-target count indicates how many expected words are
+available in the loaded snapshot. Use `--show-errors` to include the generated
+spelling and candidate outputs for missed targets and clean suggestions.
+Use `--correction-mode higher-recall` with the same seed and vocabulary to
+compare against the default conservative mode. The timings include CLI formatting
+and IPC. The `on_minus_off` percentiles summarize paired round-trip differences
+for the same spelling. The script alternates which setting runs first.
+Use `--languages zh-Hans` with the same sample to isolate the effect of English
+matches from Chinese search and ranking.
+With paired grams, pass `--preceding` with synthetic text to compare both
+correction settings under the same preceding context. The report records
+whether context was supplied and omits the text.
+With the bundled dictionary and paired grams, compare `sihuan` and `jihang`
+in Higher recall with no preceding text and with `--preceding '他买了机票，准备去'`.
+In the recorded synthetic check, the latter offered `四川` and `机场`
+while retaining `四环` and `几行` as the first ordinary candidates.
+The preview run uses the same narrow search as the provisional engine and
+includes timings for all prefixes of a fixed set of typing sequences.
+Pass `--stress` to measure clean and mistyped repetitions near the composition
+length limit, separately from the vocabulary sample.
+Host interactions and naturally occurring spelling errors require separate
+evaluation.
+
+For a whole-sentence smoke check with the production resources, compare
+`womenjintianqugongyuan` with `womenjintainqugongyuan`,
+`wozaixuexizhongwen` with `wozaixuexizhongwn`, and
+`mingtianjian` with `mingtiamjian` in Higher recall. Check that the clean
+spellings produce no suggestions and the edited spellings offer
+`我们今天去公园`, `我在学习中文`, and `明天见` respectively.
+
 ## Manual input-method verification
 
 Use an intentionally installed build. Follow the [local installation instructions](../README.md#install-for-local-development).
@@ -118,6 +173,25 @@ office app. Include ordinary and secure fields, using dummy input.
 - Check compact/expanded text, numbering, symbols, pagination, keyboard use,
   VoiceOver, light/dark appearance and Increase Contrast. Inspect the panel
   near screen edges, with multiple displays and during marked-text wrapping.
+
+### Pinyin correction in a host
+
+In Typing Settings, verify Off is the default, then select Conservative.
+In TextEdit and a browser field, type `nihoa`. Check that `你好` is labeled
+as a spelling correction and the original spelling remains selectable.
+Accept with its displayed number, a click and arrow navigation followed by
+Space. Confirm each inserts the candidate once. Navigate to the suggestion,
+then type a comma or Tab and verify it does not accept the suggestion or
+convert the delimiter. With the initial selection
+untouched, check Space preserves the original spelling when no ordinary
+whole candidate is available, and Return always preserves it. Use VoiceOver
+to identify the suggestion in both candidate layouts. Change the setting
+during composition and verify obsolete results cannot restore suggestions.
+In both Conservative and Higher recall, type `nihaoo` and `nihaox`.
+Verify that the list contains the exact spelling and offers no whole spelling
+correction to `你好` for either input. Repeat the `nihoa` case with Off and
+check a secure field stays free of correction suggestions.
+
 
 ## Candidate positioning
 
@@ -338,3 +412,10 @@ Run `python3 scripts/generate_ranking_eval.py --check` and
 `python3 -m unittest discover -s Tests/RankingEvalTests` for the authored
 220-query suite. Follow the [ranking protocol](../eval/README.md) to generate
 blind requests and score the first 32 eligible complete candidates.
+
+Offline rank-feature changes: run `cargo test --workspace --locked`, build the Release
+`si-cli`, and run `python3 -m unittest discover -s Tests/LambdaRankTests -v`.
+The v3 fixtures check cross-boundary trigrams, user-model availability, missing
+context versus known field start, all three correction types, and unchanged
+conversion results after removing diagnostics. Train/reload with fresh bundles
+following `eval/lambdarank/README.md`; do not use live private profiles implicitly.

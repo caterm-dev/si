@@ -28,6 +28,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let isPreferred: Bool
     public let hasLiteralSegments: Bool
     public let hasCompletion: Bool
+    public let isPinyinCorrection: Bool
     public let consumedInputCount: Int?
     /// Transient lexical-node count for word-selection presentation, independent of identity and score.
     public private(set) var lexicalTokenCount: Int?
@@ -45,11 +46,12 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public var isLiteral: Bool { language == nil }
     public var isPartial: Bool { consumedInputCount != nil }
     public var isLexicalPrefix: Bool { isPartial && lexicalTokenCount == 1 && !hasCompletion && !hasLiteralSegments }
-    public var canLearn: Bool { !isLiteral && !isUserPhrase && !hasLiteralSegments && punctuationLanguage == nil }
+    public var canLearn: Bool { !isLiteral && !isUserPhrase && !hasLiteralSegments && !isPinyinCorrection && punctuationLanguage == nil }
     public var label: String {
         let languageLabel = punctuationLanguage.map { $0 == .english ? "English Punctuation" : "Chinese Punctuation" }
             ?? (isMixed ? (hasLiteralSegments ? "Chinese + As Typed" : "Chinese + English") : language?.displayName ?? "As Typed")
         let source = isApplicationVocabulary ? "Personal Learning · \(languageLabel)"
+            : isPinyinCorrection ? "Spelling correction · \(languageLabel)"
             : isUserPhrase ? "Personal · \(languageLabel)" : languageLabel
         return consumedInputCount.map { "First \($0) characters · \(source)" } ?? source
     }
@@ -63,12 +65,14 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
                 hasCompletion: Bool = false, tokenLearningBonus: Double = 0, isPreferred: Bool = false,
                 lexicalTokenCount: Int? = nil, confirmationBoundaries: [ConfirmationBoundary] = [],
                 isApplicationVocabulary: Bool = false,
-                punctuationLanguage: InputLanguage? = nil, isPunctuation: Bool = false) {
+                punctuationLanguage: InputLanguage? = nil, isPunctuation: Bool = false,
+                isPinyinCorrection: Bool = false) {
         self.text = text
         self.language = language
         self.score = score
+        self.isPinyinCorrection = isPinyinCorrection
         self.rankingScore = rankingScore.flatMap { $0.isFinite ? $0 : nil } ?? Double(score)
-        self.tokenLearningBonus = language != nil && !isUserPhrase && !hasLiteralSegments && tokenLearningBonus.isFinite
+        self.tokenLearningBonus = language != nil && !isUserPhrase && !hasLiteralSegments && !isPinyinCorrection && tokenLearningBonus.isFinite
             ? min(32, max(0, tokenLearningBonus)) : 0
         self.isMixed = isMixed && language != nil
         self.isUserPhrase = isUserPhrase && language != nil
@@ -81,7 +85,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         self.consumedInputCount = consumedInputCount
         self.lexicalTokenCount = language != nil && !hasLiteralSegments
             ? lexicalTokenCount.flatMap { $0 > 0 ? $0 : nil } : nil
-        self.confirmationBoundaries = confirmationBoundaries
+        self.confirmationBoundaries = isPinyinCorrection ? [] : confirmationBoundaries
         let base = "\(isMixed && language != nil ? "zh-Hans+en" : language?.rawValue ?? "literal"):\(text)"
         let punctuated = self.punctuationLanguage.map { "punctuation:\($0.rawValue):\(base)" } ?? base
         let identity = consumedInputCount.map { "prefix\($0):\(punctuated)" } ?? punctuated
@@ -97,7 +101,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     func withChineseSentenceOrigin() -> Self {
         var result = self
         result.isChineseSentence = language == .simplifiedChinese && !isMixed && !isPartial
-            && !isUserPhrase && !hasLiteralSegments && punctuationLanguage == nil
+            && !isUserPhrase && !hasLiteralSegments && !isPinyinCorrection && punctuationLanguage == nil
         return result
     }
 

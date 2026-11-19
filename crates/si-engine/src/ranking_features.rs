@@ -5,6 +5,13 @@ use crate::{Candidate, CandidateLanguage};
 /// Evidence from the exact derivation supplying the candidate's score.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PathEvidence {
+    // Exact selected path, retained only during explicit offline extraction.
+    pub(crate) words: Vec<EvidenceWord>,
+    pub(crate) statistics: Vec<Option<f64>>,
+    pub abbreviated_syllables: usize,
+    pub missing_letters: usize,
+    pub correction_cost_bits: f64,
+    pub chinese_tokens: usize,
     pub gram_model_available: bool,
     pub unigram_bits: f64,
     pub gram_adjustment_bits: f64,
@@ -30,9 +37,22 @@ pub struct PathEvidence {
     pub has_direct_match: bool,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct EvidenceWord {
+    pub language: u8,
+    pub base: Option<si_lexicon::WordId>,
+    pub user: Option<si_lexicon::WordId>,
+}
+
 impl PathEvidence {
     pub(crate) fn append(&self, next: &Self) -> Self {
         Self {
+            words: self.words.iter().chain(&next.words).cloned().collect(),
+            statistics: Vec::new(),
+            abbreviated_syllables: self.abbreviated_syllables + next.abbreviated_syllables,
+            missing_letters: self.missing_letters + next.missing_letters,
+            correction_cost_bits: self.correction_cost_bits + next.correction_cost_bits,
+            chinese_tokens: self.chinese_tokens + next.chinese_tokens,
             unigram_bits: self.unigram_bits + next.unigram_bits,
             gram_adjustment_bits: self.gram_adjustment_bits + next.gram_adjustment_bits,
             token_cost_bits: self.token_cost_bits + next.token_cost_bits,
@@ -56,7 +76,7 @@ impl PathEvidence {
     }
 }
 
-pub const SCHEMA: &str = "si-rank-features-v2";
+pub const SCHEMA: &str = "si-rank-features-v3";
 pub const V1_NAMES: [&str; 12] = [
     "lexical_bits",
     "context_bits",
@@ -72,7 +92,7 @@ pub const V1_NAMES: [&str; 12] = [
     "separator_count",
 ];
 
-pub const NAMES: [&str; 38] = [
+pub const V2_NAMES: [&str; 38] = [
     "lexical_bits",
     "context_bits",
     "effective_bits",
@@ -122,6 +142,7 @@ pub fn extract_v1(source: &str, candidate: &Candidate) -> Option<[f64; 12]> {
         || candidate.completion
         || candidate.personal
         || candidate.verbatim
+        || candidate.is_corrected()
         || candidate.preferred
     {
         return None;
@@ -153,7 +174,7 @@ pub fn extract_v1(source: &str, candidate: &Candidate) -> Option<[f64; 12]> {
 }
 
 /// V2 keeps the first twelve columns byte-compatible with the v1 feature meanings.
-pub fn extract(source: &str, context: &str, candidate: &Candidate) -> Option<Vec<f64>> {
+pub fn extract_v2(source: &str, context: &str, candidate: &Candidate) -> Option<Vec<f64>> {
     let mut values = extract_v1(source, candidate)?.to_vec();
     let evidence = candidate.ranking_evidence.as_ref()?;
     let units = crate::conversion::normalized_units(source) as f64;
@@ -194,6 +215,140 @@ pub fn extract(source: &str, context: &str, candidate: &Candidate) -> Option<Vec
         .then_some(values)
 }
 
+/// Missing observations are None, never numeric zero or nonfinite JSON numbers.
+pub const NAMES: [&str; 43] = [
+    "word_log_count_mean",
+    "word_log_count_min",
+    "unigram_logp_sum",
+    "unigram_logp_mean",
+    "unigram_logp_min",
+    "internal_ngram_logp_sum",
+    "internal_ngram_logp_mean",
+    "internal_ngram_logp_min",
+    "internal_ngram_hit_ratio",
+    "internal_ngram_max_order",
+    "internal_ngram_log_support_mean",
+    "context_available",
+    "at_sentence_start",
+    "context_history_words",
+    "candidate_context_logp",
+    "candidate_context_gain",
+    "context_ngram_hit_order",
+    "is_exact_spelling",
+    "abbreviated_syllable_ratio",
+    "completion_missing_letters",
+    "explicit_separator_alignment",
+    "token_count",
+    "single_han_token_ratio",
+    "language_switch_count",
+    "candidate_language",
+    "user_lexicon_available",
+    "user_word_hit_ratio",
+    "user_word_log_count_mean",
+    "user_word_log_count_min",
+    "user_unigram_logp_mean",
+    "user_unigram_lift_mean",
+    "user_gram_available",
+    "user_internal_ngram_hit_ratio",
+    "user_internal_ngram_log_support_mean",
+    "user_internal_ngram_gain_mean",
+    "user_context_ngram_log_support",
+    "user_candidate_context_gain",
+    "is_corrected",
+    "correction_edit_count",
+    "correction_cost_bits",
+    "correction_missing_key",
+    "correction_neighbor_key",
+    "correction_adjacent_swap",
+];
+
+pub fn extract(source: &str, context: &str, candidate: &Candidate) -> Option<Vec<Option<f64>>> {
+    extract_with_context_state(source, context, !context.is_empty(), candidate)
+}
+
+/// Known empty context is a field start; unavailable context has unknown sentence position.
+pub fn extract_with_context_state(
+    source: &str,
+    context: &str,
+    context_available: bool,
+    candidate: &Candidate,
+) -> Option<Vec<Option<f64>>> {
+    if source.is_empty()
+        || candidate.consumed_bytes != source.len()
+        || candidate.language == CandidateLanguage::Literal
+        || candidate.completion
+        || candidate.personal
+        || candidate.verbatim
+        || candidate.preferred
+        || !candidate.score_bits.is_some_and(f64::is_finite)
+    {
+        return None;
+    }
+    let evidence = candidate.ranking_evidence.as_ref()?;
+    let mut values = evidence.statistics.clone();
+    if values.len() != NAMES.len() {
+        return None;
+    }
+    values[11] = Some(f64::from(context_available));
+    values[12] = context_available.then(|| f64::from(at_sentence_start(context)));
+    if !context_available {
+        for i in [13, 14, 15, 16, 35, 36] {
+            values[i] = None;
+        }
+    }
+    values[17] = Some(f64::from(
+        evidence.abbreviated_tokens == 0
+            && evidence.missing_letters == 0
+            && candidate.correction.is_none(),
+    ));
+    values[18] = (evidence.pinyin_syllables > 0)
+        .then(|| evidence.abbreviated_syllables as f64 / evidence.pinyin_syllables as f64);
+    values[19] = Some(evidence.missing_letters as f64);
+    let separators = source.chars().filter(|c| *c == '\'').count();
+    values[20] = (separators > 0).then(|| evidence.aligned_separators as f64 / separators as f64);
+    values[21] = Some(evidence.tokens as f64);
+    values[22] = (evidence.chinese_tokens > 0)
+        .then(|| evidence.single_character_tokens as f64 / evidence.chinese_tokens as f64);
+    values[23] = Some(evidence.language_switches as f64);
+    values[24] = Some(match candidate.language {
+        CandidateLanguage::Chinese => 0.0,
+        CandidateLanguage::English => 1.0,
+        CandidateLanguage::Mixed => 2.0,
+        CandidateLanguage::Literal => return None,
+    });
+    use crate::conversion::CorrectionKind;
+    let kind = candidate.correction.map(|c| c.kind);
+    values[37] = Some(f64::from(kind.is_some()));
+    // The current decoder permits exactly one edit per corrected candidate.
+    values[38] = values[37];
+    values[39] = Some(evidence.correction_cost_bits);
+    values[40] = Some(f64::from(kind == Some(CorrectionKind::MissingKey)));
+    values[41] = Some(f64::from(kind == Some(CorrectionKind::NeighborKey)));
+    values[42] = Some(f64::from(kind == Some(CorrectionKind::AdjacentSwap)));
+    values
+        .iter()
+        .flatten()
+        .all(|v| v.is_finite())
+        .then_some(values)
+}
+
+fn at_sentence_start(context: &str) -> bool {
+    // Keep line boundaries significant while ignoring closing quotes and horizontal space.
+    let tail = context.trim_end_matches(|c: char| {
+        (c.is_whitespace() && !matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}'))
+            || matches!(
+                c,
+                '"' | '\'' | '”' | '’' | '」' | '』' | ')' | '）' | '】' | '》'
+            )
+    });
+    tail.chars().next_back().is_none_or(|c| {
+        matches!(
+            c,
+            '.' | '?' | '!' | '。' | '？' | '！' | '…' | '\n' | '\r' | '\u{2028}' | '\u{2029}'
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,6 +367,7 @@ mod tests {
             personal: false,
             preferred: false,
             verbatim: false,
+            correction: None,
             token_bonus: 0.0,
             ranking_evidence: None,
         }

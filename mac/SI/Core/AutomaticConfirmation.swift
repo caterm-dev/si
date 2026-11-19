@@ -78,7 +78,7 @@ struct AutomaticConfirmation: Sendable {
                          now: Date, context: CandidateContext?) -> [Prefix] {
         guard input == input.lowercased(), let reading = PinyinInput(input),
               let leader = candidates.first(where: { !$0.isPartial && !$0.isLiteral }),
-              leader.language == .simplifiedChinese, !leader.isMixed, !leader.isUserPhrase, !leader.hasLiteralSegments,
+              leader.language == .simplifiedChinese, !leader.isMixed, !leader.isUserPhrase, !leader.hasLiteralSegments, !leader.isPinyinCorrection,
               !leader.isApplicationVocabulary,
               !leader.confirmationBoundaries.isEmpty else { return [] }
         // Language selection must not remove code/English safeguards. Only test established Chinese
@@ -113,7 +113,7 @@ struct AutomaticConfirmation: Sendable {
                 candidate.confirmationBoundaries.contains(boundary)
                     && candidate.text.utf8.starts(with: text.utf8)
                     && prefixEnd(in: candidate.text, byteCount: boundary.outputByteCount) != nil
-                    && !candidate.isUserPhrase && !candidate.hasLiteralSegments
+                    && !candidate.isUserPhrase && !candidate.hasLiteralSegments && !candidate.isPinyinCorrection
             }) else { continue }
             result.append(Prefix(candidate: InputCandidate(text: text, language: .simplifiedChinese,
                                                            score: leader.score, consumedInputCount: boundary.sourceCount),

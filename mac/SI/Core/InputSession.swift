@@ -89,7 +89,8 @@ public struct InputSession: Sendable {
                                    configurationGeneration: UInt64 = 0, now: Date = .now,
                                    applicationMemory: ApplicationMemorySnapshot = .empty,
                                    compositionLearningEnabled: Bool = false,
-                                   punctuationCandidatesEnabled: Bool = false) {
+                                   punctuationCandidatesEnabled: Bool = false,
+                                   pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode = .off) {
         if self.compositionLearningEnabled != compositionLearningEnabled || self.languages != languages
             || self.contextGeneration != contextGeneration || self.dictionary != dictionary
             || self.configurationGeneration != configurationGeneration {
@@ -105,6 +106,7 @@ public struct InputSession: Sendable {
                 || self.automaticConfirmationEnabled != automaticConfirmationEnabled
                 || self.configurationGeneration != configurationGeneration
                 || engine.punctuationCandidatesEnabled != punctuationCandidatesEnabled
+                || engine.pinyinCorrectionMode != pinyinCorrectionMode
                 || self.applicationMemory != applicationMemory else { return }
         self.languages = languages
         self.learning = learning
@@ -115,6 +117,7 @@ public struct InputSession: Sendable {
         self.automaticConfirmationEnabled = automaticConfirmationEnabled
         self.configurationGeneration = configurationGeneration
         engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
+        engine.pinyinCorrectionMode = pinyinCorrectionMode
         automaticConfirmation = AutomaticConfirmation()
         if !usesContext || languagesChanged || contextChanged { recentContext = nil }
         refresh(now: now)
@@ -182,6 +185,7 @@ public struct InputSession: Sendable {
     public mutating func commitResult(_ candidate: InputCandidate? = nil, reason: CommitReason, now: Date = .now) -> InputCommit {
         let validCandidate = candidate.flatMap { value -> InputCandidate? in
             guard let current = candidates.first(where: { $0.hasSameCommitValue(as: value) }) else { return nil }
+            guard !current.isPinyinCorrection || reason == .explicitSelection else { return nil }
             if let count = value.consumedInputCount, count <= 0 || count >= buffer.count { return nil }
             return current
         }

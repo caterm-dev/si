@@ -44,3 +44,18 @@ struct CandidateDescriptionTests {
         return try #require(Bundle(path: path))
     }
 }
+
+extension CandidateDescriptionTests {
+    @MainActor
+    @Test func spellingCorrectionIsLabeledInBothLayouts() {
+        let candidate = InputCandidate(text: "你好", language: .simplifiedChinese, score: 100,
+                                       isPinyinCorrection: true)
+        let row = CandidateRowButton()
+        for compact in [false, true] {
+            row.configure(candidate: candidate, number: 1, selected: false, compact: compact)
+            #expect(row.candidateLabel.stringValue == "你好")
+            #expect(row.accessibilityLabel()?.contains(L10n.text("Spelling correction")) == true)
+            #expect(compact ? !row.sourceIndicator.isHidden : !row.detailLabel.isHidden)
+        }
+    }
+}

@@ -191,6 +191,56 @@ fn candidates_stream_queries_with_optional_base_grams_and_user_profile() -> io::
 }
 
 #[test]
+fn candidates_accept_preceding_text_for_pinyin_correction() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "zh.csv",
+        "text,reading,weight\n想,xiang,100\n找,zhao,100\n告诉,gao'su,100\n高旭,gao'xu,100\n知道,zhi'dao,1000000\n",
+    )?;
+    scratch.write("sentences.txt", &"想 告诉\n找 高旭\n".repeat(1_000))?;
+    scratch.run(&["lexicon", "build", "base.silex", "0", "zh.csv"])?;
+    scratch.run(&[
+        "corpus",
+        "build",
+        "base.silex",
+        "base.sigram",
+        "sentences.txt",
+    ])?;
+    for (preceding, suggest) in [("", false), ("想。找", false), ("找。想", true)] {
+        let mut child = scratch
+            .command(&[
+                "candidates",
+                "base.silex",
+                "--grams",
+                "base.sigram",
+                "--search",
+                "preview",
+                "--pinyin-correction",
+                "on",
+                "--preceding",
+                preceding,
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?;
+        child.stdin.take().unwrap().write_all(b"gaoxu\n")?;
+        let output = child.wait_with_output()?;
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).map_err(io::Error::other)?;
+        assert!(stdout.lines().next().unwrap().ends_with("\t高旭"));
+        assert_eq!(
+            stdout
+                .lines()
+                .any(|row| row.starts_with("zh-Hans\t5\tcorrection\t") && row.ends_with("\t告诉")),
+            suggest,
+            "{preceding:?}",
+        );
+        assert!(stdout.ends_with("literal\t5\tliteral\t\tgaoxu\n\n"));
+    }
+    Ok(())
+}
+
+#[test]
 fn user_sentences_grow_an_independent_model_and_learn_words() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(

@@ -12,7 +12,7 @@ struct MarkedTextPresentation {
         let source = Array(buffer)
         // Prefix choices describe only consumed spelling. Use a complete hypothesis so
         // their unconverted remainder never acquires guessed syllable/word boundaries.
-        let candidate = candidates.first { !$0.isLiteral && !$0.isPartial && !$0.hasLiteralSegments }
+        let candidate = candidates.first { !$0.isLiteral && !$0.isPartial && !$0.hasLiteralSegments && !$0.isPinyinCorrection }
         let boundaries = Set(candidate?.sourceSegmentBoundaries ?? [])
         var display = ""
         var caret = 0

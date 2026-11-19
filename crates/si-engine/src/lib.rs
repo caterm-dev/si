@@ -9,6 +9,7 @@ pub mod segmentation;
 
 pub use conversion::{
     Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionPreferences,
-    EnabledLanguages, PathPreference, PersonalPhrase, TokenPreference,
+    Correction, CorrectionKind, CorrectionSensitivity, EnabledLanguages, PathPreference,
+    PersonalPhrase, TokenPreference,
 };
 pub use si_lexicon::IndexId;

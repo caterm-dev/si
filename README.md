@@ -30,6 +30,10 @@ prefixes. Prefixes sort by decreasing consumed length, then by score within
 the same range. The exact original input stays available for every nonempty
 composition. [Rust conversion architecture](docs/ARCHITECTURE.md#rust-conversion)
 
+Rust library callers can opt into bounded, single-edit Pinyin suggestions
+with `CandidateEngine::with_pinyin_correction(true)`. For a CLI preview, add
+`--pinyin-correction on` to `si-cli candidates`. In the macOS app, choose a correction mode under Typing. Correction is off by default and suggestions require explicit selection.
+
 In compatible macOS text fields, SI passes the full text before the composition
 to the local Rust engine. The engine uses word grams from the last preceding
 sentence to help rank the first word of each candidate. This context stays in
@@ -442,6 +446,16 @@ snapshot and `--user target/si-data/profile.si-user` to include a local user
 model. Both languages are enabled by default. Use `--languages zh-Hans`,
 `--languages en` or `--languages none` to select a different set.
 
+To inspect full-Pinyin suggestions for missing letters, neighboring-key
+substitutions, and adjacent transpositions, pass `--pinyin-correction on`.
+Use `--pinyin-correction higher-recall` to lower the confidence margin.
+With a paired gram snapshot, pass `--preceding '找。想'` to supply the same
+synthetic preceding text for every input line.
+The match kind for these suggestions is `correction`. For example,
+`nihoa` can suggest `你好` while leaving the literal `nihoa` available.
+See the [Pinyin correction evaluation](docs/TESTING.md#pinyin-correction-evaluation)
+for a repeatable quality and latency comparison.
+
 Results are TSV rows with language, consumed UTF-8 bytes, match kind,
 score in bits, and output text. Backslashes and control characters are
 escaped in output text. A blank line ends each result set. Nonempty inputs
@@ -494,6 +508,34 @@ On Unix the profile directory is owner-only. `user clear` removes its derived
 data and batch IDs. The Rust library entry point is
 [`UserModelStore`](crates/si-engine/src/resources/user.rs).
 See [user model storage](docs/ARCHITECTURE.md#rust-user-model).
+
+#### Generate synthetic chat locally with Pi
+
+Configure Pi's `ollama` provider to use a local Ollama server with
+`qwen3.8:27b` installed. The 1,000 suggested scenes are grouped into
+50 categories in `TOPICS` in
+[`scripts/si-generate-chat-corpus.py`](scripts/si-generate-chat-corpus.py)
+and can be filtered with repeatable `--topic` options such as `--topic family`.
+The script reads `Data/Chinese/base.csv` in row order and visits each distinct
+written form once. To generate three new dialogues, run:
+
+```sh
+python3 scripts/si-generate-chat-corpus.py --limit 3
+```
+
+Each word starts a fresh Pi process. The script cycles through the scenes,
+interleaving categories and offering up to three suggestions per word.
+The bundled Pi extension explicitly disables thinking on Ollama's
+OpenAI-compatible chat endpoint.
+Pi can choose a scene that better fits the word. Retries ask for four short
+messages about a concrete situation. A dialogue must contain the exact target
+text in a message before the script appends it to
+`corpus/chinese/raw/si/pi/messages.txt`. The file contains only message text,
+with one message per line and a blank line between dialogues. On restart, the
+script counts complete dialogues to resume at the next word. Omit `--limit`
+to process the entire remaining list. Use a different `--output` directory
+if the word list changes. Review the synthetic text before preparing it with
+[the local SI corpus workflow](corpus/README.md).
 
 #### Import unsegmented paragraphs
 
@@ -647,8 +689,9 @@ coverage and word quality require separate evaluation.
 
 The [offline LambdaRank experiment](eval/lambdarank/README.md) provides editable,
 separate synthetic training/validation sets, Rust candidate/feature export and
-Python LightGBM training with reproducible baseline comparisons. The v2 feature
-schema adds scoring-path evidence and supports same-pool feature-group ablations. Models remain
+Python LightGBM training with reproducible baseline comparisons. The v3 feature
+schema covers word frequency, internal/context grams, explicit user snapshots and
+Pinyin correction evidence, with same-pool feature-group ablations. Models remain
 offline and are not loaded by the app.
 
 The [ranking evaluation dataset](eval/README.md) contains 220 synthetic queries

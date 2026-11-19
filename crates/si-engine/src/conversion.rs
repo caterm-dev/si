@@ -12,6 +12,8 @@ use self::lookup::Lookup;
 use self::scoring::Scoring;
 use crate::resources::EngineResources;
 
+const MAX_OUTPUT_BYTES: usize = 4_096;
+
 /// Languages eligible for dictionary lookup in one request.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct EnabledLanguages {
@@ -34,6 +36,22 @@ pub enum CandidateLanguage {
     English,
     Mixed,
     Literal,
+}
+
+/// The single key edit used by a Pinyin suggestion.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CorrectionKind {
+    MissingKey,
+    NeighborKey,
+    AdjacentSwap,
+}
+
+/// The edited dictionary word's span in the original UTF-8 input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Correction {
+    pub kind: CorrectionKind,
+    pub word_start_bytes: usize,
+    pub word_end_bytes: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -98,12 +116,45 @@ pub struct Candidate {
     pub personal: bool,
     pub preferred: bool,
     pub verbatim: bool,
+    /// Whole-input typo suggestion requiring explicit acceptance by the caller.
+    pub correction: Option<Correction>,
     pub token_bonus: f64,
+}
+
+impl Candidate {
+    pub fn is_corrected(&self) -> bool {
+        self.correction.is_some()
+    }
+
+    /// Select a default for whole-input acceptance without accepting a typo suggestion.
+    /// The original-text row remains eligible when no ordinary whole result exists.
+    pub fn default_for_whole_input(rows: &[Self], input_bytes: usize) -> Option<&Self> {
+        rows.iter()
+            .find(|row| row.consumed_bytes == input_bytes && !row.is_corrected())
+    }
+}
+
+/// Confidence margin over the best complete exact path, in bits.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum CorrectionSensitivity {
+    #[default]
+    Conservative,
+    HigherRecall,
+}
+
+impl CorrectionSensitivity {
+    fn margin(self) -> f64 {
+        match self {
+            Self::Conservative => 2.0,
+            Self::HigherRecall => 0.0,
+        }
+    }
 }
 
 /// Reuse this engine across requests. Construction indexes dictionary
 /// readings. Candidate generation uses the loaded resources in memory.
 pub struct CandidateEngine<'a> {
+    pinyin_correction: Option<CorrectionSensitivity>,
     lookup: Lookup<'a>,
     scoring: Scoring<'a>,
     context: Option<context::Context<'a>>,
@@ -116,10 +167,39 @@ impl<'a> CandidateEngine<'a> {
         let context = (base.grams().is_some() || user.is_some_and(|user| user.grams().is_some()))
             .then(|| context::Context::new(base.lexicon(), user.map(EngineResources::lexicon)));
         Self {
+            pinyin_correction: None,
             lookup,
             scoring,
             context,
         }
+    }
+
+    /// Enable bounded Pinyin typo suggestions. Disabled by default.
+    pub fn with_pinyin_correction(self, enabled: bool) -> Self {
+        self.with_correction_sensitivity(enabled.then_some(CorrectionSensitivity::default()))
+    }
+
+    /// Set how strongly a suggestion must beat ordinary decoding. None disables correction.
+    pub fn with_correction_sensitivity(
+        mut self,
+        sensitivity: Option<CorrectionSensitivity>,
+    ) -> Self {
+        self.set_correction_sensitivity(sensitivity);
+        self
+    }
+
+    /// Configure correction before querying candidates.
+    pub fn set_correction_sensitivity(&mut self, sensitivity: Option<CorrectionSensitivity>) {
+        if sensitivity.is_some() {
+            self.prepare_pinyin_correction();
+        }
+        self.pinyin_correction = sensitivity;
+    }
+
+    /// Prepare the immutable index before requesting correction on a shared engine.
+    pub fn prepare_pinyin_correction(&mut self) {
+        self.lookup
+            .prepare_corrections(|word| self.scoring.unigram(word).personalized);
     }
 
     /// Return ranked candidates and one exact literal for nonempty input.
@@ -170,6 +250,29 @@ impl<'a> CandidateEngine<'a> {
         preferences: ConversionPreferences<'_>,
         preceding_text: &str,
     ) -> Vec<Candidate> {
+        self.convert_with_correction(
+            text,
+            languages,
+            preview,
+            phrases,
+            preferences,
+            preceding_text,
+            self.pinyin_correction,
+        )
+    }
+
+    /// Use a per-request mode. Shared-engine callers must prepare the index first.
+    #[allow(clippy::too_many_arguments)]
+    pub fn convert_with_correction(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preview: bool,
+        phrases: &[PersonalPhrase<'_>],
+        preferences: ConversionPreferences<'_>,
+        preceding_text: &str,
+        correction: Option<CorrectionSensitivity>,
+    ) -> Vec<Candidate> {
         self.convert_internal(
             text,
             languages,
@@ -178,18 +281,19 @@ impl<'a> CandidateEngine<'a> {
             preferences,
             preceding_text,
             false,
+            correction,
         )
     }
 
-    /// Capture scored-path evidence with empty personal state for offline experiments.
-    /// Engines with a user resource pair return ordinary candidates without evidence.
+    /// Capture selected-path evidence, including an explicitly supplied user snapshot.
+    /// Full-candidate context probabilities are diagnostic only; conversion order is unchanged.
     pub fn candidates_with_evidence(
         &self,
         text: &str,
         languages: EnabledLanguages,
         preceding_text: &str,
     ) -> Vec<Candidate> {
-        self.convert_internal(
+        let mut candidates = self.convert_internal(
             text,
             languages,
             false,
@@ -197,7 +301,21 @@ impl<'a> CandidateEngine<'a> {
             ConversionPreferences::default(),
             preceding_text,
             true,
-        )
+            self.pinyin_correction,
+        );
+        let history = self
+            .context
+            .as_ref()
+            .map_or_else(Default::default, |context| {
+                context.history(preceding_text, &self.scoring)
+            });
+        let mut session = self.scoring.session(history, false);
+        for candidate in &mut candidates {
+            if let Some(evidence) = &mut candidate.ranking_evidence {
+                session.populate_features(evidence);
+            }
+        }
+        candidates
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -210,6 +328,7 @@ impl<'a> CandidateEngine<'a> {
         preferences: ConversionPreferences<'_>,
         preceding_text: &str,
         capture_evidence: bool,
+        correction: Option<CorrectionSensitivity>,
     ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();
@@ -230,6 +349,7 @@ impl<'a> CandidateEngine<'a> {
                 preview,
                 &personal,
                 preferences,
+                correction,
             )
         } else {
             Vec::new()
@@ -248,6 +368,7 @@ impl<'a> CandidateEngine<'a> {
             personal: false,
             preferred: false,
             verbatim: false,
+            correction: None,
             token_bonus: 0.0,
         });
         candidates

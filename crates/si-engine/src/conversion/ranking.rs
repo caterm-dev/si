@@ -1,8 +1,9 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use super::{Candidate, CandidateLanguage, ConversionBoundary};
+use super::{Candidate, CandidateLanguage, ConversionBoundary, Correction};
 
+const MAX_CORRECTIONS: usize = 4;
 const DIRECT_COMPLETIONS_PER_LANGUAGE: usize = 32;
 
 #[derive(Default)]
@@ -22,6 +23,7 @@ struct Evidence {
     personal: bool,
     preferred: bool,
     verbatim: bool,
+    correction: Option<Correction>,
     token_bonus: f64,
 }
 
@@ -44,6 +46,7 @@ impl Results {
             personal: candidate.personal,
             preferred: candidate.preferred,
             verbatim: candidate.verbatim,
+            correction: candidate.correction,
             token_bonus: candidate.token_bonus,
         };
         match self
@@ -55,6 +58,12 @@ impl Results {
             }
             Entry::Occupied(mut row) => {
                 let current = row.get_mut();
+                if current.correction.is_some() != evidence.correction.is_some() {
+                    if current.correction.is_some() {
+                        *current = evidence;
+                    }
+                    return;
+                }
                 let has_direct_match = [&current.ranking_evidence, &evidence.ranking_evidence]
                     .into_iter()
                     .flatten()
@@ -85,8 +94,14 @@ impl Results {
         }
     }
 
-    pub(super) fn ranked(self) -> Vec<Candidate> {
-        let mut rows: Vec<_> = self.rows.into_iter().collect();
+    pub(super) fn ranked(self, correction_floor: f64) -> Vec<Candidate> {
+        let mut rows: Vec<_> = self
+            .rows
+            .into_iter()
+            .filter(|(_, evidence)| {
+                evidence.correction.is_none() || evidence.effective_score > correction_floor
+            })
+            .collect();
         rows.sort_unstable_by(
             |((left_end, left_language, left_text), left),
              ((right_end, right_language, right_text), right)| {
@@ -94,12 +109,18 @@ impl Results {
                     .preferred
                     .cmp(&left.preferred)
                     .then_with(|| right_end.cmp(left_end))
+                    .then_with(|| left.correction.is_some().cmp(&right.correction.is_some()))
                     .then_with(|| right.effective_score.total_cmp(&left.effective_score))
                     .then_with(|| left_language.cmp(right_language))
                     .then_with(|| left_text.cmp(right_text))
             },
         );
+        let mut corrections = 0;
         rows.into_iter()
+            .filter(|(_, evidence)| {
+                corrections += usize::from(evidence.correction.is_some());
+                evidence.correction.is_none() || corrections <= MAX_CORRECTIONS
+            })
             .map(|((consumed_bytes, language, text), evidence)| Candidate {
                 ranking_evidence: evidence.ranking_evidence,
                 text,
@@ -114,6 +135,7 @@ impl Results {
                 personal: evidence.personal,
                 preferred: evidence.preferred,
                 verbatim: evidence.verbatim,
+                correction: evidence.correction,
                 token_bonus: evidence.token_bonus,
             })
             .collect()

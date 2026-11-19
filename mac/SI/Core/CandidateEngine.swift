@@ -1,6 +1,11 @@
 import Foundation
 
 public struct CandidateEngine: Sendable {
+    public enum PinyinCorrectionMode: UInt8, CaseIterable, Sendable {
+        case off, conservative, higherRecall
+    }
+
+    var pinyinCorrectionMode: PinyinCorrectionMode = .off
     private let providers: [any CandidateProvider]?
     public var punctuationCandidatesEnabled: Bool
     public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false) {
@@ -43,7 +48,7 @@ public struct CandidateEngine: Sendable {
             let rust = applicationMemory.sentenceModel?.conversion ?? RustConversion.shared
             generated = rust?.candidates(for: input, languages: languages, preview: preview,
                 dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now,
-                context: context, precedingText: precedingText)
+                context: context, precedingText: precedingText, correctionMode: pinyinCorrectionMode)
                 ?? dictionary.candidates(for: input, languages: languages)
         }
         var entries = generated
@@ -93,6 +98,7 @@ public struct CandidateEngine: Sendable {
         let leftConsumed = left.consumedInputCount ?? inputCount
         let rightConsumed = right.consumedInputCount ?? inputCount
         if leftConsumed != rightConsumed { return leftConsumed > rightConsumed }
+        if left.isPinyinCorrection != right.isPinyinCorrection { return !left.isPinyinCorrection }
         let leftScore = left.presentationScore ?? left.rankingScore
         let rightScore = right.presentationScore ?? right.rankingScore
         if leftScore != rightScore { return leftScore > rightScore }

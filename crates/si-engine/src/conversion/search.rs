@@ -5,24 +5,26 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::input::Input;
-use super::lookup::{Lookup, Match};
+use super::lookup::{CorrectionBudget, Lookup, MIN_CORRECTION_BITS, Match};
 use super::ranking::{Completions, Results};
-use super::scoring::{History, ScoreSession, Scores};
+use super::scoring::{History, ScoreSession, Scores, WordScore};
 use super::{
-    Candidate, CandidateLanguage, ConversionBoundary, ConversionPreferences, EnabledLanguages,
-    Language, PathPreference, TokenPreference,
+    Candidate, CandidateLanguage, ConversionBoundary, ConversionPreferences, Correction,
+    CorrectionKind, CorrectionSensitivity, EnabledLanguages, Language, MAX_OUTPUT_BYTES,
+    PathPreference, TokenPreference,
 };
 use crate::han;
 
 const MAX_SEARCH_UNITS: usize = 128;
-const MAX_OUTPUT_BYTES: usize = 4_096;
 const BEAM_WIDTH: usize = 24;
 const PREVIEW_BEAM_WIDTH: usize = 6;
 const MAX_DERIVATIONS_PER_TEXT: usize = 2;
 const COMPOSED_PREFIXES_PER_LANGUAGE: usize = 2;
 const PERSONAL_EDGES_PER_SPAN: usize = 12;
+const CORRECTION_BEAM_WIDTH: usize = 4;
 const ABBREVIATION_BITS: f64 = 7.0;
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn run(
     input: &Input<'_>,
     languages: EnabledLanguages,
@@ -31,8 +33,20 @@ pub(super) fn run(
     preview: bool,
     personal: &Lookup<'_>,
     preferences: ConversionPreferences<'_>,
+    correction: Option<CorrectionSensitivity>,
 ) -> Vec<Candidate> {
     let limit = input.len().min(MAX_SEARCH_UNITS);
+    let correction_margin = correction.unwrap_or_default().margin();
+    let correction_context_backoff = correction == Some(CorrectionSensitivity::HigherRecall);
+    let mut correction = correction.is_some()
+        && languages.chinese
+        && limit == input.len()
+        && limit >= 4
+        && input
+            .spelling(Language::Chinese)
+            .iter()
+            .all(|&byte| byte != 0)
+        && !input.source_span(0, limit).chars().any(char::is_uppercase);
     let english_ends = if languages.english && !preferences.tokens.is_empty() {
         (0..limit)
             .map(|start| {
@@ -60,6 +74,10 @@ pub(super) fn run(
         scoring,
         lattice: (0..=limit).map(|_| Frontier::default()).collect(),
         results: Results::default(),
+        correction_floor: f64::NEG_INFINITY,
+        correction_margin,
+        correction_context_backoff,
+        exact_suffixes: &[],
         preferences: TokenBonuses::new(preferences.tokens),
         path_preferences: PathBonuses::new(preferences.paths, input, limit),
         english_ends,
@@ -76,6 +94,9 @@ pub(super) fn run(
     for language in enabled.clone() {
         let mut completions = Completions::default();
         lookup.visit(language, input, 0, input.len(), |edge| {
+            if language == Language::English && edge.end == input.len() && edge.missing == 0 {
+                correction = false;
+            }
             search.seed(
                 edge,
                 &mut completions,
@@ -85,6 +106,9 @@ pub(super) fn run(
         });
         let mut seen = vec![0; limit + 1];
         personal.visit(language, input, 0, input.len(), |edge| {
+            if edge.end == input.len() && edge.missing == 0 {
+                correction = false;
+            }
             let can_extend = allow_personal_edge(&mut seen, edge.end);
             search.seed(edge, &mut completions, false, can_extend);
         });
@@ -98,6 +122,26 @@ pub(super) fn run(
                 search.seed_verbatim(edge);
             }
         }
+    }
+    correction &= -MIN_CORRECTION_BITS > search.correction_floor;
+    let exact_suffixes = if correction {
+        lookup.exact_suffixes(input)
+    } else {
+        Vec::new()
+    };
+    search.exact_suffixes = &exact_suffixes;
+    let mut correction_budget = CorrectionBudget::default();
+    if correction {
+        lookup.visit_corrections(
+            input,
+            0,
+            limit,
+            &mut correction_budget,
+            &exact_suffixes,
+            |edge| {
+                search.seed(edge, &mut Completions::default(), false, true);
+            },
+        );
     }
     for start in 1..=limit {
         let frontier = std::mem::take(&mut search.lattice[start]);
@@ -116,6 +160,19 @@ pub(super) fn run(
                 }
             });
         }
+        if correction && frontier.could_correct(search.correction_floor, correction_context_backoff)
+        {
+            lookup.visit_corrections(
+                input,
+                start,
+                limit,
+                &mut correction_budget,
+                &exact_suffixes,
+                |edge| {
+                    search.extend(start, &frontier, edge);
+                },
+            );
+        }
         if !exact_whole && exact_starts.get(start) == Some(&false) {
             for end in chinese_starts
                 .iter()
@@ -129,7 +186,19 @@ pub(super) fn run(
             }
         }
     }
-    search.results.ranked()
+    search.results.ranked(search.correction_floor)
+}
+
+fn correction_context(adjustment: Scores, backoff: bool) -> Scores {
+    if backoff {
+        const BACKOFF_COST_BITS: f64 = 2.0;
+        Scores {
+            base: adjustment.base.max(-BACKOFF_COST_BITS),
+            personalized: adjustment.personalized.max(-BACKOFF_COST_BITS),
+        }
+    } else {
+        adjustment
+    }
 }
 
 fn exact_spans(
@@ -187,6 +256,10 @@ struct Search<'input, 'model, 'data, 'preferences> {
     scoring: ScoreSession<'model, 'data>,
     lattice: Vec<Frontier>,
     results: Results,
+    correction_floor: f64,
+    correction_margin: f64,
+    correction_context_backoff: bool,
+    exact_suffixes: &'input [bool],
     preferences: TokenBonuses<'preferences>,
     path_preferences: PathBonuses<'preferences>,
     english_ends: Vec<usize>,
@@ -315,7 +388,14 @@ impl Search<'_, '_, '_, '_> {
         let mut evidence = self.scoring.take_evidence()?;
         evidence.abbreviated_tokens = usize::from(edge.is_abbreviated());
         evidence.spelling_cost_bits += evidence.abbreviated_tokens as f64 * ABBREVIATION_BITS;
+        evidence.correction_cost_bits = edge.correction_cost;
+        evidence.spelling_cost_bits += edge.correction_cost;
         evidence.pinyin_syllables = edge.syllables();
+        evidence.abbreviated_syllables = if edge.is_abbreviated() {
+            edge.syllables()
+        } else {
+            0
+        };
         evidence.aligned_separators = self.input.separators(start, edge.end).count();
         evidence.word_boundary_separators = usize::from(
             self.input
@@ -327,7 +407,9 @@ impl Search<'_, '_, '_, '_> {
     }
 
     fn seed_verbatim(&mut self, edge: Match<'_>) {
-        let (history, score) = self.scoring.step(History::default(), edge.word, 0);
+        let (history, score) = self
+            .scoring
+            .step(History::default(), &WordScore::new(edge.word), 0);
         let mask = Language::English.mask();
         let path = Path {
             ranking_evidence: None,
@@ -348,6 +430,8 @@ impl Search<'_, '_, '_, '_> {
             english_end: 0,
             splits_english: false,
             confirmation_ambiguous: false,
+            corrected: false,
+            abbreviated: false,
             trace: Rc::new(Trace {
                 previous: None,
                 details: Rc::new(EdgeDetails::new(edge, self.input, 0)),
@@ -367,16 +451,34 @@ impl Search<'_, '_, '_, '_> {
         has_user: bool,
         can_extend: bool,
     ) {
+        let corrected = edge.correction_cost > 0.0;
         let mask = edge.word.language.mask();
         let (history, mut score, context_adjustment) = self.scoring.start(edge.word, edge.missing);
+        let context_adjustment = correction_context(
+            context_adjustment,
+            corrected && self.correction_context_backoff,
+        );
         if edge.is_abbreviated() {
             score.base -= ABBREVIATION_BITS;
             score.personalized -= ABBREVIATION_BITS;
         }
+        score.base -= edge.correction_cost;
+        score.personalized -= edge.correction_cost;
+        if corrected
+            && edge.end < self.limit
+            && !self.lattice[edge.end].corrected.could_enter(
+                score.personalized + context_adjustment.personalized,
+                Lane::Personalized,
+                CORRECTION_BEAM_WIDTH,
+                true,
+            )
+        {
+            return;
+        }
         let ranking_evidence = self.edge_evidence(edge, 0);
         let personal = edge.word.personal.is_some();
         let output = render(edge, self.input.source_span(0, edge.end));
-        let direct_adjustment = if personal {
+        let direct_adjustment = if personal || corrected {
             0.0
         } else {
             self.path_preferences
@@ -388,42 +490,64 @@ impl Search<'_, '_, '_, '_> {
         {
             return;
         }
-        let details = Rc::new(EdgeDetails::new(edge, self.input, 0));
-        let candidate = Candidate {
-            ranking_evidence: ranking_evidence.clone(),
-            text: output.to_string(),
-            language: candidate_language(mask),
-            consumed_bytes: self.input.source_end(edge.end),
-            score_bits: Some(score.personalized),
-            context_adjustment: context_adjustment.personalized,
-            completion: edge.missing != 0,
-            lexical_tokens: 1,
-            source_boundaries: details.cuts.clone(),
-            confirmation_boundaries: details.confirmation.clone().unwrap_or_default(),
-            personal,
-            preferred: edge.word.personal == Some(true)
-                && edge.missing == 0
-                && edge.end == self.input.len(),
-            verbatim: false,
-            token_bonus: 0.0,
-        };
-        if candidate.completion && !personal {
-            completions.insert(candidate, direct_adjustment);
+        let effective_score = score.personalized + direct_adjustment;
+        if corrected && effective_score <= self.correction_floor {
             return;
         }
-        self.results
-            .insert(candidate, score.personalized + direct_adjustment);
+        if !corrected
+            && !personal
+            && mask == Language::Chinese.mask()
+            && edge.end == self.input.len()
+            && edge.missing == 0
+            && !edge.is_abbreviated()
+        {
+            let exact_score = effective_score - context_adjustment.personalized.min(0.0);
+            self.correction_floor = self
+                .correction_floor
+                .max(exact_score + self.correction_margin);
+        }
+        let details = Rc::new(EdgeDetails::new(edge, self.input, 0));
+        if !corrected || edge.end == self.input.len() {
+            let candidate = Candidate {
+                ranking_evidence: ranking_evidence.clone(),
+                text: output.to_string(),
+                language: candidate_language(mask),
+                consumed_bytes: self.input.source_end(edge.end),
+                score_bits: Some(score.personalized),
+                context_adjustment: context_adjustment.personalized,
+                completion: edge.missing != 0,
+                lexical_tokens: 1,
+                source_boundaries: details.cuts.clone(),
+                confirmation_boundaries: details.confirmation.clone().unwrap_or_default(),
+                personal,
+                preferred: edge.word.personal == Some(true)
+                    && edge.missing == 0
+                    && edge.end == self.input.len(),
+                verbatim: false,
+                correction: details.correction(0),
+                token_bonus: 0.0,
+            };
+            if candidate.completion && !personal {
+                completions.insert(candidate, direct_adjustment);
+                return;
+            }
+            self.results.insert(candidate, effective_score);
+        }
         if !can_extend || edge.end >= self.limit || output.len() > MAX_OUTPUT_BYTES {
             return;
         }
-        let token_sum = self.preferences.get(edge, self.input, 0, &output) * edge.end as f64;
-        let adjustment = if personal {
+        let token_sum = if corrected {
+            0.0
+        } else {
+            self.preferences.get(edge, self.input, 0, &output) * edge.end as f64
+        };
+        let adjustment = if personal || corrected {
             0.0
         } else {
             self.path_preferences
                 .adjustment(edge.end, mask, &output, token_sum / edge.end as f64)
         };
-        let search_adjustment = if personal {
+        let search_adjustment = if personal || corrected {
             adjustment
         } else {
             adjustment.max(
@@ -454,6 +578,8 @@ impl Search<'_, '_, '_, '_> {
             },
             splits_english: edge.is_abbreviated() && edge.end < self.english_end(0),
             confirmation_ambiguous: false,
+            corrected,
+            abbreviated: edge.is_abbreviated(),
             trace: Rc::new(Trace {
                 previous: None,
                 details,
@@ -462,6 +588,12 @@ impl Search<'_, '_, '_, '_> {
             }),
         };
         let frontier = &mut self.lattice[edge.end];
+        if corrected {
+            frontier
+                .corrected
+                .insert(path, Lane::Personalized, false, CORRECTION_BEAM_WIDTH);
+            return;
+        }
         if has_user && edge.word.ids.base.is_some() {
             frontier.beam(Lane::Base, mask, false).insert(
                 path.clone(),
@@ -485,6 +617,7 @@ impl Search<'_, '_, '_, '_> {
                 .into_iter()
                 .map(|lane| &frontier.lanes[lane as usize][mask - 1])
                 .chain(std::iter::once(&frontier.private[mask - 1]))
+                .chain((whole && mask == 1).then_some(&frontier.corrected))
                 .flat_map(|beam| &beam.paths)
                 .filter(|path| path.constructed && (!path.verbatim || (whole && mask == 3)))
                 .collect();
@@ -493,6 +626,12 @@ impl Search<'_, '_, '_, '_> {
             }
             let mut seen = Vec::new();
             for path in paths {
+                let effective_score = path.score.personalized
+                    + path.context_adjustment.personalized
+                    + path.adjustment;
+                if path.corrected && effective_score <= self.correction_floor {
+                    continue;
+                }
                 if !whole {
                     if seen.contains(&path.output.as_str()) {
                         continue;
@@ -502,9 +641,12 @@ impl Search<'_, '_, '_, '_> {
                     }
                     seen.push(path.output.as_str());
                 }
-                let (source_boundaries, confirmation_boundaries) = path
-                    .trace
-                    .boundaries(!path.confirmation_ambiguous && !path.personal && !path.verbatim);
+                let (source_boundaries, confirmation_boundaries) = path.trace.boundaries(
+                    !path.confirmation_ambiguous
+                        && !path.personal
+                        && !path.verbatim
+                        && !path.corrected,
+                );
                 self.results.insert(
                     Candidate {
                         ranking_evidence: path.ranking_evidence.clone(),
@@ -520,32 +662,62 @@ impl Search<'_, '_, '_, '_> {
                         personal: path.personal,
                         preferred: false,
                         verbatim: path.verbatim,
+                        correction: path.corrected.then(|| path.trace.correction()).flatten(),
                         token_bonus: path.token_bonus(),
                     },
-                    path.score.personalized
-                        + path.context_adjustment.personalized
-                        + path.adjustment,
+                    effective_score,
                 );
             }
         }
     }
 
     fn extend(&mut self, start: usize, frontier: &Frontier, edge: Match<'_>) {
+        let edge_is_corrected = edge.correction_cost > 0.0;
         let language = edge.word.language;
         let surface = render(edge, self.input.source_span(start, edge.end));
         let terminal = edge.end == self.limit;
-        let details = Rc::new(EdgeDetails::new(edge, self.input, start));
+        let details = std::cell::OnceCell::new();
+        let word_score = WordScore::new(edge.word);
         let personal = edge.word.personal.is_some();
         let english_end = self.english_end(start);
-        let token_sum =
-            self.preferences.get(edge, self.input, start, &surface) * (edge.end - start) as f64;
+        let token_sum = if edge_is_corrected {
+            0.0
+        } else {
+            self.preferences.get(edge, self.input, start, &surface) * (edge.end - start) as f64
+        };
+        let exact_chinese_continuation = language == Language::Chinese
+            && !personal
+            && !edge.word.verbatim
+            && !edge.is_abbreviated()
+            && edge.missing == 0
+            && self.exact_suffixes.get(edge.end) == Some(&true);
         for (lane, beam) in frontier.beams() {
+            if std::ptr::eq(beam, &frontier.corrected) && !exact_chinese_continuation {
+                continue;
+            }
+            if edge_is_corrected
+                && !std::ptr::eq(beam, &frontier.lanes[Lane::Personalized as usize][0])
+            {
+                continue;
+            }
             if lane == Lane::Base && edge.word.ids.base.is_none() {
                 continue;
             }
             for path in &beam.paths {
                 if edge.word.verbatim
                     && (path.verbatim || path.mask & Language::Chinese.mask() == 0)
+                {
+                    continue;
+                }
+                let corrected = path.corrected || edge_is_corrected;
+                if corrected
+                    && (lane == Lane::Base
+                        || path.corrected && edge_is_corrected
+                        || path.mask != Language::Chinese.mask()
+                        || path.personal
+                        || path.verbatim
+                        || path.abbreviated
+                        || !exact_chinese_continuation)
                 {
                     continue;
                 }
@@ -565,10 +737,47 @@ impl Search<'_, '_, '_, '_> {
                 if output_start + surface.len() > MAX_OUTPUT_BYTES {
                     continue;
                 }
-                let (history, mut delta) = self.scoring.step(path.history, edge.word, edge.missing);
+                let context_adjustment = if private {
+                    Scores::default()
+                } else {
+                    correction_context(
+                        path.context_adjustment,
+                        corrected && self.correction_context_backoff,
+                    )
+                };
+                if corrected {
+                    // The lexical probability is at most one. Even that
+                    // optimistic path must pay the fixed token and edit costs.
+                    let fixed_cost = word_score.token_bits();
+                    let upper_bound = (path.score.personalized
+                        + (-fixed_cost - edge.correction_cost))
+                        + context_adjustment.personalized;
+                    if upper_bound <= self.correction_floor
+                        || !self.lattice[edge.end].corrected.could_enter(
+                            upper_bound,
+                            Lane::Personalized,
+                            CORRECTION_BEAM_WIDTH,
+                            true,
+                        )
+                    {
+                        continue;
+                    }
+                }
+                let (history, mut delta) =
+                    self.scoring.step(path.history, &word_score, edge.missing);
                 if edge.is_abbreviated() {
                     delta.base -= ABBREVIATION_BITS;
                     delta.personalized -= ABBREVIATION_BITS;
+                }
+                delta.base -= edge.correction_cost;
+                delta.personalized -= edge.correction_cost;
+                if corrected
+                    && path.score.personalized
+                        + context_adjustment.personalized
+                        + delta.personalized
+                        <= self.correction_floor
+                {
+                    continue;
                 }
                 let ranking_evidence = self.edge_evidence(edge, start).and_then(|edge| {
                     path.ranking_evidence
@@ -576,31 +785,33 @@ impl Search<'_, '_, '_, '_> {
                         .map(|previous| Box::new(previous.append(&edge)))
                 });
                 let score = path.score + delta;
-                let context_adjustment = if private {
-                    Scores::default()
-                } else {
-                    path.context_adjustment
-                };
                 let mask = path.mask | language.mask();
-                let target = self.lattice[edge.end].beam(lane, mask, private);
+                let frontier = &mut self.lattice[edge.end];
+                let (target, width) = if corrected {
+                    (&mut frontier.corrected, CORRECTION_BEAM_WIDTH)
+                } else {
+                    (frontier.beam(lane, mask, private), self.beam_width)
+                };
                 let splits_english = !private
                     && (path.splits_english
                         || start < path.english_end
                         || (edge.is_abbreviated() && edge.end < english_end));
-                let token_sum = if private || splits_english {
+                let token_sum = if private || splits_english || corrected {
                     0.0
                 } else {
                     path.token_sum + token_sum
                 };
                 let bonus = token_sum / edge.end as f64;
                 let has_path_preferences = !private
+                    && !corrected
                     && lane == Lane::Personalized
                     && self.path_preferences.could_adjust(edge.end);
                 if !has_path_preferences
                     && !target.could_enter(
                         lane.score(score + context_adjustment, bonus),
                         lane,
-                        self.beam_width,
+                        width,
+                        corrected,
                     )
                 {
                     continue;
@@ -629,6 +840,22 @@ impl Search<'_, '_, '_, '_> {
                 } else {
                     adjustment
                 };
+                let abbreviated = path.abbreviated || edge.is_abbreviated();
+                if terminal
+                    && !self.exact_suffixes.is_empty()
+                    && mask != 3
+                    && !corrected
+                    && !private
+                    && !abbreviated
+                    && edge.missing == 0
+                {
+                    let effective_score =
+                        score.personalized + context_adjustment.personalized + adjustment;
+                    let exact_score = effective_score - context_adjustment.personalized.min(0.0);
+                    self.correction_floor = self
+                        .correction_floor
+                        .max(exact_score + self.correction_margin);
+                }
                 target.insert(
                     Path {
                         ranking_evidence,
@@ -654,16 +881,20 @@ impl Search<'_, '_, '_, '_> {
                         },
                         splits_english,
                         confirmation_ambiguous: path.confirmation_ambiguous,
+                        corrected,
+                        abbreviated,
                         trace: Rc::new(Trace {
                             previous: Some(Rc::clone(&path.trace)),
-                            details: Rc::clone(&details),
+                            details: Rc::clone(details.get_or_init(|| {
+                                Rc::new(EdgeDetails::new(edge, self.input, start))
+                            })),
                             output_start,
                             space,
                         }),
                     },
                     lane,
                     terminal,
-                    self.beam_width,
+                    width,
                 );
             }
         }
@@ -724,6 +955,7 @@ impl Lane {
 struct Frontier {
     lanes: [[Beam; 3]; 2],
     private: [Beam; 3],
+    corrected: Beam,
 }
 
 impl Frontier {
@@ -744,6 +976,22 @@ impl Frontier {
                     .map(move |beam| (lane, beam))
             })
             .chain(self.private.iter().map(|beam| (Lane::Personalized, beam)))
+            .chain(std::iter::once((Lane::Personalized, &self.corrected)))
+    }
+
+    fn could_correct(&self, floor: f64, context_backoff: bool) -> bool {
+        // A lexical continuation contributes a log probability at most zero.
+        // Corrected paths carry their initial context but no preference bonus.
+        self.lanes[Lane::Personalized as usize][0]
+            .paths
+            .iter()
+            .any(|path| {
+                !path.abbreviated
+                    && path.score.personalized
+                        + correction_context(path.context_adjustment, context_backoff).personalized
+                        - MIN_CORRECTION_BITS
+                        > floor
+            })
     }
 
     fn is_empty(&self) -> bool {
@@ -772,6 +1020,8 @@ struct Path {
     english_end: usize,
     splits_english: bool,
     confirmation_ambiguous: bool,
+    corrected: bool,
+    abbreviated: bool,
 }
 
 impl Path {
@@ -783,6 +1033,7 @@ impl Path {
 struct EdgeDetails {
     cuts: Vec<usize>,
     confirmation: Option<Vec<ConversionBoundary>>,
+    correction_kind: Option<CorrectionKind>,
 }
 
 impl EdgeDetails {
@@ -790,6 +1041,7 @@ impl EdgeDetails {
         let cuts = edge.cuts(start, input);
         let confirmation = if edge.word.language == Language::Chinese
             && !edge.is_abbreviated()
+            && edge.correction_cost == 0.0
             && edge.missing == 0
             && edge.word.personal.is_none()
         {
@@ -819,7 +1071,19 @@ impl EdgeDetails {
         } else {
             None
         };
-        Self { cuts, confirmation }
+        Self {
+            cuts,
+            confirmation,
+            correction_kind: edge.correction_kind,
+        }
+    }
+
+    fn correction(&self, word_start_bytes: usize) -> Option<Correction> {
+        Some(Correction {
+            kind: self.correction_kind?,
+            word_start_bytes,
+            word_end_bytes: *self.cuts.last().expect("conversion edges consume source"),
+        })
     }
 }
 
@@ -831,6 +1095,17 @@ struct Trace {
 }
 
 impl Trace {
+    fn correction(&self) -> Option<Correction> {
+        std::iter::successors(Some(self), |node| node.previous.as_deref()).find_map(|node| {
+            let start = node
+                .previous
+                .as_ref()
+                .and_then(|previous| previous.details.cuts.last().copied())
+                .unwrap_or_default();
+            node.details.correction(start)
+        })
+    }
+
     fn inserted_spaces(&self) -> usize {
         std::iter::successors(Some(self), |node| node.previous.as_deref())
             .filter(|node| node.space)
@@ -883,12 +1158,16 @@ struct Beam {
 }
 
 impl Beam {
-    fn could_enter(&self, score: f64, lane: Lane, width: usize) -> bool {
+    fn could_enter(&self, score: f64, lane: Lane, width: usize, corrected: bool) -> bool {
         self.paths.len() < width
-            || self
-                .paths
-                .last()
-                .is_some_and(|last| score >= lane.score(last.score, last.search_adjustment))
+            || self.paths.last().is_some_and(|last| {
+                let last_score = if corrected {
+                    last.score + last.context_adjustment
+                } else {
+                    last.score
+                };
+                score >= lane.score(last_score, last.search_adjustment)
+            })
     }
 
     fn insert(&mut self, path: Path, lane: Lane, terminal: bool, width: usize) {
@@ -904,6 +1183,7 @@ impl Beam {
         if let Some(index) = equivalent {
             let current = &mut self.paths[index];
             if path.mask == 1
+                && !path.corrected
                 && compare_paths(&path, current, lane, true) == Ordering::Equal
                 && !current.confirmation_ambiguous
                 && !Rc::ptr_eq(&path.trace, &current.trace)

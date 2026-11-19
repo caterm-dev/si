@@ -8,8 +8,8 @@ reviewed integration.
 
 ## Data and scope
 
-- `train.jsonl`: 88 authored queries, used for fitting.
-- `validation.jsonl`: 42 separate authored queries, used for early stopping and
+- `train.jsonl`: 92 authored queries, used for fitting.
+- `validation.jsonl`: 46 separate authored queries, used for early stopping and
   development comparison. This is **not an untouched test set**.
 - `../ranking/test.jsonl`: the existing 220-query frozen regression suite. The
   pipeline reads it only to reject cross-split overlap; it never trains, selects
@@ -30,6 +30,11 @@ homophone choices. The families are assigned to files explicitly, with no random
 or combinatorial template expansion. Cases are not selected for candidate
 reachability. Missing targets remain missing; reference answers never enter Rust
 requests and are never inserted into the candidate pool.
+
+V3 adds four explicitly authored typo queries to each split, retaining their
+original scenario families. These include omissions, adjacent swaps and a neighbor
+replacement; examples are retained whether or not the decoder retrieves the target.
+The earlier 88/42 snapshots remain immutable for the v2/v3 controlled comparison.
 
 ### Add more examples
 
@@ -75,17 +80,17 @@ cargo build --release --locked -p si-cli
 python3 scripts/lambdarank/pipeline.py validate
 python3 scripts/lambdarank/pipeline.py prepare \
   --lexicon target/si-data/main.silex \
-  --grams target/si-data/words.sigram \
-  --output eval/lambdarank/prepared/starter-v1
+  --grams target/si-data/words.sigram --pinyin-correction \
+  --output eval/lambdarank/prepared/starter-v3
 
 .venv/lambdarank/bin/python scripts/lambdarank/pipeline.py train \
-  --bundle eval/lambdarank/prepared/starter-v1 \
-  --output eval/lambdarank/runs/starter-v1
+  --bundle eval/lambdarank/prepared/starter-v3 \
+  --output eval/lambdarank/runs/starter-v3
 
 .venv/lambdarank/bin/python scripts/lambdarank/pipeline.py evaluate \
-  --bundle eval/lambdarank/prepared/starter-v1 \
-  --run eval/lambdarank/runs/starter-v1 \
-  --output eval/lambdarank/runs/starter-v1/recheck.json
+  --bundle eval/lambdarank/prepared/starter-v3 \
+  --run eval/lambdarank/runs/starter-v3 \
+  --output eval/lambdarank/runs/starter-v3/recheck.json
 ```
 
 `--grams` is optional for lexicon-only experiments; use the same resource pair
@@ -120,62 +125,69 @@ represent the native candidate window and cannot recover answers removed by the
 existing beam or final pruning. `total_eligible` counts eligible engine outputs
 before the export cap, not all possible paths.
 
-`si-cli rank-features BASE [--grams GRAMS]` reads one TSV request per line:
+`si-cli rank-features BASE [--grams GRAMS] [--pinyin-correction]` reads one TSV request per line:
 hex-encoded UTF-8 source, hex-encoded UTF-8 context, enabled-language list. Output
 starts with a schema/name header; each row is language, hex output, comma-separated
-float features, followed by `END<TAB>total_eligible` for every request. This keeps
+nullable numeric features, followed by `END<TAB>total_eligible` for every request. This keeps
 newlines/tabs and Unicode exact without adding a serialization dependency.
 
-The shared Rust `ranking_features` module defines `si-rank-features-v2` with
-38 features. Its first 12 columns retain their v1 meanings for controlled
-comparisons and compatibility with existing models:
+The shared Rust `ranking_features` module defines `si-rank-features-v3` with
+43 features. Python's `FEATURE_GROUPS` and Rust's `NAMES` are the ordered contract:
 
-| Feature | Meaning |
+| Group | Features |
 | --- | --- |
-| `lexical_bits` | Existing lexical path score |
-| `context_bits` | Existing transient preceding-context adjustment |
-| `effective_bits` | Sum of those two scores, with empty personal state |
-| `consumed_scalars`, `output_scalars` | Unicode scalar counts, not UTF-16 offsets |
-| `lexical_tokens` | Existing candidate lexical-unit metadata |
-| `bits_per_source_scalar`, `bits_per_output_scalar` | Lexical score divided by lengths |
-| `is_chinese`, `is_english`, `is_mixed` | Language indicator features |
-| `separator_count` | Explicit ASCII apostrophes in consumed source |
+| Frequency (5) | Mean/minimum log counts; sum/mean/minimum unigram log probabilities |
+| Internal grams (6) | Sum/mean/minimum internal conditional log probabilities; observed-hit ratio, maximum hit order, mean log support over hits |
+| Context (6) | Availability, sentence-start flag, recognized history length, whole-candidate conditional log probability and gain, maximum cross-boundary hit order |
+| Spelling (4) | Exact-match flag, abbreviated Chinese syllable ratio, missing completion letters, explicit separator alignment |
+| Structure (4) | Actual path token count, single-character fraction of Chinese tokens, language switches, categorical candidate language |
+| User lexicon (6) | Availability, observed-word ratio, mean/minimum log counts, mean smoothed user unigram log probability and lift |
+| User grams (6) | Availability, internal hit ratio/support/gain, cross-boundary log support, whole-candidate user-gram gain |
+| Correction (6) | Corrected flag, edit count, actual path correction cost, missing-key/neighbor-key/adjacent-swap indicators |
 
-The added groups capture evidence from the exact scoring derivation:
+All observations use the exact selected lexical derivation, including user IDs.
+Whole-candidate context scoring retains external history across successive candidate
+words until bounded N-gram history or a language change removes it. It is diagnostic:
+production retains its existing first-word context adjustment and ranking policy.
+Probabilities use log2; counts use ln(1 + count). User unigram probabilities use
+32 observations of the shared-vocabulary base distribution as a smoothing prior.
+User gram gains compare with/without user grams at identical user-unigram settings,
+so unigram personalization is not counted again. Cross-boundary user support sums
+the log support of each token's highest observed gram that still reaches into
+external history. User candidate gain includes all candidate transitions, while
+internal gain excludes the first word. Single-token internal features are missing.
 
-| Group | Added features and units |
-| --- | --- |
-| `score_components` | Unigram log probability, internal gram adjustment, token/language/spelling costs, all in bits. Positive costs subtract from the lexical score. Spelling cost includes the existing abbreviation penalty. |
-| `gram_evidence` | Fraction of path tokens with an observed gram, highest observed order, sum of `ln(1 + count)` for each token's highest-order observed gram, and whether a gram resource was loaded. Zero-count smoothing contexts do not count as observed hits. |
-| `context_evidence` | Whether nonempty preceding text was supplied, effective same-language history length, an observed first-word gram flag, its highest observed order and log support. These use the engine's existing last-sentence selection and segmentation. |
-| `path_structure` | Actual best-path token count, independent exact direct-match flag, single-Han-character token count, minimum/maximum token scalar length and language-switch count. |
-| `spelling` | Abbreviated lexical-node count, canonical Pinyin syllable count, consumed explicit separator count, normalized input-unit count, lexical bits per normalized unit, and separators coinciding with word boundaries. |
+Missing values are TSV `null`, JSON null and LightGBM missing values, never fabricated
+zeros. No user resource means missing user statistics; an available model with no
+matching count supplies zero count. Empty user lexicons are treated as unavailable.
+A request can append a fourth TSV column, `0` or `1`, for context availability;
+JSONL accepts `context_available`. Known empty context means field start; absent
+metadata preserves legacy empty-string-as-unavailable semantics. Sentence position
+uses terminal punctuation/newlines and closing quotes, a heuristic rather than a
+linguistic sentence parser. An unavailable context cannot contain nonempty text.
 
-`best_path_tokens` stays with the derivation supplying `lexical_bits`. The legacy
-`lexical_tokens` column retains presentation semantics, where an alternative
-direct dictionary match may mark a candidate as one token. `has_direct_match`
-records this independently, even when a composed derivation supplies the score.
-The five score components reconstruct the lexical score within floating-point
-tolerance. Preceding-context adjustment remains separate.
+`prepare --pinyin-correction` enables the current bounded, default-sensitivity
+correction decoder. Corrected full candidates join the same capped pool. Features
+use its real single edit and cost (8 bits for missing/swap, 11 for neighbor).
+Corrections are not exact spelling. Prefixes, completions, personal and verbatim
+paths remain excluded; completion-missing-letters is therefore constant zero in
+this experiment. Separator alignment is also constrained by candidate generation.
+These constants are retained as defined signals, not evidence of learned utility.
 
-Normalized input units come from the engine's existing grapheme/source mapping,
-so `ü`, decomposed `u` plus diaeresis, `u:` and `v` share a unit count. Pinyin
-syllable count comes from the selected lexical readings, including abbreviated
-nodes. Separator placement is constrained by lookup; word-boundary separators
-can distinguish different valid segmentations of the same source.
+Explicit `--user-lexicon PATH --user-grams PATH --user-snapshot-note TEXT` supports
+an immutable user snapshot that predates **every** training/validation request.
+The note documents that provenance; the tool cannot establish historical timing.
+Never use a profile containing the target submissions. Resources are hashed before
+and after export. No live profile discovery or automatic history training occurs.
+Existing authored data has no user snapshots, so it cannot establish personalization
+quality. Synthetic fixtures verify user calculations independently.
 
-Evidence capture uses `CandidateEngine::candidates_with_evidence` and is enabled
-only for base-resource engines. User-resource engines return candidates without
-this offline evidence. Ordinary conversion does not allocate scoring-evidence
-objects. Tests compare complete candidate results after removing diagnostics,
-including scores, source boundaries, confirmation evidence, order and bytes.
-
-No reference, selection position, label or future suffix enters the feature
-vector. Python validates the Rust header. Existing v1 prepared bundles and runs
-remain readable by training and evaluation. New preparation produces v2. Feature extraction rejects nonfinite
-values; schema/order must be versioned whenever meanings change. Inference ties
-retain baseline order. Model scores are not probabilities or lexical bits, and
-must not be substituted into app automatic-confirmation thresholds.
+Legacy v1/v2 bundles remain readable. `prepare --schema si-rank-features-v2` exports
+the old features for a resource-matched comparison without corrections or user
+resources. Do not compare quality across different candidate pools without reporting
+that difference. Extraction never receives reference answers. Normal conversion
+allocates no diagnostic evidence; regression tests remove evidence and compare
+candidate order, scores, spans and correction metadata exactly.
 
 Training uses LightGBM 4.6.0, `objective=lambdarank`, gains `[0,1]`, shallow trees,
 one thread, fixed seed and deterministic column-wise training. The default maximum
@@ -191,23 +203,18 @@ resource versions remain fixed:
 
 ```sh
 .venv/lambdarank/bin/python scripts/lambdarank/pipeline.py ablate \
-  --bundle eval/lambdarank/prepared/features-v2-expanded \
-  --output eval/lambdarank/runs/features-v2-comparison
+  --bundle eval/lambdarank/prepared/features-v3-typos-20261119 \
+  --output eval/lambdarank/runs/features-v3-comparison
 ```
 
-This trains 12 variants: `v1`, `all`, each `add_GROUP` on top of v1, and each
-`without_GROUP` from the full feature set. Group names are listed above.
-`comparison.json` includes all validation metrics, per-category and per-query
-results, feature importance and the bundle hash. Each child run retains its
-model and versioned metadata. Training and early stopping defaults are identical
-across variants. The validation set is development evidence for these comparisons.
+V3 ablations train `all`, `without_user`, and each `without_GROUP` variant on
+the same candidates. Each child run retains its model, feature order, importance,
+metrics and per-feature observed/distinct training counts. `v1` selection is only
+available with legacy bundles. Default selection is `all`. Validation is used for
+early stopping and development comparison, not an untouched quality test.
 
-To train one selection, pass `--feature-set v1`, `--feature-set all`, or a group
-variant to `train`. `evaluate` automatically uses the model's stored feature
-selection. The default is `all` for experimenting with the complete v2 schema.
-New features require a v2 bundle. Existing v1 bundles support `all` and `v1`.
-Feature importance records split count and gain; assess additions through the
-paired comparisons rather than interpreting training gain as quality improvement.
+The [v3 development results](FEATURES_V3_RESULTS.md) record the controlled comparison,
+typo expansion and current limitations.
 
 ## Validation and dependency provenance
 

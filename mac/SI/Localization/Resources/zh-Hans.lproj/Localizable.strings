@@ -343,3 +343,11 @@
 "The entry could not be saved. It may have changed; refresh and try again." = "无法保存词条。词条可能已变更，请重新打开后重试。";
 
 "The entry could not be saved. Check the spelling and duplicates, or reopen the editor if the entry changed." = "无法保存词条。请检查拼写和重复项；若词条已变更，请重新打开编辑器。";
+
+"Spelling correction" = "拼写纠错";
+"Spelling correction · %@" = "拼写纠错 · %@";
+"Pinyin correction" = "拼音纠错";
+"Offer spelling suggestions that require explicit selection." = "提供需要明确选择的拼写建议。";
+"Conservative" = "保守";
+"Higher recall" = "高召回";
+"Off" = "关闭";

@@ -1,4 +1,7 @@
 import SwiftUI
+#if SWIFT_PACKAGE
+import SICore
+#endif
 
 struct TypingSettingsPage: View {
     @Bindable var settings: LanguageSettings
@@ -19,6 +22,18 @@ struct TypingSettingsPage: View {
                 .foregroundStyle(.secondary)
         }
         SettingsGroup("Composition") {
+            SettingsRow(
+                title: Text("Pinyin correction"),
+                detail: Text("Offer spelling suggestions that require explicit selection.")
+            ) {
+                Picker("Pinyin correction", selection: $settings.pinyinCorrectionMode) {
+                    Text("Off").tag(CandidateEngine.PinyinCorrectionMode.off)
+                    Text("Conservative").tag(CandidateEngine.PinyinCorrectionMode.conservative)
+                    Text("Higher recall").tag(CandidateEngine.PinyinCorrectionMode.higherRecall)
+                }
+                .labelsHidden()
+            }
+            Divider()
             SettingsRow(
                 title: Text("Automatically confirm stable prefixes"),
                 detail: Text("Confirm stable leading Chinese words as you type or pause, keeping the ending editable.")

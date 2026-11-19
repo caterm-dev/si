@@ -1,3 +1,7 @@
+mod correction;
+
+pub(super) use correction::{CorrectionBudget, MIN_CORRECTION_BITS};
+
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -33,6 +37,8 @@ pub(super) struct Match<'a> {
     pub(super) missing: usize,
     reading: &'a str,
     abbreviated: bool,
+    pub(super) correction_cost: f64,
+    pub(super) correction_kind: Option<super::CorrectionKind>,
 }
 
 impl Match<'_> {
@@ -50,12 +56,17 @@ impl Match<'_> {
             missing: 0,
             reading: "",
             abbreviated: false,
+            correction_cost: 0.0,
+            correction_kind: None,
         }
     }
 
     pub(super) fn cuts(self, start: usize, input: &Input<'_>) -> Vec<usize> {
         let mut cuts = Vec::new();
-        if self.word.language == Language::Chinese && !self.abbreviated {
+        if self.word.language == Language::Chinese
+            && !self.abbreviated
+            && self.correction_cost == 0.0
+        {
             let mut position = start;
             for syllable in self.reading.split('\'') {
                 position += lookup_syllable(syllable).len();
@@ -86,6 +97,7 @@ pub(super) struct Lookup<'a> {
     entries: [Vec<Entry<'a>>; 2],
     paired: HashMap<WordId, WordId>,
     abbreviated: HashMap<Vec<u8>, Vec<Entry<'a>>>,
+    correction_order: Option<HashMap<Vec<u8>, correction::CorrectionRows>>,
 }
 
 impl<'a> Lookup<'a> {
@@ -195,6 +207,7 @@ impl<'a> Lookup<'a> {
             entries,
             paired,
             abbreviated,
+            correction_order: None,
         }
     }
 
@@ -253,6 +266,7 @@ impl<'a> Lookup<'a> {
             entries,
             paired: HashMap::new(),
             abbreviated: HashMap::new(),
+            correction_order: None,
         }
     }
 
@@ -328,6 +342,8 @@ impl<'a> Lookup<'a> {
                         missing,
                         reading: row.reading,
                         abbreviated: false,
+                        correction_cost: 0.0,
+                        correction_kind: None,
                     });
                 }
             }
@@ -354,6 +370,8 @@ impl<'a> Lookup<'a> {
                             missing: 0,
                             reading: row.reading,
                             abbreviated: true,
+                            correction_cost: 0.0,
+                            correction_kind: None,
                         });
                     }
                 }
