@@ -1,12 +1,18 @@
 """Train-only Unicode character vocabulary with lossless UTF-8 byte fallback."""
 
 from collections import Counter
+import re
 
-from .common import fingerprint, read_json, write_json
+from .common import CONTEXTUAL_PINYIN, fingerprint, read_json, write_json
 
-PAD, BOS, EOS, UNUSED = range(4)
+PAD, BOS, EOS, PINYIN_START = range(4)
 BYTE_OFFSET = 4
 CHAR_OFFSET = 260
+
+
+def validate_syllables(spelling, syllables):
+    if not re.fullmatch(r"[a-zü]+(?: [a-zü]+)*", syllables) or syllables.replace(" ", "") != spelling:
+        raise ValueError("Syllables must be lowercase toneless Pinyin separated by single spaces and match input")
 
 
 class Tokenizer:
@@ -21,7 +27,8 @@ class Tokenizer:
 
     @classmethod
     def fit(cls, rows, vocab_size):
-        counts = Counter(c for row in rows for text in (row["input"], row["target"]) for c in text if ord(c) > 127)
+        counts = Counter(c for row in rows for text in (row["input"], row["target"], row.get("context", ""))
+                         for c in text if ord(c) > 127)
         characters = sorted(counts, key=lambda c: (-counts[c], ord(c)))[:vocab_size - CHAR_OFFSET]
         return cls(vocab_size, characters)
 
@@ -29,14 +36,31 @@ class Tokenizer:
     def active_ids(self):
         return [EOS, *range(BYTE_OFFSET, CHAR_OFFSET + len(self.characters))]
 
+    def _character_tokens(self, character):
+        if character in self.lookup:
+            return [self.lookup[character]]
+        return [BYTE_OFFSET + byte for byte in character.encode("utf-8")]
+
     def encode(self, text):
-        result = [BOS]
-        for character in text:
-            if character in self.lookup:
-                result.append(self.lookup[character])
-            else:
-                result.extend(BYTE_OFFSET + byte for byte in character.encode("utf-8"))
-        return [*result, EOS]
+        return [BOS, *(token for char in text for token in self._character_tokens(char)), EOS]
+
+    def encode_source(self, spelling, model, *, context=None, syllables=None):
+        if model.get("source_format") != CONTEXTUAL_PINYIN:
+            if context is not None or syllables is not None:
+                raise ValueError("Context and syllables require a contextual Pinyin configuration")
+            return self.encode(spelling)
+        if context is None or syllables is None:
+            raise ValueError("Contextual Pinyin requires context and syllables")
+        validate_syllables(spelling, syllables)
+        pinyin_tokens = self.encode(syllables)[1:-1]
+        available = max(0, model["max_source_tokens"] - len(pinyin_tokens) - 3)
+        context_tokens = []
+        for char in reversed(context[-available:] if available else ""):
+            tokens = self._character_tokens(char)
+            if len(context_tokens) + len(tokens) > available:
+                break
+            context_tokens.extend(reversed(tokens))
+        return [BOS, *reversed(context_tokens), PINYIN_START, *pinyin_tokens, EOS]
 
     def decode(self, tokens):
         output = bytearray()

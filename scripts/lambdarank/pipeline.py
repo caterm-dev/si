@@ -14,6 +14,14 @@ import unicodedata
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / 'eval/lambdarank'
 SCHEMA = 'si-rank-features-v3'
+NEURAL_SCHEMA = 'si-rank-features-v4'
+V5_LEXICAL_SCHEMA = 'si-rank-features-v5-lexical'
+V5_SCHEMA = 'si-rank-features-v5'
+
+# The command is also loaded directly by the pipeline tests.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from scripts.lambdarank import neural_features
 V1_FEATURES = ['lexical_bits', 'context_bits', 'effective_bits', 'consumed_scalars',
             'output_scalars', 'lexical_tokens', 'bits_per_source_scalar',
             'bits_per_output_scalar', 'is_chinese', 'is_english', 'is_mixed', 'separator_count']
@@ -38,16 +46,38 @@ FEATURE_GROUPS = {
 }
 FEATURE_GROUPS['correction'] = ['is_corrected', 'correction_edit_count', 'correction_cost_bits', 'correction_missing_key', 'correction_neighbor_key', 'correction_adjacent_swap']
 FEATURES = [name for group in FEATURE_GROUPS.values() for name in group]
-FEATURE_SETS = ['all', 'v1', 'without_user'] + ['without_' + name for name in FEATURE_GROUPS]
-SCHEMAS = {'si-rank-features-v1': V1_FEATURES, 'si-rank-features-v2': V2_FEATURES, SCHEMA: FEATURES}
+NEURAL_GROUPS = {**FEATURE_GROUPS, **neural_features.FEATURE_GROUPS}
+NEURAL_FEATURES = FEATURES + [name for group in neural_features.FEATURE_GROUPS.values() for name in group]
+V5_ADDITIONS = {
+    'path_counts': ['abbreviated_token_count', 'abbreviated_syllable_count', 'pinyin_syllable_count',
+                    'english_token_count', 'single_han_token_count', 'is_completion', 'has_exact_dictionary_match'],
+    'baseline_evidence': ['base_gram_available', 'lexical_score_bits', 'field_context_adjustment_bits'],
+    'choice_history': ['user_choice_whole_bonus', 'user_choice_token_bonus'],
+}
+V5_LEXICAL_GROUPS = {**FEATURE_GROUPS, **V5_ADDITIONS}
+V5_NEURAL_GROUPS = {**V5_LEXICAL_GROUPS, **neural_features.FEATURE_GROUPS}
+V5_LEXICAL_FEATURES = [name for names in V5_LEXICAL_GROUPS.values() for name in names]
+V5_FEATURES = [name for names in V5_NEURAL_GROUPS.values() for name in names]
+MERGED_SCHEMAS = {NEURAL_SCHEMA: SCHEMA, V5_SCHEMA: V5_LEXICAL_SCHEMA}
+GROUPS_BY_SCHEMA = {SCHEMA: FEATURE_GROUPS, NEURAL_SCHEMA: NEURAL_GROUPS,
+                    V5_LEXICAL_SCHEMA: V5_LEXICAL_GROUPS, V5_SCHEMA: V5_NEURAL_GROUPS}
+FEATURE_SETS = ['all', 'v1', 'without_user', 'without_neural', 'without_v5_additions'] + [
+    'without_' + name for name in V5_NEURAL_GROUPS]
+SCHEMAS = {'si-rank-features-v1': V1_FEATURES, 'si-rank-features-v2': V2_FEATURES, SCHEMA: FEATURES,
+           NEURAL_SCHEMA: NEURAL_FEATURES, V5_LEXICAL_SCHEMA: V5_LEXICAL_FEATURES, V5_SCHEMA: V5_FEATURES}
 
 
 def select_features(rows, available, selection):
-    groups = FEATURE_GROUPS if available == FEATURES else V2_GROUPS
+    schema = next((schema for schema, names in SCHEMAS.items() if names == available), None)
+    groups = GROUPS_BY_SCHEMA.get(schema, V2_GROUPS)
     if selection == 'all':
         names = available
     elif selection == 'v1':
         names = V1_FEATURES
+    elif selection == 'without_neural':
+        names = V5_LEXICAL_FEATURES if schema == V5_SCHEMA else FEATURES
+    elif selection == 'without_v5_additions':
+        names = NEURAL_FEATURES if schema == V5_SCHEMA else FEATURES
     elif selection == 'without_user':
         names = [name for name in available if not name.startswith('user_')]
     elif selection.startswith('add_'):
@@ -83,6 +113,33 @@ def normalized(text):
     return unicodedata.normalize('NFC', text).lower().replace('u:', 'ü').replace('v', 'ü').replace("'", '')
 
 
+def encode_preferences(row):
+    """Serialize explicit pre-request observations without passing reference labels to Rust."""
+    rows = row.get('prior_choices', [])
+    if not isinstance(rows, list) or len(rows) > 128:
+        raise ValueError('Invalid prior_choices list')
+    encoded, seen = [], set()
+    enabled = set(row['languages'])
+    if len(enabled) == 2:
+        enabled.add('mixed')
+    for item in rows:
+        if not isinstance(item, dict) or set(item) - {'text', 'language', 'bonus', 'token_spelling'}:
+            raise ValueError('Invalid prior choice fields')
+        text, language, bonus = (item.get(key) for key in ['text', 'language', 'bonus'])
+        spelling = item.get('token_spelling', '')
+        if (not isinstance(text, str) or not 0 < len(text.encode()) <= 512
+                or not isinstance(language, str) or language not in enabled
+                or type(bonus) not in (int, float) or not 0 <= bonus <= 32
+                or not isinstance(spelling, str) or len(spelling.encode()) > 128
+                or ('token_spelling' in item and (not spelling or language == 'mixed'))):
+            raise ValueError('Invalid prior choice')
+        if (language, spelling, text) in seen:
+            raise ValueError('Duplicate prior choice')
+        seen.add((language, spelling, text))
+        encoded.append(f'{language}:{bonus}:{spelling.encode().hex()}:{text.encode().hex()}')
+    return ','.join(encoded)
+
+
 def validate_sets(train, validation, test):
     seen_ids, families, queries, targets = set(), {}, {}, {}
     for split, rows in [('train', train), ('validation', validation), ('test', test)]:
@@ -101,8 +158,12 @@ def validate_sets(train, validation, test):
             if 'context_available' in row and (not isinstance(row['context_available'], bool)
                     or (not row['context_available'] and row.get('context'))):
                 raise ValueError('Context availability must be a boolean consistent with supplied text')
+            paths = row.get('syllable_paths', [])
+            if not isinstance(paths, list) or len(paths) > 3 or any(not isinstance(p, str) or not p for p in paths):
+                raise ValueError('syllable_paths must contain up to three observed Pinyin segmentations')
             if row.get('languages') not in [['zh-Hans', 'en'], ['zh-Hans'], ['en']]:
                 raise ValueError('Invalid enabled languages')
+            encode_preferences(row)
             refs = row.get('references')
             if not isinstance(refs, list) or not refs or any(not isinstance(r, str) or not r for r in refs) or len(set(refs)) != len(refs):
                 raise ValueError('References must be distinct nonempty strings')
@@ -137,13 +198,21 @@ def export_rows(binary, lexicon, grams, rows, schema=SCHEMA, user_lexicon=None, 
         command += ['--pinyin-correction']
     if schema == 'si-rank-features-v2':
         command += ['--legacy-v2']
+    elif schema == V5_LEXICAL_SCHEMA:
+        command += ['--v5']
     if user_lexicon:
         command += ['--user-lexicon', str(user_lexicon.resolve())]
     if user_grams:
         command += ['--user-grams', str(user_grams.resolve())]
     names = SCHEMAS[schema]
-    requests = ''.join(f'{r["input"].encode().hex()}\t{r["context"].encode().hex()}\t{",".join(r["languages"])}\t{int(r.get("context_available", bool(r["context"])))}\n' for r in rows)
-    result = subprocess.run(command, input=requests, text=True, capture_output=True, timeout=600)
+    requests = []
+    for row in rows:
+        columns = [row['input'].encode().hex(), row['context'].encode().hex(), ','.join(row['languages']),
+                   str(int(row.get('context_available', bool(row['context']))))]
+        if schema == V5_LEXICAL_SCHEMA:
+            columns.append(encode_preferences(row))
+        requests.append('\t'.join(columns) + '\n')
+    result = subprocess.run(command, input=''.join(requests), text=True, capture_output=True, timeout=600)
     if result.returncode:
         raise ValueError('Rust feature exporter failed (no input text logged)')
     lines = iter(result.stdout.splitlines())
@@ -160,7 +229,7 @@ def export_rows(binary, lexicon, grams, rows, schema=SCHEMA, user_lexicon=None, 
                 break
             language, text, feature_text = line.split('\t')
             text = bytes.fromhex(text).decode('utf-8')
-            values = [None if v == 'null' and schema == SCHEMA else float(v) for v in feature_text.split(',')]
+            values = [None if v == 'null' and schema in (SCHEMA, V5_LEXICAL_SCHEMA) else float(v) for v in feature_text.split(',')]
             key = (language, text)
             allowed = row['languages'] + (['mixed'] if len(row['languages']) == 2 else [])
             if language not in allowed or not text or key in identities or len(values) != len(names) or not all(v is None or math.isfinite(v) for v in values):
@@ -183,19 +252,37 @@ def prepare(args):
     user_lexicon = getattr(args, 'user_lexicon', None)
     user_grams = getattr(args, 'user_grams', None)
     snapshot_note = getattr(args, 'user_snapshot_note', None)
-    schema = getattr(args, 'schema', SCHEMA)
+    pinyin_model = getattr(args, 'pinyin_model', None)
+    reranker_model = getattr(args, 'reranker_model', None)
+    if bool(pinyin_model) != bool(reranker_model):
+        raise ValueError('Pass both --pinyin-model and --reranker-model to prepare the merged pool')
+    schema = getattr(args, 'schema', None) or (V5_SCHEMA if pinyin_model else V5_LEXICAL_SCHEMA)
+    if bool(pinyin_model) != (schema in MERGED_SCHEMAS):
+        raise ValueError('The merged model pool requires a neural schema and both checkpoints')
+    rust_schema = MERGED_SCHEMAS.get(schema, schema)
     if user_grams and not user_lexicon:
         raise ValueError('User grams require their paired user lexicon')
-    if user_lexicon and (schema != SCHEMA or not snapshot_note or not snapshot_note.strip()):
-        raise ValueError('User resources require v3 and --user-snapshot-note documenting a snapshot predating every query')
+    if user_lexicon and (rust_schema not in (SCHEMA, V5_LEXICAL_SCHEMA) or not snapshot_note or not snapshot_note.strip()):
+        raise ValueError('User resources require v3 or v5 and --user-snapshot-note documenting a snapshot predating every query')
     def resource_hashes():
         return {'exporter': sha(args.binary), 'lexicon': sha(args.lexicon),
                 'grams': sha(args.grams) if args.grams else None,
                 'user_lexicon': sha(user_lexicon) if user_lexicon else None,
-                'user_grams': sha(user_grams) if user_grams else None}
+                'user_grams': sha(user_grams) if user_grams else None,
+                'pinyin_model': sha(pinyin_model) if pinyin_model else None,
+                'reranker_model': sha(reranker_model) if reranker_model else None}
     binaries = resource_hashes()
-    exported = [export_rows(args.binary, args.lexicon, args.grams, rows, schema, user_lexicon, user_grams, getattr(args, 'pinyin_correction', False))
+    exported = [export_rows(args.binary, args.lexicon, args.grams, rows, rust_schema, user_lexicon, user_grams, getattr(args, 'pinyin_correction', False))
                 for rows in [train, validation]]
+    model_metadata = None
+    if pinyin_model:
+        models = neural_features.NeuralModels(pinyin_model, reranker_model, args.device, args.pinyin_beam)
+        exported = [[neural_features.merge_row(row, SCHEMAS[rust_schema], models.generate, models.score) for row in rows]
+                    for rows in exported]
+        python_files = [Path(neural_features.__file__)]
+        for family in ['pinyin_to_text', 'reranker_small']:
+            python_files.extend(sorted((ROOT / 'llm' / family).glob('*.py')))
+        model_metadata = {**models.metadata, 'sources': {str(path.relative_to(ROOT)): sha(path) for path in python_files}}
     if binaries != resource_hashes():
         raise ValueError('Resources changed during export')
     if sources != load_sources(args)[1]:
@@ -211,7 +298,9 @@ def prepare(args):
     # Include untracked implementation files as well as the working-tree diff.
     source_hashes = {str(p.relative_to(ROOT)): sha(p) for p in sorted((ROOT / 'crates').rglob('*.rs'))}
     write_json(args.output / 'manifest.json', {'schema': schema, 'features': SCHEMAS[schema],
-               'protocol': 'first-64-complete-noncompletion-dictionary-paths-v1',
+               'protocol': ('same-span-including-completions-v5' if rust_schema == V5_LEXICAL_SCHEMA else
+                            'union-si-64-and-pinyin-beam-v1' if model_metadata else 'first-64-complete-noncompletion-dictionary-paths-v1'),
+               'neural_models': model_metadata,
                'pinyin_correction': getattr(args, 'pinyin_correction', False),
                'sources': sources, 'resources': binaries, 'files': files, 'git_revision': revision,
                'rust_diff_sha256': hashlib.sha256(diff).hexdigest(), 'rust_sources': source_hashes,
@@ -273,11 +362,28 @@ def training_matrix(rows):
     return x, y, groups
 
 
+def neural_baselines(rows, manifest):
+    if manifest['schema'] not in MERGED_SCHEMAS:
+        return {}
+    origin = manifest['features'].index('from_si_engine')
+    logp = manifest['features'].index('reranker_logp_sum')
+    penalty = manifest['neural_models']['reranker_baseline_length_penalty']
+
+    def scorer_order(candidate):
+        score = candidate['features'][logp]
+        return math.inf if score is None else -score / len(candidate['text']) ** penalty
+
+    si_rows = [{**row, 'candidates': [c for c in row['candidates'] if c['features'][origin]]} for row in rows]
+    reranked = [{**row, 'candidates': sorted(row['candidates'], key=scorer_order)} for row in rows]
+    return {'si_only': metrics(si_rows), 'reranker_small': metrics(reranked)}
+
+
 def train(args):
     import lightgbm as lgb
     import numpy as np
     import scipy
     (train_rows, valid_rows), manifest = load_bundle(args.bundle)
+    comparisons = neural_baselines(valid_rows, manifest)
     if args.output.exists():
         raise ValueError('Run directory already exists; choose a new run')
     train_rows, names = select_features(train_rows, manifest['features'], args.feature_set)
@@ -298,7 +404,7 @@ def train(args):
     saved = lgb.Booster(model_file=str(args.output / 'model.txt'))
     if not np.allclose(model.predict(np.asarray(vx, dtype=float)), saved.predict(np.asarray(vx, dtype=float)), rtol=0, atol=1e-12):
         raise ValueError('Saved model prediction mismatch')
-    report = {'baseline': metrics(valid_rows), 'lambdarank': metrics(valid_rows, saved),
+    report = {'baseline': metrics(valid_rows), 'lambdarank': metrics(valid_rows, saved), **comparisons,
               'training_groups': len(group), 'validation_early_stopping_groups': len(vgroup),
               'excluded_training_groups': len(train_rows) - len(group),
               'excluded_validation_early_stopping_groups': len(valid_rows) - len(vgroup),
@@ -318,19 +424,21 @@ def train(args):
                'numpy': np.__version__, 'scipy': scipy.__version__, 'python': sys.version, 'pipeline_sha256': sha(__file__),
                'requirements_sha256': sha(Path(__file__).with_name('requirements.txt')),
                'training_sources': manifest['sources']})
-    print(json.dumps({k: report[k]['overall'] for k in ['baseline', 'lambdarank']}))
+    print(json.dumps({k: report[k]['overall'] for k in ['baseline', 'lambdarank', *comparisons]}))
 
 
 def evaluate(args):
     import lightgbm as lgb
     (_, rows), manifest = load_bundle(args.bundle)
+    comparisons = neural_baselines(rows, manifest)
     run = json.loads((args.run / 'run.json').read_text())
     rows, names = select_features(rows, manifest['features'], run.get('feature_set', 'all'))
     if run['schema'] != manifest['schema'] or run['features'] != names or sha(args.run / 'model.txt') != run['model_sha256']:
         raise ValueError('Model checksum/schema mismatch')
     if sha(args.bundle / 'manifest.json') != run['bundle_manifest_sha256']:
         raise ValueError('Run was trained against a different bundle')
-    report = {'baseline': metrics(rows), 'lambdarank': metrics(rows, lgb.Booster(model_file=str(args.run / 'model.txt')))}
+    report = {'baseline': metrics(rows), 'lambdarank': metrics(rows, lgb.Booster(model_file=str(args.run / 'model.txt'))),
+              **comparisons}
     if args.output.exists():
         raise ValueError('Report already exists')
     write_json(args.output, report)
@@ -341,12 +449,18 @@ def ablate(args):
     if args.output.exists():
         raise ValueError('Comparison directory already exists')
     (_, _), manifest = load_bundle(args.bundle)
-    if manifest['schema'] != SCHEMA:
-        raise ValueError('Ablations require a v3 bundle')
+    groups = GROUPS_BY_SCHEMA.get(manifest['schema'])
+    if groups is None:
+        raise ValueError('Ablations require a v3 or newer bundle')
+    selections = ['all', 'without_user', *('without_' + name for name in groups)]
+    if manifest['schema'] in MERGED_SCHEMAS:
+        selections.append('without_neural')
+    if manifest['schema'] in (V5_SCHEMA, V5_LEXICAL_SCHEMA):
+        selections.append('without_v5_additions')
     bundle_hash = sha(args.bundle / 'manifest.json')
     args.output.mkdir(parents=True)
     results = {}
-    for feature_set in [s for s in FEATURE_SETS if s != 'v1']:
+    for feature_set in selections:
         destination = args.output / feature_set
         train(argparse.Namespace(bundle=args.bundle, output=destination,
                                  rounds=args.rounds, feature_set=feature_set))
@@ -356,7 +470,7 @@ def ablate(args):
         results[feature_set] = {key: report[key] for key in ['baseline', 'lambdarank', 'best_iteration', 'importance']}
     write_json(args.output / 'comparison.json', {
         'bundle_manifest_sha256': sha(args.bundle / 'manifest.json'),
-        'feature_groups': FEATURE_GROUPS,
+        'feature_groups': groups,
         'scope': 'Same frozen candidates and labels for every feature set; development validation uses early stopping.',
         'experiments': results,
     })
@@ -374,7 +488,11 @@ def main():
             p.add_argument('--binary', type=Path, default=ROOT / 'target/release/si-cli')
             p.add_argument('--lexicon', type=Path, required=True)
             p.add_argument('--grams', type=Path)
-            p.add_argument('--schema', choices=[SCHEMA, 'si-rank-features-v2'], default=SCHEMA)
+            p.add_argument('--schema', choices=[V5_SCHEMA, V5_LEXICAL_SCHEMA, NEURAL_SCHEMA, SCHEMA, 'si-rank-features-v2'])
+            p.add_argument('--pinyin-model', type=Path)
+            p.add_argument('--reranker-model', type=Path)
+            p.add_argument('--pinyin-beam', type=int, choices=range(1, 33), default=8, metavar='1..32')
+            p.add_argument('--device', choices=['auto', 'cpu', 'mps', 'cuda'], default='cpu')
             p.add_argument('--user-lexicon', type=Path)
             p.add_argument('--user-grams', type=Path)
             p.add_argument('--user-snapshot-note')
@@ -405,7 +523,7 @@ def main():
                 train(args)
         else:
             evaluate(args)
-    except (ValueError, OSError, KeyError, ImportError, subprocess.SubprocessError) as error:
+    except (ValueError, OSError, KeyError, ImportError, RuntimeError, subprocess.SubprocessError) as error:
         parser.exit(1, f'{type(error).__name__}: {error}\n')
 
 

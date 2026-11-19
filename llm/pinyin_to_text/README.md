@@ -108,6 +108,47 @@ Use a new output path for repeated validation, for example:
 
 `--limit N` explicitly marks a partial report. An external benchmark can be supplied with `--benchmark PATH` containing provenance and the selected split's CSVs; its inputs/targets must not overlap that model's train/validation. `compare.sh` requires matching dataset/split/cases/k. Offline p50/p95 timings are not host-app latency claims. The small workflow checks and bounded memorization probes do not establish held-out conversion accuracy.
 
+## Contextual Pinyin experiment
+
+The optional [contextual preset](configs/contextual-pinyin.json) uses the same
+4-layer encoder and 4-layer decoder with a 96-token source budget and a
+32-token target budget. The encoder reads preceding text, a dedicated Pinyin
+start token and a space-separated syllable sequence. The decoder learns only
+the target for the current spelling. The input budget keeps the spelling intact
+and takes the longest preceding-text suffix that fits on Unicode character
+boundaries. Oversized spelling paths are ineligible for neural decoding.
+
+The [synthetic CSVs](data/contextual-pinyin-csv/train/examples.csv) use the
+`input,target,context,syllables` header. An empty context is valid. Each row
+declares its spelling and syllable boundaries explicitly, and joining the
+syllables must reproduce the input. Six train, three validation and three test
+rows are intended for pipeline checks. During evaluation, contexts for the same
+spelling share the union of the split's annotated paths while keeping their own
+reference text. This exercises multiple paths with known annotations. It does
+not measure how often an input method finds the correct cuts on its own.
+
+To prepare the examples, select the experiment before invoking the usual stages:
+
+```sh
+export SI_LLM_EXPERIMENT=pinyin-contextual-v1
+./llm/pinyin_to_text/scripts/data.sh
+```
+
+If you choose to train this experiment, use its own `run.sh` stage and keep
+the same experiment selection when inspecting the resulting checkpoint:
+
+```sh
+./llm/pinyin_to_text/scripts/infer.sh --input fangan --context '先定个' \
+    --syllables 'fang an' --syllables 'fan gan'
+```
+
+The offline runtime takes up to three caller-supplied paths, batches encoder
+inputs and active beams, and merges duplicate outputs by their best normalized
+model score. It always preserves the original spelling as a candidate. The
+runtime validates spelling reconstruction; pronunciation checking and
+app/Rust integration are outside this experiment. The lexical preset and its
+existing checkpoints retain their spelling-only format.
+
 ## Previous experiments and dependencies
 
 [0.4b-static-csv.json](configs/0.4b-static-csv.json), the earlier [50,000-pair CSVs](data/csv/README.md) and existing run/data/report directories remain available for explicit use. To evaluate an old model, pass its checkpoint and its matching prepared bundle; changing only `--output` does not select a different model. Inference can load old weights from their embedded config, for example:

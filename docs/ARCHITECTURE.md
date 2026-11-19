@@ -661,7 +661,7 @@ DMGs use compressed UDZO with an explicit HFS+ filesystem. This avoids inheritin
 
 The [offline LambdaRank workflow](../eval/lambdarank/README.md) uses the Rust
 `ranking_features` module and `si-cli rank-features` to export a versioned
-first-64 complete, noncompletion dictionary candidate pool. Python trains and
+first-64 whole-span dictionary candidate pool. V5 includes completions. Python trains and
 evaluates LightGBM against separate synthetic train/validation sources. Source,
 resource, exporter and feature identities are recorded in immutable local bundles.
 V3 captures the selected path for offline word-frequency, internal N-gram,
@@ -672,8 +672,39 @@ explicit nulls. Correction evidence retains the decoder's actual edit kind and c
 Normal conversion disables diagnostic allocation. Python supports legacy v1/v2
 bundles and v3 removal ablations. User snapshots must predate the evaluated queries;
 the authored starter data does not establish personalized quality.
-The current conversion pipeline does not load these models; prefix ranking,
-personalization, native presentation and automatic confirmation are unchanged.
+Ordinary builds use the statistical conversion pipeline.
+
+Offline v4 optionally adds the Pinyin-to-text hypotheses to the Rust pool by
+exact text and language. The small character LM scores the merged pool with a
+shared preceding-text window. LambdaRank receives candidate source flags,
+generation rank, conditional log probabilities and context gain. Generated-only
+rows carry missing Rust path evidence. The prepared bundle binds both checkpoint
+hashes to the data; prediction uses only spelling, context and candidates.
+
+V5 adds raw spelling and token counts, completion and exact-match evidence,
+statistical score observations, and the separate whole/token frequency bonuses
+from an available prior choice snapshot. Offline export and the runtime share
+the extractor. The runtime retains compatibility with v4 candidate pools.
+
+The standalone `si-neural` crate loads exported FP32 weights to run both models
+locally. Rust owns Unicode-scalar tokenization, pre-normalized attention,
+encoder/decoder generation and conditional candidate scoring. The macOS build
+uses Accelerate matrix multiplication and the portable implementation provides
+a reference without platform libraries. Model exports and parity checks are
+described in [the model workspace](../llm/README.md#rust-inference-prototype).
+
+An opt-in macOS development build packages the matching two FP32 bundles and
+the exported LambdaRank trees. The background full worker opens the immutable
+bundle once and uses the current engine snapshot, including local user counts
+and active correction mode. The Rust engine merges exact text and language,
+scores a bounded complete-candidate pool and emits a separate model score.
+Swift preserves explicit pins, remembered choices, correction and prefix
+policies, and the exact literal fallback. Early preview and synchronous
+resolution use the statistical engine. The session rejects results from obsolete
+requests and retains the currently displayed preview after navigation. Secure or
+direct input skips model work. Model-only hypotheses require explicit selection
+and carry no learning, automatic confirmation or prefix evidence. A scored
+result disables automatic prefix confirmation for that request.
 
 `corpus/prepare_raw_text.py` extracts sources into versioned
 `chinese/prepared/raw-text-v2` bundles. Six archives retain their existing pins;
@@ -723,6 +754,8 @@ CSVs. [Corpus preparation and reading export](../corpus/README.md)
 `llm/` is a separate Python/PyTorch spelling-to-text framework. Its default is a randomly initialized 19,711,488-parameter encoder-decoder: four encoder/four decoder layers, width 384, eight heads, feed-forward width 1,536 and vocabulary capacity 8,192. The initial budget is 2,000 FP32 steps with batch 16/accumulation 1 and activation checkpointing off. It has no dependency from the Swift package/app and does not replace the production candidate engine. `llm/pinyin_to_text/csv_data/` imports static `input,target` CSVs from explicit train/validation/test directories; filenames label source groups and an optional language defaults to Chinese. It checks source declarations, rejects cross-split normalized input/target overlap, deduplicates within a split and freezes source bytes/hashes with model-ready JSONL. There is no seed-based content generation, Pinyin conversion, noise augmentation, source-manifest importer or automatic split path.
 
 The default `llm/pinyin_to_text/data/pinyin-csv/` contains only explicit character and short-word sources. Its initial 2,021/73/69 train/validation/test pairs select earlier SI-authored vocabulary and add uniquely aligned character/reading pairs from training words only, excluding held-out input/output identities. This materialization is static and audited; runtime preparation never decomposes words. Sentence, English/mixed and typo data remain in the separately retained 50,000-pair collection with the 0.403B config. Neither that data nor existing weights are migrated implicitly. Limits are 48 source and 16 target tokens; generation remains unconstrained, with no copy branch. The corpus has limited character coverage, including held-out symbols absent from training outputs, so raw fallback and a lossless tokenizer do not establish learned conversion for those symbols.
+
+The optional contextual Pinyin preset reuses the encoder-decoder with a 96-token source limit and 32-token target limit. Its CSVs explicitly supply preceding text and one syllable path per target. A source-only token separates the preceding-text suffix from the space-separated syllables. Offline inference accepts up to three paths in one batch, merges generated candidates by normalized beam score and preserves exact literal fallback. Evaluation keeps separate references for each context and shares the annotated paths for the same spelling. The synthetic examples exercise the pipeline. Production segmentation, pronunciation validation and native inference are outside the experiment. [Contextual Pinyin guide](../llm/pinyin_to_text/README.md#contextual-pinyin-experiment)
 
 The tokenizer fits training rows only and preserves unknown Unicode through UTF-8 byte fallback. Training reads train/validation only; explicit held-out candidate evaluation can additionally use a frozen external CSV benchmark's selected split. Checkpoints retain optimizer/RNG/batch position, and inference export omits training state. Prepared artifacts are ignored by Git; maintained CSVs are source files. Setup, prepare, train/resume, validation/test, inference/export and smoke scripts use the same isolated environment. Each ordinary stage script has defaults from `llm/scripts/defaults.sh` and invokes only its own task; `data.sh` aliases preparation and `run.sh` aliases training. They share explicit versioned data/run/report paths. Setup and separate candidate evaluation/export require their own invocations; training retains its periodic validation loss and checkpoints.
 

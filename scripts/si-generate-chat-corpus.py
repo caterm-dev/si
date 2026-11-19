@@ -2,6 +2,7 @@
 """Generate one synthetic Chinese dialogue per lexicon word through Pi."""
 
 import argparse
+from collections import Counter
 import csv
 import fcntl
 import hashlib
@@ -21,7 +22,8 @@ ROOT = Path(__file__).resolve().parents[1]
 LEXICON = ROOT / "Data/Chinese/base.csv"
 OUTPUT = ROOT / "corpus/chinese/raw/si/pi"
 MIN_MESSAGES = 4
-MAX_MESSAGES = 14
+MAX_MESSAGES = 34
+MAX_BATCH_MESSAGES = 6
 MESSAGE_LABEL = re.compile(
     r"^(?:```|~~~|\*\*|[#>*+\-]\s|\d+[.)、）]\s*"
     r"|(?:[a-zA-Z][a-zA-Z0-9_ -]{0,15}|[\u3400-\u9fff]{1,8})[：:]"
@@ -31,6 +33,7 @@ MESSAGE_LABEL = re.compile(
 )
 SPEAKER_PREFIX = re.compile(r"^([A-D]|[甲乙丙丁]|说话人\s*[1-4])\s*[：:]\s*(.+)$")
 TEXT_FENCE = re.compile(r"```(?:text|plaintext|txt)?", re.IGNORECASE)
+BATCH_MARKER = re.compile(r"(?m)^[ \t]*<<<([1-9][0-9]?|END)>>>[ \t]*\r?$")
 TOPICS = {
     "family": (
         "给爸妈留晚饭", "兄妹商量谁去接站", "妈妈问旧相册放哪儿", "家里群发错照片", "亲戚临时上门做客",
@@ -452,6 +455,8 @@ def parse_args():
                         help="choose an optional scene category, repeatable")
     parser.add_argument("--limit", type=positive_int,
                         help="maximum new words to process in this run")
+    parser.add_argument("--batch-size", type=int, choices=range(1, 11), default=5,
+                        metavar="N", help="target words per Pi invocation (1–10, default 5)")
     parser.add_argument("--timeout", type=positive_int, default=180,
                         help="seconds allowed for a Pi invocation")
     parser.add_argument("--attempts", type=positive_int, default=3,
@@ -558,6 +563,23 @@ def read_checkpoint(corpus, words):
     return completed
 
 
+def call_pi(pi, args, prompt):
+    command = [
+        pi, "--print", "--no-session", "--no-tools", "--no-extensions",
+        "--extension", str(Path(__file__).with_name("si-chat-corpus-pi.ts").resolve()),
+        "--no-skills", "--no-context-files", "--no-prompt-templates",
+        "--no-mcp", "--offline", "--provider", "ollama", "--model", args.model,
+        "--thinking", "low", "--", prompt,
+    ]
+    result = subprocess.run(
+        command, cwd=args.output, stdin=subprocess.DEVNULL, capture_output=True,
+        encoding="utf-8", timeout=args.timeout, check=False,
+    )
+    if result.returncode:
+        raise RuntimeError(f"Pi exited with status {result.returncode}")
+    return result.stdout
+
+
 def ask_pi(pi, args, scene_hints, index, word, attempt=1):
     style = STYLES[index % len(STYLES)]
     target = json.dumps(word, ensure_ascii=False)
@@ -579,20 +601,57 @@ def ask_pi(pi, args, scene_hints, index, word, attempt=1):
 目标词是 {target}。请在某条消息里按原样写出这个词，作为聊天内容的一部分。
 只写四条简短消息，一条一行。第一行直接写第一句聊天内容，其余三行接着聊。
 四行之间不要留空行，也不要写称呼标签、时间、编号、标题或说明。"""
-    command = [
-        pi, "--print", "--no-session", "--no-tools", "--no-extensions",
-        "--extension", str(Path(__file__).with_name("si-chat-corpus-pi.ts").resolve()),
-        "--no-skills", "--no-context-files", "--no-prompt-templates",
-        "--no-mcp", "--offline", "--provider", "ollama", "--model", args.model,
-        "--thinking", "off", "--", prompt,
-    ]
-    result = subprocess.run(
-        command, cwd=args.output, stdin=subprocess.DEVNULL, capture_output=True,
-        encoding="utf-8", timeout=args.timeout, check=False,
-    )
-    if result.returncode:
-        raise RuntimeError(f"Pi exited with status {result.returncode}")
-    return parse_dialogue(result.stdout, word)
+    return parse_dialogue(call_pi(pi, args, prompt), word)
+
+
+def parse_batch(stdout, words):
+    parts = BATCH_MARKER.split(stdout)
+    markers = parts[1::2]
+    if "END" in markers:
+        markers = markers[:markers.index("END") + 1]
+    marker_counts = Counter(markers)
+    dialogues = {}
+    for marker, section in zip(markers[:-1], parts[2::2]):
+        offset = int(marker) - 1
+        if offset >= len(words) or marker_counts[marker] != 1:
+            continue
+        try:
+            messages = parse_dialogue(section, words[offset])
+            if len(messages) <= MAX_BATCH_MESSAGES:
+                dialogues[offset] = messages
+        except ValueError:
+            continue
+    return dialogues
+
+
+def generate_batch(pi, args, scenes, index, words):
+    tasks = []
+    for position, word in enumerate(words, 1):
+        word_index = index + position - 1
+        target = json.dumps(word, ensure_ascii=False)
+        scene = scenes[word_index % len(scenes)]
+        style = STYLES[word_index % len(STYLES)]
+        tasks.append(f"<<<{position}>>> {target}，参考场景：{scene}。风格：{style}。")
+    task_list = "\n".join(tasks)
+    prompt = f"""为下列 {len(words)} 个目标词分别写一段独立的虚构中文即时聊天，按给定顺序输出。
+每段写 {MIN_MESSAGES} 到 {MAX_BATCH_MESSAGES} 条简短消息，每条一行，至少一条消息原样包含本段的目标词。
+每段先单独写一行对应的标记，例如 <<<1>>>，下一行直接写第一条消息。
+消息只写正文，省略姓名标签、时间、编号和旁白。目标词应自然出现在对话里。
+场景和风格只供参考，可以选更适合词义的场景。最后单独写一行 <<<END>>>。
+任务：
+{task_list}"""
+    try:
+        dialogues = parse_batch(call_pi(pi, args, prompt), words)
+    except (subprocess.TimeoutExpired, RuntimeError, ValueError) as error:
+        reason = f"Pi exceeded {args.timeout} seconds" if isinstance(
+            error, subprocess.TimeoutExpired
+        ) else str(error)
+        print(f"Batch starting at word {index + 1}: {reason}", file=sys.stderr)
+        return {}
+    if len(dialogues) < len(words):
+        print(f"Batch starting at word {index + 1}: validated {len(dialogues)}/{len(words)};"
+              " retrying remaining words individually", file=sys.stderr)
+    return dialogues
 
 
 def ordered_scenes(categories):
@@ -638,13 +697,20 @@ def run(args):
         end = len(words) if args.limit is None else min(len(words), completed + args.limit)
         print(f"Resuming at {completed}/{len(words)} words in {args.output}", flush=True)
         with corpus.open("a", encoding="utf-8") as output:
-            for index in range(completed, end):
-                word = words[index]
-                messages = generate_dialogue(pi, args, scenes, index, word)
-                output.write("\n".join(messages) + "\n\n")
-                output.flush()
-                os.fsync(output.fileno())
-                print(f"{index + 1}/{len(words)}: {word}", flush=True)
+            for start in range(completed, end, args.batch_size):
+                batch = words[start:min(end, start + args.batch_size)]
+                dialogues = {}
+                if len(batch) > 1:
+                    dialogues = generate_batch(pi, args, scenes, start, batch)
+                for offset, word in enumerate(batch):
+                    index = start + offset
+                    messages = dialogues.get(offset)
+                    if messages is None:
+                        messages = generate_dialogue(pi, args, scenes, index, word)
+                    output.write("\n".join(messages) + "\n\n")
+                    output.flush()
+                    os.fsync(output.fileno())
+                    print(f"{index + 1}/{len(words)}: {word}", flush=True)
         print(f"Saved {end} dialogues under {args.output}")
 
 

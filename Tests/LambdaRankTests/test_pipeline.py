@@ -102,6 +102,47 @@ class PipelineTests(unittest.TestCase):
             # JSON remains standards-compliant; missing values are null, not NaN.
             json.dumps(result, allow_nan=False)
 
+    def test_v5_exports_completion_path_counts_and_prior_choices(self):
+        import subprocess
+        binary = ROOT / 'target/release/si-cli'
+        if not binary.exists():
+            self.skipTest('Build si-cli in Release first')
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            base = tmp / 'base.silex'
+            (tmp / 'zh.csv').write_text("text,reading,weight\n你好,ni'hao,100\n")
+            (tmp / 'en.csv').write_text('text,reading,weight\ncheck,check,100\n'
+                                        'good,good,100\nbook,book,100\n')
+            subprocess.run([str(binary), 'lexicon', 'build', str(base), '0', str(tmp / 'zh.csv'),
+                            '1', str(tmp / 'en.csv')], check=True, capture_output=True)
+            completion = query('a', 'chec', 'check')
+            completion['languages'] = ['en']
+            completion['prior_choices'] = [{'text': 'check', 'language': 'en', 'bonus': 2}]
+            abbreviation = query('b', 'nh', '你好')
+            composed = query('c', 'goodbook', 'good book')
+            composed['prior_choices'] = [
+                {'text': 'book', 'language': 'en', 'token_spelling': 'book', 'bonus': 6},
+            ]
+            rows = p.export_rows(binary, base, None, [completion, abbreviation, composed], p.V5_LEXICAL_SCHEMA)
+
+            def observed(row, text):
+                result = next(candidate for candidate in rows[row]['candidates'] if candidate['text'] == text)
+                return dict(zip(p.V5_LEXICAL_FEATURES, result['features'], strict=True))
+
+            f = observed(0, 'check')
+            self.assertEqual((f['is_completion'], f['completion_missing_letters'], f['has_exact_dictionary_match']), (1, 1, 0))
+            self.assertEqual(f['user_choice_whole_bonus'], 2)
+            self.assertEqual(f['english_token_count'], 1)
+            self.assertEqual(f['base_gram_available'], 0)
+            self.assertIsNone(f['field_context_adjustment_bits'])
+            self.assertEqual(p.export_rows(binary, base, None, [completion])[0]['candidates'], [])
+            f = observed(1, '你好')
+            self.assertEqual((f['abbreviated_token_count'], f['abbreviated_syllable_count']), (1, 2))
+            self.assertIsNone(f['user_choice_whole_bonus'])
+            f = observed(2, 'good book')
+            self.assertEqual((f['english_token_count'], f['user_choice_token_bonus']), (2, 3))
+            self.assertEqual(f['user_choice_whole_bonus'], 0)
+
     def test_feature_ablation_preserves_candidates_labels_and_legacy_columns(self):
         rows = [dict(id='a', category='x', candidates=[candidate('first', 0), candidate('second', 1)])]
         for row in rows[0]['candidates']:
@@ -110,7 +151,7 @@ class PipelineTests(unittest.TestCase):
         legacy, names = p.select_features(rows, p.V2_FEATURES, 'v1')
         self.assertEqual(names, p.V1_FEATURES)
         self.assertEqual(legacy[0]['candidates'][0]['features'], list(range(12)))
-        for selection in [s for s in p.FEATURE_SETS if s != 'v1']:
+        for selection in ['all', 'without_user', *('without_' + name for name in p.FEATURE_GROUPS)]:
             projected, names = p.select_features(rows, p.FEATURES, selection)
             self.assertEqual([c['label'] for c in projected[0]['candidates']], [0, 1])
             self.assertEqual([c['text'] for c in projected[0]['candidates']], ['first', 'second'])
@@ -118,6 +159,56 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(original, rows)
         with self.assertRaisesRegex(ValueError, 'incompatible'):
             p.select_features(legacy, p.V1_FEATURES, 'add_spelling')
+
+    def test_neural_pool_preserves_identities_and_scores_generated_only_candidates(self):
+        row = query('a', 'fangan', '方案')
+        row['context'] = '先定个'
+        row['candidates'] = [candidate('方案', 1), candidate('放案', 0), candidate('find', 0),
+                             candidate('方案', 1)]
+        row['candidates'][0]['language'] = 'zh-Hans'
+        row['candidates'][1]['language'] = 'zh-Hans'
+        row['candidates'][3]['language'] = 'mixed'
+
+        def generate(spelling, context, syllables):
+            self.assertEqual((spelling, context, syllables), ('fangan', '先定个', ()))
+            return ['方案', '反感', 'fangan', '方案', '有\n控制符']
+
+        def score(context, texts):
+            self.assertEqual(context, '先定个')
+            self.assertEqual(texts, ['方案', '放案', 'find', '反感'])
+            return {text: (-i, -i / 2, 0.5) for i, text in enumerate(texts)}
+
+        merged = p.neural_features.merge_row(row, p.FEATURES, generate, score)
+        features = [dict(zip(p.NEURAL_FEATURES, c['features'], strict=True)) for c in merged['candidates']]
+        self.assertEqual(len(row['candidates']), 4)
+        self.assertEqual([f['from_si_engine'] for f in features], [1, 1, 1, 1, 0])
+        self.assertEqual([f['pinyin_model_beam_rank'] for f in features], [1, None, None, None, 2])
+        self.assertEqual([c['label'] for c in merged['candidates']], [1, 0, 0, 1, 0])
+        self.assertEqual(features[0]['reranker_logp_sum'], features[3]['reranker_logp_sum'])
+        self.assertIsNone(features[-1]['unigram_logp_sum'])
+        self.assertEqual(features[-1]['candidate_language'], 0)
+        self.assertEqual(features[-1]['reranker_logp_sum'], -3)
+        projected, names = p.select_features([merged], p.NEURAL_FEATURES, 'without_neural')
+        self.assertEqual(names, p.FEATURES)
+        self.assertEqual(len(projected[0]['candidates']), 5)
+
+    def test_neural_scoring_keeps_one_context_window_and_marks_overflow_missing(self):
+        scorer = object.__new__(p.neural_features.NeuralModels)
+        scorer.reranker = type('Model', (), {'config': {'context': 3}})()
+        scorer.reranker_tokenizer = type('Tokenizer', (), {'encode': lambda _, text: [0, *text, 1]})()
+        scorer.reranker_settings = {'batch_size': 2}
+        scorer.device = 'cpu'
+        scorer.beam_size = 8
+
+        def rank(model, tokenizer, context, eligible, device, **kwargs):
+            self.assertEqual(eligible, ['一', '二字'])
+            self.assertEqual(kwargs['max_candidates'], 72)
+            return {'scores': [-2.0, -6.0] if context else [-3.0, -5.0]}
+
+        scorer.rank = rank
+        self.assertEqual(scorer.score('前文', ['一', '二字', '超出长度']), {
+            '一': (-2.0, -2.0, 1.0), '二字': (-6.0, -3.0, -1.0), '超出长度': (None, None, None)})
+        self.assertEqual(scorer.score(None, ['一', '二字'])['一'], (-3.0, -3.0, None))
 
     def test_aliases_can_share_a_training_family(self):
         first = query('a', 'lüse', '绿色', 'green')

@@ -67,6 +67,7 @@ final class CandidateRowButton: NSButton {
         else if candidate.isApplicationVocabulary { details.append(L10n.text("Personal Learning")) }
         else if candidate.isLiteral { details.append(usesBadge ? "A" : L10n.text("As Typed")) }
         else if candidate.isPinyinCorrection { details.append(L10n.text("Spelling correction")) }
+        else if candidate.isNeuralSuggestion { details.append(L10n.text("Model suggestion")) }
         else if candidate.isUserPhrase { details.append(L10n.text("Personal")) }
         else if candidate.hasLiteralSegments { details.append(L10n.text("Typed text")) }
         detailLabel.stringValue = details.joined(separator: " · ")
@@ -78,6 +79,7 @@ final class CandidateRowButton: NSButton {
         let symbol: String?
         if candidate.isApplicationVocabulary { symbol = "book.closed" }
         else if candidate.isPinyinCorrection { symbol = "pencil" }
+        else if candidate.isNeuralSuggestion { symbol = "sparkles" }
         else if candidate.isPartial { symbol = "arrow.right" }
         else if candidate.isLiteral { symbol = "textformat" }
         else if candidate.isUserPhrase { symbol = "pin.fill" }

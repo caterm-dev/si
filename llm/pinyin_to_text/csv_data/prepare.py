@@ -10,8 +10,8 @@ import unicodedata
 from collections import Counter
 from pathlib import Path
 
-from ..common import file_hash, fingerprint, load_config, normalized, read_json, write_json, write_jsonl
-from ..tokenizer import Tokenizer
+from ..common import CONTEXTUAL_PINYIN, file_hash, fingerprint, load_config, model_limits, normalized, read_json, write_json, write_jsonl
+from ..tokenizer import Tokenizer, validate_syllables
 
 ROOT = Path(__file__).resolve().parents[1]
 SPLITS = ("train", "validation", "test")
@@ -58,9 +58,11 @@ def csv_records(data, relative):
         text = data.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(text, newline=""), strict=True)
         fields = reader.fieldnames
-        if not fields or len(set(fields)) != len(fields) or set(fields) not in (
-                {"input", "target"}, {"input", "target", "language"}):
-            raise ValueError(f"{relative}: CSV header must be input,target with optional language")
+        required = {"input", "target"}
+        optional = {"language", "context", "syllables"}
+        if (not fields or len(set(fields)) != len(fields) or not required <= set(fields) <= required | optional
+                or ("context" in fields) != ("syllables" in fields)):
+            raise ValueError(f"{relative}: CSV header must be input,target with optional language and paired context,syllables")
         for row in reader:
             where = f"{relative}:{reader.line_num}"
             if None in row or any(value is None for value in row.values()):
@@ -68,15 +70,24 @@ def csv_records(data, relative):
             language = row.get("language", "zh")
             if language not in ("zh", "en", "mixed"):
                 raise ValueError(f"{where}: language must be zh, en or mixed")
-            for field in ("input", "target"):
+            for field in ("input", "target", "context", "syllables"):
+                if field not in row:
+                    continue
                 value = row[field]
-                if not value.strip():
+                if field != "context" and not value.strip():
                     raise ValueError(f"{where}: {field} must not be empty")
                 if len(value.encode("utf-8")) > 4096:
                     raise ValueError(f"{where}: {field} exceeds 4096 UTF-8 bytes")
                 if any(unicodedata.category(c) in ("Cc", "Cs") for c in value):
                     raise ValueError(f"{where}: {field} contains control characters")
-            yield row["input"], row["target"], language, where
+            if "syllables" in row:
+                if language != "zh":
+                    raise ValueError(f"{where}: contextual Pinyin rows must use zh")
+                try:
+                    validate_syllables(row["input"], row["syllables"])
+                except ValueError as error:
+                    raise ValueError(f"{where}: {error}") from error
+            yield row["input"], row["target"], language, where, row.get("context"), row.get("syllables")
     except (UnicodeDecodeError, csv.Error) as error:
         raise ValueError(f"{relative}: invalid UTF-8 CSV") from error
 
@@ -108,17 +119,19 @@ def read_collection(root, splits=SPLITS):
                   "sha256": hashlib.sha256(data).hexdigest(), "format": "csv", "split": split,
                   "group": group, **provenance_for(declarations, name)}
         count = 0
-        for spelling, target, language, where in csv_records(data, name):
+        for spelling, target, language, where, context, syllables in csv_records(data, name):
             for field, value in (("input", spelling), ("target", target)):
                 key = normalized(value)
                 if key in owners[field] and owners[field][key][0] != split:
                     raise ValueError(f"Cross-split {field} overlap: {owners[field][key][1]} and {where}; move related rows into one split")
                 owners[field].setdefault(key, (split, where))
-            key = (spelling, target, language)
+            key = (spelling, target, language, context or "", syllables or "")
             if key not in rows[split]:
                 rows[split][key] = {"input": spelling, "target": target, "language": language,
                                     "noise": "clean" if spelling == target else "provided",
                                     "sources": [], "groups": []}
+                if syllables is not None:
+                    rows[split][key].update(context=context, syllables=syllables)
             record = rows[split][key]
             record["sources"].append(source_id)
             record["groups"].append(group)
@@ -145,12 +158,17 @@ def prepare(config_path, csv_root, output):
     if output.exists():
         raise ValueError("Dataset output already exists; use a new versioned directory")
     splits, sources, snapshots, counts, declarations = read_collection(csv_root)
-    tokenizer = Tokenizer.fit(splits["train"], config["model"]["vocab_size"])
+    model = config["model"]
+    contextual = model.get("source_format") == CONTEXTUAL_PINYIN
+    tokenizer = Tokenizer.fit(splits["train"], model["vocab_size"])
     for split, records in splits.items():
         for row in records:
-            for field, limit in (("input", "max_source_tokens"), ("target", "max_target_tokens")):
-                if len(tokenizer.encode(row[field])) > config["model"][limit]:
-                    raise ValueError(f"{split}: {field} exceeds {limit}; fix the CSV or raise the limit")
+            if ("syllables" in row) != contextual:
+                raise ValueError(f"{split}: CSV context,syllables columns must match model.source_format")
+            source = tokenizer.encode_source(row["input"], model, context=row.get("context"), syllables=row.get("syllables"))
+            for tokens, limit in ((source, "max_source_tokens"), (tokenizer.encode(row["target"]), "max_target_tokens")):
+                if len(tokens) > model[limit]:
+                    raise ValueError(f"{split}: encoded record exceeds {limit}; fix the CSV or raise the limit")
     output.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".csv-prepare-", dir=output.parent))
     try:
@@ -165,8 +183,7 @@ def prepare(config_path, csv_root, output):
         manifest = {
             "schema_version": 1, "sources": sources, "seed": config["seed"],
             "data_config": {"format": "static-csv", "split_policy": "directory", "augmentation": "none"},
-            "model_limits": {key: config["model"][key] for key in
-                             ("vocab_size", "max_source_tokens", "max_target_tokens")},
+            "model_limits": model_limits(model),
             "tokenizer_sha256": tokenizer.digest,
             "files": {p.relative_to(staging).as_posix(): file_hash(p) for p in sorted(staging.rglob("*")) if p.is_file()},
             "counts": {split: dict(Counter(r["language"] for r in records)) for split, records in splits.items()},

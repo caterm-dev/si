@@ -27,6 +27,16 @@ SwiftPM uses a separate dictionary generated from the tracked CSVs.
 The Release build and its package check require the paired snapshots under
 `target/si-data/`.
 
+For the [experimental model build](../llm/README.md#experimental-input-ranking),
+run the worker integration test with `SI_EXPERIMENTAL_RANKING=1`. It uses the
+actual staged checkpoints to exercise request delivery, the candidate shortlist,
+the literal fallback and explicit submission. For a live host check with that
+build installed, type synthetic `fangan` in TextEdit after `先定个`, wait for full
+results, and use number or mouse selection. Check Space, Return and Escape,
+then type a second spelling while a request is pending and switch focus. Confirm
+the result belongs to the current composition and that no old result restores a
+closed panel. Repeat in a second supported host before claiming host compatibility.
+
 Run `cargo test --locked -p si-engine --test conversion` for the bounded search
 and `cargo test --locked -p si-cli --test workflow` for snapshot/resource
 commands. The CLI fixtures exercise absolute weight updates, same-source

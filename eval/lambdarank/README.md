@@ -8,8 +8,8 @@ reviewed integration.
 
 ## Data and scope
 
-- `train.jsonl`: 92 authored queries, used for fitting.
-- `validation.jsonl`: 46 separate authored queries, used for early stopping and
+- `train.jsonl`: 96 authored queries, used for fitting.
+- `validation.jsonl`: 50 separate authored queries, used for early stopping and
   development comparison. This is **not an untouched test set**.
 - `../ranking/test.jsonl`: the existing 220-query frozen regression suite. The
   pipeline reads it only to reject cross-split overlap; it never trains, selects
@@ -35,6 +35,9 @@ V3 adds four explicitly authored typo queries to each split, retaining their
 original scenario families. These include omissions, adjacent swaps and a neighbor
 replacement; examples are retained whether or not the decoder retrieves the target.
 The earlier 88/42 snapshots remain immutable for the v2/v3 controlled comparison.
+
+V5 adds four English completion scenarios per split and six explicitly authored
+pre-request choice snapshots across both splits. It uses no personal archives.
 
 ### Add more examples
 
@@ -81,16 +84,16 @@ python3 scripts/lambdarank/pipeline.py validate
 python3 scripts/lambdarank/pipeline.py prepare \
   --lexicon target/si-data/main.silex \
   --grams target/si-data/words.sigram --pinyin-correction \
-  --output eval/lambdarank/prepared/starter-v3
+  --output eval/lambdarank/prepared/starter-v5-lexical
 
 .venv/lambdarank/bin/python scripts/lambdarank/pipeline.py train \
-  --bundle eval/lambdarank/prepared/starter-v3 \
-  --output eval/lambdarank/runs/starter-v3
+  --bundle eval/lambdarank/prepared/starter-v5-lexical \
+  --output eval/lambdarank/runs/starter-v5-lexical
 
 .venv/lambdarank/bin/python scripts/lambdarank/pipeline.py evaluate \
-  --bundle eval/lambdarank/prepared/starter-v3 \
-  --run eval/lambdarank/runs/starter-v3 \
-  --output eval/lambdarank/runs/starter-v3/recheck.json
+  --bundle eval/lambdarank/prepared/starter-v5-lexical \
+  --run eval/lambdarank/runs/starter-v5-lexical \
+  --output eval/lambdarank/runs/starter-v5-lexical/recheck.json
 ```
 
 `--grams` is optional for lexicon-only experiments; use the same resource pair
@@ -117,7 +120,7 @@ as diagnostics. Explicit dataset artifacts necessarily contain input/output text
 
 ## Candidate and feature contract
 
-Protocol v1 exports the first **64 eligible complete, noncompletion dictionary
+The legacy protocol exports the first **64 eligible complete, noncompletion dictionary
 paths**, in current Rust order. It excludes literals, prefixes, personal,
 preferred and verbatim paths. Distinct language identities remain separate even
 when output bytes match. Empty groups have explicit terminators. This does not
@@ -215,6 +218,108 @@ early stopping and development comparison, not an untouched quality test.
 
 The [v3 development results](FEATURES_V3_RESULTS.md) record the controlled comparison,
 typo expansion and current limitations.
+
+## Merge neural candidates and scores
+
+Run `prepare` with both local checkpoints using the PyTorch environment from
+the [model workspace](../../llm/README.md). The resulting v5 bundle is ready
+for the same LightGBM `train` and `evaluate` commands in the LambdaRank environment.
+
+```sh
+llm/.venv/bin/python scripts/lambdarank/pipeline.py prepare \
+  --lexicon target/si-data/main.silex --grams target/si-data/words.sigram \
+  --pinyin-correction \
+  --pinyin-model llm/pinyin_to_text/runs/small-pinyin-lexical-v1/best.pt \
+  --reranker-model llm/reranker_small/runs/small-character-v1/best.pt \
+  --output eval/lambdarank/prepared/neural-v5
+
+.venv/lambdarank/bin/python scripts/lambdarank/pipeline.py train \
+  --bundle eval/lambdarank/prepared/neural-v5 \
+  --output eval/lambdarank/runs/neural-v5
+```
+
+The first 64 eligible SI results retain their order. Pinyin-to-text contributes
+up to eight hypotheses by default (`--pinyin-beam` from 1 to 32) on requests with
+Chinese enabled. It receives normalized toneless spelling. A contextual checkpoint
+also receives preceding text and up to three optional `syllable_paths` from the
+source JSONL. Supply these paths independently of expected outputs. A contextual
+checkpoint skips generation on a request without paths. Spelling-only checkpoints
+use the spelling alone. The generator's literal fallback stays outside the
+training pool. Generated outputs use Han and Latin script to infer language, and
+only outputs for enabled languages enter the pool.
+
+The union deduplicates by exact text and language. A shared candidate keeps the
+Rust features and both source flags. Model-only candidates retain their language
+and use nulls for Rust path features. `reranker_small` scores every supported
+surface with the same preceding context and shared context window. Identical text
+in different language identities shares a score and keeps separate candidate rows.
+Unsupported candidates, including those exceeding the model context, retain their
+positions and have missing neural scores. V4 adds six columns to the 43 in v3.
+
+| Feature | Meaning |
+| --- | --- |
+| `from_si_engine` | Candidate was retrieved by SI |
+| `from_pinyin_model` | Candidate was generated by Pinyin-to-text |
+| `pinyin_model_beam_rank` | One-based position in the returned hypotheses |
+| `reranker_logp_sum` | Sum of candidate-token natural log probabilities given preceding text |
+| `reranker_logp_mean` | Log probability per reranker token, including byte fallback tokens |
+| `reranker_context_gain` | Change in total log probability relative to empty context, missing when context availability is unknown |
+
+The manifest records checkpoint and code hashes, model dataset IDs, tokenizer
+digests, device, beam and score settings. Validation reports SI-only order, the
+merged order, `reranker_small` order with its configured length penalty and
+LambdaRank order. `--feature-set without_neural` keeps the merged pool and removes
+the six added columns. `without_neural_reranker` removes the three LM scores.
+Without neural checkpoints, `prepare` defaults to `si-rank-features-v5-lexical`.
+Select `--schema si-rank-features-v3` or `--schema si-rank-features-v4` to
+reproduce an older feature layout. To run the exported full model in a local macOS development build, use the
+[experimental input ranking workflow](../../llm/README.md#experimental-input-ranking).
+
+The first v4 run used beam 8 and the two checkpoints in the command above.
+Across 46 development queries, adding generated candidates raised pool recall
+from 43 to 44. The merged validation pool contained 2,460 candidate rows,
+including 289 generated-only rows, and every row received an LM score.
+
+| Ranking | Top-1 | Top-5 |
+| --- | ---: | ---: |
+| SI order | 25/46 | 37/46 |
+| Small LM on the merged pool | 22/46 | 30/46 |
+| LambdaRank on the merged pool with v3 columns | 30/46 | 38/46 |
+| LambdaRank on the merged pool with all v4 columns | 31/46 | 40/46 |
+
+Compared with the spelling checkpoint's exact normalized training pairs, 16 of
+the 46 validation queries have a matching spelling and reference in that training
+set. On the other 30, v4 scored 18/30 Top-1 and 24/30 Top-5, versus 19/30 and
+23/30 with v3 columns on the same pool. The 46 queries also serve early stopping,
+so both comparisons are development results. Detailed reports are in the ignored
+`runs/neural-v4-20261119/` and `runs/neural-v4-no-neural-20261119/` directories.
+
+## V5 candidate evidence
+
+V5 adds 12 candidate-level signals to the previous 49-column neural layout.
+The shared Rust extractor supplies these columns to both the CLI and the app.
+
+| Group | Added features |
+| --- | --- |
+| Path counts | Abbreviated token count, abbreviated and total Pinyin syllable counts, English token count, single Han token count |
+| Match | Completion flag and whether the output has an exact direct dictionary match |
+| Statistical evidence | Base gram availability, lexical path score in bits, classical field-context adjustment in bits |
+| Prior choices | Whole-spelling frequency bonus and length-weighted token frequency bonus, kept separate from user lexical and gram statistics |
+
+The v5 pool includes dictionary completions that consume the whole typed span.
+The existing missing-letter feature now records their actual untyped suffix.
+Prefixes, literal text, personal phrases and verbatim paths remain outside this
+pool. Existing search costs and product ordering policies still apply. The Rust
+loader accepts both v4 and v5 models and routes them to their corresponding pool.
+
+An optional `prior_choices` list on a source JSONL row supplies synthetic or
+explicitly reviewed prior observations. Each item has `text`, `language` and
+`bonus` (0–32). Add `token_spelling` for a token observation. Entries without it
+apply at the whole-input span. These observations must predate the request. Rust
+applies them through the same preference inputs as runtime conversion. Missing
+eligible observations yield null; an observation set with no match yields zero.
+Prepared data does not read live profiles. `without_v5_additions` compares the old
+columns on the same v5 pool, including the same completions.
 
 ## Validation and dependency provenance
 

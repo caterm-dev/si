@@ -351,3 +351,6 @@
 "Conservative" = "Conservative";
 "Higher recall" = "Higher recall";
 "Off" = "Off";
+
+"Model suggestion" = "Model suggestion";
+"Model suggestion · %@" = "Model suggestion · %@";

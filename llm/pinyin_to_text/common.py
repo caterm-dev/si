@@ -8,6 +8,13 @@ import tempfile
 import unicodedata
 from pathlib import Path
 
+CONTEXTUAL_PINYIN = "contextual-pinyin"
+
+
+def model_limits(model):
+    keys = ("vocab_size", "max_source_tokens", "max_target_tokens", "source_format")
+    return {key: model[key] for key in keys if key in model}
+
 
 def normalized(text):
     """Normalize only for overlap checks; preserve model input/output bytes."""
@@ -79,6 +86,10 @@ def load_config(path):
         raise ValueError("Need >=260 tokens, even width and width divisible by attention heads")
     if not 0 <= model["dropout"] < 1 or min(model["max_source_tokens"], model["max_target_tokens"]) < 3:
         raise ValueError("Invalid dropout or sequence limits")
+    if "source_format" in model and model["source_format"] != CONTEXTUAL_PINYIN:
+        raise ValueError("Unsupported model.source_format")
+    if model.get("source_format") == CONTEXTUAL_PINYIN and model["max_source_tokens"] < 4:
+        raise ValueError("Contextual Pinyin needs room for source markers and spelling")
     if data != {"format": "static-csv"}:
         raise ValueError("data must declare only format=static-csv; CSV directories choose the splits")
     if type(config["seed"]) is not int:

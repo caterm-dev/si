@@ -6,5 +6,6 @@ members = [
     "crates/si-gram",
     "crates/si-lexicon",
     "crates/si-macos-bridge",
+    "crates/si-neural",
 ]
 resolver = "3"

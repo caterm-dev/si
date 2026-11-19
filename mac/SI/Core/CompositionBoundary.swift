@@ -23,7 +23,7 @@ public enum CompositionBoundary {
                                behavior: PunctuationBehavior) -> BoundaryResolution {
         let literal = BoundaryResolution(continuesComposition: isSymbol(text))
         guard behavior != .asTyped, text == "\t" || (text.count == 1 && text.first.map(supported.contains) == true),
-              let selected, !selected.isLiteral, !selected.isPartial, !selected.isPinyinCorrection else { return literal }
+              let selected, !selected.isLiteral, !selected.isPartial, !selected.requiresExplicitSelection else { return literal }
         let chineseEnding = prefersChinesePunctuation(selected)
         if !explicitlySelected {
             if selected.language == .english && !selected.isUserPhrase { return literal }

@@ -8,9 +8,9 @@ use std::sync::Arc;
 use si_engine::resources::EngineResources;
 use si_engine::resources::user::{UserLearningConfig, UserModelStore};
 use si_engine::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionPreferences,
-    CorrectionKind, CorrectionSensitivity, EnabledLanguages, PathPreference, PersonalPhrase,
-    TokenPreference,
+    CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionPreferences, CorrectionKind,
+    CorrectionSensitivity, EnabledLanguages, HybridRanking, PathPreference, PersonalPhrase,
+    RankedCandidate, TokenPreference,
 };
 
 struct OwnedResources(NonNull<(Arc<EngineResources>, Option<EngineResources>)>);
@@ -79,7 +79,8 @@ pub struct SICorrectionView {
     word_end_bytes: usize,
 }
 
-pub struct SICandidates(Vec<Candidate>);
+pub struct SICandidates(Vec<RankedCandidate>);
+pub struct SIRanking(HybridRanking);
 
 #[repr(C)]
 pub struct SIUserPhrase {
@@ -129,6 +130,8 @@ pub struct SICandidateView {
     preferred: bool,
     verbatim: bool,
     token_bonus: f64,
+    model_score: f64,
+    neural_only: bool,
 }
 
 /// # Safety
@@ -424,6 +427,47 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
     path_count: usize,
     mode: u8,
 ) -> *mut SICandidates {
+    unsafe {
+        si_engine_ranked_candidates_for_mode(
+            engine,
+            ptr::null(),
+            text,
+            len,
+            preceding_text,
+            preceding_len,
+            languages,
+            preview,
+            phrases,
+            phrase_count,
+            tokens,
+            token_count,
+            paths,
+            path_count,
+            mode,
+        )
+    }
+}
+
+/// # Safety
+/// The engine and any non-null ranking handle must be live. Every nonempty pointer/length pair must point to initialized values.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_ranked_candidates_for_mode(
+    engine: *const SIEngine,
+    ranking: *const SIRanking,
+    text: *const u8,
+    len: usize,
+    preceding_text: *const u8,
+    preceding_len: usize,
+    languages: u8,
+    preview: bool,
+    phrases: *const SIUserPhrase,
+    phrase_count: usize,
+    tokens: *const SILearnedToken,
+    token_count: usize,
+    paths: *const SILearnedPath,
+    path_count: usize,
+    mode: u8,
+) -> *mut SICandidates {
     let Some(engine) = (unsafe { engine.as_ref() }) else {
         return ptr::null_mut();
     };
@@ -562,19 +606,61 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
             })
         })
         .collect();
-    let rows = engine.decoder.convert_with_correction(
-        text,
-        languages,
-        preview,
-        &phrases,
-        ConversionPreferences {
-            tokens: &tokens,
-            paths: &paths,
-        },
-        preceding_text,
-        correction,
-    );
+    let preferences = ConversionPreferences {
+        tokens: &tokens,
+        paths: &paths,
+    };
+    let rows = if let Some(ranking) = (unsafe { ranking.as_ref() }).filter(|_| !preview) {
+        ranking.0.convert(
+            &engine.decoder,
+            text,
+            languages,
+            &phrases,
+            preferences,
+            preceding_text,
+            correction,
+        )
+    } else {
+        engine
+            .decoder
+            .convert_with_correction(
+                text,
+                languages,
+                preview,
+                &phrases,
+                preferences,
+                preceding_text,
+                correction,
+            )
+            .into_iter()
+            .map(RankedCandidate::from)
+            .collect()
+    };
     Box::into_raw(Box::new(SICandidates(rows)))
+}
+
+/// # Safety
+/// A non-null directory must be a valid, terminated UTF-8 string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_ranking_open(directory: *const c_char) -> *mut SIRanking {
+    if directory.is_null() {
+        return ptr::null_mut();
+    }
+    let Ok(path) = unsafe { CStr::from_ptr(directory) }.to_str() else {
+        return ptr::null_mut();
+    };
+    HybridRanking::open(Path::new(path)).map_or(ptr::null_mut(), |ranking| {
+        Box::into_raw(Box::new(SIRanking(ranking)))
+    })
+}
+
+/// # Safety
+/// A non-null ranking must be an exclusively owned handle returned by si_ranking_open.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_ranking_close(ranking: *mut SIRanking) {
+    if !ranking.is_null() {
+        unsafe { drop(Box::from_raw(ranking)) };
+    }
 }
 
 /// # Safety
@@ -613,13 +699,13 @@ pub unsafe extern "C" fn si_candidates_get(
     index: usize,
     view: *mut SICandidateView,
 ) -> bool {
-    let Some(candidate) = unsafe { results.as_ref() }.and_then(|results| results.0.get(index))
-    else {
+    let Some(row) = unsafe { results.as_ref() }.and_then(|results| results.0.get(index)) else {
         return false;
     };
     if view.is_null() {
         return false;
     }
+    let candidate = &row.candidate;
     let language = match candidate.language {
         CandidateLanguage::Literal => 0,
         CandidateLanguage::Chinese => 1,
@@ -644,6 +730,8 @@ pub unsafe extern "C" fn si_candidates_get(
             preferred: candidate.preferred,
             verbatim: candidate.verbatim,
             token_bonus: candidate.token_bonus,
+            model_score: row.model_score.unwrap_or(f64::NAN),
+            neural_only: row.neural_only,
         });
     }
     true
@@ -659,7 +747,7 @@ pub unsafe extern "C" fn si_candidates_get_correction(
 ) -> bool {
     let Some(correction) = (unsafe { results.as_ref() })
         .and_then(|rows| rows.0.get(index))
-        .and_then(|row| row.correction)
+        .and_then(|row| row.candidate.correction)
     else {
         return false;
     };

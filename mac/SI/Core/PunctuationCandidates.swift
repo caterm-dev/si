@@ -31,7 +31,7 @@ public enum PunctuationCandidates {
         }
         var result: [InputCandidate] = []
         var identities: Set<String> = []
-        for prefix in prefixes where !prefix.isPartial && !prefix.hasCompletion && !prefix.isPinyinCorrection
+        for prefix in prefixes where !prefix.isPartial && !prefix.hasCompletion && !prefix.requiresExplicitSelection
             && (!prefix.isLiteral || prefix.text.isEmpty) {
             for (index, variant) in variants.enumerated() {
                 let text = prefix.text + variant.text

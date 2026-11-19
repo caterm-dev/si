@@ -15,8 +15,16 @@ def edit_distance(left, right):
 
 def cases(rows):
     grouped = {}
+    syllable_paths = defaultdict(set)
     for row in rows:
-        value = grouped.setdefault(row["input"], {"input": row["input"], "targets": set(), "languages": set(), "noise": set()})
+        context = row.get("context")
+        value = grouped.setdefault((row["input"], context),
+                                   {"input": row["input"], "targets": set(), "languages": set(), "noise": set()})
+        if context is not None:
+            value["context"] = context
+            # Every context for this spelling sees the same paths, independent of its target.
+            syllable_paths[row["input"]].add(row["syllables"])
+            value["syllables"] = syllable_paths[row["input"]]
         value["targets"].add(row["target"])
         value["languages"].add(row["language"])
         value["noise"].add(row["noise"])

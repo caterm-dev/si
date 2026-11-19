@@ -1,10 +1,103 @@
 import Foundation
 import Testing
-import SICore
+@testable import SICore
 @testable import SIPresentation
 
 @MainActor
 struct CandidatePipelineTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_EXPERIMENTAL_RANKING"] == "1"))
+    func experimentalModelsReachWorkerShortlistAndExplicitCommit() async throws {
+        let gate = Gate()
+        var result: CandidateResult?
+        let pipeline = CandidatePipeline {
+            result = $0
+            gate.didReceive()
+        }
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.simplifiedChinese, .english], experimentalRankingEnabled: true)
+        session.setPrecedingText("先定个")
+        session.append("fangan")
+        let request = try #require(session.pendingCandidateRequest)
+        let baseline = request.generate()
+        #expect(!baseline.isModelRanked)
+        #expect(!request.generatePreview().isModelRanked)
+        pipeline.submit(request)
+        await gate.waitForReceipts(1)
+        let ranked = try #require(result)
+        #expect(ranked.isModelRanked)
+        #expect(ranked.candidates.contains { $0.modelRankingScore != nil && !$0.isNeuralSuggestion })
+        let orderedScores = ranked.candidates.compactMap(\.modelRankingScore)
+        #expect(orderedScores == orderedScores.sorted(by: >))
+        #expect(ranked.candidates.last?.text == "fangan")
+        #expect(ranked.candidates.last?.isLiteral == true)
+
+        var navigating = session
+        let preview = request.generatePreview()
+        let acceptedPreview = navigating.accept(preview)
+        let keptPreview = navigating.retainPreview(insteadOf: ranked)
+        #expect(acceptedPreview && keptPreview)
+        #expect(navigating.candidates == preview.candidates)
+        #expect(navigating.pendingCandidateRequest == nil)
+
+        var secure = session
+        secure.configure(languages: [.simplifiedChinese, .english], experimentalRankingEnabled: false)
+        let acceptedBeforeDisable = secure.accept(ranked)
+        #expect(!acceptedBeforeDisable)
+        let protectedRequest = try #require(secure.pendingCandidateRequest)
+        #expect(!protectedRequest.generate(useExperimentalRanking: true).isModelRanked)
+
+        let accepted = session.accept(ranked)
+        #expect(accepted)
+
+        var selection = CandidateSelection()
+        selection.update(session.candidates)
+        let displayed = try #require(selection.candidates.first { $0.modelRankingScore != nil && !$0.isNeuralSuggestion })
+        var standard = session
+        let ordinary = standard.commitResult(displayed, reason: selection.confirmationReason(for: displayed))
+        #expect(ordinary.text == displayed.text)
+
+        let neuralCandidate = ranked.candidates.first(where: \.isNeuralSuggestion)
+        let suggestion = try #require(neuralCandidate)
+        #expect(suggestion.modelRankingScore != nil && !suggestion.canLearn)
+        #expect(suggestion.requiresExplicitSelection && suggestion.confirmationBoundaries.isEmpty)
+        #expect(selection.confirmationReason(for: suggestion) == .explicitSelection)
+        var implicit = session
+        #expect(implicit.commitResult(suggestion, reason: .defaultAcceptance).text == "fangan")
+        let commit = session.commitResult(suggestion, reason: .explicitSelection)
+        #expect(commit.text == suggestion.text)
+        #expect(commit.input == "fangan" && commit.remainingInput.isEmpty)
+        #expect(!commit.canLearn)
+        let acceptedOld = session.accept(ranked)
+        #expect(!acceptedOld)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_EXPERIMENTAL_RANKING"] == "1"
+        && ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil))
+    func packagedRankingExposesNumberedModelSuggestion() async throws {
+        let gate = Gate()
+        var result: CandidateResult?
+        let pipeline = CandidatePipeline {
+            result = $0
+            gate.didReceive()
+        }
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.simplifiedChinese, .english], experimentalRankingEnabled: true)
+        session.append("taiyangluoshanle")
+        pipeline.submit(try #require(session.pendingCandidateRequest))
+        await gate.waitForReceipts(1)
+        let next = try #require(result)
+        let acceptedNext = session.accept(next)
+        #expect(acceptedNext)
+        var selection = CandidateSelection()
+        selection.update(session.candidates)
+        let modelNumber = (1...selection.visiblePageSize).first { selection.candidate(number: $0)?.isNeuralSuggestion == true }
+        let number = try #require(modelNumber)
+        let numbered = try #require(selection.candidate(number: number))
+        let explicit = session.commitResult(numbered, reason: selection.confirmationReason(for: numbered))
+        #expect(explicit.text == numbered.text && explicit.reason == .explicitSelection)
+        #expect(explicit.input == "taiyangluoshanle" && explicit.remainingInput.isEmpty)
+    }
+
     @Test func latestHintsRefreshWhileAnObsoleteFinalSearchIsStillBlocked() async throws {
         let fullGate = Gate()
         let previewGate = Gate()

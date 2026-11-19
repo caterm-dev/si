@@ -177,14 +177,12 @@ requires the prepared dataset to verify provenance and assigns no blanket model
 weight license. Data, runs, reports, exports and weights are ignored by Git.
 The [large reranker](../reranker_large/README.md) remains a separate planned model.
 
-## Native integration removed
+## Native inference
 
-AI ranking, its candidate comparison UI, input-field context reads and native
-Core ML loading were removed from the input method pending redesign. The app and
-Swift package no longer bundle model resources. `scripts/stage_app.sh` is retired.
-The offline preparation, training, evaluation, scoring and export framework remains
-available for research. `coreml_export` may still export to an explicit standalone
-output directory; it has no runtime integration with SI.
+The earlier Core ML integration and `scripts/stage_app.sh` are retired.
+`coreml_export` still supports standalone research exports. The optional
+[experimental input ranking build](../README.md#experimental-input-ranking)
+instead uses the Rust scorer as a feature source for LambdaRank.
 
-Previously staged local artifacts were preserved outside the application tree in
-ignored `exports/retired-native-ranking/`; checkpoints and training data are unchanged.
+The local Core ML smoke-test bundle was removed. The [Rust inference prototype](../README.md#rust-inference-prototype)
+uses an independent export of the existing checkpoint.

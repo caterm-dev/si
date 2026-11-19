@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 typedef struct SIEngine SIEngine;
+typedef struct SIRanking SIRanking;
 typedef struct SICandidates SICandidates;
 
 typedef struct SIUserPhrase {
@@ -57,6 +58,8 @@ typedef struct SICandidateView {
     bool preferred;
     bool verbatim;
     double token_bonus;
+    double model_score; /* NaN if the candidate was not scored. */
+    bool neural_only;
 } SICandidateView;
 
 /* UTF-8 paths. Grams is optional. NULL indicates resources could not be loaded. */
@@ -105,6 +108,15 @@ SICandidates *si_engine_candidates(const SIEngine *engine, const uint8_t *text,
 /* Per-query mode, using the same values as si_engine_set_correction. */
 SICandidates *si_engine_candidates_for_mode(const SIEngine *engine, const uint8_t *text,
                                    size_t length, const uint8_t *preceding_text,
+                                   size_t preceding_length, uint8_t languages, bool preview,
+                                   const SIUserPhrase *phrases, size_t phrase_count,
+                                   const SILearnedToken *tokens, size_t token_count,
+                                   const SILearnedPath *paths, size_t path_count, uint8_t mode);
+/* Immutable local model bundle. Call open off the event path. */
+SIRanking *si_ranking_open(const char *directory);
+void si_ranking_close(SIRanking *ranking);
+SICandidates *si_engine_ranked_candidates_for_mode(const SIEngine *engine, const SIRanking *ranking,
+                                   const uint8_t *text, size_t length, const uint8_t *preceding_text,
                                    size_t preceding_length, uint8_t languages, bool preview,
                                    const SIUserPhrase *phrases, size_t phrase_count,
                                    const SILearnedToken *tokens, size_t token_count,

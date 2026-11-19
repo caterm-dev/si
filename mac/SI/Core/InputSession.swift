@@ -12,14 +12,17 @@ public struct CandidateRequest: Sendable {
     fileprivate let context: CandidateContext?
     fileprivate let precedingText: String
     fileprivate let automaticConfirmationEnabled: Bool
+    fileprivate let experimentalRankingEnabled: Bool
     fileprivate let applicationMemory: ApplicationMemorySnapshot
 
-    public func generate() -> CandidateResult {
+    public func generate(useExperimentalRanking: Bool = false) -> CandidateResult {
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context, includesConfirmationEvidence: automaticConfirmationEnabled,
-                                           applicationMemory: applicationMemory, precedingText: precedingText)
+                                           applicationMemory: applicationMemory, precedingText: precedingText,
+                                           experimentalRanking: useExperimentalRanking && experimentalRankingEnabled)
+        let isModelRanked = candidates.contains { $0.modelRankingScore != nil }
         return CandidateResult(requestID: id, candidates: candidates,
-                               confirmationPrefixes: automaticConfirmationEnabled
+                               confirmationPrefixes: automaticConfirmationEnabled && !isModelRanked
                                 ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
                                                                  now: now, context: context) : [])
     }
@@ -36,6 +39,7 @@ public struct CandidateResult: Sendable {
     fileprivate let requestID: UUID
     public let candidates: [InputCandidate]
     public let isPreview: Bool
+    public var isModelRanked: Bool { candidates.contains { $0.modelRankingScore != nil } }
     fileprivate let confirmationPrefixes: [AutomaticConfirmation.Prefix]
 
     fileprivate init(requestID: UUID, candidates: [InputCandidate], isPreview: Bool = false,
@@ -72,6 +76,7 @@ public struct InputSession: Sendable {
     private var recentContext: RecentContext?
     private var precedingText = ""
     private var contextGeneration: UInt64 = 0
+    private var experimentalRankingEnabled = false
     private var automaticConfirmationEnabled = false
     private var configurationGeneration: UInt64 = 0
     private var automaticConfirmation = AutomaticConfirmation()
@@ -90,7 +95,8 @@ public struct InputSession: Sendable {
                                    applicationMemory: ApplicationMemorySnapshot = .empty,
                                    compositionLearningEnabled: Bool = false,
                                    punctuationCandidatesEnabled: Bool = false,
-                                   pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode = .off) {
+                                   pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode = .off,
+                                   experimentalRankingEnabled: Bool = false) {
         if self.compositionLearningEnabled != compositionLearningEnabled || self.languages != languages
             || self.contextGeneration != contextGeneration || self.dictionary != dictionary
             || self.configurationGeneration != configurationGeneration {
@@ -104,6 +110,7 @@ public struct InputSession: Sendable {
         guard self.languages != languages || self.learning != learning || self.dictionary != dictionary
                 || self.usesContext != usesContext || contextChanged || expired
                 || self.automaticConfirmationEnabled != automaticConfirmationEnabled
+                || self.experimentalRankingEnabled != experimentalRankingEnabled
                 || self.configurationGeneration != configurationGeneration
                 || engine.punctuationCandidatesEnabled != punctuationCandidatesEnabled
                 || engine.pinyinCorrectionMode != pinyinCorrectionMode
@@ -115,6 +122,7 @@ public struct InputSession: Sendable {
         self.usesContext = usesContext
         self.contextGeneration = contextGeneration
         self.automaticConfirmationEnabled = automaticConfirmationEnabled
+        self.experimentalRankingEnabled = experimentalRankingEnabled
         self.configurationGeneration = configurationGeneration
         engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
         engine.pinyinCorrectionMode = pinyinCorrectionMode
@@ -185,7 +193,7 @@ public struct InputSession: Sendable {
     public mutating func commitResult(_ candidate: InputCandidate? = nil, reason: CommitReason, now: Date = .now) -> InputCommit {
         let validCandidate = candidate.flatMap { value -> InputCandidate? in
             guard let current = candidates.first(where: { $0.hasSameCommitValue(as: value) }) else { return nil }
-            guard !current.isPinyinCorrection || reason == .explicitSelection else { return nil }
+            guard !current.requiresExplicitSelection || reason == .explicitSelection else { return nil }
             if let count = value.consumedInputCount, count <= 0 || count >= buffer.count { return nil }
             return current
         }
@@ -294,6 +302,7 @@ public struct InputSession: Sendable {
                                        dictionary: dictionary, now: now, context: currentContext(now: now),
                                        precedingText: precedingText,
                                        automaticConfirmationEnabled: automaticConfirmationEnabled,
+                                       experimentalRankingEnabled: experimentalRankingEnabled,
                                        applicationMemory: applicationMemory)
         pendingCandidateRequest = request
         hasCandidatePreview = false
@@ -315,6 +324,14 @@ public struct InputSession: Sendable {
             pendingCandidateRequest = nil
             if automaticConfirmationEnabled { automaticConfirmation.observe(result.confirmationPrefixes, input: buffer, now: now) }
         }
+        return true
+    }
+
+    /// Keep the visible list after the user starts navigating it.
+    public mutating func retainPreview(insteadOf result: CandidateResult) -> Bool {
+        guard result.isModelRanked, hasCandidatePreview,
+              pendingCandidateRequest?.id == result.requestID else { return false }
+        pendingCandidateRequest = nil
         return true
     }
 

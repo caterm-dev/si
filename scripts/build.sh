@@ -9,5 +9,6 @@ esac
 cd "$repo_root"
 xcodebuild -project mac/SI.xcodeproj -scheme SI \
     -configuration "$configuration" -destination 'generic/platform=macOS' \
+    "SI_EXPERIMENTAL_RANKING=${SI_EXPERIMENTAL_RANKING:-0}" \
     -derivedDataPath .build/xcode CODE_SIGNING_ALLOWED=NO build
 printf '\nBuilt: %s/.build/xcode/Build/Products/%s/SI.app\n' "$repo_root" "$configuration"

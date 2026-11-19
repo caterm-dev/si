@@ -1,6 +1,5 @@
-//! Versioned, label-free features for offline candidate reranking experiments.
-//! This does not change production conversion or load a model.
-use crate::{Candidate, CandidateLanguage};
+//! Versioned, label-free features shared by offline export and runtime reranking.
+use crate::{Candidate, CandidateLanguage, ConversionPreferences};
 
 /// Evidence from the exact derivation supplying the candidate's score.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -262,6 +261,71 @@ pub const NAMES: [&str; 43] = [
     "correction_adjacent_swap",
 ];
 
+pub const V5_LEXICAL_SCHEMA: &str = "si-rank-features-v5-lexical";
+pub const V5_ADDITIONS: [&str; 12] = [
+    "abbreviated_token_count",
+    "abbreviated_syllable_count",
+    "pinyin_syllable_count",
+    "english_token_count",
+    "single_han_token_count",
+    "is_completion",
+    "has_exact_dictionary_match",
+    "base_gram_available",
+    "lexical_score_bits",
+    "field_context_adjustment_bits",
+    "user_choice_whole_bonus",
+    "user_choice_token_bonus",
+];
+
+/// V5 scores same-span dictionary completions and adds evidence observed before selection.
+pub fn extract_v5(
+    source: &str,
+    context: &str,
+    context_available: bool,
+    candidate: &Candidate,
+    preferences: ConversionPreferences<'_>,
+) -> Option<Vec<Option<f64>>> {
+    let mut values = extract_path(source, context, context_available, candidate)?;
+    let evidence = candidate.ranking_evidence.as_ref()?;
+    let has_preferences = !preferences.paths.is_empty() || !preferences.tokens.is_empty();
+    let whole = has_preferences.then(|| {
+        preferences
+            .paths
+            .iter()
+            .take(5_000)
+            .rev()
+            .find(|item| {
+                item.consumed_bytes == candidate.consumed_bytes
+                    && item.language == candidate.language
+                    && item.text == candidate.text
+                    && item.frequency.is_finite()
+                    && item.contextual.is_finite()
+            })
+            .map_or(0.0, |item| item.frequency.clamp(0.0, 32.0))
+    });
+    values.extend([
+        Some(evidence.abbreviated_tokens as f64),
+        Some(evidence.abbreviated_syllables as f64),
+        Some(evidence.pinyin_syllables as f64),
+        Some(evidence.tokens.saturating_sub(evidence.chinese_tokens) as f64),
+        Some(evidence.single_character_tokens as f64),
+        Some(f64::from(candidate.completion)),
+        Some(f64::from(
+            evidence.has_direct_match && candidate.correction.is_none(),
+        )),
+        Some(f64::from(evidence.gram_model_available)),
+        candidate.score_bits,
+        context_available.then_some(candidate.context_adjustment),
+        whole,
+        has_preferences.then_some(candidate.token_bonus),
+    ]);
+    values
+        .iter()
+        .flatten()
+        .all(|value| value.is_finite())
+        .then_some(values)
+}
+
 pub fn extract(source: &str, context: &str, candidate: &Candidate) -> Option<Vec<Option<f64>>> {
     extract_with_context_state(source, context, !context.is_empty(), candidate)
 }
@@ -273,10 +337,21 @@ pub fn extract_with_context_state(
     context_available: bool,
     candidate: &Candidate,
 ) -> Option<Vec<Option<f64>>> {
+    if candidate.completion {
+        return None;
+    }
+    extract_path(source, context, context_available, candidate)
+}
+
+fn extract_path(
+    source: &str,
+    context: &str,
+    context_available: bool,
+    candidate: &Candidate,
+) -> Option<Vec<Option<f64>>> {
     if source.is_empty()
         || candidate.consumed_bytes != source.len()
         || candidate.language == CandidateLanguage::Literal
-        || candidate.completion
         || candidate.personal
         || candidate.verbatim
         || candidate.preferred

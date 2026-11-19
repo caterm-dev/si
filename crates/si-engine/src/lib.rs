@@ -13,3 +13,6 @@ pub use conversion::{
     PersonalPhrase, TokenPreference,
 };
 pub use si_lexicon::IndexId;
+
+#[cfg(feature = "experimental-ranking")]
+pub use conversion::hybrid::{HybridRanking, RankedCandidate};

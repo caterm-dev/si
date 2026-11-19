@@ -167,7 +167,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             resolveCandidates(to: client)
             let selected = currentCandidate
             let commit = session.commitResult(selected, reason: selection.confirmationReason(for: selected))
-            let spacingCandidate = selected?.isPinyinCorrection == true ? commit.candidate : selected
+            let spacingCandidate = selected?.requiresExplicitSelection == true ? commit.candidate : selected
             let suffix = commit.remainingInput.isEmpty && spacingCandidate?.appendsSpaceOnAcceptance != false ? " " : ""
             apply(commit, suffix: suffix, to: client)
             return true
@@ -257,6 +257,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         resolveCandidates(to: client)
         guard let current = session.candidates.first(where: {
             $0.id == candidate.id && $0.isPinyinCorrection == candidate.isPinyinCorrection
+                && $0.isNeuralSuggestion == candidate.isNeuralSuggestion
                 && $0.text.utf8.elementsEqual(candidate.text.utf8)
         }) else { update(client); return }
         let commit = session.commitResult(current, reason: selection.confirmationReason(for: current))
@@ -292,7 +293,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           applicationMemory: memory,
                           compositionLearningEnabled: !secureInput,
                           punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
-                          pinyinCorrectionMode: secureInput ? .off : languages.pinyinCorrectionMode)
+                          pinyinCorrectionMode: secureInput ? .off : languages.pinyinCorrectionMode,
+                          experimentalRankingEnabled: !secureInput)
         return true
     }
 
@@ -340,6 +342,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let previousRequest = session.pendingCandidateRequest?.id
         // Consent, secure input, language, dictionary, and context may change while work is running.
         guard configureSession() else { return }
+        if explicitlyNavigated, session.retainPreview(insteadOf: result) { return }
         if session.accept(result) {
             if let commit = session.automaticallyConfirm() {
                 apply(commit, to: client)
@@ -665,8 +668,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return true
         }
         guard session.buffer.utf8.count <= 512,
-              let candidate = (currentCandidate.flatMap { !$0.isPartial && !$0.isPinyinCorrection ? $0 : nil })
-                ?? session.candidates.first(where: { !$0.isPartial && !$0.isPinyinCorrection }), !candidate.isPunctuation,
+              let candidate = (currentCandidate.flatMap { !$0.isPartial && !$0.requiresExplicitSelection ? $0 : nil })
+                ?? session.candidates.first(where: { !$0.isPartial && !$0.requiresExplicitSelection }), !candidate.isPunctuation,
               candidate.text.utf8.count <= 512 else {
             showAIPhase(.selectWholeCandidate, requestID: requestID, to: client)
             return true

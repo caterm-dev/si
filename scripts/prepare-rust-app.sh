@@ -63,6 +63,26 @@ else
     rm -f "$library_dir/lexicon-inputs"
 fi
 rm -f "$resource_dir/main.sigram"
+if [[ "${SI_EXPERIMENTAL_RANKING:-0}" == 1 ]]; then
+    (
+        ranking="${SI_RANKING_ASSET_DIRECTORY:-$repo_root/target/si-neural}"
+        staging="$(mktemp -d "$resource_dir/.ranking.XXXXXX")"
+        trap 'rm -rf "$staging"' EXIT
+        chmod 755 "$staging"
+        mkdir -p "$staging/pinyin" "$staging/reranker"
+        for file in lambdarank.json pinyin/model.json pinyin/weights.f32 reranker/model.json reranker/weights.f32; do
+            if [[ ! -s "$ranking/$file" ]]; then
+                printf 'Missing experimental SI ranking resource: %s\n' "$ranking/$file" >&2
+                exit 2
+            fi
+            install -m 644 "$ranking/$file" "$staging/$file"
+        done
+        rm -rf "$resource_dir/Ranking"
+        mv "$staging" "$resource_dir/Ranking"
+    )
+else
+    rm -rf "$resource_dir/Ranking"
+fi
 for language in Chinese English; do
     mkdir -p "$resource_dir/Notices/$language"
     for notice in "mac/SI/Core/Resources/$language/"*.txt "mac/SI/Core/Resources/$language/"*.md; do

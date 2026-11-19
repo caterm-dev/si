@@ -10,4 +10,4 @@ publish = false
 crate-type = ["staticlib"]
 
 [dependencies]
-si-engine = { path = "../si-engine" }
+si-engine = { path = "../si-engine", features = ["experimental-ranking"] }

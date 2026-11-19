@@ -7,7 +7,7 @@ struct CandidateSelection {
     /// The displayed global first choice stays neutral, including number/mouse acceptance.
     func confirmationReason(for candidate: InputCandidate?) -> CommitReason {
         guard let candidate else { return .literal }
-        if candidate.isPinyinCorrection { return .explicitSelection }
+        if candidate.requiresExplicitSelection { return .explicitSelection }
         return candidate.id == candidates.first?.id ? .defaultAcceptance : .explicitSelection
     }
     enum Navigation: Equatable {
@@ -67,8 +67,8 @@ struct CandidateSelection {
         if candidates.isEmpty { textSupport = CandidateTextSupport() }
         self.candidates = shortlist(candidates)
         selectedIndex = 0
-        if self.candidates.first?.isPinyinCorrection == true {
-            selectedIndex = self.candidates.firstIndex { !$0.isPinyinCorrection && !$0.isPartial } ?? 0
+        if self.candidates.first?.requiresExplicitSelection == true {
+            selectedIndex = self.candidates.firstIndex { !$0.requiresExplicitSelection && !$0.isPartial } ?? 0
         }
         if self.candidates.isEmpty { isExpanded = false }
     }

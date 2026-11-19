@@ -7,10 +7,10 @@ from pathlib import Path
 
 import torch
 
-from .common import file_hash, fingerprint, load_config, normalized, write_json
+from .common import CONTEXTUAL_PINYIN, file_hash, fingerprint, load_config, normalized, write_json
 from .csv_data.prepare import read_collection
 from .metrics import cases, summarize
-from .runtime import candidates, load_bundle, load_checkpoint, select_device
+from .runtime import MAX_SYLLABLE_PATHS, candidates, load_bundle, load_checkpoint, select_device
 
 
 def evaluate(data, split, output, checkpoint_path=None, config_path=None, baseline=None,
@@ -54,6 +54,11 @@ def evaluate(data, split, output, checkpoint_path=None, config_path=None, baseli
         all_cases = cases(rows[split])
     if not all_cases:
         raise ValueError("Evaluation split is empty")
+    contextual = config["model"].get("source_format") == CONTEXTUAL_PINYIN
+    if any(("syllables" in case) != contextual for case in all_cases):
+        raise ValueError("Evaluation rows must match the model's source format")
+    if any(len(case.get("syllables", ())) > MAX_SYLLABLE_PATHS for case in all_cases):
+        raise ValueError(f"Evaluation cases support at most {MAX_SYLLABLE_PATHS} syllable paths")
     selected = all_cases if limit is None else all_cases[:limit]
     observations, durations = [], []
     for case in selected:
@@ -62,8 +67,9 @@ def evaluate(data, split, output, checkpoint_path=None, config_path=None, baseli
         elif device.type == "mps":
             torch.mps.synchronize()
         start = time.perf_counter()
-        prediction = candidates(model, tokenizer, case["input"], device, k, config["decoding"]["length_penalty"]) if model is not None else {
-            "model_candidates": [case["input"]], "candidates": [case["input"]]}
+        prediction = candidates(model, tokenizer, case["input"], device, k, config["decoding"]["length_penalty"],
+                                context=case.get("context"), syllable_paths=sorted(case.get("syllables", ()))) if model is not None else {
+                                    "model_candidates": [case["input"]], "candidates": [case["input"]]}
         if device.type == "cuda":
             torch.cuda.synchronize()
         elif device.type == "mps":

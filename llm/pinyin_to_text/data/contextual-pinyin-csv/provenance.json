@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "default": {
+    "license": "GPL-3.0-only",
+    "origin": "SI-authored synthetic Pinyin and context examples",
+    "revision": "contextual-pinyin-v1"
+  }
+}

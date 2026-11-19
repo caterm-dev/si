@@ -1,4 +1,6 @@
 mod context;
+#[cfg(feature = "experimental-ranking")]
+pub(super) mod hybrid;
 mod input;
 mod lookup;
 mod ranking;
@@ -86,7 +88,7 @@ pub struct PathPreference<'a> {
     pub contextual: f64,
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub struct ConversionPreferences<'a> {
     pub tokens: &'a [TokenPreference<'a>],
     pub paths: &'a [PathPreference<'a>],
@@ -293,15 +295,53 @@ impl<'a> CandidateEngine<'a> {
         languages: EnabledLanguages,
         preceding_text: &str,
     ) -> Vec<Candidate> {
+        self.convert_for_ranking(
+            text,
+            languages,
+            &[],
+            ConversionPreferences::default(),
+            preceding_text,
+            self.pinyin_correction,
+        )
+    }
+
+    /// Offline evidence for an explicitly supplied, pre-request preference snapshot.
+    pub fn candidates_with_preference_evidence(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preceding_text: &str,
+        preferences: ConversionPreferences<'_>,
+    ) -> Vec<Candidate> {
+        self.convert_for_ranking(
+            text,
+            languages,
+            &[],
+            preferences,
+            preceding_text,
+            self.pinyin_correction,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn convert_for_ranking(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        phrases: &[PersonalPhrase<'_>],
+        preferences: ConversionPreferences<'_>,
+        preceding_text: &str,
+        correction: Option<CorrectionSensitivity>,
+    ) -> Vec<Candidate> {
         let mut candidates = self.convert_internal(
             text,
             languages,
             false,
-            &[],
-            ConversionPreferences::default(),
+            phrases,
+            preferences,
             preceding_text,
             true,
-            self.pinyin_correction,
+            correction,
         );
         let history = self
             .context

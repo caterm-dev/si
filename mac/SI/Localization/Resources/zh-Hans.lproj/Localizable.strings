@@ -351,3 +351,6 @@
 "Conservative" = "保守";
 "Higher recall" = "高召回";
 "Off" = "关闭";
+
+"Model suggestion" = "模型建议";
+"Model suggestion · %@" = "模型建议 · %@";

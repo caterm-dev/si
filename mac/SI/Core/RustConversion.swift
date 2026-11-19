@@ -9,6 +9,26 @@ final class RustConversion: @unchecked Sendable {
     private static let ready = OSAllocatedUnfairLock<RustConversion?>(initialState: nil)
     static var loaded: RustConversion? { ready.withLock { $0 } }
 
+    // Only the background full conversion worker opens this immutable bundle.
+    private final class RankingResources: @unchecked Sendable {
+        let handle: OpaquePointer
+        init?(_ directory: URL) {
+            guard let handle = directory.withUnsafeFileSystemRepresentation({ si_ranking_open($0) }) else { return nil }
+            self.handle = handle
+        }
+        deinit { si_ranking_close(handle) }
+    }
+
+    private static let ranking: RankingResources? = {
+        #if SWIFT_PACKAGE
+        let resource = ProcessInfo.processInfo.environment["SI_ENGINE_RESOURCE_DIRECTORY"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        #else
+        let resource = Bundle.main.resourceURL?.appendingPathComponent("SIEngine", isDirectory: true)
+        #endif
+        return resource.flatMap { RankingResources($0.appendingPathComponent("Ranking", isDirectory: true)) }
+    }()
+
     static let shared: RustConversion? = {
         #if SWIFT_PACKAGE
         let resourceDirectory = ProcessInfo.processInfo.environment["SI_ENGINE_RESOURCE_DIRECTORY"]
@@ -18,10 +38,10 @@ final class RustConversion: @unchecked Sendable {
         #endif
         guard let resourceDirectory else { return nil }
         let lexicon = resourceDirectory.appendingPathComponent("main.silex")
-        #if SWIFT_PACKAGE
-        let engine = RustConversion(lexicon: lexicon)
-        #else
         let grams = resourceDirectory.appendingPathComponent("words.sigram")
+        #if SWIFT_PACKAGE
+        let engine = RustConversion(lexicon: lexicon, grams: FileManager.default.fileExists(atPath: grams.path) ? grams : nil)
+        #else
         let engine = RustConversion(lexicon: lexicon, grams: grams)
         #endif
         ready.withLock { $0 = engine }
@@ -122,13 +142,14 @@ final class RustConversion: @unchecked Sendable {
                     dictionary: UserDictionary = UserDictionary(), includesConfirmation: Bool = false,
                     learning: LearningProfile = LearningProfile(), now: Date = .now,
                     context: CandidateContext? = nil, precedingText: String = "",
-                    correctionMode: PinyinCorrectionMode? = nil) -> [InputCandidate] {
+                    correctionMode: PinyinCorrectionMode? = nil, experimentalRanking: Bool = false) -> [InputCandidate] {
         let mode = correctionMode ?? self.correctionMode
         var mask: UInt8 = 0
         if languages.contains(.simplifiedChinese) { mask |= 1 }
         if languages.contains(.english) { mask |= 2 }
         guard mask != 0, !input.isEmpty else { return [] }
 
+        let ranking = experimentalRanking && !preview ? Self.ranking?.handle : nil
         let offsets = Self.sourceOffsets(input)
         let bytes = Array(input.utf8)
         let learned = learning.tokenPreferences(for: input, now: now)
@@ -137,7 +158,7 @@ final class RustConversion: @unchecked Sendable {
         guard let result = withRows(dictionary.entries, learned, paths, { phrases, tokens, paths in
             bytes.withUnsafeBufferPointer { input in
                 precedingText.withUTF8 { preceding in
-                    si_engine_candidates_for_mode(engine, input.baseAddress, input.count, preceding.baseAddress, preceding.count,
+                    si_engine_ranked_candidates_for_mode(engine, ranking, input.baseAddress, input.count, preceding.baseAddress, preceding.count,
                                          mask, preview, phrases.baseAddress, phrases.count,
                                          tokens.baseAddress, tokens.count, paths.baseAddress, paths.count, mode.rawValue)
                 }
@@ -171,7 +192,8 @@ final class RustConversion: @unchecked Sendable {
                 rankingScore: row.score_bits, hasCompletion: row.completion, tokenLearningBonus: row.token_bonus,
                 isPreferred: row.preferred,
                 lexicalTokenCount: row.lexical_tokens,
-                confirmationBoundaries: confirmation, isPinyinCorrection: isCorrection).withDisplaySourceBoundaries(boundaries)
+                confirmationBoundaries: confirmation, isPinyinCorrection: isCorrection,
+                modelRankingScore: row.model_score, isNeuralSuggestion: row.neural_only).withDisplaySourceBoundaries(boundaries)
             if (candidate.canLearn || isCorrection) && row.context_adjustment.isFinite {
                 candidate.fieldContextAdjustment = row.context_adjustment
             }

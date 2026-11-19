@@ -523,12 +523,12 @@ written form once. To generate three new dialogues, run:
 python3 scripts/si-generate-chat-corpus.py --limit 3
 ```
 
-Each word starts a fresh Pi process. The script cycles through the scenes,
-interleaving categories and offering up to three suggestions per word.
-The bundled Pi extension explicitly disables thinking on Ollama's
-OpenAI-compatible chat endpoint.
-Pi can choose a scene that better fits the word. Retries ask for four short
-messages about a concrete situation. A dialogue must contain the exact target
+Each batch starts a fresh Pi process with thinking enabled at low effort.
+The default batch size is five target words. Use `--batch-size 10` to try
+ten at a time, or `--batch-size 1` for one word per request. Each word gets
+its own scene and style suggestions. Pi can choose a scene that better fits
+the word. The script retries missing or invalid batch results individually.
+A dialogue must contain the exact target
 text in a message before the script appends it to
 `corpus/chinese/raw/si/pi/messages.txt`. The file contains only message text,
 with one message per line and a blank line between dialogues. On restart, the
@@ -689,10 +689,12 @@ coverage and word quality require separate evaluation.
 
 The [offline LambdaRank experiment](eval/lambdarank/README.md) provides editable,
 separate synthetic training/validation sets, Rust candidate/feature export and
-Python LightGBM training with reproducible baseline comparisons. The v3 feature
-schema covers word frequency, internal/context grams, explicit user snapshots and
-Pinyin correction evidence, with same-pool feature-group ablations. Models remain
-offline and are not loaded by the app.
+Python LightGBM training with reproducible baseline comparisons. V3 covers word
+frequency, internal/context grams, explicit user snapshots and Pinyin correction.
+V4 adds an optional merged pool from SI and Pinyin-to-text, with candidate source
+features and contextual scores from the small character LM. An opt-in macOS
+development build runs the three models locally from the background conversion
+worker. See [experimental input ranking](llm/README.md#experimental-input-ranking).
 
 The [ranking evaluation dataset](eval/README.md) contains 220 synthetic queries
 covering documented Pinyin regressions, 100 short Chinese ambiguity cases, English
@@ -716,6 +718,8 @@ Git retains the application dictionary CSV sources, manifests, preparation/train
 Each preset script performs one task: run `./llm/pinyin_to_text/scripts/setup.sh` for the environment, `./llm/pinyin_to_text/scripts/data.sh` for CSV preparation, `./llm/pinyin_to_text/scripts/run.sh` for small-model training on MPS, then separately run `validation.sh`, `test.sh`, `infer.sh` or `export.sh` as needed. Shared paths and parameters are in `llm/scripts/defaults.sh`; no stage launches the next one. The scripts use `llm/.venv` without activation and accept explicit argument overrides. Old environment overrides still take precedence; use a fresh terminal before using the new presets. Use `check.sh` and the tiny CPU `smoke.sh` for framework checks. See [the framework guide](llm/README.md) for preset locations and new-run/resume instructions.
 
 The focused collection initially has 2,021 training pairs (937 character/readings and 1,084 short words), 73 validation and 69 test pairs. Its audit records the one-time vocabulary selection and training-only character alignment. This is limited coverage and does not establish held-out word quality. The earlier [50,000-sample collection](llm/pinyin_to_text/data/csv/EXPANSION_50K.md), 0.403B config, prepared snapshots and checkpoints remain unchanged for explicit use; old weights do not resume into the smaller architecture.
+
+An optional offline encoder-decoder experiment accepts preceding text and up to three explicit Pinyin syllable paths. A small synthetic CSV collection exercises data preparation, training input and batched decoding. [Contextual Pinyin experiment](llm/pinyin_to_text/README.md#contextual-pinyin-experiment)
 
 ## Website
 

@@ -6,7 +6,7 @@ import SICore
 // Serial computation shares no composition or client state between controllers.
 private actor CandidateWorker {
     static let shared = CandidateWorker()
-    func generate(_ request: CandidateRequest) async -> CandidateResult { request.generate() }
+    func generate(_ request: CandidateRequest) async -> CandidateResult { request.generate(useExperimentalRanking: true) }
 }
 
 // A full search must not hold early hints behind obsolete, expensive work.

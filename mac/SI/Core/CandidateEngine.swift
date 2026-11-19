@@ -18,10 +18,10 @@ public struct CandidateEngine: Sendable {
                            now: Date = .now, context: CandidateContext? = nil,
                            includesConfirmationEvidence: Bool = false,
                            applicationMemory: ApplicationMemorySnapshot = .empty,
-                           precedingText: String = "") -> [InputCandidate] {
+                           precedingText: String = "", experimentalRanking: Bool = false) -> [InputCandidate] {
         return converted(input, languages: languages, learning: learning, dictionary: dictionary,
                          now: now, context: context, applicationMemory: applicationMemory, preview: false,
-                         includesConfirmation: includesConfirmationEvidence, precedingText: precedingText)
+                         includesConfirmation: includesConfirmationEvidence, precedingText: precedingText, experimentalRanking: experimentalRanking)
     }
 
 
@@ -37,7 +37,7 @@ public struct CandidateEngine: Sendable {
     private func converted(_ input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot, preview: Bool,
-                           includesConfirmation: Bool = false, precedingText: String) -> [InputCandidate] {
+                           includesConfirmation: Bool = false, precedingText: String, experimentalRanking: Bool = false) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let generated: [InputCandidate]
         if let providers {
@@ -48,7 +48,8 @@ public struct CandidateEngine: Sendable {
             let rust = applicationMemory.sentenceModel?.conversion ?? RustConversion.shared
             generated = rust?.candidates(for: input, languages: languages, preview: preview,
                 dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now,
-                context: context, precedingText: precedingText, correctionMode: pinyinCorrectionMode)
+                context: context, precedingText: precedingText, correctionMode: pinyinCorrectionMode,
+                experimentalRanking: experimentalRanking)
                 ?? dictionary.candidates(for: input, languages: languages)
         }
         var entries = generated
@@ -64,7 +65,7 @@ public struct CandidateEngine: Sendable {
                     + $0.fieldContextAdjustment
             }
         }
-        let known = Set(entries.map(\.id))
+        let known = Set(entries.lazy.filter { !$0.isNeuralSuggestion }.map(\.id))
         entries += applicationMemory.vocabularyCandidates(for: input, languages: languages, now: now)
             .filter { !known.contains($0.id) }
         let preferredID = applicationMemory.preferredCandidateID(for: input, languages: languages)
@@ -81,6 +82,10 @@ public struct CandidateEngine: Sendable {
             let remembered = candidate.canLearn && !candidate.isPartial && candidate.id == preferredID
             var ranked = candidate.withPresentationScore(score, remembered: remembered)
             if let previous = best[ranked.id] {
+                if previous.isNeuralSuggestion != ranked.isNeuralSuggestion {
+                    if !ranked.isNeuralSuggestion { best[ranked.id] = ranked }
+                    continue
+                }
                 if precedes(previous, ranked, inputCount: inputCount) {
                     best[ranked.id]?.retainLexicalEvidence(from: ranked)
                     continue
@@ -99,6 +104,11 @@ public struct CandidateEngine: Sendable {
         let rightConsumed = right.consumedInputCount ?? inputCount
         if leftConsumed != rightConsumed { return leftConsumed > rightConsumed }
         if left.isPinyinCorrection != right.isPinyinCorrection { return !left.isPinyinCorrection }
+        // LambdaRank has its own score units. Compare its scores only within the
+        // whole-candidate policy group and retain the statistical fallback order.
+        if left.modelRankingScore != right.modelRankingScore {
+            return (left.modelRankingScore ?? -.infinity) > (right.modelRankingScore ?? -.infinity)
+        }
         let leftScore = left.presentationScore ?? left.rankingScore
         let rightScore = right.presentationScore ?? right.rankingScore
         if leftScore != rightScore { return leftScore > rightScore }

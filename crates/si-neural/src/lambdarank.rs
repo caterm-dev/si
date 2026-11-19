@@ -1,0 +1,207 @@
+//! Inference for exported single-output LightGBM LambdaRank trees.
+use std::path::Path;
+
+use serde_json::Value;
+
+use crate::json;
+
+use crate::{Result, invalid};
+
+enum Node {
+    Leaf {
+        value: f64,
+    },
+    Numeric {
+        feature: usize,
+        threshold: f64,
+        missing: Missing,
+        default_left: bool,
+        left: Box<Node>,
+        right: Box<Node>,
+    },
+    Categorical {
+        feature: usize,
+        categories: Vec<i32>,
+        left: Box<Node>,
+        right: Box<Node>,
+    },
+}
+
+enum Missing {
+    None,
+    Nan,
+    Zero,
+}
+
+impl Node {
+    fn parse(raw: &Value) -> Result<Self> {
+        let kind = json::text(&raw["kind"])?;
+        if kind == "leaf" {
+            return Ok(Self::Leaf {
+                value: json::number(&raw["value"])?,
+            });
+        }
+        let feature = json::integer(&raw["feature"])?;
+        let left = Box::new(Self::parse(&raw["left"])?);
+        let right = Box::new(Self::parse(&raw["right"])?);
+        match kind {
+            "numeric" => {
+                let missing = match json::text(&raw["missing"])? {
+                    "None" => Missing::None,
+                    "NaN" => Missing::Nan,
+                    "Zero" => Missing::Zero,
+                    _ => return Err(invalid("unsupported missing value policy")),
+                };
+                let default_left = raw["default_left"]
+                    .as_bool()
+                    .ok_or_else(|| invalid("missing default branch"))?;
+                Ok(Self::Numeric {
+                    feature,
+                    threshold: json::number(&raw["threshold"])?,
+                    missing,
+                    default_left,
+                    left,
+                    right,
+                })
+            }
+            "categorical" => {
+                let categories = json::array(&raw["categories"])?
+                    .iter()
+                    .map(|category| {
+                        category
+                            .as_i64()
+                            .and_then(|n| i32::try_from(n).ok())
+                            .ok_or_else(|| invalid("invalid category"))
+                    })
+                    .collect::<Result<_>>()?;
+                Ok(Self::Categorical {
+                    feature,
+                    categories,
+                    left,
+                    right,
+                })
+            }
+            _ => Err(invalid("unsupported node type")),
+        }
+    }
+
+    fn valid(&self, width: usize) -> bool {
+        match self {
+            Self::Leaf { value } => value.is_finite(),
+            Self::Numeric {
+                feature,
+                threshold,
+                left,
+                right,
+                ..
+            } => {
+                *feature < width && threshold.is_finite() && left.valid(width) && right.valid(width)
+            }
+            Self::Categorical {
+                feature,
+                categories,
+                left,
+                right,
+            } => {
+                *feature < width
+                    && !categories.is_empty()
+                    && left.valid(width)
+                    && right.valid(width)
+            }
+        }
+    }
+
+    fn score(&self, row: &[Option<f64>]) -> f64 {
+        let mut node = self;
+        loop {
+            let (test, left, right) = match node {
+                Self::Leaf { value } => return *value,
+                Self::Numeric {
+                    feature,
+                    threshold,
+                    missing,
+                    default_left,
+                    left,
+                    right,
+                } => {
+                    let value = row[*feature];
+                    let take_left = match missing {
+                        Missing::Nan if value.is_none() => *default_left,
+                        Missing::Zero if value.unwrap_or(0.0).abs() <= 1e-35_f32 as f64 => {
+                            *default_left
+                        }
+                        _ => value.unwrap_or(0.0) <= *threshold,
+                    };
+                    (take_left, left, right)
+                }
+                Self::Categorical {
+                    feature,
+                    categories,
+                    left,
+                    right,
+                } => {
+                    let take_left = row[*feature].is_some_and(|value| {
+                        value >= 0.0
+                            && value <= i32::MAX as f64
+                            && categories.contains(&(value as i32))
+                    });
+                    (take_left, left, right)
+                }
+            };
+            node = if test { left } else { right };
+        }
+    }
+}
+
+pub struct LambdaRank {
+    pub feature_names: Vec<String>,
+    pub pinyin_checkpoint_sha256: String,
+    pub reranker_checkpoint_sha256: String,
+    pub beam_size: usize,
+    trees: Vec<Node>,
+}
+
+impl LambdaRank {
+    pub fn open(path: &Path) -> Result<Self> {
+        if path.metadata()?.len() > 8 * 1024 * 1024 {
+            return Err(invalid("ranker exceeds size limit"));
+        }
+        let raw: Value =
+            serde_json::from_reader(std::io::BufReader::new(std::fs::File::open(path)?))?;
+        let model = Self {
+            feature_names: json::strings(&raw["feature_names"])?,
+            pinyin_checkpoint_sha256: json::text(&raw["pinyin_checkpoint_sha256"])?.to_owned(),
+            reranker_checkpoint_sha256: json::text(&raw["reranker_checkpoint_sha256"])?.to_owned(),
+            beam_size: json::integer(&raw["beam_size"])?,
+            trees: json::array(&raw["trees"])?
+                .iter()
+                .map(Node::parse)
+                .collect::<Result<_>>()?,
+        };
+        if raw["schema"].as_u64() != Some(1)
+            || model.feature_names.is_empty()
+            || model.trees.is_empty()
+            || !(1..=32).contains(&model.beam_size)
+            || !model
+                .trees
+                .iter()
+                .all(|tree| tree.valid(model.feature_names.len()))
+        {
+            return Err(invalid("invalid LambdaRank model"));
+        }
+        Ok(model)
+    }
+
+    pub fn score(&self, row: &[Option<f64>]) -> Result<f64> {
+        if row.len() != self.feature_names.len()
+            || row.iter().flatten().any(|value| !value.is_finite())
+        {
+            return Err(invalid("invalid LambdaRank feature row"));
+        }
+        let score: f64 = self.trees.iter().map(|tree| tree.score(row)).sum();
+        if !score.is_finite() {
+            return Err(invalid("nonfinite LambdaRank score"));
+        }
+        Ok(score)
+    }
+}

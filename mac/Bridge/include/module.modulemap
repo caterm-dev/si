@@ -1,5 +1,6 @@
 module CSIRust {
     header "SIRust.h"
     link "si_macos_bridge"
+    link framework "Accelerate"
     export *
 }
