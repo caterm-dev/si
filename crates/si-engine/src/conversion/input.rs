@@ -1,3 +1,4 @@
+use si_lexicon::{IndexId, Lexicon};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::Language;
@@ -106,6 +107,57 @@ impl<'a> Input<'a> {
             .copied()
             .take_while(move |&position| position <= end)
             .map(move |position| position - start)
+    }
+
+    pub(super) fn pinyin_paths(&self, lexicon: &Lexicon) -> Vec<String> {
+        const MAX_PATHS: usize = 3;
+        const MAX_SYLLABLE_BYTES: usize = 6;
+        let spelling = self.spelling(Language::Chinese);
+        let end = spelling.len();
+        if !spelling.iter().all(u8::is_ascii_lowercase) {
+            return Vec::new();
+        }
+        // Keep the three best suffixes at each boundary. Prefer fewer syllables
+        // and break ties by the longest earlier syllable.
+        let mut suffixes = vec![Vec::<Vec<usize>>::new(); end + 1];
+        suffixes[end].push(Vec::new());
+        for start in (0..end).rev() {
+            let boundary = start + self.separators(start, end).next().unwrap_or(end - start);
+            let mut paths = Vec::new();
+            for next in (start + 1..=boundary.min(start + MAX_SYLLABLE_BYTES)).rev() {
+                if suffixes[next].is_empty()
+                    || lexicon
+                        .exact(IndexId(0), &spelling[start..next])
+                        .next()
+                        .is_none()
+                {
+                    continue;
+                }
+                paths.extend(suffixes[next].iter().map(|rest| {
+                    std::iter::once(next)
+                        .chain(rest.iter().copied())
+                        .collect::<Vec<_>>()
+                }));
+            }
+            paths.sort_by(|a, b| a.len().cmp(&b.len()).then_with(|| b.cmp(a)));
+            paths.truncate(MAX_PATHS);
+            suffixes[start] = paths;
+        }
+        let spelling = std::str::from_utf8(spelling).expect("validated ASCII spelling");
+        suffixes[0]
+            .iter()
+            .map(|path| {
+                let mut start = 0;
+                path.iter()
+                    .map(|&next| {
+                        let syllable = &spelling[start..next];
+                        start = next;
+                        syllable
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+            .collect()
     }
 }
 

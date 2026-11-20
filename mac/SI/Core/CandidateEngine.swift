@@ -103,9 +103,10 @@ public struct CandidateEngine: Sendable {
         let leftConsumed = left.consumedInputCount ?? inputCount
         let rightConsumed = right.consumedInputCount ?? inputCount
         if leftConsumed != rightConsumed { return leftConsumed > rightConsumed }
-        if left.isPinyinCorrection != right.isPinyinCorrection { return !left.isPinyinCorrection }
-        // LambdaRank has its own score units. Compare its scores only within the
-        // whole-candidate policy group and retain the statistical fallback order.
+        let leftHeuristicCorrection = left.isPinyinCorrection && left.modelRankingScore == nil
+        let rightHeuristicCorrection = right.isPinyinCorrection && right.modelRankingScore == nil
+        if leftHeuristicCorrection != rightHeuristicCorrection { return !leftHeuristicCorrection }
+        // LambdaRank scores include model-ranked corrections and use their own units.
         if left.modelRankingScore != right.modelRankingScore {
             return (left.modelRankingScore ?? -.infinity) > (right.modelRankingScore ?? -.infinity)
         }

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "default": {
+    "license": "CC-BY-4.0",
+    "origin": "Selected and adapted from SI Data/Chinese/base.csv. Wanxiang base vocabulary by amzxyz and rime-wanxiang-data contributors; SI lexical additions and review. See the dataset guide and bundled SI vocabulary notices.",
+    "revision": "pinyin-syllable-100k-v1"
+  },
+  "files": {
+    "train/examples.csv": {
+      "revision": "pinyin-syllable-50k-v1"
+    },
+    "validation/examples.csv": {
+      "revision": "pinyin-syllable-50k-v1"
+    },
+    "test/examples.csv": {
+      "revision": "pinyin-syllable-50k-v1"
+    }
+  },
+  "materialization": {
+    "source": "Data/Chinese/base.csv",
+    "si_revision": "c60f79922b6340864e394df1d486d33fde75b6bd",
+    "source_sha256": "18adf68c6cf5ef53cf7425459455fbe88a94d241c12f836c18713c733f2edf90",
+    "wanxiang_revision": "adfa047c339627737f0a4c75674a8042c1ef7f72",
+    "counts": {
+      "train": {
+        "rows": 96000,
+        "with_context": 9609
+      },
+      "validation": {
+        "rows": 2000,
+        "with_context": 204
+      },
+      "test": {
+        "rows": 2000,
+        "with_context": 187
+      }
+    },
+    "batches": {
+      "examples.csv": {
+        "train": {
+          "rows": 48000,
+          "with_context": 4804
+        },
+        "validation": {
+          "rows": 1000,
+          "with_context": 109
+        },
+        "test": {
+          "rows": 1000,
+          "with_context": 87
+        }
+      },
+      "additional.csv": {
+        "train": {
+          "rows": 48000,
+          "with_context": 4805
+        },
+        "validation": {
+          "rows": 1000,
+          "with_context": 95
+        },
+        "test": {
+          "rows": 1000,
+          "with_context": 100
+        }
+      }
+    },
+    "csv_sha256": {
+      "train/examples.csv": "d80c0f9f90681b642bed132496efa5a294e05a4f1743d9d3b628509731611caa",
+      "validation/examples.csv": "3bc73cbb6cf9a1a00b7d02511b0105568cf6ea4f394457e40e134f83e5f58e02",
+      "test/examples.csv": "23ca2a5c78906da188a62aadf9272ef3e3073f68a64e9843d7ef1d526f4d0ba5",
+      "train/additional.csv": "f776284dee8c161cc5e2a8b6fa26d2227122a0aabc0b44de588be409da3512c9",
+      "validation/additional.csv": "9db15ecc445bcf05b9f3d4a18435d67eeed7c58a567bbc343d84286e4b0d0e78",
+      "test/additional.csv": "8ff4b4391aef0b02a861da945fdb6e26d87882ad6149fe375b5beba14d95af64"
+    }
+  }
+}

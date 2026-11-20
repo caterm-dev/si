@@ -166,7 +166,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             guard !session.buffer.isEmpty else { return false }
             resolveCandidates(to: client)
             let selected = currentCandidate
-            let commit = session.commitResult(selected, reason: selection.confirmationReason(for: selected))
+            let commit = session.commitResult(selected, reason: selection.spaceConfirmationReason)
             let spacingCandidate = selected?.requiresExplicitSelection == true ? commit.candidate : selected
             let suffix = commit.remainingInput.isEmpty && spacingCandidate?.appendsSpaceOnAcceptance != false ? " " : ""
             apply(commit, suffix: suffix, to: client)

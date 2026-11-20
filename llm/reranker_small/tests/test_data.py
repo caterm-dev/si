@@ -15,6 +15,72 @@ from llm.reranker_small.settings import file_hash, load_config, read_json, write
 
 
 class DataTests(unittest.TestCase):
+    def test_prepared_dialogue_joins_text_and_retains_upstream_splits(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config_path, lock, raw = fixture(root / 'fixture')
+            prepare(config_path, root / 'parent', lock, raw)
+            source = root / 'prepared/dialogue'
+            source.mkdir(parents=True)
+            (source / 'attribution').mkdir()
+            (source / 'attribution/notice.txt').write_text('Synthetic fixture', encoding='utf-8')
+            records = [
+                ('train', 1, '下午碰头，记得把会议纪要也带上。\n这次就在楼下那家店。\n'),
+                ('test', 2, '明早开门之前我去取快递。\n'),
+                ('dev', 3, '到了先帮我跟前台打声招呼。\n'),
+                ('test', 2, '包裹上贴着蓝色标签。\n'),
+            ]
+            next_line = 1
+            with (source / 'text.txt').open('w', encoding='utf-8') as text, \
+                    (source / 'documents.jsonl').open('w', encoding='utf-8') as documents:
+                for index, (split, conversation, value) in enumerate(records):
+                    text.write(value)
+                    lines = value.count('\n')
+                    documents.write(json.dumps({
+                        'origin': f'fixture/{index}', 'path': f'{split}.json', 'dataset': 'example',
+                        'conversation': conversation, 'split': split, 'first_line': next_line, 'lines': lines,
+                    }) + '\n')
+                    next_line += lines
+            files = {path.relative_to(source).as_posix(): {'sha256': file_hash(path), 'bytes': path.stat().st_size}
+                     for path in source.rglob('*') if path.is_file()}
+            write_json(source / 'manifest.json', {
+                'schema_version': 2, 'extraction_contract': 'complete-simplified-text-lines-v2',
+                'source': {'id': 'dialogue'}, 'files': files,
+            })
+            config = read_json(config_path)
+            config['data'].update(sources=['dialogue'], train_target_quotas={'dialogue': {'example': 12}})
+            write_json(config_path, config)
+            output = root / 'adapted'
+            manifest = prepare(config_path, output, lock, raw, parent_data=root / 'parent',
+                               prepared_root=root / 'prepared')
+            self.assertTrue((output / 'metadata/dialogue/attribution/notice.txt').is_file())
+            tests = list(read_jsonl(output / 'test.documents.jsonl'))
+            self.assertEqual({row['origin'] for row in tests}, {'fixture/1', 'fixture/3'})
+            self.assertEqual(len({row['group'] for row in tests}), 1)
+            self.assertEqual(manifest['source_counts']['dialogue']['subsources']['example']['validation_documents'], 1)
+            self.assertEqual(next(read_jsonl(output / 'train.documents.jsonl'))['text'], records[0][2].strip())
+
+    def test_chat_quotas_freeze_vocabulary_and_reject_cross_parent_split_duplicates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config_path, lock, raw = fixture(root / 'fixture')
+            parent = prepare(config_path, root / 'parent', lock, raw)
+            config = read_json(config_path)
+            config['seed'] += 1
+            config['data']['train_target_quotas'] = {'fixture': 1200}
+            write_json(config_path, config)
+            adapted = prepare(config_path, root / 'adapted', lock, raw, parent_data=root / 'parent')
+            self.assertEqual(adapted['parent_dataset_id'], parent['dataset_id'])
+            self.assertEqual(adapted['tokenizer_digest'], parent['tokenizer_digest'])
+            source = adapted['source_counts']['fixture']
+            self.assertGreater(source['cross_parent_split_documents'], 0)
+            self.assertGreaterEqual(source['train_targets'], 1200)
+            self.assertEqual(source['train_targets'], adapted['splits']['train']['targets'])
+            for split in ('train', 'validation', 'test'):
+                parent_ids = {row['id'] for row in read_jsonl(root / 'parent' / f'{split}.documents.jsonl')}
+                adapted_ids = {row['id'] for row in read_jsonl(root / 'adapted' / f'{split}.documents.jsonl')}
+                self.assertTrue(adapted_ids and adapted_ids <= parent_ids)
+
     def test_whole_documents_punctuation_english_and_window_boundaries(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

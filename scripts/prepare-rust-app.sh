@@ -18,6 +18,10 @@ if [[ "$fixtures" == false ]]; then
             exit 2
         fi
     done
+    if ! ranking="$(cd -P "$repo_root/target/si-llm-pinyin" 2>/dev/null && pwd -P)"; then
+        printf 'Missing SI ranking bundle: %s/target/si-llm-pinyin\n' "$repo_root" >&2
+        exit 2
+    fi
 fi
 if (( $# == 0 )); then set -- "$(uname -m)"; fi
 export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
@@ -52,37 +56,30 @@ if [[ "$fixtures" == true ]]; then
         printf '%s\n' "$signature" > "$library_dir/lexicon-inputs"
     fi
     rm -f "$resource_dir/words.sigram"
+    rm -rf "$resource_dir/Ranking"
 else
     work="$(mktemp -d "$resource_dir/.snapshots.XXXXXX")"
     trap 'rm -rf "$work"' EXIT
     install -m 644 "$lexicon" "$work/main.silex"
     install -m 644 "$grams" "$work/words.sigram"
     "$cli" check-resources "$work/main.silex" "$work/words.sigram"
+    mkdir -p "$work/Ranking/pinyin" "$work/Ranking/reranker"
+    chmod 755 "$work/Ranking" "$work/Ranking/pinyin" "$work/Ranking/reranker"
+    for file in lambdarank.json pinyin/model.json pinyin/weights.f32 reranker/model.json reranker/weights.f32; do
+        if [[ ! -s "$ranking/$file" ]]; then
+            printf 'Missing SI ranking resource: %s\n' "$ranking/$file" >&2
+            exit 2
+        fi
+        install -m 644 "$ranking/$file" "$work/Ranking/$file"
+    done
+    python3 "$repo_root/scripts/verify-rust-app.py" --ranking "$work/Ranking"
     mv -f "$work/main.silex" "$resource_dir/main.silex"
     mv -f "$work/words.sigram" "$resource_dir/words.sigram"
+    rm -rf "$resource_dir/Ranking"
+    mv "$work/Ranking" "$resource_dir/Ranking"
     rm -f "$library_dir/lexicon-inputs"
 fi
 rm -f "$resource_dir/main.sigram"
-if [[ "${SI_EXPERIMENTAL_RANKING:-0}" == 1 ]]; then
-    (
-        ranking="${SI_RANKING_ASSET_DIRECTORY:-$repo_root/target/si-neural}"
-        staging="$(mktemp -d "$resource_dir/.ranking.XXXXXX")"
-        trap 'rm -rf "$staging"' EXIT
-        chmod 755 "$staging"
-        mkdir -p "$staging/pinyin" "$staging/reranker"
-        for file in lambdarank.json pinyin/model.json pinyin/weights.f32 reranker/model.json reranker/weights.f32; do
-            if [[ ! -s "$ranking/$file" ]]; then
-                printf 'Missing experimental SI ranking resource: %s\n' "$ranking/$file" >&2
-                exit 2
-            fi
-            install -m 644 "$ranking/$file" "$staging/$file"
-        done
-        rm -rf "$resource_dir/Ranking"
-        mv "$staging" "$resource_dir/Ranking"
-    )
-else
-    rm -rf "$resource_dir/Ranking"
-fi
 for language in Chinese English; do
     mkdir -p "$resource_dir/Notices/$language"
     for notice in "mac/SI/Core/Resources/$language/"*.txt "mac/SI/Core/Resources/$language/"*.md; do

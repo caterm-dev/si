@@ -41,11 +41,11 @@ class StageScriptTests(unittest.TestCase):
                     self.assertEqual(args[:2], ["-m", module])
                     if script in ("run.sh", "resume.sh", "validation.sh", "test.sh", "infer.sh"):
                         self.assertEqual(args[args.index("--device") + 1], "mps")
-                    self.assertTrue(any("pinyin-lexical-v1" in arg for arg in args))
+                    self.assertTrue(any("pinyin-syllable-100k-v1" in arg for arg in args))
                     if script in ("data.sh", "run.sh", "resume.sh"):
-                        self.assertEqual(args[args.index("--config") + 1], str(ROOT / "configs/small-pinyin.json"))
+                        self.assertEqual(args[args.index("--config") + 1], str(ROOT / "configs/contextual-pinyin.json"))
                     if script == "data.sh":
-                        self.assertEqual(args[args.index("--csv-root") + 1], str(ROOT / "data/pinyin-csv"))
+                        self.assertEqual(args[args.index("--csv-root") + 1], str(ROOT / "data/syllable-csv"))
             self.assertEqual(list(root.iterdir()), [recorder])
 
     def test_no_argument_stages_keep_preparation_training_and_reports_separate(self):

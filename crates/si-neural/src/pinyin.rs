@@ -165,6 +165,10 @@ impl Pinyin {
         }
     }
 
+    pub fn uses_context(&self) -> bool {
+        self.contextual
+    }
+
     pub fn generate(
         &self,
         spelling: &str,

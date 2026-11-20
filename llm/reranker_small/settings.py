@@ -35,6 +35,16 @@ def load_config(path):
     for key in ("max_characters_per_source", "max_document_characters", "minimum_han_characters"):
         if type(data[key]) is not int or data[key] < (0 if key == "max_characters_per_source" else 1):
             raise ValueError("Invalid data limit: " + key)
+    quotas = data.get("train_target_quotas")
+    if quotas is not None and (
+        not isinstance(quotas, dict) or set(quotas) != set(data["sources"])
+        or any(not quota_values(value) for value in quotas.values())
+        or data["max_characters_per_source"]
+    ):
+        raise ValueError("Training target quotas require a positive count per source and no character cap")
+    skip = data.get("skip_lccc_records", 0)
+    if type(skip) is not int or skip < 0 or (skip and "lccc" not in data["sources"]):
+        raise ValueError("LCCC record skip requires a nonnegative count and the LCCC source")
     for key in ("batch_size", "gradient_accumulation", "max_steps", "schedule_steps", "warmup_steps",
                 "validate_every", "save_every", "validation_tokens"):
         if type(training[key]) is not int or training[key] <= 0:
@@ -51,6 +61,12 @@ def load_config(path):
             or not math.isfinite(scoring["length_penalty"]) or not 0 <= scoring["length_penalty"] <= 2):
         raise ValueError("Invalid scoring limits")
     return value
+
+
+def quota_values(value):
+    if isinstance(value, dict):
+        return bool(value) and all(type(count) is int and count > 0 for count in value.values())
+    return type(value) is int and value > 0
 
 
 def code_identity():

@@ -27,6 +27,7 @@ class WorkflowTests(unittest.TestCase):
         config['training'].update(batch_size=64, gradient_accumulation=2)
         write_json(cls.config, config)
         cls.data = cls.root / 'data'
+        cls.lock, cls.raw = lock, raw
         prepare(cls.config, cls.data, lock, raw)
         with contextlib.redirect_stdout(io.StringIO()):
             train(cls.config, cls.data, cls.root / 'full', 'cpu', max_steps=4, threads=2)
@@ -71,6 +72,28 @@ class WorkflowTests(unittest.TestCase):
                 evaluate(self.checkpoint, self.data, self.root / 'bad-test.json', 'test', 'cpu', threads=2)
         finally:
             path.write_bytes(original)
+
+    def test_initialization_uses_parent_weights_and_starts_a_new_run(self):
+        data = self.root / 'adapted-data'
+        manifest = prepare(self.config, data, self.lock, self.raw, parent_data=self.data)
+        run = self.root / 'adapted'
+        with self.assertRaisesRegex(ValueError, 'requires --init-checkpoint'):
+            train(self.config, data, run, 'cpu', max_steps=1, threads=2)
+        self.assertFalse(run.exists())
+        with contextlib.redirect_stdout(io.StringIO()):
+            train(self.config, data, run, 'cpu', max_steps=1, threads=2, init_checkpoint=self.checkpoint)
+            train(self.config, data, run, 'cpu', resume=True, max_steps=2, threads=2)
+        parent = torch.load(self.checkpoint, weights_only=True)
+        adapted = torch.load(run / 'last.pt', weights_only=True)
+        self.assertEqual(adapted['dataset_id'], manifest['dataset_id'])
+        self.assertNotEqual(adapted['dataset_id'], parent['dataset_id'])
+        self.assertEqual(adapted['step'], 2)
+        self.assertEqual(adapted['initial_checkpoint'], {
+            'dataset_id': parent['dataset_id'], 'step': parent['step'], 'sha256': file_hash(self.checkpoint),
+        })
+        metrics = [json.loads(line) for line in (run / 'metrics.jsonl').read_text().splitlines()]
+        self.assertEqual((metrics[0]['step'], metrics[0]['tokens_seen']), (0, 0))
+        self.assertEqual(int(adapted['optimizer']['state'][0]['step']), 2)
 
     def test_export_candidate_benchmark_and_explicit_heldout_reports(self):
         destination = self.root / 'export'

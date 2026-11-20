@@ -1,14 +1,20 @@
+from argparse import Namespace
+from contextlib import redirect_stdout
 import copy
 import importlib.util
+import io
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location('pipeline', ROOT / 'scripts/lambdarank/pipeline.py')
 p = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(p)
+from scripts.lambdarank.export_runtime import calibrate_corrections
 
 
 def query(identity, spelling, target, family=None):
@@ -21,6 +27,111 @@ def candidate(text, label):
 
 
 class PipelineTests(unittest.TestCase):
+    def test_compact_queries_get_stable_defaults_and_keep_split_checks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'train.jsonl'
+            row = {'input': 'chnogdian', 'references': ['充电'], 'category': 'pinyin-correction'}
+            path.write_text(json.dumps(row) + '\n')
+            rows = p.read_queries(path)
+            self.assertEqual(rows, p.read_queries(path))
+            self.assertTrue(rows[0]['id'].startswith('query-'))
+            self.assertEqual(rows[0]['context'], '')
+            self.assertEqual(rows[0]['languages'], ['zh-Hans', 'en'])
+            self.assertEqual(rows[0]['category'], 'pinyin-correction')
+            validation = query('validation', 'chongdian', '充电')
+            with self.assertRaisesRegex(ValueError, 'Cross-split'):
+                p.validate_sets(rows, [validation], [query('test', 'qianjin', '前进')])
+
+    def test_default_resources_skip_absent_user_pair_and_reject_partial_pair(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.object(p, 'DEFAULT_RESOURCES', Path(tmp)):
+            main, grams = Path(tmp) / 'main.silex', Path(tmp) / 'words.sigram'
+            user = Path(tmp) / 'user.silex'
+            self.assertEqual(p.resolve_resources(Namespace(), p.V5_LEXICAL_SCHEMA),
+                             (main, grams, None, None))
+            user.touch()
+            with self.assertRaisesRegex(ValueError, 'Stage both user.silex and user.sigram'):
+                p.resolve_resources(Namespace(), p.V5_LEXICAL_SCHEMA)
+            self.assertEqual(p.resolve_resources(Namespace(without_user=True), p.V5_LEXICAL_SCHEMA),
+                             (main, grams, None, None))
+            self.assertEqual(p.resolve_resources(Namespace(lexicon=main, user_lexicon=user), p.V5_LEXICAL_SCHEMA),
+                             (main, None, user, None))
+            self.assertEqual(p.resolve_resources(Namespace(), 'si-rank-features-v2'),
+                             (main, grams, None, None))
+
+    def test_default_user_snapshot_supplies_training_features(self):
+        binary = ROOT / 'target/release/si-cli'
+        if not binary.exists():
+            self.skipTest('Build si-cli in Release first')
+        with tempfile.TemporaryDirectory() as tmp, patch.object(p, 'DEFAULT_RESOURCES', Path(tmp)):
+            tmp = Path(tmp)
+            base = tmp / 'base.csv'
+            user = tmp / 'user.csv'
+            tokens = tmp / 'tokens.txt'
+            base.write_text("text,reading,weight\n测试,ce'shi,100\n侧视,ce'shi,50\n"
+                            "提案,ti'an,100\n题案,ti'an,50\n")
+            user.write_text("text,reading,weight\n测试,ce'shi,5\n提案,ti'an,4\n")
+            tokens.write_text('测试 提案\n')
+            for lexicon, grams, csv in [('main.silex', 'words.sigram', base),
+                                        ('user.silex', 'user.sigram', user)]:
+                lexicon, grams = tmp / lexicon, tmp / grams
+                subprocess.run([str(binary), 'lexicon', 'build', str(lexicon), '0', str(csv)],
+                               check=True, capture_output=True)
+                subprocess.run([str(binary), 'corpus', 'build', str(lexicon), str(grams), str(tokens)],
+                               check=True, capture_output=True)
+            training, validation = tmp / 'train.jsonl', tmp / 'validation.jsonl'
+            training.write_text(''.join(json.dumps(row) + '\n' for row in [
+                query('resource-train', 'ceshitian', '测试提案'), query('resource-train-short', 'ceshi', '测试')]))
+            validation.write_text(json.dumps(query('resource-validation', 'tian', '提案')) + '\n')
+            args = Namespace(train=training, validation=validation, output=tmp / 'prepared')
+            with patch.object(p, 'EXPORT_BATCH_SIZE', 1):
+                summary = p.prepare(args)
+            (rows, _), manifest = p.load_bundle(args.output)
+            self.assertTrue(summary['user_resources_supplied'])
+            self.assertEqual(summary['baseline'][0]['queries'], 2)
+            for key, name in [('lexicon', 'main.silex'), ('grams', 'words.sigram'),
+                              ('user_lexicon', 'user.silex'), ('user_grams', 'user.sigram')]:
+                self.assertEqual(manifest['resources'][key], p.sha(tmp / name))
+            gold = next(c for c in rows[0]['candidates'] if c['label'])
+            features = dict(zip(manifest['features'], gold['features'], strict=True))
+            self.assertEqual(features['base_gram_available'], 1)
+            self.assertEqual(features['user_lexicon_available'], 1)
+            self.assertEqual(features['user_gram_available'], 1)
+            self.assertEqual(features['user_word_hit_ratio'], 1)
+            self.assertEqual(features['user_internal_ngram_hit_ratio'], 1)
+
+            if importlib.util.find_spec('lightgbm') is not None:
+                run_path = tmp / 'run'
+                command = ['pipeline.py', 'train', '--train', str(training), '--validation',
+                           str(validation), '--rounds', '2', '--output', str(run_path)]
+                with patch.object(p.sys, 'argv', command), patch.object(p.os, 'umask'), redirect_stdout(io.StringIO()):
+                    p.main()
+                bundle = run_path / 'bundle'
+                p.load_bundle(bundle)
+                run = json.loads((run_path / 'run.json').read_text())
+                self.assertEqual(run['bundle_manifest_sha256'], p.sha(bundle / 'manifest.json'))
+                report = json.loads((run_path / 'report.json').read_text())
+                self.assertGreater(report['feature_observations']['user_word_hit_ratio']['train_nonmissing'], 0)
+
+    def test_calibrate_corrections_uses_clean_queries_and_ignores_neural_only_baseline(self):
+        features = ['from_si_engine', 'is_corrected']
+        ordinary = dict(features=[1, 0], label=1)
+        neural = dict(features=[0, None], label=0)
+        correction = dict(features=[1, 1], label=0)
+        clean = dict(category='chinese', candidates=[ordinary, correction, neural])
+        typo = dict(category='pinyin-correction',
+                    candidates=[ordinary, {**correction, 'label': 1}])
+        missed = dict(category='pinyin-correction', candidates=[ordinary])
+        margins, report = calibrate_corrections(
+            [clean] * 20 + [typo, missed], features,
+            [0, 2, 10] + [0, 1, 10] * 19 + [0, 1.5, 0])
+        self.assertEqual(margins, {'conservative': 2, 'higher_recall': 1})
+        self.assertEqual(report['typos_in_pool'], 1)
+        self.assertEqual(report['typo_queries'], 2)
+        self.assertEqual(report['conservative'],
+                         {'clean_with_suggestion': 0, 'typos_with_intended_suggestion': 0})
+        self.assertEqual(report['higher_recall'],
+                         {'clean_with_suggestion': 1, 'typos_with_intended_suggestion': 1})
+
     def test_starter_splits_do_not_overlap_frozen_test(self):
         counts = p.validate_sets(p.read_rows(p.DATA / 'train.jsonl'),
                                 p.read_rows(p.DATA / 'validation.jsonl'),
@@ -65,7 +176,6 @@ class PipelineTests(unittest.TestCase):
         binary = ROOT / 'target/release/si-cli'
         if not binary.exists():
             self.skipTest('Build si-cli in Release first')
-        import subprocess
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             (tmp / 'words.csv').write_text('text,reading,weight\n测试,ce\'shi,100\n侧视,ce\'shi,10\n')
@@ -77,8 +187,31 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual(sum(c['label'] for c in result[0]['candidates']), 1)
             self.assertEqual(result[1]['candidates'], [])
 
+    def test_contextual_model_paths_use_input_and_honor_separators(self):
+        binary = ROOT / 'target/release/si-cli'
+        if not binary.exists():
+            self.skipTest('Build si-cli in Release first')
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            base = tmp / 'base.silex'
+            words = tmp / 'words.csv'
+            words.write_text('text,reading,weight\n方,fang,5\n安,an,5\n凡,fan,5\n干,gan,5\n绿,lv,5\n茶,cha,5\n')
+            subprocess.run([str(binary), 'lexicon', 'build', str(base), '0', str(words)],
+                           check=True, capture_output=True)
+            rows = [query(str(i), spelling, '任意') for i, spelling in enumerate(
+                ["fangan", "fan'gan'", "lu:cha", "fang'an!", "Fangan", "fangan"])]
+            rows[-1]['languages'] = ['en']
+            rows[0]['syllable_paths'] = ['unrelated']
+            rows = p.export_rows(binary, base, None, rows, pinyin_paths=True)
+            self.assertEqual([r['model_syllable_paths'] for r in rows],
+                             [['fang an', 'fan gan'], ['fan gan'], ['lv cha'], [], [], []])
+            received = []
+            p.neural_features.merge_row(rows[0], p.FEATURES,
+                                        lambda source, context, paths: received.extend(paths) or [],
+                                        lambda context, texts: dict.fromkeys(texts, (None,) * 3))
+            self.assertEqual(received, ['fang an', 'fan gan'])
+
     def test_correction_export_and_missing_values(self):
-        import subprocess
         binary = ROOT / 'target/release/si-cli'
         if not binary.exists():
             self.skipTest('Build si-cli in Release first')
@@ -103,7 +236,6 @@ class PipelineTests(unittest.TestCase):
             json.dumps(result, allow_nan=False)
 
     def test_v5_exports_completion_path_counts_and_prior_choices(self):
-        import subprocess
         binary = ROOT / 'target/release/si-cli'
         if not binary.exists():
             self.skipTest('Build si-cli in Release first')

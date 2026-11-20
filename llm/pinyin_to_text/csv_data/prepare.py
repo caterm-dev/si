@@ -201,8 +201,8 @@ def prepare(config_path, csv_root, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=ROOT / "configs/small-pinyin.json")
-    parser.add_argument("--csv-root", type=Path, default=ROOT / "data/pinyin-csv")
+    parser.add_argument("--config", type=Path, default=ROOT / "configs/contextual-pinyin.json")
+    parser.add_argument("--csv-root", type=Path, default=ROOT / "data/syllable-csv")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     manifest = prepare(args.config, args.csv_root, args.output)

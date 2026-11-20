@@ -7,8 +7,8 @@ use si_neural::{LambdaRank, Pinyin, Reranker};
 
 use super::input::Input;
 use super::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionPreferences, CorrectionSensitivity,
-    EnabledLanguages, Language, PersonalPhrase,
+    Candidate, CandidateEngine, CandidateLanguage, ConversionPreferences, CorrectionSearch,
+    CorrectionSensitivity, EnabledLanguages, Language, PersonalPhrase,
 };
 use crate::{han, ranking_features};
 
@@ -95,25 +95,60 @@ impl HybridRanking {
         preceding: &str,
         correction: Option<CorrectionSensitivity>,
     ) -> Vec<RankedCandidate> {
+        let learned_margin = correction.zip(self.ranker.correction_margins).map(
+            |(mode, [conservative, higher_recall])| match mode {
+                CorrectionSensitivity::Conservative => conservative,
+                CorrectionSensitivity::HigherRecall => higher_recall,
+            },
+        );
+        let heuristic = correction.map(CorrectionSearch::Heuristic);
         let candidates = engine.convert_for_ranking(
             source,
             languages,
             phrases,
             preferences,
             preceding,
-            correction,
+            if learned_margin.is_some() {
+                Some(CorrectionSearch::ModelPool)
+            } else {
+                heuristic
+            },
         );
         let mut rows: Vec<_> = candidates.into_iter().map(RankedCandidate::from).collect();
         let baseline_len = rows.len();
         if self
-            .enhance(&mut rows, source, languages, preceding, preferences)
+            .enhance(
+                engine,
+                &mut rows,
+                source,
+                languages,
+                preceding,
+                preferences,
+                learned_margin.is_some(),
+            )
             .is_err()
         {
+            if learned_margin.is_some() {
+                return engine
+                    .convert_with_correction(
+                        source,
+                        languages,
+                        false,
+                        phrases,
+                        preferences,
+                        preceding,
+                        correction,
+                    )
+                    .into_iter()
+                    .map(RankedCandidate::from)
+                    .collect();
+            }
             rows.truncate(baseline_len);
             for row in &mut rows {
                 row.model_score = None;
             }
         }
+        apply_correction_policy(&mut rows, learned_margin);
         for row in &mut rows {
             row.candidate.ranking_evidence = None;
         }
@@ -147,16 +182,26 @@ impl HybridRanking {
         result
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn enhance(
         &self,
+        engine: &CandidateEngine<'_>,
         rows: &mut Vec<RankedCandidate>,
         source: &str,
         languages: EnabledLanguages,
         preceding: &str,
         preferences: ConversionPreferences<'_>,
+        model_correction_pool: bool,
     ) -> io::Result<()> {
         let mut features = Vec::new();
         let mut known = HashMap::new();
+        let correction_slots = if model_correction_pool {
+            rows.iter()
+                .filter(|row| row.candidate.is_corrected())
+                .count()
+        } else {
+            0
+        };
         for (row_index, row) in rows.iter().enumerate() {
             let candidate = &row.candidate;
             if candidate.consumed_bytes != source.len()
@@ -164,7 +209,9 @@ impl HybridRanking {
             {
                 continue;
             }
-            let index = if features.len() < SI_POOL_LIMIT {
+            let index = if features.len() < SI_POOL_LIMIT - correction_slots
+                || (model_correction_pool && candidate.is_corrected())
+            {
                 let values = if self.v5 {
                     ranking_features::extract_v5(
                         source,
@@ -198,13 +245,28 @@ impl HybridRanking {
             let input = Input::new(source);
             let spelling = input.spelling(Language::Chinese);
             if !spelling.is_empty() && spelling.iter().all(u8::is_ascii_lowercase) {
+                let contextual = self.pinyin.uses_context();
+                let paths = if contextual {
+                    input.pinyin_paths(engine.base.lexicon())
+                } else {
+                    Vec::new()
+                };
                 let normalized: String = spelling
                     .iter()
-                    .map(|&b| if b == b'v' { 'ü' } else { b as char })
+                    .map(|&b| {
+                        if !contextual && b == b'v' {
+                            'ü'
+                        } else {
+                            b as char
+                        }
+                    })
                     .collect();
-                let generated =
-                    self.pinyin
-                        .generate(&normalized, None, &[], self.ranker.beam_size)?;
+                let generated = self.pinyin.generate(
+                    &normalized,
+                    contextual.then_some(preceding),
+                    &paths,
+                    self.ranker.beam_size,
+                )?;
                 for (index, text) in generated.model_candidates.into_iter().enumerate() {
                     let Some(language) = generated_language(&text, languages) else {
                         continue;
@@ -299,6 +361,27 @@ impl HybridRanking {
         }
         Ok(())
     }
+}
+
+fn apply_correction_policy(rows: &mut Vec<RankedCandidate>, learned_margin: Option<f64>) {
+    let Some(margin) = learned_margin else {
+        for row in rows.iter_mut().filter(|row| row.candidate.is_corrected()) {
+            row.model_score = None;
+        }
+        return;
+    };
+    let best_ordinary = rows
+        .iter()
+        .filter(|row| !row.neural_only && !row.candidate.is_corrected())
+        .filter_map(|row| row.model_score)
+        .max_by(f64::total_cmp)
+        .unwrap_or(0.0);
+    rows.retain(|row| {
+        !row.candidate.is_corrected()
+            || row
+                .model_score
+                .is_some_and(|score| score - best_ordinary > margin)
+    });
 }
 
 fn generated_language(text: &str, languages: EnabledLanguages) -> Option<CandidateLanguage> {

@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from ..common import write_json
+from ..common import CONTEXTUAL_PINYIN, read_json, write_json
 from ..evaluate import evaluate
 from ..runtime import candidates, load_checkpoint, select_device
 from ..train import train
@@ -15,7 +15,10 @@ def smoke(output, csv_root):
     if output.exists():
         raise ValueError("Smoke output exists; choose a new directory")
     output.mkdir(parents=True)
-    config = ROOT / "configs/smoke.json"
+    config = output / "config.json"
+    tiny = read_json(ROOT / "configs/smoke.json")
+    tiny["model"]["source_format"] = CONTEXTUAL_PINYIN
+    write_json(config, tiny)
     data, run = output / "data", output / "run"
     manifest = prepare(config, csv_root, data)
     train(config, data, run, "cpu", max_steps=2, threads=2)
@@ -24,8 +27,8 @@ def smoke(output, csv_root):
     test = evaluate(data, "test", output / "test.json", run / "best.pt", device_name="cpu", limit=3, threads=2)
     evaluate(data, "test", output / "literal.json", config_path=config, baseline="literal", device_name="cpu", limit=3, threads=2)
     _, model, tokenizer = load_checkpoint(run / "best.pt", select_device("cpu"))
-    for spelling in ("nihao", "womenzaijia", "HelloWorld42", ""):
-        result = candidates(model, tokenizer, spelling, select_device("cpu"), 2, .6)
+    for spelling, paths in (("fangan", ("fang an", "fan gan")), ("HelloWorld42", ()), ("", ())):
+        result = candidates(model, tokenizer, spelling, select_device("cpu"), 2, .6, syllable_paths=paths)
         assert (spelling in result["candidates"]) if spelling else not result["candidates"]
     summary = {"status": "passed", "data_format": "static-csv", "dataset_id": manifest["dataset_id"],
                "source_files": len(manifest["sources"]), "steps": 4,
@@ -38,7 +41,7 @@ def smoke(output, csv_root):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--csv-root", type=Path, default=ROOT / "data/pinyin-csv")
+    parser.add_argument("--csv-root", type=Path, default=ROOT / "data/contextual-pinyin-csv")
     args = parser.parse_args()
     print(smoke(args.output, args.csv_root))
 

@@ -25,13 +25,19 @@ bridge the app uses, including bilingual results, exact UTF-8 spans, personal
 phrases, confirmation evidence and token preferences.
 SwiftPM uses a separate dictionary generated from the tracked CSVs.
 The Release build and its package check require the paired snapshots under
-`target/si-data/`.
+`target/si-data/` and the [ranking bundle](../llm/README.md#experimental-input-ranking)
+at `target/si-llm-pinyin`.
 
-For the [experimental model build](../llm/README.md#experimental-input-ranking),
-run the worker integration test with `SI_EXPERIMENTAL_RANKING=1`. It uses the
-actual staged checkpoints to exercise request delivery, the candidate shortlist,
-the literal fallback and explicit submission. For a live host check with that
-build installed, type synthetic `fangan` in TextEdit after `先定个`, wait for full
+Run the worker integration test with the app's staged checkpoints:
+
+```sh
+SI_TEST_ENGINE_RESOURCE_DIRECTORY="$PWD/.build/xcode/Build/Products/Release/SI.app/Contents/Resources/SIEngine" \
+  ./scripts/test.sh --filter experimentalModelsReachWorker
+```
+
+It exercises request delivery, the candidate shortlist, the literal fallback
+and explicit submission. On an installed build, type synthetic `fangan` in
+TextEdit after `先定个`, wait for full
 results, and use number or mouse selection. Check Space, Return and Escape,
 then type a second spelling while a request is pending and switch focus. Confirm
 the result belongs to the current composition and that no old result restores a
@@ -202,6 +208,23 @@ Verify that the list contains the exact spelling and offers no whole spelling
 correction to `你好` for either input. Repeat the `nihoa` case with Off and
 check a secure field stays free of correction suggestions.
 
+For a build containing [a calibrated correction model](../eval/lambdarank/README.md#calibrate-pinyin-correction),
+wait for the background results in TextEdit and a browser field. Verify that
+`nihoa` offers the numbered correction `你好` on the first page. Untouched
+Space must accept an ordinary whole result or the literal spelling. A
+displayed number, click, or navigation to the correction followed by Space
+should commit `你好` once. Verify that opening the expanded candidate list
+alone does not accept the correction. Type `nihao` as a clean control and
+repeat with correction Off. The clean target should still be available.
+
+Run the shared worker and selection checks with the matching development
+model and packaged resources.
+
+```sh
+SI_TEST_CALIBRATED_CORRECTION=1 \
+  SI_TEST_ENGINE_RESOURCE_DIRECTORY="$PWD/.build/xcode/Build/Products/Release/SI.app/Contents/Resources/SIEngine" \
+  ./scripts/test.sh --filter 'calibratedCorrection|leadingRankedCorrection|experimentalModelsReachWorker'
+```
 
 ## Candidate positioning
 
@@ -401,13 +424,26 @@ For the independent static landing page, use the build, browser, localization, a
 
 For the [offline LambdaRank experiment](../eval/lambdarank/README.md), build
 `si-cli` in Release, run `python3 -m unittest discover -s Tests/LambdaRankTests -v`,
-and run the documented validate/prepare/train/evaluate sequence plus the v2
+and run the documented validate/train/evaluate sequence plus the feature
 `ablate` command. Check v1 saved-model reload, schema selection, alias variants,
-score reconstruction and best-path evidence through the focused tests. Compare the
-reloaded model report to the training report, including missing-target queries
+score reconstruction and best-path evidence through the focused tests. Use the
+LambdaRank Python environment to exercise direct training with synthetic staged
+base and user resources. Compare the reloaded model report to the training
+report, including missing-target queries
 and category regressions. The validation split is used for early stopping;
 results are not independent test accuracy or native-window behavior. This
 workflow does not require building or installing the macOS app.
+
+For a contextual Pinyin ranking build, check that the CLI and app use the
+same source-only syllable paths. The LambdaRank tests cover ambiguous
+`fangan`, a typed apostrophe, `u:`, and input that has no full Pinyin path.
+Run the model parity check in the model workspace and run
+`experimentalModelsReachWorkerShortlistAndExplicitCommit` with
+`SI_TEST_ENGINE_RESOURCE_DIRECTORY` set to the
+packaged app's `Contents/Resources/SIEngine`. Verify that ordinary candidates
+remain ranked and the literal remains available. In an installed development
+build, exercise `fangan` and `fan'gan` with and without preceding text, then
+check Escape, focus changes, and explicit candidate confirmation in a host.
 
 Use the [corpus guide](../corpus/README.md) for the pinned Python environment.
 Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests` for

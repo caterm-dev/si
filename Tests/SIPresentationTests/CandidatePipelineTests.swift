@@ -5,7 +5,34 @@ import Testing
 
 @MainActor
 struct CandidatePipelineTests {
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_EXPERIMENTAL_RANKING"] == "1"))
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_CALIBRATED_CORRECTION"] == "1"))
+    func calibratedCorrectionReachesTheFrontPageAndRequiresExplicitAcceptance() throws {
+        for (input, target) in [("nihoa", "你好"), ("houmo", "周末")] {
+            var session = InputSession(candidateGeneration: .deferred)
+            session.configure(languages: [.simplifiedChinese, .english],
+                              pinyinCorrectionMode: .conservative, experimentalRankingEnabled: true)
+            session.append(input)
+            let request = try #require(session.pendingCandidateRequest)
+            if input == "houmo" {
+                #expect(!request.generate().candidates.contains { $0.isPinyinCorrection && $0.text == target })
+            }
+            let ranked = request.generate(useExperimentalRanking: true)
+            let accepted = session.accept(ranked)
+            #expect(accepted)
+            let suggestion = try #require(session.candidates.first { $0.isPinyinCorrection && $0.text == target })
+            #expect(suggestion.modelRankingScore != nil && !suggestion.canLearn)
+            var selection = CandidateSelection()
+            selection.update(session.candidates)
+            let number = try #require((1...selection.visiblePageSize).first { selection.candidate(number: $0)?.id == suggestion.id })
+            #expect(selection.confirmationReason(for: selection.candidate(number: number)) == .explicitSelection)
+            var implicit = session
+            #expect(implicit.commitResult(suggestion, reason: .defaultAcceptance).text == input)
+            let commit = session.commitResult(suggestion, reason: .explicitSelection)
+            #expect(commit.text == target && commit.input == input && commit.remainingInput.isEmpty)
+        }
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil))
     func experimentalModelsReachWorkerShortlistAndExplicitCommit() async throws {
         let gate = Gate()
         var result: CandidateResult?
@@ -71,8 +98,8 @@ struct CandidatePipelineTests {
         #expect(!acceptedOld)
     }
 
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_EXPERIMENTAL_RANKING"] == "1"
-        && ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil))
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil
+        && ProcessInfo.processInfo.environment["SI_TEST_CALIBRATED_CORRECTION"] != "1"))
     func packagedRankingExposesNumberedModelSuggestion() async throws {
         let gate = Gate()
         var result: CandidateResult?

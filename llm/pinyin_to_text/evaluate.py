@@ -100,7 +100,7 @@ def main(test_only=False):
     predictor = parser.add_mutually_exclusive_group(required=True)
     predictor.add_argument("--checkpoint", type=Path)
     predictor.add_argument("--baseline", choices=("literal",))
-    parser.add_argument("--config", type=Path, default=Path("llm/configs/small-pinyin.json"), help="Baseline config; model config is embedded in checkpoint")
+    parser.add_argument("--config", type=Path, default=Path("llm/configs/contextual-pinyin.json"), help="Baseline config; model config is embedded in checkpoint")
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--benchmark", type=Path, help="Optional external CSV root with provenance.json and the selected split directory; checked against --data train/validation")
     parser.add_argument("--output", type=Path, required=True)

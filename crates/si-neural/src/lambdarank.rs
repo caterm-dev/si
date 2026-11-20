@@ -158,6 +158,7 @@ pub struct LambdaRank {
     pub pinyin_checkpoint_sha256: String,
     pub reranker_checkpoint_sha256: String,
     pub beam_size: usize,
+    pub correction_margins: Option<[f64; 2]>,
     trees: Vec<Node>,
 }
 
@@ -168,11 +169,23 @@ impl LambdaRank {
         }
         let raw: Value =
             serde_json::from_reader(std::io::BufReader::new(std::fs::File::open(path)?))?;
+        let correction_margins = match raw.get("correction_margins") {
+            None => None,
+            Some(margins) => {
+                let conservative = json::number(&margins["conservative"])?;
+                let higher_recall = json::number(&margins["higher_recall"])?;
+                if conservative < higher_recall {
+                    return Err(invalid("invalid correction margin order"));
+                }
+                Some([conservative, higher_recall])
+            }
+        };
         let model = Self {
             feature_names: json::strings(&raw["feature_names"])?,
             pinyin_checkpoint_sha256: json::text(&raw["pinyin_checkpoint_sha256"])?.to_owned(),
             reranker_checkpoint_sha256: json::text(&raw["reranker_checkpoint_sha256"])?.to_owned(),
             beam_size: json::integer(&raw["beam_size"])?,
+            correction_margins,
             trees: json::array(&raw["trees"])?
                 .iter()
                 .map(Node::parse)

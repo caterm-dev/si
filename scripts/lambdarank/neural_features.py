@@ -39,7 +39,8 @@ def merge_row(row, rust_names, generate, score):
     if {'zh-Hans', 'en'} <= enabled:
         enabled.add('mixed')
     if 'zh-Hans' in enabled:
-        for rank, output in enumerate(generate(row['input'], row['context'], row.get('syllable_paths', ())), 1):
+        paths = row.get('model_syllable_paths', row.get('syllable_paths', ()))
+        for rank, output in enumerate(generate(row['input'], row['context'], paths), 1):
             language = candidate_language(output)
             if output == row['input'] or language not in enabled or not printable(output):
                 continue
@@ -87,18 +88,18 @@ class NeuralModels:
         }
 
     def generate(self, spelling, context, syllable_paths):
+        if self.contextual:
+            if not syllable_paths:
+                return []
+            spelling = syllable_paths[0].replace(' ', '')
+            return self.convert(self.pinyin, self.pinyin_tokenizer, spelling, self.device,
+                                self.beam_size, self.pinyin_penalty, context=context,
+                                syllable_paths=syllable_paths)['model_candidates']
         spelling = unicodedata.normalize('NFC', spelling).lower().replace('u:', 'ü').replace('v', 'ü')
         if not re.fullmatch(r"[a-zü]+(?:'[a-zü]+)*'?", spelling):
             return []
-        if self.contextual:
-            # Syllable paths are observed source metadata, never derived from references.
-            if not syllable_paths:
-                return []
-            kwargs = {'context': context, 'syllable_paths': syllable_paths}
-        else:
-            kwargs = {}
         return self.convert(self.pinyin, self.pinyin_tokenizer, spelling.replace("'", ''), self.device,
-                            self.beam_size, self.pinyin_penalty, **kwargs)['model_candidates']
+                            self.beam_size, self.pinyin_penalty)['model_candidates']
 
     def score(self, context, texts):
         scores = dict.fromkeys(texts, (None, None, None))

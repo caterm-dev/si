@@ -2,11 +2,15 @@
 
 import argparse
 import json
+import math
 from pathlib import Path
 import subprocess
 import tempfile
 
-from pipeline import MERGED_SCHEMAS, SCHEMAS, load_bundle, sha
+if __package__:
+    from .pipeline import MERGED_SCHEMAS, SCHEMAS, load_bundle, sha
+else:
+    from pipeline import MERGED_SCHEMAS, SCHEMAS, load_bundle, sha
 
 
 def node(tree):
@@ -20,6 +24,36 @@ def node(tree):
     if tree['decision_type'] == '==':
         return dict(result, kind='categorical', categories=[int(x) for x in tree['threshold'].split('||')])
     raise ValueError('Unsupported split type')
+
+
+def calibrate_corrections(validation, features, predictions):
+    corrected = features.index('is_corrected')
+    from_si = features.index('from_si_engine')
+    clean, typos = [], []
+    predictions = iter(predictions)
+    for row in validation:
+        scored = [(c, float(next(predictions))) for c in row['candidates']]
+        ordinary = max((score for c, score in scored
+                        if c['features'][from_si] and not c['features'][corrected]), default=0.0)
+        corrections = [(score - ordinary, c['label'])
+                       for c, score in scored if c['features'][corrected]]
+        if row['category'] == 'pinyin-correction':
+            typos.append(max((gap for gap, label in corrections if label), default=-math.inf))
+        else:
+            clean.append(max((gap for gap, _ in corrections), default=-math.inf))
+    clean_gaps = sorted((gap for gap in clean if math.isfinite(gap)), reverse=True)
+    positive_gaps = [gap for gap in typos if math.isfinite(gap)]
+    if not clean_gaps or not positive_gaps:
+        raise ValueError('Correction calibration needs both clean suggestions and reachable intended corrections')
+    margins, report = {}, {}
+    for mode, allowed in [('conservative', 0), ('higher_recall', len(clean) // 20)]:
+        margin = (clean_gaps[allowed] if allowed < len(clean_gaps)
+                  else math.nextafter(min(clean_gaps + positive_gaps), -math.inf))
+        margins[mode] = margin
+        report[mode] = {'clean_with_suggestion': sum(gap > margin for gap in clean),
+                        'typos_with_intended_suggestion': sum(gap > margin for gap in typos)}
+    return margins, {'clean_queries': len(clean), 'typo_queries': len(typos),
+                     'typos_in_pool': len(positive_gaps), **report}
 
 
 def main():
@@ -57,6 +91,11 @@ def main():
                 'trees': [node(t['tree_structure']) for t in graph['tree_info']]}
     rows = [c['features'] for row in train + validation for c in row['candidates']]
     expected = model.predict(np.asarray(rows, dtype=float), raw_score=True, num_threads=1)
+    calibration = {}
+    if manifest.get('model_correction_pool'):
+        train_count = sum(len(row['candidates']) for row in train)
+        document['correction_margins'], calibration = calibrate_corrections(
+            validation, features, expected[train_count:])
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=args.output.parent, prefix='.si-lambdarank-') as tmp:
         export = Path(tmp) / 'lambdarank.json'
@@ -66,7 +105,10 @@ def main():
         actual = np.array([json.loads(line) for line in result.stdout.splitlines()])
         np.testing.assert_allclose(actual, expected, rtol=0, atol=1e-12)
         export.rename(args.output)
-    print(json.dumps({'candidates': len(rows), 'max_absolute_error': float(abs(actual - expected).max())}))
+    report = {'candidates': len(rows), 'max_absolute_error': float(abs(actual - expected).max())}
+    if calibration:
+        report['correction_calibration'] = calibration
+    print(json.dumps(report))
 
 
 if __name__ == '__main__':

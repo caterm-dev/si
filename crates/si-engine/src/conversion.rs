@@ -153,10 +153,17 @@ impl CorrectionSensitivity {
     }
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum CorrectionSearch {
+    Heuristic(CorrectionSensitivity),
+    ModelPool,
+}
+
 /// Reuse this engine across requests. Construction indexes dictionary
 /// readings. Candidate generation uses the loaded resources in memory.
 pub struct CandidateEngine<'a> {
     pinyin_correction: Option<CorrectionSensitivity>,
+    base: &'a EngineResources,
     lookup: Lookup<'a>,
     scoring: Scoring<'a>,
     context: Option<context::Context<'a>>,
@@ -170,10 +177,22 @@ impl<'a> CandidateEngine<'a> {
             .then(|| context::Context::new(base.lexicon(), user.map(EngineResources::lexicon)));
         Self {
             pinyin_correction: None,
+            base,
             lookup,
             scoring,
             context,
         }
+    }
+
+    /// The bounded Pinyin segmentations supplied to the contextual ranking model.
+    pub fn contextual_pinyin_paths(&self, source: &str) -> Vec<String> {
+        if source.is_empty()
+            || source.len() > 128
+            || source.bytes().any(|byte| byte.is_ascii_uppercase())
+        {
+            return Vec::new();
+        }
+        Input::new(source).pinyin_paths(self.base.lexicon())
     }
 
     /// Enable bounded Pinyin typo suggestions. Disabled by default.
@@ -283,7 +302,7 @@ impl<'a> CandidateEngine<'a> {
             preferences,
             preceding_text,
             false,
-            correction,
+            correction.map(CorrectionSearch::Heuristic),
         )
     }
 
@@ -301,7 +320,7 @@ impl<'a> CandidateEngine<'a> {
             &[],
             ConversionPreferences::default(),
             preceding_text,
-            self.pinyin_correction,
+            self.pinyin_correction.map(CorrectionSearch::Heuristic),
         )
     }
 
@@ -319,7 +338,26 @@ impl<'a> CandidateEngine<'a> {
             &[],
             preferences,
             preceding_text,
-            self.pinyin_correction,
+            self.pinyin_correction.map(CorrectionSearch::Heuristic),
+        )
+    }
+
+    /// Export the bounded correction pool before applying any confidence threshold.
+    /// Callers must prepare the correction index first.
+    pub fn model_pool_with_preference_evidence(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preceding_text: &str,
+        preferences: ConversionPreferences<'_>,
+    ) -> Vec<Candidate> {
+        self.convert_for_ranking(
+            text,
+            languages,
+            &[],
+            preferences,
+            preceding_text,
+            Some(CorrectionSearch::ModelPool),
         )
     }
 
@@ -331,7 +369,7 @@ impl<'a> CandidateEngine<'a> {
         phrases: &[PersonalPhrase<'_>],
         preferences: ConversionPreferences<'_>,
         preceding_text: &str,
-        correction: Option<CorrectionSensitivity>,
+        correction: Option<CorrectionSearch>,
     ) -> Vec<Candidate> {
         let mut candidates = self.convert_internal(
             text,
@@ -368,7 +406,7 @@ impl<'a> CandidateEngine<'a> {
         preferences: ConversionPreferences<'_>,
         preceding_text: &str,
         capture_evidence: bool,
-        correction: Option<CorrectionSensitivity>,
+        correction: Option<CorrectionSearch>,
     ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();

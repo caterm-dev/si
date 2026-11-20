@@ -85,3 +85,4 @@ SI-Sentence-History*.jsonl
 # Offline LambdaRank generated pools, models and reports (may contain private data)
 /eval/lambdarank/prepared/
 /eval/lambdarank/runs/
+/eval/lambdarank/generated/

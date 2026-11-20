@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from llm.pinyin_to_text.tests.helpers import ROOT
+from llm.pinyin_to_text.tests.helpers import ROOT, collection
 
 
 class ScriptTests(unittest.TestCase):
@@ -44,7 +44,8 @@ class ScriptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="si-llm-scripts-") as temporary:
             directory = Path(temporary)
             data, run = directory / "prepared data", directory / "training run"
-            self.run_script("prepare.sh", "--config", ROOT / "configs/smoke.json", "--output", data, cwd=directory)
+            self.run_script("prepare.sh", "--config", ROOT / "configs/smoke.json",
+                            "--csv-root", collection(directory), "--output", data, cwd=directory)
             training = ["--config", ROOT / "configs/smoke.json", "--data", data, "--run", run,
                         "--device", "cpu", "--threads", "2"]
             self.run_script("train.sh", *training, "--max-steps", "2", cwd=directory)

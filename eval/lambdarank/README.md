@@ -1,15 +1,13 @@
 # Offline LambdaRank starter experiment
 
-This is an offline experiment, not an app model. Python trains LightGBM; the
-Rust engine exports real candidates and versioned features. No model is loaded
-by SI, and conversion, search limits, learning and automatic confirmation are
-unchanged. Future Rust inference can load the trained model through a separately
-reviewed integration.
+Python trains LightGBM offline with real candidates and versioned features
+exported by the Rust engine. A matching v5 model bundle can be exported for
+macOS builds through the [input ranking workflow](../../llm/README.md#experimental-input-ranking).
 
 ## Data and scope
 
-- `train.jsonl`: 96 authored queries, used for fitting.
-- `validation.jsonl`: 50 separate authored queries, used for early stopping and
+- `train.jsonl`: 120 authored queries, used for fitting.
+- `validation.jsonl`: 65 separate authored queries, used for early stopping and
   development comparison. This is **not an untouched test set**.
 - `../ranking/test.jsonl`: the existing 220-query frozen regression suite. The
   pipeline reads it only to reject cross-split overlap; it never trains, selects
@@ -41,21 +39,25 @@ pre-request choice snapshots across both splits. It uses no personal archives.
 
 ### Add more examples
 
-Edit the two JSONL files directly; one JSON object per line:
+Use one JSON object per line. Only `input` and `references` are required.
 
 ```json
-{"id":"train-distinct-scenario","family":"distinct-scenario","input":"qingdakaideng","context":"","languages":["zh-Hans","en"],"references":["请打开灯"],"category":"chinese","origin":"si-authored-synthetic","note":"Intended answer for this scenario."}
+{"input":"qingdakaideng","references":["请打开灯"]}
+{"input":"chnogdian","references":["充电"],"category":"pinyin-correction","family":"charging"}
 ```
 
-Use unique IDs, nonempty input and references, a string context (empty when
-unavailable), and enabled languages `['zh-Hans','en']`, `['zh-Hans']` or `['en']`.
-Spelling and expected output preserve exact casing, separators and spaces.
-Several acceptable outputs may be listed. Record the actual origin and license
-for new sources; the starter origin is not a blanket declaration for additions.
+Context defaults to unavailable and languages default to Chinese and English.
+Supply `context` when there is preceding text, `context_available: true` for a
+known empty field, or `languages` to test a single language. IDs default to a
+stable hash of the request. `category` defaults to `general`; mark typo queries
+`pinyin-correction` for correction calibration. Input and references preserve
+exact casing, separators and spaces. Several acceptable outputs may be listed.
+Record shared source and license information in a dataset manifest. Existing
+row-level `origin` and `note` fields remain readable.
 
-Keep related sentences, paraphrases and spelling variants in the same family
-and split. Do not copy frozen test examples into either file. Validation rejects
-cross-split families, normalized spellings (including umlaut aliases and spelling
+Set the same `family` wherever related sentences, paraphrases or spelling
+variants are present, and keep them in the same split. Validation rejects
+cross-split declared families, normalized spellings (including umlaut aliases and spelling
 separators) and normalized reference texts. Duplicate exact query/context/language
 requests within train or validation are rejected too. Spelling aliases and
 separator variants may share a family within one split. This conservative spelling
@@ -69,6 +71,64 @@ Chinese or English. A query without both labels cannot teach a pairwise ranking;
 training and early stopping exclude such groups and report their counts. All
 queries, including empty pools and missing targets, remain in reported metrics.
 
+### Generate 100,000 training queries
+
+```sh
+python3 scripts/lambdarank/generate_training.py
+python3 scripts/lambdarank/pipeline.py validate \
+  --train eval/lambdarank/generated/training-100k-v1/train.jsonl
+```
+
+The generator preserves the maintained starter, validation and regression sets.
+It selects distinct intended outputs from the maintained Wanxiang-derived base
+vocabularies and builds English and mixed sentences from SI-authored templates.
+The collection covers Chinese words and phrases, contextual homophones, umlaut
+aliases, explicit separators, abbreviations, three single-edit Pinyin typo types,
+English words, word segmentation and completion, mixed input, and synthetic
+prior choices. The local manifest records counts, attribution and SHA-256 hashes.
+These derived and templated queries use synthetic scenario labels and do not
+establish natural typing or held-out neural model quality.
+
+Select the generated file with `train --train PATH --model-correction-pool
+--output RUN` or with `prepare --train PATH` in the two-step neural workflow.
+Preparation exports candidates in batches. The fit still loads the prepared
+feature matrix in memory. Feature availability depends on candidate retrieval,
+the chosen schema and checkpoints, and the paired base and user statistics.
+
+To generate the second 100,000-query batch and a combined training file:
+
+```sh
+python3 scripts/lambdarank/generate_training.py \
+  --extend eval/lambdarank/generated/training-100k-v1/train.jsonl
+python3 scripts/lambdarank/pipeline.py validate \
+  --train eval/lambdarank/generated/training-100k-v2/train-combined.jsonl
+```
+
+The second batch excludes the first batch's normalized input spellings and
+reference text. It adds new Chinese document scenarios and English and mixed
+templates while keeping the earlier vocabulary and spelling categories.
+The `training-100k-v2/` directory contains `train.jsonl` for the new batch and
+`train-combined.jsonl` for both batches. Its manifest records the input batch
+checksum and the combined file's split counts and checksum.
+
+### Generate focused ambiguity training queries
+
+`python3 scripts/lambdarank/generate_ambiguities.py` builds a separate
+60,000-query collection under `eval/lambdarank/generated/ambiguities-60k-v1/`.
+The 30,000 homophone cases cover alternate outputs with identical toneless
+syllables, including 15,000 with preceding text. The 30,000 segmentation cases
+contain 18,000 competing word cuts and 12,000 competing syllable cuts.
+
+The generator anchors the expected text in the maintained Chinese dictionary
+and checks both competing paths against dictionary readings. Keep any reserved
+experiment splits out of the batch with one `--exclude PATH` per split. The
+generator also excludes overlap with the maintained validation and frozen
+regression queries and duplicate requests from the existing training pool.
+Select the combined additions with `--train` and the generated `train.jsonl`.
+The separate `evidence.jsonl` records candidate paths for auditing. Normal
+feature export still retrieves its own candidates. The labels encode synthetic
+intent backed by lexical attestations.
+
 ## Setup and run
 
 Run from the repository root with Python 3.12 and the documented Rust toolchain.
@@ -81,27 +141,26 @@ python3 -m venv .venv/lambdarank
 cargo build --release --locked -p si-cli
 
 python3 scripts/lambdarank/pipeline.py validate
-python3 scripts/lambdarank/pipeline.py prepare \
-  --lexicon target/si-data/main.silex \
-  --grams target/si-data/words.sigram --pinyin-correction \
-  --output eval/lambdarank/prepared/starter-v5-lexical
 
 .venv/lambdarank/bin/python scripts/lambdarank/pipeline.py train \
-  --bundle eval/lambdarank/prepared/starter-v5-lexical \
-  --output eval/lambdarank/runs/starter-v5-lexical
+  --pinyin-correction --output eval/lambdarank/runs/starter-v5-local
 
 .venv/lambdarank/bin/python scripts/lambdarank/pipeline.py evaluate \
-  --bundle eval/lambdarank/prepared/starter-v5-lexical \
-  --run eval/lambdarank/runs/starter-v5-lexical \
-  --output eval/lambdarank/runs/starter-v5-lexical/recheck.json
+  --bundle eval/lambdarank/runs/starter-v5-local/bundle \
+  --run eval/lambdarank/runs/starter-v5-local \
+  --output eval/lambdarank/runs/starter-v5-local/recheck.json
 ```
 
-`--grams` is optional for lexicon-only experiments; use the same resource pair
-when comparing runs. `prepare` also accepts `--train`, `--validation` and
-`--binary`. After changing data or Rust code, build and prepare a **new** snapshot,
-then use a new run directory. Commands refuse to overwrite previous artifacts.
-Do not manually edit a prepared bundle; checksum checks reject changes. Raw
-source examples remain editable without affecting existing prepared snapshots.
+`train` without `--bundle` generates features first and saves the prepared snapshot
+under the run's `bundle/` directory. Standalone `prepare` uses the same defaults.
+Use `train --bundle PATH` to fit from an existing snapshot.
+
+The default base resources are `target/si-data/main.silex` and its paired
+`words.sigram`. An explicit `--lexicon` without `--grams` supports a lexicon-only
+experiment. Both commands accept `--train`, `--validation` and `--binary` during
+preparation. Use a new output path when regenerating features or fitting a model.
+Commands refuse to overwrite previous artifacts and reject changes to the
+checksummed files in prepared bundles.
 
 `model.txt` is the native LightGBM text model, `run.json` records model identity,
 versions, feature order, parameters and the prepared manifest hash. `report.json`
@@ -177,13 +236,19 @@ paths remain excluded; completion-missing-letters is therefore constant zero in
 this experiment. Separator alignment is also constrained by candidate generation.
 These constants are retained as defined signals, not evidence of learned utility.
 
-Explicit `--user-lexicon PATH --user-grams PATH --user-snapshot-note TEXT` supports
-an immutable user snapshot that predates **every** training/validation request.
-The note documents that provenance; the tool cannot establish historical timing.
-Never use a profile containing the target submissions. Resources are hashed before
-and after export. No live profile discovery or automatic history training occurs.
-Existing authored data has no user snapshots, so it cannot establish personalization
-quality. Synthetic fixtures verify user calculations independently.
+Preparation automatically loads the pair `target/si-data/user.silex` and
+`target/si-data/user.sigram` when both files are present. With neither file, the
+user statistics are unavailable. A partial pair causes an error. Use
+`--without-user` to prepare without a user snapshot or pass `--user-lexicon PATH`
+and its paired `--user-grams PATH` to use a different snapshot. The legacy v2
+schema has no user features.
+
+Stage an immutable snapshot that predates **every** training and validation
+request and excludes the target submissions. `--user-snapshot-note TEXT` records
+the source and cutoff when known. Resource hashes are verified before and after
+export, and the manifest records whether user resources were used. Preparation
+reads staged local files and does not discover live profiles or import Input
+History. Use synthetic fixtures to verify user feature calculations.
 
 Legacy v1/v2 bundles remain readable. `prepare --schema si-rank-features-v2` exports
 the old features for a resource-matched comparison without corrections or user
@@ -227,7 +292,6 @@ for the same LightGBM `train` and `evaluate` commands in the LambdaRank environm
 
 ```sh
 llm/.venv/bin/python scripts/lambdarank/pipeline.py prepare \
-  --lexicon target/si-data/main.silex --grams target/si-data/words.sigram \
   --pinyin-correction \
   --pinyin-model llm/pinyin_to_text/runs/small-pinyin-lexical-v1/best.pt \
   --reranker-model llm/reranker_small/runs/small-character-v1/best.pt \
@@ -241,10 +305,10 @@ llm/.venv/bin/python scripts/lambdarank/pipeline.py prepare \
 The first 64 eligible SI results retain their order. Pinyin-to-text contributes
 up to eight hypotheses by default (`--pinyin-beam` from 1 to 32) on requests with
 Chinese enabled. It receives normalized toneless spelling. A contextual checkpoint
-also receives preceding text and up to three optional `syllable_paths` from the
-source JSONL. Supply these paths independently of expected outputs. A contextual
-checkpoint skips generation on a request without paths. Spelling-only checkpoints
-use the spelling alone. The generator's literal fallback stays outside the
+also receives preceding text and up to three paths derived by the Rust feature
+exporter from the typed spelling and base lexicon, using the same segmentation
+as the app. A contextual checkpoint skips generation when there is no complete
+path. Spelling-only checkpoints use the spelling alone. The generator's literal fallback stays outside the
 training pool. Generated outputs use Han and Latin script to infer language, and
 only outputs for enabled languages enter the pool.
 
@@ -273,7 +337,7 @@ the six added columns. `without_neural_reranker` removes the three LM scores.
 Without neural checkpoints, `prepare` defaults to `si-rank-features-v5-lexical`.
 Select `--schema si-rank-features-v3` or `--schema si-rank-features-v4` to
 reproduce an older feature layout. To run the exported full model in a local macOS development build, use the
-[experimental input ranking workflow](../../llm/README.md#experimental-input-ranking).
+[input ranking workflow](../../llm/README.md#experimental-input-ranking).
 
 The first v4 run used beam 8 and the two checkpoints in the command above.
 Across 46 development queries, adding generated candidates raised pool recall
@@ -320,6 +384,39 @@ applies them through the same preference inputs as runtime conversion. Missing
 eligible observations yield null; an observation set with no match yields zero.
 Prepared data does not read live profiles. `without_v5_additions` compares the old
 columns on the same v5 pool, including the same completions.
+
+## Calibrate Pinyin correction
+
+Use `--model-correction-pool` in place of `--pinyin-correction` in the merged
+preparation command. The exporter uses the same bounded one-edit pool as
+native inference, reserves up to four of the 64 SI slots for corrections and
+keeps candidates that fell below the statistical confidence cutoff. Clean
+spellings and their authored typo variants stay in the same split.
+
+Train a fresh full LambdaRank model on that bundle, then export it with
+`scripts/lambdarank/export_runtime.py`. The export uses clean validation
+queries to pick model-score margins for zero observed false suggestions in
+Conservative mode and at most 5% in Higher recall. It reports clean queries
+with any suggestion, how many intended corrections were retrieved, and how
+many pass each margin. These are development operating points measured on
+the same validation split used to select the model iteration. Held-out
+quality requires a separate evaluation.
+
+To build with a separate calibrated model directory, point the app's bundle
+symlink at it after exporting the matching trees.
+
+```sh
+mkdir -p target/si-neural-correction-pool
+ln -s ../si-neural/pinyin target/si-neural-correction-pool/pinyin
+ln -s ../si-neural/reranker target/si-neural-correction-pool/reranker
+.venv/lambdarank/bin/python scripts/lambdarank/export_runtime.py \
+  --run eval/lambdarank/runs/neural-v5-correction-pool \
+  --bundle eval/lambdarank/prepared/neural-v5-correction-pool \
+  --binary target/release/si-neural \
+  --output target/si-neural-correction-pool/lambdarank.json
+ln -sfn si-neural-correction-pool target/si-llm-pinyin
+./scripts/build.sh
+```
 
 ## Validation and dependency provenance
 

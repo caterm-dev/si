@@ -1,7 +1,8 @@
-"""Train/resume the same frozen character-LM experiment; never read test tokens."""
+"""Train, initialize or resume a character-LM experiment; never read test tokens."""
 
 import argparse
 import datetime
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -27,7 +28,9 @@ def learning_rate(step, settings):
 
 
 def train(config_path, data_path, run_path, device_name='mps', resume=False,
-          max_steps=None, max_tokens=None, threads=4):
+          max_steps=None, max_tokens=None, threads=4, *, init_checkpoint=None):
+    if resume and init_checkpoint is not None:
+        raise ValueError('Choose either resume or checkpoint initialization')
     config = load_config(config_path)
     settings = config['training']
     for name, value in [('max_steps', max_steps), ('max_tokens', max_tokens)]:
@@ -44,6 +47,9 @@ def train(config_path, data_path, run_path, device_name='mps', resume=False,
     device = select_device(device_name)
     seed_everything(config['seed'])
     manifest, tokenizer, datasets = load_bundle(data_path, config, ('train', 'validation'))
+    parent_dataset_id = manifest.get('parent_dataset_id')
+    if parent_dataset_id and not resume and init_checkpoint is None:
+        raise ValueError('This dataset requires --init-checkpoint from its parent dataset')
     identity = code_identity()
     checkpoint = None
     if resume:
@@ -61,7 +67,9 @@ def train(config_path, data_path, run_path, device_name='mps', resume=False,
                                  betas=(0.9, 0.95), weight_decay=settings['weight_decay'])
     step = epoch = cursor = tokens_seen = 0
     best = float('inf')
+    initial_checkpoint = None
     if checkpoint:
+        initial_checkpoint = checkpoint.get('initial_checkpoint')
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         step, epoch, cursor, tokens_seen, best = (checkpoint[key] for key in
@@ -74,9 +82,28 @@ def train(config_path, data_path, run_path, device_name='mps', resume=False,
             torch.cuda.set_rng_state_all(checkpoint['accelerator_rng'])
         del checkpoint
     else:
+        if init_checkpoint is not None:
+            with Path(init_checkpoint).open('rb') as handle:
+                digest = hashlib.file_digest(handle, 'sha256').hexdigest()
+                handle.seek(0)
+                parent = torch.load(handle, map_location='cpu', weights_only=True)
+            if (parent.get('schema_version') != 1 or parent.get('kind') != 'si-character-lm'
+                    or parent['config']['model'] != config['model']
+                    or parent['tokenizer_digest'] != tokenizer.digest
+                    or parent['tokenizer'] != tokenizer.to_dict()):
+                raise ValueError('Initialization requires the same model configuration and tokenizer')
+            if parent_dataset_id and parent['dataset_id'] != parent_dataset_id:
+                raise ValueError('Initialization checkpoint differs from the prepared parent dataset')
+            model.load_state_dict(parent['model'])
+            initial_checkpoint = {
+                'sha256': digest, 'dataset_id': parent['dataset_id'], 'step': parent['step'],
+            }
+            del parent
         run_path.mkdir(parents=True)
         write_json(run_path / 'run.json', {
-            'schema_version': 1, 'kind': 'si-character-lm', 'initialization': 'random', 'config': config,
+            'schema_version': 1, 'kind': 'si-character-lm',
+            'initialization': 'checkpoint' if initial_checkpoint else 'random',
+            'initial_checkpoint': initial_checkpoint, 'config': config,
             'created_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             'dataset_id': manifest['dataset_id'], 'code_identity': identity,
             'tokenizer_digest': tokenizer.digest, 'torch_version': str(torch.__version__),
@@ -93,6 +120,7 @@ def train(config_path, data_path, run_path, device_name='mps', resume=False,
             'tokenizer_digest': tokenizer.digest, 'resume_identity': resume_identity(config),
             'code_identity': identity, 'device_type': device.type, 'torch_version': str(torch.__version__),
             'threads': threads, 'model': model.state_dict(), 'optimizer': optimizer.state_dict(),
+            'initial_checkpoint': initial_checkpoint,
             'step': step, 'epoch': epoch, 'cursor': cursor, 'tokens_seen': tokens_seen,
             'best_validation_loss': best, 'python_rng': random.getstate(),
             'torch_rng': torch.get_rng_state(), 'accelerator_rng': accelerator_rng,
@@ -164,12 +192,14 @@ def main():
     parser.add_argument('--run', required=True, type=Path)
     parser.add_argument('--device', choices=('auto', 'cpu', 'mps', 'cuda'), default='mps')
     parser.add_argument('--threads', type=int, default=4)
-    parser.add_argument('--resume', action='store_true')
+    initialization = parser.add_mutually_exclusive_group()
+    initialization.add_argument('--resume', action='store_true')
+    initialization.add_argument('--init-checkpoint', type=Path, help='Initialize a new run from compatible model weights')
     parser.add_argument('--max-steps', type=int)
     parser.add_argument('--max-tokens', type=int)
     args = parser.parse_args()
     print(json.dumps(train(args.config, args.data, args.run, args.device, args.resume,
-                           args.max_steps, args.max_tokens, args.threads)))
+                           args.max_steps, args.max_tokens, args.threads, init_checkpoint=args.init_checkpoint)))
 
 
 if __name__ == '__main__':

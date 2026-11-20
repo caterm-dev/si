@@ -88,7 +88,7 @@ leading to the same dictionary entry and source endpoint are scored once
 with their lowest valid edit cost. A missing key or adjacent swap costs
 eight bits. A neighboring-key substitution costs eleven bits.
 
-A complete exact path supplies a pruning threshold as soon as the search
+In statistical correction, a complete exact path supplies a pruning threshold as soon as the search
 reaches the end of the input. Subsequent lexical steps add nonpositive scores,
 so corrected paths that cannot clear the threshold can be discarded. The same
 upper bound skips scoring a transition that cannot enter its destination
@@ -122,6 +122,17 @@ word's span in the original UTF-8 input. Such candidates carry no
 automatic-confirmation evidence. The native bridge exposes this metadata
 through a separate accessor and accepts an explicit correction mode on a live
 engine under exclusive access. Configure it away from the event handler.
+
+With a calibrated LambdaRank bundle, the full background conversion collects
+the same bounded, single-edit paths without the exact-path confidence cutoff
+or context backoff. It reserves room for up to four corrections in the shared
+64-candidate SI scoring pool. Edit kind and cost remain model features. Each
+correction must exceed the best scored ordinary SI result by the margin
+exported for the selected mode. When no ordinary SI result was scored, it
+compares the raw model score with that margin. Accepted corrections share
+model order with other scored whole results and still require explicit
+selection. Preview, missing calibration and model failures use the
+statistical correction rules.
 The Swift adapter carries the correction marker and excludes suggestions
 from learning and automatic confirmation. The session requires explicit
 selection to commit a suggestion. If a suggestion leads the displayed
@@ -664,15 +675,19 @@ The [offline LambdaRank workflow](../eval/lambdarank/README.md) uses the Rust
 first-64 whole-span dictionary candidate pool. V5 includes completions. Python trains and
 evaluates LightGBM against separate synthetic train/validation sources. Source,
 resource, exporter and feature identities are recorded in immutable local bundles.
+Preparation reads the base pair and, when present, the staged user pair from
+`target/si-data/` by default. Fresh training runs save that prepared bundle
+alongside the model. Runs supplied with a prepared bundle reuse its stored rows.
 V3 captures the selected path for offline word-frequency, internal N-gram,
 whole-candidate context, spelling, structure, user-snapshot and correction features.
 External history is retained through the diagnostic candidate probability calculation;
 production first-word context scoring stays unchanged. Missing observations are
 explicit nulls. Correction evidence retains the decoder's actual edit kind and cost.
 Normal conversion disables diagnostic allocation. Python supports legacy v1/v2
-bundles and v3 removal ablations. User snapshots must predate the evaluated queries;
-the authored starter data does not establish personalized quality.
-Ordinary builds use the statistical conversion pipeline.
+bundles and v3 removal ablations. User snapshots must predate the evaluated queries
+and exclude their target submissions. The authored starter data does not establish
+personalized quality.
+The statistical conversion pipeline supplies the base candidates.
 
 Offline v4 optionally adds the Pinyin-to-text hypotheses to the Rust pool by
 exact text and language. The small character LM scores the merged pool with a
@@ -692,9 +707,15 @@ encoder/decoder generation and conditional candidate scoring. The macOS build
 uses Accelerate matrix multiplication and the portable implementation provides
 a reference without platform libraries. Model exports and parity checks are
 described in [the model workspace](../llm/README.md#rust-inference-prototype).
+For contextual Pinyin, Rust segments the normalized input with base-lexicon
+syllables and honors typed apostrophes. It keeps up to three complete paths,
+preferring fewer syllables and then longer earlier syllables. The offline
+feature CLI exports those same paths from the source spelling, independently of
+the references. The generator receives the paths and preceding text. An input
+without a complete path still uses the Rust pool and character LM.
 
-An opt-in macOS development build packages the matching two FP32 bundles and
-the exported LambdaRank trees. The background full worker opens the immutable
+Each macOS build packages the matching two FP32 bundles and the exported
+LambdaRank trees from `target/si-llm-pinyin`. The background full worker opens the immutable
 bundle once and uses the current engine snapshot, including local user counts
 and active correction mode. The Rust engine merges exact text and language,
 scores a bounded complete-candidate pool and emits a separate model score.
@@ -742,6 +763,8 @@ audits remain open. [Dataset and commands](../eval/README.md)
 
 `llm/reranker_small/` implements an independent 7,419,392-parameter causal character-LM baseline: four width-256 pre-norm blocks, four heads, 1,024-wide FFNs, tied embeddings and 256-token context. Its explicit preparation imports verified raw public sources through package-compatible corpus readers, retaining articles/paragraphs, punctuation and English word spaces. Source/group hashes keep Wikipedia pages and conversation turns together; normalized document deduplication and exclusion of cross-split long-paragraph copies reduce exact leakage. Training-only vocabulary, byte fallback and immutable token/window arrays preserve text without joining documents. FP32 training supports strict CPU/MPS resume with RNG/cursor state; CPU is tested bitwise and MPS weights within measured numerical tolerances. Token-loss evaluation, supplied-candidate scoring/benchmarking and inference-only export are separate commands. Bounded validation uses a fixed permutation across source windows. The local 30,000-step checkpoint supports explicit offline Core ML export; native comparison and app staging are removed pending redesign. Pinyin generation, hard-negative ranking fine-tuning and quantization remain separate work.
 
+The [small reranker chat preset](../llm/reranker_small/README.md#chat-continued-pretraining) sets per-source and per-subcorpus training token quotas, reuses the parent tokenizer and keeps exact parent documents in their original splits. It verifies the local `dialogue` and Chinese Chatbot Corpus extracts, preserves their upstream splits and carries their attribution into the bundle. A new AdamW run starts from compatible model weights and records the parent checkpoint identity. Strict resume still restores optimizer, RNG and cursor within the same run.
+
 `llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. The small reranker has no native runtime integration; representative ranking quality remains unverified. The large reranker has no native runtime.
 
 The corpus acquisition also supports the latest complete official Chinese Wikipedia current-article dump. Explicit `wikipedia --latest` resolution checks completion metadata, pins a dated URL, verifies the official SHA-1 and records a local SHA-256. The full raw archive retains original simplified/traditional wikitext; streaming preparation selects namespace-0 nonredirect pages and retains page/revision URLs, with Wikipedia's CC BY-SA 4.0 terms kept separate. Existing prepared bundles validate against their own frozen source locks so adding/updating a source does not invalidate historical runs.
@@ -753,11 +776,11 @@ CSVs. [Corpus preparation and reading export](../corpus/README.md)
 
 `corpus/english.py` independently acquires and prepares the reviewed English dialogue collection: PersonaChat/ConvAI2, BST, Topical-Chat, Taskmaster 1/2/3, ABCD, SGD and selected English OASST1 messages. It reuses checksum/staged-directory utilities without applying the Han cleaner. Publisher source bytes and full terms are pinned; preparation retains exact selected utterances, original turn/source identity, collection method and existing split membership. Missing upstream assignments stay explicitly unsplit. Alternate ConvAI2 speaker views and non-dialogue metadata are excluded; OASST1 keeps parent edges rather than inventing linear adjacency between replies. Source-separated immutable JSONL bundles carry copied attribution, hashes and measured selection counts. The verifier recounts the whole bundle against its frozen lock. These are acquisition artifacts, not a mixed training dataset or a runtime ranking change; future training still needs deliberate source selection and a broader overlap audit. See [the English guide](../corpus/english/README.md).
 
-`llm/` is a separate Python/PyTorch spelling-to-text framework. Its default is a randomly initialized 19,711,488-parameter encoder-decoder: four encoder/four decoder layers, width 384, eight heads, feed-forward width 1,536 and vocabulary capacity 8,192. The initial budget is 2,000 FP32 steps with batch 16/accumulation 1 and activation checkpointing off. It has no dependency from the Swift package/app and does not replace the production candidate engine. `llm/pinyin_to_text/csv_data/` imports static `input,target` CSVs from explicit train/validation/test directories; filenames label source groups and an optional language defaults to Chinese. It checks source declarations, rejects cross-split normalized input/target overlap, deduplicates within a split and freezes source bytes/hashes with model-ready JSONL. There is no seed-based content generation, Pinyin conversion, noise augmentation, source-manifest importer or automatic split path.
+`llm/` is a separate Python/PyTorch spelling-to-text framework. Its default is a randomly initialized 19,711,488-parameter encoder-decoder with four encoder and four decoder layers, width 384, eight heads, feed-forward width 1,536 and vocabulary capacity 8,192. The initial budget is 2,000 FP32 steps with batch 16, accumulation 1 and activation checkpointing off. The production Rust candidate engine remains the default macOS path.
 
-The default `llm/pinyin_to_text/data/pinyin-csv/` contains only explicit character and short-word sources. Its initial 2,021/73/69 train/validation/test pairs select earlier SI-authored vocabulary and add uniquely aligned character/reading pairs from training words only, excluding held-out input/output identities. This materialization is static and audited; runtime preparation never decomposes words. Sentence, English/mixed and typo data remain in the separately retained 50,000-pair collection with the 0.403B config. Neither that data nor existing weights are migrated implicitly. Limits are 48 source and 16 target tokens; generation remains unconstrained, with no copy branch. The corpus has limited character coverage, including held-out symbols absent from training outputs, so raw fallback and a lossless tokenizer do not establish learned conversion for those symbols.
+The default [syllable CSV collection](../llm/pinyin_to_text/data/syllable-csv/README.md) has 96,000 training, 2,000 validation and 2,000 test rows. Each row provides continuous Pinyin, a target, optional preceding text and an explicit syllable path. A separate deterministic materialization selects lexical rows and contextual cuts from the pinned Chinese dictionary, keeping normalized input/target groups together. The second batch adds 50,000 examples with spellings and targets absent from the first batch. Data preparation checks the declared split membership, syllable reconstruction and model limits, deduplicates within each split and freezes source bytes and hashes with model-ready JSONL.
 
-The optional contextual Pinyin preset reuses the encoder-decoder with a 96-token source limit and 32-token target limit. Its CSVs explicitly supply preceding text and one syllable path per target. A source-only token separates the preceding-text suffix from the space-separated syllables. Offline inference accepts up to three paths in one batch, merges generated candidates by normalized beam score and preserves exact literal fallback. Evaluation keeps separate references for each context and shares the annotated paths for the same spelling. The synthetic examples exercise the pipeline. Production segmentation, pronunciation validation and native inference are outside the experiment. [Contextual Pinyin guide](../llm/pinyin_to_text/README.md#contextual-pinyin-experiment)
+The encoder separates preceding text from the space-separated syllables with a source-only token. The source and target limits are 96 and 32 tokens. Offline inference batches up to three paths, merges hypotheses by normalized beam score and preserves exact literal fallback. Evaluation keeps references separate per context and shares the annotated paths for a spelling. The held-out rows share the training dictionary's source. Production segmentation and natural sentence quality need separate evaluation. [Contextual Pinyin guide](../llm/pinyin_to_text/README.md#contextual-pinyin-experiment)
 
 The tokenizer fits training rows only and preserves unknown Unicode through UTF-8 byte fallback. Training reads train/validation only; explicit held-out candidate evaluation can additionally use a frozen external CSV benchmark's selected split. Checkpoints retain optimizer/RNG/batch position, and inference export omits training state. Prepared artifacts are ignored by Git; maintained CSVs are source files. Setup, prepare, train/resume, validation/test, inference/export and smoke scripts use the same isolated environment. Each ordinary stage script has defaults from `llm/scripts/defaults.sh` and invokes only its own task; `data.sh` aliases preparation and `run.sh` aliases training. They share explicit versioned data/run/report paths. Setup and separate candidate evaluation/export require their own invocations; training retains its periodic validation loss and checkpoints.
 

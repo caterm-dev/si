@@ -64,6 +64,15 @@ exec /bin/mv "$@"
         resources.mkdir(parents=True)
         (resources / "main.silex").write_bytes(b"SILEX\0\x03\0synthetic lexicon")
         (resources / "words.sigram").write_bytes(b"SIGRAM\x04\0synthetic word grams")
+        ranking = resources / "Ranking"
+        ranker = {}
+        for kind, digest in [("pinyin", "a" * 64), ("reranker", "b" * 64)]:
+            model = ranking / kind
+            model.mkdir(parents=True)
+            (model / "model.json").write_text(json.dumps({"kind": kind, "checkpoint_sha256": digest}))
+            (model / "weights.f32").write_bytes(b"synthetic weights")
+            ranker[f"{kind}_checkpoint_sha256"] = digest
+        (ranking / "lambdarank.json").write_text(json.dumps(ranker))
 
     def executable(self, path, text):
         path.write_text(text)
@@ -95,6 +104,8 @@ exec /bin/mv "$@"
                          b"SILEX\0\x03\0synthetic lexicon")
         self.assertEqual((self.destination / "Contents/Resources/SIEngine/words.sigram").read_bytes(),
                          b"SIGRAM\x04\0synthetic word grams")
+        self.assertEqual((self.destination / "Contents/Resources/SIEngine/Ranking/pinyin/weights.f32").read_bytes(),
+                         b"synthetic weights")
 
     def test_all_nested_code_uses_selected_developer_id(self):
         macos = self.source / "Contents/MacOS"

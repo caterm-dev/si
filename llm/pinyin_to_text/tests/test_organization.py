@@ -44,5 +44,5 @@ class OrganizationTests(unittest.TestCase):
             arguments = json.loads(result.stdout)
             self.assertEqual(arguments[:2], ["-m", "llm.pinyin_to_text.csv_data.prepare"])
             self.assertEqual(arguments[arguments.index("--output") + 1],
-                             str(ROOT / "data/prepared/pinyin-lexical-v1"))
+                             str(ROOT / "data/prepared/pinyin-syllable-100k-v1"))
             self.assertTrue((ROOT.parent / "configs/small-pinyin.json").samefile(ROOT / "configs/small-pinyin.json"))

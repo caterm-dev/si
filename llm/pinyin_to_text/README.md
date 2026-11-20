@@ -1,4 +1,4 @@
-# SI Pinyin character and word training
+# SI Pinyin-to-text training
 
 This guide covers the converter in the [model workspace](../README.md).
 The sibling small/large reranker directories are separate model families.
@@ -8,40 +8,20 @@ queries only; converter-specific training, validation and test tools remain here
 Python dependencies and the existing environment remain shared at `llm/requirements.txt`
 and `llm/.venv`; all converter-specific files and artifacts live here.
 
-The default experiment trains a randomly initialized **19,711,488-parameter encoder-decoder** on explicit Pinyin-to-Han character/word pairs. It is separate from the macOS input method; no neural model is loaded by SI. Conversion quality and native deployment remain unproven.
+The default experiment trains a randomly initialized **19,711,488-parameter encoder-decoder** with explicit Pinyin syllable sequences and optional preceding text. This workflow prepares and trains an offline converter. See the [input ranking build](../README.md#experimental-input-ranking) for native integration.
 
 ## Active data
 
-Edit [data/pinyin-csv/](data/pinyin-csv/README.md). Each split has two files:
-
-```text
-data/pinyin-csv/
-  provenance.json
-  selection.json
-  train/characters.csv
-  train/words.csv
-  validation/characters.csv
-  validation/words.csv
-  test/characters.csv
-  test/words.csv
-```
+The [100,000-example collection](data/syllable-csv/README.md) contains **96,000 training, 2,000 validation and 2,000 test rows**. Each split has an `examples.csv` file for the first batch and an `additional.csv` file for the second batch.
 
 ```csv
-input,target
-ni,你
-hao,好
-nihao,你好
-beijing,北京
-shurufa,输入法
+input,target,context,syllables
+ni,你,,ni
+nihao,你好,,ni hao
+gongheguo,共和国,中华人民,gong he guo
 ```
 
-Keep one-Han outputs in `characters.csv` and two/three-Han lexical entries in `words.csv`. Inputs are continuous lowercase toneless Pinyin. The initial collection contains **2,021 training pairs** (937 character/readings, 1,084 words), **73 validation** and **69 test** pairs. Counts are pairs, not unique characters. Multiple targets for one Pinyin spelling are intentional; evaluation groups them as accepted alternatives.
-
-The collection selects earlier SI-authored vocabulary and derives additional character pairs once from training words, checking unique syllable alignment against the existing SI inventory. Preparation never generates examples, Pinyin, typos or split assignments. See the data guide and selection audit for source hashes and limitations. Validation/test retain their original split assignments, with no cross-split identical input or output. Their contents must not be added to training for memorization.
-
-This experiment excludes chat sentences, English/mixed text and typo sources. `womenzaijia -> 我们在家` and learned English/correction behavior are outside its training scope. It contains only a limited vocabulary; 22/73 validation and 19/69 test pairs initially contain a Han character absent from training outputs. They remain explicit coverage failures, not silently removed cases. Known-character word composition and unseen-character coverage must be distinguished when interpreting results. UTF-8 fallback preserves encodings but does not teach unseen character outputs.
-
-The earlier 50,000-pair collection remains unchanged in [data/csv/](data/csv/README.md), along with old prepared snapshots and checkpoints. It is no longer the default source.
+Each `input` concatenates the space-separated lowercase, toneless `syllables`. The `context` column may be empty. The collection includes 90,000 standalone Chinese lexical rows and 10,000 context rows cut from longer dictionary entries with explicit aligned readings. The [source guide](data/syllable-csv/README.md) describes provenance and sampling limits. Preparation freezes the CSVs, checks split separation and fits the tokenizer on training rows.
 
 ## Separate preset commands
 
@@ -51,11 +31,11 @@ Each script performs one task. Run these separately from any working directory:
 | --- | --- |
 | `./llm/pinyin_to_text/scripts/setup.sh` | Prepare the isolated Python environment |
 | `./llm/pinyin_to_text/scripts/data.sh` | Freeze the active CSV data (`prepare.sh` alias) |
-| `./llm/pinyin_to_text/scripts/run.sh` | Start a new small-model run (`train.sh` alias) |
+| `./llm/pinyin_to_text/scripts/run.sh` | Start a new syllable-model run (`train.sh` alias) |
 | `./llm/pinyin_to_text/scripts/resume.sh --max-steps 3000` | Extend the same unchanged run to a total step count |
 | `./llm/pinyin_to_text/scripts/validation.sh` | Evaluate the complete validation split |
 | `./llm/pinyin_to_text/scripts/test.sh` | Evaluate the complete test split after model selection |
-| `./llm/pinyin_to_text/scripts/infer.sh --input nihao` | Inspect one input; default is `nihao` |
+| `./llm/pinyin_to_text/scripts/infer.sh --input nihao --syllables 'ni hao'` | Inspect one input with explicit syllables |
 | `./llm/pinyin_to_text/scripts/export.sh` | Export inference weights from `best.pt` |
 | `./llm/pinyin_to_text/scripts/size.sh` | Count parameters without allocating model weights |
 | `./llm/pinyin_to_text/scripts/check.sh` | Run framework regressions using tiny fixtures |
@@ -67,20 +47,20 @@ No ordinary stage automatically invokes setup or the next stage. Training retain
 
 | Preset | Location/value |
 | --- | --- |
-| Model | `llm/pinyin_to_text/configs/small-pinyin.json` |
-| CSV source | `llm/pinyin_to_text/data/pinyin-csv/` |
-| Prepared bundle | `llm/pinyin_to_text/data/prepared/pinyin-lexical-v1/` |
-| Run | `llm/pinyin_to_text/runs/small-pinyin-lexical-v1/` |
-| Reports | `llm/pinyin_to_text/reports/small-pinyin-lexical-v1/{validation,test}.json` |
+| Model | `llm/pinyin_to_text/configs/contextual-pinyin.json` |
+| CSV source | `llm/pinyin_to_text/data/syllable-csv/` |
+| Prepared bundle | `llm/pinyin_to_text/data/prepared/pinyin-syllable-100k-v1/` |
+| Run | `llm/pinyin_to_text/runs/small-pinyin-syllable-100k-v1/` |
+| Reports | `llm/pinyin_to_text/reports/small-pinyin-syllable-100k-v1/{validation,test}.json` |
 | Device / threads | MPS / 4 |
 
 Old `SI_LLM_*` environment overrides still take precedence. Use a fresh terminal, or unset old experiment/config/data/run/CSV/report/checkpoint overrides before using the new presets. Keep a terminal's chosen experiment consistent across stages. Relative paths resolve from the repository root.
 
-Preparation and fresh training refuse existing output directories. Edit the experiment name in `defaults.sh`, or set `SI_LLM_EXPERIMENT=pinyin-lexical-v2`, to use matching new data/run/report paths after CSV edits. Do not replace an existing run's bundle. `SI_LLM_CONFIG`, `SI_LLM_CSV_ROOT`, `SI_LLM_DATA`, `SI_LLM_RUN`, `SI_LLM_REPORT_ROOT`, `SI_LLM_CHECKPOINT`, `SI_LLM_DEVICE` and `SI_LLM_THREADS` override individual defaults; explicit CLI arguments override those presets.
+Preparation and fresh training refuse existing output directories. Edit the experiment name in `defaults.sh`, or set `SI_LLM_EXPERIMENT=pinyin-syllable-100k-v2`, to use matching new data/run/report paths after CSV edits. Do not replace an existing run's bundle. `SI_LLM_CONFIG`, `SI_LLM_CSV_ROOT`, `SI_LLM_DATA`, `SI_LLM_RUN`, `SI_LLM_REPORT_ROOT`, `SI_LLM_CHECKPOINT`, `SI_LLM_DEVICE` and `SI_LLM_THREADS` override individual defaults; explicit CLI arguments override those presets.
 
 ## Model and training budget
 
-[small-pinyin.json](configs/small-pinyin.json) uses four encoder and four decoder layers, width 384, eight attention heads, feed-forward width 1,536 and vocabulary capacity 8,192. Source/target limits are 48/16 tokens, with no truncation. The model retains sinusoidal positions, pre-normalization, shared embedding/output weights, causal decoding and literal fallback. It does not add spelling-constrained decoding or a copy branch.
+[contextual-pinyin.json](configs/contextual-pinyin.json) uses four encoder and four decoder layers, width 384, eight attention heads, feed-forward width 1,536 and vocabulary capacity 8,192. Source and target limits are 96 and 32 tokens. Source encoding reserves space for the entire syllable sequence and keeps the preceding text that fits. The model retains sinusoidal positions, pre-normalization, shared embedding/output weights, causal decoding and literal fallback. It does not add spelling-constrained decoding or a copy branch.
 
 FP32 weights occupy **78,845,952 bytes (78.85 MB)**. Parameter storage for weights, gradients and Adam moments is approximately 315.38 MB, excluding activations, attention, allocator/runtime and checkpoint overhead. These are arithmetic estimates, not peak-memory measurements.
 
@@ -103,55 +83,36 @@ Evaluation reports top-1 exact accuracy, top-k recall, code-point character erro
 Use a new output path for repeated validation, for example:
 
 ```sh
-./llm/pinyin_to_text/scripts/validation.sh --output llm/pinyin_to_text/reports/small-pinyin-lexical-v1/validation-step1000.json
+./llm/pinyin_to_text/scripts/validation.sh --output llm/pinyin_to_text/reports/small-pinyin-syllable-100k-v1/validation-step1000.json
 ```
 
 `--limit N` explicitly marks a partial report. An external benchmark can be supplied with `--benchmark PATH` containing provenance and the selected split's CSVs; its inputs/targets must not overlap that model's train/validation. `compare.sh` requires matching dataset/split/cases/k. Offline p50/p95 timings are not host-app latency claims. The small workflow checks and bounded memorization probes do not establish held-out conversion accuracy.
 
 ## Contextual Pinyin experiment
 
-The optional [contextual preset](configs/contextual-pinyin.json) uses the same
-4-layer encoder and 4-layer decoder with a 96-token source budget and a
-32-token target budget. The encoder reads preceding text, a dedicated Pinyin
-start token and a space-separated syllable sequence. The decoder learns only
-the target for the current spelling. The input budget keeps the spelling intact
-and takes the longest preceding-text suffix that fits on Unicode character
-boundaries. Oversized spelling paths are ineligible for neural decoding.
-
-The [synthetic CSVs](data/contextual-pinyin-csv/train/examples.csv) use the
-`input,target,context,syllables` header. An empty context is valid. Each row
-declares its spelling and syllable boundaries explicitly, and joining the
-syllables must reproduce the input. Six train, three validation and three test
-rows are intended for pipeline checks. During evaluation, contexts for the same
-spelling share the union of the split's annotated paths while keeping their own
-reference text. This exercises multiple paths with known annotations. It does
-not measure how often an input method finds the correct cuts on its own.
-
-To prepare the examples, select the experiment before invoking the usual stages:
-
-```sh
-export SI_LLM_EXPERIMENT=pinyin-contextual-v1
-./llm/pinyin_to_text/scripts/data.sh
-```
-
-If you choose to train this experiment, use its own `run.sh` stage and keep
-the same experiment selection when inspecting the resulting checkpoint:
+The encoder reads preceding text, a dedicated Pinyin start token and a
+space-separated syllable sequence. Inference accepts up to three paths,
+batches the encoder inputs and active beams, and merges duplicate outputs
+by their best normalized beam score. It always preserves the original
+spelling as a candidate. Evaluation keeps separate references for each
+context and shares a spelling's annotated paths across its contexts.
 
 ```sh
 ./llm/pinyin_to_text/scripts/infer.sh --input fangan --context '先定个' \
     --syllables 'fang an' --syllables 'fan gan'
 ```
 
-The offline runtime takes up to three caller-supplied paths, batches encoder
-inputs and active beams, and merges duplicate outputs by their best normalized
-model score. It always preserves the original spelling as a candidate. The
-runtime validates spelling reconstruction; pronunciation checking and
-app/Rust integration are outside this experiment. The lexical preset and its
-existing checkpoints retain their spelling-only format.
+The [small smoke fixtures](data/contextual-pinyin-csv/train/examples.csv)
+contain six train, three validation and three test examples. Run
+`./llm/pinyin_to_text/scripts/smoke.sh` for the tiny CPU workflow check.
+Use `SI_LLM_EXPERIMENT=pinyin-contextual-v1` to explicitly prepare the same
+fixtures with the 19.7M config. The dictionary-derived dataset and smoke
+fixtures measure conversion with supplied paths. Production segmentation
+quality requires separate evaluation.
 
 ## Previous experiments and dependencies
 
-[0.4b-static-csv.json](configs/0.4b-static-csv.json), the earlier [50,000-pair CSVs](data/csv/README.md) and existing run/data/report directories remain available for explicit use. To evaluate an old model, pass its checkpoint and its matching prepared bundle; changing only `--output` does not select a different model. Inference can load old weights from their embedded config, for example:
+The continuous-spelling CSV collections and prepared bundles were retired. The earlier 0.403B dataset provenance is recorded in Git history at `e6c5451:llm/pinyin_to_text/data/csv/EXPANSION_50K.md`. If you have an existing checkpoint, inference can load its weights and embedded config directly. For example:
 
 ```sh
 ./llm/pinyin_to_text/scripts/infer.sh --checkpoint llm/pinyin_to_text/runs/0.4b-static-csv-rngfix-v1/best.pt --input nihao

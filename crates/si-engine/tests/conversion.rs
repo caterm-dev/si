@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use si_engine::resources::EngineResources;
 use si_engine::resources::user::{UserLearningConfig, UserModelStore};
 use si_engine::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionPreferences, EnabledLanguages,
-    PersonalPhrase,
+    Candidate, CandidateEngine, CandidateLanguage, ConversionPreferences, CorrectionKind,
+    EnabledLanguages, PersonalPhrase,
 };
 use si_gram::GramBuilder;
 use si_lexicon::{IndexId, Lexicon, WordId};
@@ -849,6 +849,49 @@ fn offline_evidence_tracks_winning_derivation_and_preserves_conversion() -> io::
             .unwrap()
             .language_switches,
         1
+    );
+    Ok(())
+}
+
+#[test]
+fn model_correction_pool_keeps_candidates_below_the_heuristic_floor() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "hou'mo", "后模", 1_000);
+    add(&mut lexicon, ZH, "zhou'mo", "周末", 1_000);
+    add(&mut lexicon, EN, "houmo", "houmo", 1_000);
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None).with_pinyin_correction(true);
+    let spelling = "houmo";
+    let heuristic = engine.candidates_with_evidence(spelling, CHINESE, "");
+    assert!(heuristic.iter().all(|candidate| !candidate.is_corrected()));
+
+    let model_pool = |languages| {
+        engine.model_pool_with_preference_evidence(
+            spelling,
+            languages,
+            "",
+            ConversionPreferences::default(),
+        )
+    };
+    let rows = model_pool(CHINESE);
+    let corrected = find(&rows, "周末", CandidateLanguage::Chinese, spelling.len());
+    assert_eq!(
+        corrected.correction.unwrap().kind,
+        CorrectionKind::MissingKey
+    );
+    assert!(corrected.ranking_evidence.is_some());
+    assert!(corrected.confirmation_boundaries.is_empty());
+    assert_eq!(
+        rows.into_iter()
+            .filter(|row| !row.is_corrected())
+            .collect::<Vec<_>>(),
+        heuristic
+    );
+    assert!(
+        model_pool(EnabledLanguages::default())
+            .iter()
+            .all(|row| !row.is_corrected())
     );
     Ok(())
 }

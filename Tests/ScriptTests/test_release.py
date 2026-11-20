@@ -364,6 +364,24 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid SIEngine/words.sigram header", result.stderr)
         grams.write_bytes(b"SIGRAM\x04\0synthetic word grams")
+
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Missing ranking resource: lambdarank.json", result.stderr)
+        ranking = engine / "Ranking"
+        ranker = {}
+        for kind, digest in [("pinyin", "a" * 64), ("reranker", "b" * 64)]:
+            model = ranking / kind
+            model.mkdir(parents=True)
+            (model / "model.json").write_text(json.dumps({"kind": kind, "checkpoint_sha256": digest}))
+            (model / "weights.f32").write_bytes(b"synthetic weights")
+            ranker[f"{kind}_checkpoint_sha256"] = digest
+        trees = ranking / "lambdarank.json"
+        trees.write_text(json.dumps({**ranker, "pinyin_checkpoint_sha256": "c" * 64}))
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Ranking checkpoint mismatch: pinyin", result.stderr)
+        trees.write_text(json.dumps(ranker))
         subprocess.run(command, check=True, capture_output=True)
         (resources / "KenLM").mkdir()
         result = subprocess.run(command, capture_output=True, text=True)

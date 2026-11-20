@@ -30,6 +30,67 @@ Setup uses shared `llm/.venv`, Python 3.12, Torch 2.6.0, NumPy 2.2.6 and OpenCC
 0.1.7. It accepts `--python`, `--venv`, `--offline` and repeatable `--find-links`.
 Existing non-venv directories are refused. Nothing is installed into the app.
 
+## Chat continued pretraining
+
+The [chat preset](configs/chat.json) builds `small-chat-v2` from pinned public
+data. Its target-token quotas are 9 million LCCC dialogue targets, 3.5 million
+Chinese Chatbot Corpus targets, 2.5 million `dialogue` targets, 4 million Chinese
+mC4 targets and 1 million Chinese MDN targets. The first three sources together
+account for 75% of planned targets. Each quota can round up by one complete
+utterance or document. LCCC starts after record 439,755, the last conversation
+reached by the original selection. The reader keeps individual utterances,
+including those with only two or three Han characters.
+
+The local [corpus extracts](../../corpus/README.md) supply ChatterBot, PTT,
+subtitles and Xiaohuangji from Chinese Chatbot Corpus, and KdConv, CrossWOZ and
+Chinese OASST1 from `dialogue`. Existing upstream splits are retained. The local
+Douban extract contains only its upstream test split. The separate LCCC archive
+supplies LCCC once. Data preparation verifies both extracts and copies their
+source manifests and attribution into the training bundle. Some Chinese
+Chatbot Corpus subcorpora have unresolved redistribution terms. See
+[source provenance](../../corpus/chinese/metadata/chinese-chatbot-corpus.md).
+
+A normalized exact document already seen by the parent dataset can only be
+retained in its original split. Paraphrases or partial overlap remain possible.
+
+Run these stages from the repository root. The commands require the pinned
+local archives, the verified extracts under `corpus/chinese/prepared/si-corpus/`,
+the prepared `small-character-v1` dataset and its
+`runs/small-character-v1/best.pt`.
+
+```sh
+./llm/reranker_small/scripts/chat.sh prepare
+./llm/reranker_small/scripts/chat.sh train
+# After an interruption, resume the new run:
+./llm/reranker_small/scripts/chat.sh resume
+```
+
+If `data/prepared/small-chat-v2/` already exists, start with `train`. The
+prepared bundle is immutable. The MPS preset uses the parent tokenizer and
+loads compatible weights into a fresh AdamW run. Its learning rate peaks at
+`5e-5`, and its budget is 20 million targets or 8,200 updates, whichever comes
+first. The new checkpoint records the parent checkpoint hash, step and dataset
+ID. `last.pt` resumes the new optimizer and data cursor, and `best.pt` follows
+validation loss. The new files are under `runs/small-chat-v2/`. Pass
+`--device cpu` to both training commands when MPS is unavailable.
+
+For a fixed-pool smoke comparison, score the original and adapted checkpoints
+on the [24 authored chat contrasts](benchmarks/chat-dev.jsonl). The cases
+exercise everyday and work chat, short replies and homophones. This is a
+development fixture with hand-supplied candidates.
+
+```sh
+small=llm/reranker_small
+mkdir -p "$small/reports/small-chat-v2"
+comparison="$(mktemp -d "$small/reports/small-chat-v2/comparison.XXXXXX")"
+for experiment in small-character-v1 small-chat-v2; do
+  "$small/scripts/evaluate.sh" --checkpoint "$PWD/$small/runs/$experiment/best.pt" \
+    --benchmark "$PWD/$small/benchmarks/chat-dev.jsonl" \
+    --provenance "$PWD/$small/benchmarks/chat-dev.provenance.json" \
+    --device cpu --output "$PWD/$comparison/$experiment.json"
+done
+```
+
 ## Model and experiment presets
 
 See [configs/small.json](configs/small.json) and
@@ -180,9 +241,9 @@ The [large reranker](../reranker_large/README.md) remains a separate planned mod
 ## Native inference
 
 The earlier Core ML integration and `scripts/stage_app.sh` are retired.
-`coreml_export` still supports standalone research exports. The optional
-[experimental input ranking build](../README.md#experimental-input-ranking)
-instead uses the Rust scorer as a feature source for LambdaRank.
+`coreml_export` still supports standalone research exports. The
+[macOS input ranking build](../README.md#experimental-input-ranking)
+uses the Rust scorer as a feature source for LambdaRank.
 
 The local Core ML smoke-test bundle was removed. The [Rust inference prototype](../README.md#rust-inference-prototype)
 uses an independent export of the existing checkpoint.

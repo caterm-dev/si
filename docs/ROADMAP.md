@@ -95,7 +95,7 @@ Ordinary conversion is local. Optional AI Completion has its own consent and an 
 - [x] Local 30,000-step small checkpoint and explicit offline FP32 Core ML conversion.
 - [ ] Redesign native AI integration; the former original/AI comparison is removed.
 - [ ] Independent ranking-quality evidence, hard-negative fine-tuning, quantization and native host/VoiceOver verification for future native AI integration.
-- [x] Independent from-scratch encoder-decoder framework with training/resume, train-only tokenizer, evaluation/comparison and inference export; 19.7M Pinyin character/word defaults with the earlier 0.403B experiment retained separately.
+- [x] Independent from-scratch encoder-decoder framework with training/resume, train-only tokenizer, evaluation/comparison and inference export, with a 19.7M model preset for explicit Pinyin syllables and optional context.
 - [x] Maintained static CSV groups under explicit train/validation/test directories, source snapshots/checksums, duplicate/leakage validation and no dynamic generation.
 - [x] Tiny CPU workflow and regression coverage, including learned conversion, exact resume, MPS numerical masks and nonzero-dropout checkpoint RNG/gradient checks; bounded 19.7M memorization check.
 - [x] Removal of obsolete generated data, seed/generator/importer code, configs and their test artifacts; existing trained weights retained for inference.

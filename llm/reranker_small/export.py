@@ -23,6 +23,9 @@ def export(checkpoint_path, data_path, output):
         payload = {key: checkpoint[key] for key in ('schema_version', 'kind', 'config', 'model', 'tokenizer',
                    'tokenizer_digest', 'dataset_id', 'step', 'code_identity')}
         payload['inference_only'] = True
+        initial_checkpoint = checkpoint.get('initial_checkpoint')
+        if initial_checkpoint:
+            payload['initial_checkpoint'] = initial_checkpoint
         atomic_checkpoint(staged / 'model.pt', payload)
         for name, expected in manifest['files'].items():
             if name not in ('NOTICE.md', 'source-lock.json', 'tokenizer.json') and not name.startswith(('licenses/', 'metadata/')):
@@ -37,9 +40,10 @@ def export(checkpoint_path, data_path, output):
             'schema_version': 1, 'kind': 'si-character-lm-inference',
             'dataset_id': manifest['dataset_id'], 'checkpoint_sha256': file_hash(checkpoint_path),
             'step': checkpoint['step'], 'sources': manifest['sources'],
+            'initial_checkpoint': initial_checkpoint,
             'files': {str(path.relative_to(staged)): file_hash(path) for path in sorted(staged.rglob('*')) if path.is_file()},
-            'note': 'FP32 baseline weights. Data terms retained separately; no blanket model-weight license is assigned. '
-                    'No native inference integration or quantization is implemented.',
+            'note': 'FP32 weights. Copied notices cover this run; consult the initial checkpoint provenance '
+                    'for inherited data terms. No blanket model-weight license is assigned.',
         })
     return {'output': str(output), 'step': checkpoint['step'], 'dataset_id': manifest['dataset_id']}
 

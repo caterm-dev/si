@@ -14,14 +14,24 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
     let mut legacy = false;
     let mut v5 = false;
     let mut correction = false;
+    let mut model_correction_pool = false;
+    let mut pinyin_paths = false;
     let mut flags = args.iter();
     while let Some(flag) = flags.next() {
         if flag == "--pinyin-correction" {
             correction = true;
             continue;
         }
+        if flag == "--model-correction-pool" {
+            model_correction_pool = true;
+            continue;
+        }
         if flag == "--v5" {
             v5 = true;
+            continue;
+        }
+        if flag == "--pinyin-paths" {
+            pinyin_paths = true;
             continue;
         }
         if flag == "--legacy-v2" {
@@ -36,7 +46,10 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
             _ => return None,
         }
     }
-    if user_grams.is_some() && user_lexicon.is_none() || legacy && (user_lexicon.is_some() || v5) {
+    if user_grams.is_some() && user_lexicon.is_none()
+        || legacy && (user_lexicon.is_some() || v5 || model_correction_pool)
+        || correction && model_correction_pool
+    {
         return None;
     }
     Some((|| {
@@ -44,8 +57,8 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
         let user = user_lexicon
             .map(|path| EngineResources::open(path, user_grams))
             .transpose()?;
-        let engine =
-            CandidateEngine::new(&resources, user.as_ref()).with_pinyin_correction(correction);
+        let engine = CandidateEngine::new(&resources, user.as_ref())
+            .with_pinyin_correction(correction || model_correction_pool);
         let mut output = io::BufWriter::new(io::stdout().lock());
         let extended_names: Vec<_> = NAMES
             .into_iter()
@@ -114,12 +127,29 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
                 tokens: &tokens,
                 paths: &paths,
             };
-            let candidates = engine.candidates_with_preference_evidence(
-                &source,
-                languages,
-                &context,
-                preferences,
-            );
+            let candidates = if model_correction_pool {
+                engine.model_pool_with_preference_evidence(
+                    &source,
+                    languages,
+                    &context,
+                    preferences,
+                )
+            } else {
+                engine.candidates_with_preference_evidence(
+                    &source,
+                    languages,
+                    &context,
+                    preferences,
+                )
+            };
+            let correction_slots = if model_correction_pool {
+                candidates
+                    .iter()
+                    .filter(|candidate| candidate.is_corrected())
+                    .count()
+            } else {
+                0
+            };
             let mut total = 0;
             for candidate in &candidates {
                 let features = if v5 {
@@ -140,7 +170,9 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
                 };
                 if let Some(features) = features {
                     total += 1;
-                    if total > 64 {
+                    if total > 64 - correction_slots
+                        && !(model_correction_pool && candidate.is_corrected())
+                    {
                         continue;
                     }
                     let language = match candidate.language {
@@ -163,7 +195,16 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
                     writeln!(output, "{language}\t{text}\t{features}")?;
                 }
             }
-            writeln!(output, "END\t{total}")?;
+            if pinyin_paths {
+                let paths = if languages.chinese {
+                    engine.contextual_pinyin_paths(&source)
+                } else {
+                    Vec::new()
+                };
+                writeln!(output, "END\t{total}\t{}", paths.join("|"))?;
+            } else {
+                writeln!(output, "END\t{total}")?;
+            }
             output.flush()?;
         }
         Ok(())

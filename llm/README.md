@@ -12,7 +12,7 @@ token-loss evaluation and supplied-candidate scoring live here.
 | --- | --- | --- |
 | [reranker_small/](reranker_small/README.md) | Small candidate language-model scorer. | Offline 7.4M baseline training and standalone scoring/export remain implemented; native AI ranking is removed pending redesign; independent quality review remains pending. |
 | [reranker_large/](reranker_large/README.md) | Candidate scoring after a typing pause, and a larger comparison model. | Reserved; training/inference implementation and weights are not created. |
-| [pinyin_to_text/](pinyin_to_text/README.md) | Pinyin/spelling-to-text conversion with the existing encoder-decoder. | Implemented offline framework, retained 19.7M/default and older 0.403B experiments. |
+| [pinyin_to_text/](pinyin_to_text/README.md) | Pinyin-to-text conversion from explicit syllables and optional preceding text. | Offline encoder-decoder framework with a 19.7M preset and 100,000 dictionary-derived examples. |
 
 ```text
 llm/
@@ -38,7 +38,7 @@ documents and token arrays in its own ignored dataset directory. No training sta
 starts automatically. Models retain actual selected corpus provenance and licenses.
 Live personal phrases, learning archives and typing history are not model inputs. A user may explicitly export and voluntarily share history as one ordinary JSONL file; the separate [receiver workflow](../docs/INPUT_HISTORY_EXPORT.md) validates/restores it and prepares private, unsplit, unreviewed CSV candidates. That workflow does not append to current datasets or start training. Review rights/private content, correct labels and grouped split separation before any explicit use.
 
-Git retains model code, scripts, configurations, dependency pins, authored static
+Git retains model code, scripts, configurations, dependency pins, maintained static
 training CSVs and frozen benchmark fixtures. Static CSVs are source inputs, not
 download caches; some were materialized once and have no regeneration script.
 Downloaded/raw inputs, generated data, prepared bundles, environments, caches,
@@ -56,7 +56,7 @@ Use the explicit model directory for new work:
 ./llm/pinyin_to_text/scripts/data.sh
 ./llm/pinyin_to_text/scripts/run.sh
 ./llm/pinyin_to_text/scripts/validation.sh
-./llm/pinyin_to_text/scripts/infer.sh --input nihao
+./llm/pinyin_to_text/scripts/infer.sh --input nihao --syllables 'ni hao'
 make -C llm/pinyin_to_text size
 ```
 
@@ -71,8 +71,7 @@ Every command performs one stage; only setup installs dependencies. See the
 local FP32 weights. The CLI and library share tokenization, attention and
 beam search. macOS uses Accelerate for matrix multiplication. Other targets
 use the portable Rust implementation, which is also available on macOS with
-the `portable-matmul` Cargo feature. The same runtime powers the optional macOS
-ranking build.
+the `portable-matmul` Cargo feature. The same runtime powers macOS input ranking.
 
 From the repository root, export both trusted local checkpoints and build the
 standalone executable:
@@ -134,38 +133,63 @@ checks.
 
 ## Experimental input ranking
 
-To run the complete local pipeline, first create the two bundles above. Prepare
-and train a full v5 run with those same checkpoints using the [offline LambdaRank
-workflow](../eval/lambdarank/README.md#merge-neural-candidates-and-scores). Export
-the model and verify every prepared feature row against LightGBM:
-
-```sh
-.venv/lambdarank/bin/python scripts/lambdarank/export_runtime.py \
-  --run eval/lambdarank/runs/neural-v5 \
-  --bundle eval/lambdarank/prepared/neural-v5 \
-  --binary target/release/si-neural --output target/si-neural/lambdarank.json
-SI_EXPERIMENTAL_RANKING=1 ./scripts/build.sh
-SI_EXPERIMENTAL_RANKING=1 ./scripts/test.sh --filter CandidatePipelineTests
-SI_EXPERIMENTAL_RANKING=1 \
-  SI_TEST_ENGINE_RESOURCE_DIRECTORY="$PWD/.build/xcode/Build/Products/Debug/SI.app/Contents/Resources/SIEngine" \
-  ./scripts/test.sh --filter CandidatePipelineTests
-```
-
-The build flag stages both inference bundles and the trees under
-`SI.app/Contents/Resources/SIEngine/Ranking`. The worker checks feature order and
-the two checkpoint identities when loading the assets. `SI_RANKING_ASSET_DIRECTORY`
-can point at another directory with the same layout. The ordinary build omits
-these local model assets. Python is used for training, export and comparison.
+Every app build reads the selected ranking bundle at `target/si-llm-pinyin`.
+Use a directory or a symlink to a versioned bundle containing the two inference
+bundles (`pinyin/` and `reranker/`) and their matching `lambdarank.json`.
+Builds copy those files into `SI.app/Contents/Resources/SIEngine/Ranking` and
+reject missing files and checkpoint mismatches. The Rust worker also checks
+feature order when it opens the bundle. To change versions, point the symlink
+at a different complete bundle and rebuild. Python trains and exports the models.
 The app runs the generator, scorer and trees in Rust.
 
 The existing preview appears first. A background full request combines SI
 complete candidates and completions with neural hypotheses, computes the same 61 feature columns
-and returns a model score for each eligible row. The spelling-only checkpoint
-provides hypotheses on eligible lowercase Pinyin input. The small scorer uses
+and returns a model score for each eligible row. For a contextual checkpoint,
+the shared Rust path supplies up to three complete syllable paths and preceding
+text. The small scorer uses
 the preceding field text when available. Generated-only rows require explicit
 selection and are excluded from learning. Model-ranked results skip automatic
-prefix confirmation. A missing or incompatible bundle falls back to the
-ordinary engine. This build is for local development and correctness checks.
+prefix confirmation. If an installed bundle cannot be opened, conversion
+falls back to the statistical engine.
+
+### Local build with the 12,000-step contextual checkpoint
+
+Use the 12,000-step `small-pinyin-syllable-100k-v1` checkpoint with the
+`small-chat-v2` reranker. Export both checkpoints and refit LambdaRank using
+their v5 features. The build verifies that the exported trees match both
+checkpoints. The commands below use a new bundle directory, authored queries
+and base dictionary resources.
+
+```sh
+bundle_id=neural-v5-syllable-12000-chat-v2
+bundle_name=si-neural-syllable-12000-chat-v2
+cargo build --release --locked -p si-cli -p si-neural
+llm/.venv/bin/python -m llm.export_rust pinyin \
+  --checkpoint llm/pinyin_to_text/runs/small-pinyin-syllable-100k-v1/best.pt \
+  --output "target/$bundle_name/pinyin"
+llm/.venv/bin/python -m llm.export_rust reranker \
+  --checkpoint llm/reranker_small/runs/small-chat-v2/best.pt \
+  --output "target/$bundle_name/reranker"
+llm/.venv/bin/python scripts/lambdarank/pipeline.py prepare \
+  --without-user --model-correction-pool --device cpu --pinyin-beam 5 \
+  --pinyin-model llm/pinyin_to_text/runs/small-pinyin-syllable-100k-v1/best.pt \
+  --reranker-model llm/reranker_small/runs/small-chat-v2/best.pt \
+  --output "eval/lambdarank/prepared/$bundle_id"
+.venv/lambdarank/bin/python scripts/lambdarank/pipeline.py train \
+  --bundle "eval/lambdarank/prepared/$bundle_id" \
+  --output "eval/lambdarank/runs/$bundle_id"
+.venv/lambdarank/bin/python scripts/lambdarank/export_runtime.py \
+  --run "eval/lambdarank/runs/$bundle_id" \
+  --bundle "eval/lambdarank/prepared/$bundle_id" \
+  --binary target/release/si-neural --output "target/$bundle_name/lambdarank.json"
+ln -s "$bundle_name" target/si-llm-pinyin
+./scripts/build.sh Release
+```
+
+To replace an existing symlink, use `ln -sfn "$bundle_name" target/si-llm-pinyin`.
+For local installation, run `./scripts/install.sh Release` once SI has stopped
+and a Developer ID Application identity is available. To exercise the worker
+with the packaged resources, follow the [integration checks](../docs/TESTING.md#automated-checks).
 
 ## Existing experiments and compatibility
 

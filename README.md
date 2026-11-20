@@ -33,6 +33,9 @@ composition. [Rust conversion architecture](docs/ARCHITECTURE.md#rust-conversion
 Rust library callers can opt into bounded, single-edit Pinyin suggestions
 with `CandidateEngine::with_pinyin_correction(true)`. For a CLI preview, add
 `--pinyin-correction on` to `si-cli candidates`. In the macOS app, choose a correction mode under Typing. Correction is off by default and suggestions require explicit selection.
+With a calibrated LambdaRank model, the background worker ranks eligible
+corrections alongside other whole candidates. Preview uses the statistical
+correction rules.
 
 In compatible macOS text fields, SI passes the full text before the composition
 to the local Rust engine. The engine uses word grams from the last preceding
@@ -47,8 +50,9 @@ For `cichuxiande`, the single-character prefix `词` has the same lexical score 
 Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate candidate preferences. SI builds a local user model from confirmed candidates by default. Input History can retain each submitted spelling and text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
 Debug and Release bundle `target/si-data/main.silex` and
-`target/si-data/words.sigram`. Xcode checks that the snapshots are
-compatible before including them in `SI.app`.
+`target/si-data/words.sigram` alongside the [ranking bundle](llm/README.md#experimental-input-ranking)
+selected by `target/si-llm-pinyin`. Xcode checks that the paired snapshots and
+ranking checkpoint identities match before packaging them in `SI.app`.
 
 Candidate positioning briefly rechecks the host after a composition starts, allowing a newly opened input field to finish layout. Two matching corrected positions can replace the initial anchor; after the bounded startup checks, the panel stays anchored until the composition ends. Native new-chat and focus-switch behavior still requires the [positioning checks](docs/TESTING.md#candidate-positioning).
 
@@ -168,7 +172,6 @@ The former separate shortcut dictionary, pins and JSON import/export have been r
 - macOS 14 or later.
 - Xcode 26 or later with Swift 6.2 or later and the macOS SDK.
 - Rust 1.89 or later with the `aarch64-apple-darwin` and `x86_64-apple-darwin` targets for a universal app.
-- Git LFS for the maintained training CSVs. On macOS, install it with `brew install git-lfs` and run `git lfs install` before cloning.
 - Xcode resolves the pinned Sparkle 2.10.0 update framework on the first app build. Unsigned development builds require no Apple Developer account.
 
 ## Get started
@@ -176,16 +179,16 @@ The former separate shortcut dictionary, pins and JSON import/export have been r
 ```sh
 git clone https://github.com/caterm-dev/si.git
 cd si
-git lfs pull
 ./scripts/test.sh
 ```
 
 Place the prepared `main.silex` and matching `words.sigram` in
-`target/si-data/`, then run `./scripts/build.sh`. The application is built
+`target/si-data/` and point `target/si-llm-pinyin` at a
+[complete ranking bundle](llm/README.md#local-build-with-the-12000-step-contextual-checkpoint).
+Then run `./scripts/build.sh`. The application is built
 at `.build/xcode/Build/Products/Debug/SI.app`. See the
 [resource preparation commands](#rust-engine-workspace).
 
-Training CSVs under `llm/pinyin_to_text/data/csv/` are stored with Git LFS. For an existing clone, install Git LFS, run `git lfs install --local`, then `git lfs pull` to download the CSV contents. See [the data guide](llm/pinyin_to_text/data/csv/README.md) before preparing a dataset.
 The build compiles the Rust bridge. The test script builds a separate fixture
 dictionary from the tracked CSVs. Generated snapshots and history databases
 stay outside Git.
@@ -698,12 +701,16 @@ coverage and word quality require separate evaluation.
 
 The [offline LambdaRank experiment](eval/lambdarank/README.md) provides editable,
 separate synthetic training/validation sets, Rust candidate/feature export and
-Python LightGBM training with reproducible baseline comparisons. V3 covers word
-frequency, internal/context grams, explicit user snapshots and Pinyin correction.
+Python LightGBM training with reproducible baseline comparisons. Starting a run
+without a prepared bundle reads the paired base resources and any staged user
+pair under `target/si-data/` and saves the generated bundle with the run.
+V3 covers word frequency, internal/context grams, user snapshots and Pinyin correction.
 V4 adds an optional merged pool from SI and Pinyin-to-text, with candidate source
-features and contextual scores from the small character LM. An opt-in macOS
-development build runs the three models locally from the background conversion
-worker. See [experimental input ranking](llm/README.md#experimental-input-ranking).
+features and contextual scores from the small character LM. The macOS app runs
+the three models locally from the background conversion worker. See
+[input ranking setup](llm/README.md#experimental-input-ranking).
+The [12,000-step contextual build](llm/README.md#local-build-with-the-12000-step-contextual-checkpoint)
+uses the same Rust syllable paths for training features and app inference.
 
 The [ranking evaluation dataset](eval/README.md) contains 220 synthetic queries
 covering documented Pinyin regressions, 100 short Chinese ambiguity cases, English
@@ -716,19 +723,19 @@ production accuracy estimate.
 
 The [model workspace](llm/README.md) contains offline Pinyin-to-text
 training, small-model training, supplied-candidate scoring and inference
-export. A larger reranker is planned.
+export. The [small reranker's chat preset](llm/reranker_small/README.md#chat-continued-pretraining)
+prepares a dialogue-heavy dataset and initializes a new training run from the
+existing character LM. A larger reranker is planned.
 
 The independent [corpus workspace](corpus/README.md) prepares pinned public Chinese conversation, web, Wikipedia and technical-documentation text, with per-source licenses, line origins and integrity reports. The complete-text extractor also accepts explicit local SI TXT and dialogue collections, including the eight-format Chinese Chatbot Corpus importer, converts extracted text with OpenCC t2s, and preserves repeated occurrences; its new outputs use `prepared/raw-text-v2`. Chinese Wikipedia acquisition resolves the latest complete official article dump and verifies its official checksum before recording the pin. It also exports explicit character/word readings from the maintained vocabulary. The separate [English conversation collection](corpus/english/README.md) acquires PersonaChat/ConvAI2, BST, Topical-Chat, Taskmaster 1/2/3, ABCD, SGD and English OASST1 messages, preserving dialogue/turn identity, data terms and upstream splits. Raw and prepared data stay local and outside Git. These preparation stages do not label sentence Pinyin, change existing training defaults or integrate a model into SI.
 
 Git retains the application dictionary CSV sources, manifests, preparation/training code, configs, source pins, attribution, authored training CSVs and frozen regression fixtures. Generated databases, downloads, generated corpus tables, prepared datasets, Python environments and training outputs are ignored. See [the data policy](CONTRIBUTING.md#local-corpus-and-model-artifacts) and the corpus/model guides to recreate local artifacts; removing them from tracking preserves local copies and does not rewrite earlier Git history.
 
-[The independent `llm/` framework](llm/README.md) now defaults to a randomly initialized 19.7M encoder-decoder for Pinyin-to-Han characters and short words. Its [focused static CSVs](llm/pinyin_to_text/data/pinyin-csv/README.md) use explicit `train/`, `validation/` and `test/` directories with `characters.csv` and `words.csv` groups. Preparation freezes maintained rows and source hashes without generating sentences, Pinyin, typos or random splits. This experiment excludes sentence templates, English/mixed and typo sources; those earlier experiments remain available separately. Representative converter quality and native converter deployment remain unverified; native neural ranking has been removed pending redesign. Default model sources exclude live Personal Learning, personal phrases, Input History and retired archives. Explicitly volunteered history exports can separately become reviewed offline training observations through [the export workflow](docs/INPUT_HISTORY_EXPORT.md); no live collection or automatic training is connected.
+[The independent `llm/` framework](llm/README.md) defaults to a randomly initialized 19.7M Pinyin-to-Han encoder-decoder with explicit syllable sequences and optional preceding text. The [100,000-example dataset](llm/pinyin_to_text/data/syllable-csv/README.md) contains 96,000 training, 2,000 validation and 2,000 test rows derived from the maintained Chinese vocabulary. Data preparation checks syllable reconstruction and split separation, then freezes the CSVs and their provenance. Representative conversion quality and production segmentation need separate evaluation. Volunteered history exports have a separate [offline review workflow](docs/INPUT_HISTORY_EXPORT.md).
 
 Each preset script performs one task: run `./llm/pinyin_to_text/scripts/setup.sh` for the environment, `./llm/pinyin_to_text/scripts/data.sh` for CSV preparation, `./llm/pinyin_to_text/scripts/run.sh` for small-model training on MPS, then separately run `validation.sh`, `test.sh`, `infer.sh` or `export.sh` as needed. Shared paths and parameters are in `llm/scripts/defaults.sh`; no stage launches the next one. The scripts use `llm/.venv` without activation and accept explicit argument overrides. Old environment overrides still take precedence; use a fresh terminal before using the new presets. Use `check.sh` and the tiny CPU `smoke.sh` for framework checks. See [the framework guide](llm/README.md) for preset locations and new-run/resume instructions.
 
-The focused collection initially has 2,021 training pairs (937 character/readings and 1,084 short words), 73 validation and 69 test pairs. Its audit records the one-time vocabulary selection and training-only character alignment. This is limited coverage and does not establish held-out word quality. The earlier [50,000-sample collection](llm/pinyin_to_text/data/csv/EXPANSION_50K.md), 0.403B config, prepared snapshots and checkpoints remain unchanged for explicit use; old weights do not resume into the smaller architecture.
-
-An optional offline encoder-decoder experiment accepts preceding text and up to three explicit Pinyin syllable paths. A small synthetic CSV collection exercises data preparation, training input and batched decoding. [Contextual Pinyin experiment](llm/pinyin_to_text/README.md#contextual-pinyin-experiment)
+A small [contextual smoke fixture](llm/pinyin_to_text/README.md#contextual-pinyin-experiment) exercises the same format and batched decoding.
 
 ## Website
 

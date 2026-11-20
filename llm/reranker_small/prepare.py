@@ -17,9 +17,10 @@ import numpy as np
 from corpus.common import CHINESE, LOCK, new_directory, load_sources, verified_archive
 from corpus.readers import documents
 from corpus.clean.chinese import HAN
-from llm.pinyin_to_text.common import normalized
-from .settings import ROOT, REPO, SPLITS, file_hash, fingerprint, load_config, write_json
-from .tokenizer import fit_counts
+from llm.pinyin_to_text.common import normalized, read_jsonl
+from .dialogue_data import COLLECTIONS, copy_prepared_attribution, prepared_documents, prepared_source
+from .settings import ROOT, REPO, SPLITS, file_hash, fingerprint, load_config, read_json, write_json
+from .tokenizer import Tokenizer, fit_counts
 
 
 def document_group(source, origin):
@@ -50,12 +51,31 @@ def clean_document(text, converter):
     return converter.convert(text).strip()
 
 
-def _select(connection, source, archive, config, converter, train_counts):
+def _select(connection, source, archive, config, converter, train_counts, tokenizer, parent_splits):
     counts = Counter()
+    subsources = {}
     last_report = time.monotonic()
-    stream = documents(source, archive, counts, preserve_lccc_spacing=True, include_title=True)
+    quota = config["data"].get("train_target_quotas", {}).get(source["id"])
+    subquotas = quota if isinstance(quota, dict) else {}
+    skip = config["data"].get("skip_lccc_records", 0) if source["id"] == "lccc" else 0
+    prepared = source['kind'] == 'prepared-dialogue'
+    stream = (prepared_documents(archive, counts) if prepared else
+              documents(source, archive, counts, preserve_lccc_spacing=True, include_title=True))
     try:
-        for origin, raw in stream:
+        for record in stream:
+            if skip and counts["records_read"] <= skip:
+                continue
+            if prepared:
+                origin, raw, (dataset, group, upstream_split) = record
+                subcounts = subsources.setdefault(dataset, Counter())
+                subquota = subquotas.get(dataset, 0)
+                if upstream_split not in ('validation', 'test') and subcounts['train_targets'] >= subquota:
+                    continue
+                split = upstream_split or split_for(source['id'], group, config)
+            else:
+                origin, raw = record
+                group = document_group(source, origin)
+                split = split_for(source["id"], group, config)
             counts["documents_seen"] += 1
             if len(raw) > config["data"]["max_document_characters"]:
                 counts["oversized_documents"] += 1
@@ -65,15 +85,18 @@ def _select(connection, source, archive, config, converter, train_counts):
                 counts["insufficient_han"] += 1
                 continue
             canonical = normalized(text)
-            identity = hashlib.sha256(canonical.encode()).hexdigest()
+            digest = hashlib.sha256(canonical.encode()).digest()
+            identity = digest.hex()
+            previous_split = parent_splits.get(digest)
+            if previous_split is not None and previous_split != split:
+                counts["cross_parent_split_documents"] += 1
+                continue
             existing = connection.execute('SELECT canonical FROM docs WHERE id=?', (identity,)).fetchone()
             if existing:
                 if existing[0] != canonical:
                     raise ValueError("Document digest collision")
                 counts["duplicate_documents"] += 1
                 continue
-            group = document_group(source, origin)
-            split = split_for(source["id"], group, config)
             # Keep a document whole. Reject it if a substantial exact paragraph
             # is already in another split; never move its other paragraphs around.
             paragraphs = {normalized(line) for line in text.splitlines() if len(normalized(line)) >= 32}
@@ -84,21 +107,40 @@ def _select(connection, source, archive, config, converter, train_counts):
             connection.execute('INSERT INTO docs (id, canonical, source, origin, grp, split, text) VALUES (?,?,?,?,?,?,?)',
                                (identity, canonical, source["id"], origin, group, split, text))
             connection.executemany('INSERT OR IGNORE INTO paragraphs VALUES (?,?)', ((line, split) for line in paragraphs))
-            if split == "train":
+            if split == "train" and tokenizer is None:
                 train_counts.update(text)
+            if split == "train" and quota:
+                targets = len(tokenizer.encode(text)) - 1
+                counts["train_targets"] += targets
+                if prepared:
+                    subcounts["train_targets"] += targets
+            if prepared:
+                subcounts[f'{split}_documents'] += 1
             counts["documents_kept"] += 1
             counts["characters_kept"] += len(text)
             if time.monotonic() - last_report >= 30:
                 print(json.dumps({"event": "prepare_progress", "source": source["id"], "counts": dict(counts)}), flush=True)
                 last_report = time.monotonic()
             limit = config["data"]["max_characters_per_source"]
+            if not prepared and quota and counts["train_targets"] >= quota:
+                break
             if limit and counts["characters_kept"] >= limit:
                 counts["stopped_at_character_limit"] = 1
                 break
     finally:
         stream.close()
-    print(json.dumps({"event": "source_complete", "source": source["id"], "counts": dict(counts)}), flush=True)
-    return dict(counts)
+    if prepared:
+        for dataset, limit in subquotas.items():
+            kept = subsources.get(dataset, {}).get('train_targets', 0)
+            if kept < limit:
+                raise ValueError(f'{source["id"]}/{dataset}: retained {kept:,} of {limit:,} training targets')
+    elif quota and counts["train_targets"] < quota:
+        raise ValueError(f'{source["id"]}: retained {counts["train_targets"]:,} of {quota:,} training targets')
+    result = dict(counts)
+    if prepared:
+        result['subsources'] = {name: dict(values) for name, values in subsources.items() if values}
+    print(json.dumps({"event": "source_complete", "source": source["id"], "counts": result}), flush=True)
+    return result
 
 
 def _pack(connection, tokenizer, context, staged, split):
@@ -126,34 +168,73 @@ def _pack(connection, tokenizer, context, staged, split):
     return dict(stats)
 
 
-def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw'):
+def _load_parent_data(path, config):
+    path = Path(path)
+    manifest = read_json(path / 'manifest.json')
+    if (manifest.get('schema_version') != 1 or manifest.get('kind') != 'si-character-lm'
+            or fingerprint({key: value for key, value in manifest.items() if key != 'dataset_id'}) != manifest['dataset_id']):
+        raise ValueError('Invalid parent dataset identity')
+    if file_hash(path / 'tokenizer.json') != manifest['files']['tokenizer.json']:
+        raise ValueError('Parent tokenizer file modified')
+    tokenizer = Tokenizer.load(path / 'tokenizer.json')
+    if tokenizer.vocab_size != config['model']['vocab_size'] or tokenizer.digest != manifest['tokenizer_digest']:
+        raise ValueError('Parent tokenizer differs from the model or dataset manifest')
+
+    identities = {}
+    for split in SPLITS:
+        name = f'{split}.documents.jsonl'
+        if file_hash(path / name) != manifest['files'][name]:
+            raise ValueError('Parent document file modified: ' + name)
+        for row in read_jsonl(path / name):
+            identities[bytes.fromhex(row['id'])] = split
+    return manifest['dataset_id'], tokenizer, identities
+
+
+def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw', parent_data=None,
+            prepared_root=CHINESE / 'prepared/si-corpus'):
     config = load_config(config_path)
+    if config['data'].get('train_target_quotas') and parent_data is None:
+        raise ValueError('Training target quotas require --parent-data')
     source_lock = Path(source_lock)
     selected = {source['id']: source for source in load_sources(source_lock, source_lock.parent)}
-    if set(config["data"]["sources"]) - selected.keys():
+    source_ids = config["data"]["sources"]
+    if set(source_ids) - selected.keys() - COLLECTIONS.keys():
         raise ValueError("Configured corpus source is absent from the source lock")
-    sources = [selected[name] for name in config["data"]["sources"]]
+    quotas = config['data'].get('train_target_quotas', {})
+    for name in source_ids:
+        if (name in COLLECTIONS) != isinstance(quotas.get(name), dict):
+            raise ValueError('Prepared dialogue sources require per-subcorpus training quotas: ' + name)
     from opencc import OpenCC
     converter = OpenCC('t2s')
     with new_directory(output) as staged:
-        archives = [(source, verified_archive(source, raw_root)) for source in sources]
+        parent_id, tokenizer, parent_splits = (None, None, {}) if parent_data is None else _load_parent_data(parent_data, config)
+        sources = [prepared_source(prepared_root, name) if name in COLLECTIONS else
+                   (selected[name], verified_archive(selected[name], raw_root)) for name in source_ids]
         connection = sqlite3.connect(staged / 'selection.sqlite')
         try:
             connection.execute('CREATE TABLE docs (ordinal INTEGER PRIMARY KEY, id TEXT UNIQUE, canonical TEXT, '
                                'source TEXT, origin TEXT, grp TEXT, split TEXT, text TEXT)')
             connection.execute('CREATE TABLE paragraphs (text TEXT PRIMARY KEY, split TEXT) WITHOUT ROWID')
             train_counts = Counter()
-            source_counts = {source['id']: _select(connection, source, archive, config, converter, train_counts)
-                             for source, archive in archives}
-            tokenizer = fit_counts(train_counts, config['model']['vocab_size'])
+            source_counts = {source['id']: _select(connection, source, archive, config, converter, train_counts,
+                                                   tokenizer, parent_splits)
+                             for source, archive in sources}
+            tokenizer_origin = 'frozen' if tokenizer is not None else 'fit-on-training-text'
+            tokenizer = tokenizer or fit_counts(train_counts, config['model']['vocab_size'])
             tokenizer.save(staged / 'tokenizer.json')
             split_counts = {split: _pack(connection, tokenizer, config['model']['context'], staged, split)
                             for split in SPLITS}
         finally:
             connection.close()
         (staged / 'selection.sqlite').unlink()
-        used = [source for source in sources if source_counts[source['id']].get('documents_kept')]
-        for source in used:
+        used = []
+        for source, archive in sources:
+            if not source_counts[source['id']].get('documents_kept'):
+                continue
+            used.append(source)
+            if source['kind'] == 'prepared-dialogue':
+                copy_prepared_attribution(source, archive, staged)
+                continue
             records = [source[key] for key in ('license_document', 'dataset_card') if key in source]
             for document in records + source.get('additional_documents', []):
                 target = staged / document['path']
@@ -179,14 +260,16 @@ def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw'):
             'normalization': {'opencc': importlib.metadata.version('opencc-python-reimplemented'), 'config': 't2s',
                               'paragraph_overlap_minimum': 32},
             'sources': used, 'source_counts': source_counts, 'splits': split_counts,
+            'tokenizer_origin': tokenizer_origin,
+            'parent_dataset_id': parent_id,
             'tokenizer_digest': tokenizer.digest,
             'code': {str(path.relative_to(REPO)): file_hash(path) for path in
-                     [ROOT / 'prepare.py', ROOT / 'tokenizer.py', ROOT / 'settings.py',
+                     [ROOT / 'prepare.py', ROOT / 'tokenizer.py', ROOT / 'settings.py', ROOT / 'dialogue_data.py',
                       REPO / 'corpus/readers.py', REPO / 'corpus/common.py',
                       REPO / 'corpus/clean/chinese.py', REPO / 'corpus/clean/wikipedia.py']},
             'files': {str(path.relative_to(staged)): file_hash(path)
                       for path in sorted(staged.rglob('*')) if path.is_file()},
-            'notes': 'Whole cleaned documents retained. Windows never cross documents; vocabulary fits train only. '
+            'notes': 'Whole cleaned documents retained. Windows never cross documents. '
                      'Exact long-paragraph filtering does not detect semantic duplicates or all benchmark overlap.',
         }
         manifest['dataset_id'] = fingerprint(manifest)
@@ -200,6 +283,9 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--source-lock', type=Path, default=LOCK)
     parser.add_argument('--raw-root', type=Path, default=CHINESE / 'raw')
+    parser.add_argument('--parent-data', type=Path, help='Reuse the parent tokenizer and keep exact documents in their original splits')
+    parser.add_argument('--prepared-root', type=Path, default=CHINESE / 'prepared/si-corpus',
+                        help='Directory containing the verified dialogue and chinese-corpus extracts')
     args = parser.parse_args()
-    result = prepare(args.config, args.output, args.source_lock, args.raw_root)
+    result = prepare(args.config, args.output, args.source_lock, args.raw_root, args.parent_data, args.prepared_root)
     print(json.dumps({'dataset_id': result['dataset_id'], 'splits': result['splits']}, indent=2))

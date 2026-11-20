@@ -10,8 +10,8 @@ use super::ranking::{Completions, Results};
 use super::scoring::{History, ScoreSession, Scores, WordScore};
 use super::{
     Candidate, CandidateLanguage, ConversionBoundary, ConversionPreferences, Correction,
-    CorrectionKind, CorrectionSensitivity, EnabledLanguages, Language, MAX_OUTPUT_BYTES,
-    PathPreference, TokenPreference,
+    CorrectionKind, CorrectionSearch, CorrectionSensitivity, EnabledLanguages, Language,
+    MAX_OUTPUT_BYTES, PathPreference, TokenPreference,
 };
 use crate::han;
 
@@ -33,11 +33,15 @@ pub(super) fn run(
     preview: bool,
     personal: &Lookup<'_>,
     preferences: ConversionPreferences<'_>,
-    correction: Option<CorrectionSensitivity>,
+    correction: Option<CorrectionSearch>,
 ) -> Vec<Candidate> {
     let limit = input.len().min(MAX_SEARCH_UNITS);
-    let correction_margin = correction.unwrap_or_default().margin();
-    let correction_context_backoff = correction == Some(CorrectionSensitivity::HigherRecall);
+    let heuristic = match correction {
+        Some(CorrectionSearch::Heuristic(mode)) => Some(mode),
+        _ => None,
+    };
+    let correction_margin = heuristic.map(CorrectionSensitivity::margin);
+    let correction_context_backoff = heuristic == Some(CorrectionSensitivity::HigherRecall);
     let mut correction = correction.is_some()
         && languages.chinese
         && limit == input.len()
@@ -257,7 +261,7 @@ struct Search<'input, 'model, 'data, 'preferences> {
     lattice: Vec<Frontier>,
     results: Results,
     correction_floor: f64,
-    correction_margin: f64,
+    correction_margin: Option<f64>,
     correction_context_backoff: bool,
     exact_suffixes: &'input [bool],
     preferences: TokenBonuses<'preferences>,
@@ -494,7 +498,8 @@ impl Search<'_, '_, '_, '_> {
         if corrected && effective_score <= self.correction_floor {
             return;
         }
-        if !corrected
+        if let Some(margin) = self.correction_margin
+            && !corrected
             && !personal
             && mask == Language::Chinese.mask()
             && edge.end == self.input.len()
@@ -502,9 +507,7 @@ impl Search<'_, '_, '_, '_> {
             && !edge.is_abbreviated()
         {
             let exact_score = effective_score - context_adjustment.personalized.min(0.0);
-            self.correction_floor = self
-                .correction_floor
-                .max(exact_score + self.correction_margin);
+            self.correction_floor = self.correction_floor.max(exact_score + margin);
         }
         let details = Rc::new(EdgeDetails::new(edge, self.input, 0));
         if !corrected || edge.end == self.input.len() {
@@ -841,7 +844,8 @@ impl Search<'_, '_, '_, '_> {
                     adjustment
                 };
                 let abbreviated = path.abbreviated || edge.is_abbreviated();
-                if terminal
+                if let Some(margin) = self.correction_margin
+                    && terminal
                     && !self.exact_suffixes.is_empty()
                     && mask != 3
                     && !corrected
@@ -852,9 +856,7 @@ impl Search<'_, '_, '_, '_> {
                     let effective_score =
                         score.personalized + context_adjustment.personalized + adjustment;
                     let exact_score = effective_score - context_adjustment.personalized.min(0.0);
-                    self.correction_floor = self
-                        .correction_floor
-                        .max(exact_score + self.correction_margin);
+                    self.correction_floor = self.correction_floor.max(exact_score + margin);
                 }
                 target.insert(
                     Path {

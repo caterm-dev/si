@@ -3,15 +3,17 @@ PYTHON ?=
 ifneq ($(strip $(PYTHON)),)
 export SI_LLM_PYTHON := $(PYTHON)
 endif
-CONFIG ?= llm/pinyin_to_text/configs/small-pinyin.json
-CSV_ROOT ?= llm/pinyin_to_text/data/pinyin-csv
-DATA ?= llm/pinyin_to_text/data/prepared/pinyin-lexical-v1
-RUN ?= llm/pinyin_to_text/runs/small-pinyin-lexical-v1
-REPORT ?= llm/pinyin_to_text/reports/small-pinyin-lexical-v1
+CONFIG ?= llm/pinyin_to_text/configs/contextual-pinyin.json
+CSV_ROOT ?= llm/pinyin_to_text/data/syllable-csv
+DATA ?= llm/pinyin_to_text/data/prepared/pinyin-syllable-100k-v1
+RUN ?= llm/pinyin_to_text/runs/small-pinyin-syllable-100k-v1
+REPORT ?= llm/pinyin_to_text/reports/small-pinyin-syllable-100k-v1
 DEVICE ?= mps
 INPUT ?= nihao
+SYLLABLES ?= $(if $(filter nihao,$(INPUT)),ni hao)
 SMOKE_OUTPUT ?=
 export SI_LLM_INPUT := $(INPUT)
+export SI_LLM_SYLLABLES := $(SYLLABLES)
 export SI_LLM_SMOKE_OUTPUT := $(SMOKE_OUTPUT)
 
 .PHONY: setup check smoke size data prepare run train resume validation evaluate test infer predict export
@@ -44,7 +46,7 @@ test:
 	./scripts/test.sh --checkpoint "$(RUN)/best.pt" --data "$(DATA)" --output "$(REPORT)/test.json" --device "$(DEVICE)"
 
 infer predict:
-	./scripts/infer.sh --checkpoint "$(RUN)/best.pt" --input "$$SI_LLM_INPUT" --device "$(DEVICE)"
+	./scripts/infer.sh --checkpoint "$(RUN)/best.pt" --input "$$SI_LLM_INPUT" --device "$(DEVICE)" $(if $(strip $(SYLLABLES)),--syllables "$$SI_LLM_SYLLABLES")
 
 export:
 	./scripts/export.sh --checkpoint "$(RUN)/best.pt" --output "$(RUN)/inference.pt"
