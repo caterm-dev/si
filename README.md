@@ -358,14 +358,16 @@ Run these scripts in order for the local base model:
 
 ```sh
 ./scripts/si-lexicon-build.sh
+corpus/.venv/bin/python corpus/prepare_si_raw_text.py
 ./scripts/si-corpus-ingest.sh
 ./scripts/si-lexicon-learn.sh
 ```
 
 The build reads `Data/Chinese` and `Data/English` and requires a new
-`target/si-data/main.silex` destination. The ingest reads
-`corpus/chinese/prepared/raw-text-v2/*/text.txt` and adds counts to the main
-lexicon and `target/si-data/words.sigram` on each completed import. The learn
+`target/si-data/main.silex` destination. The preparation command extracts
+the three local collections documented in the [corpus guide](corpus/README.md).
+The ingest reads `corpus/chinese/prepared/si-corpus/*/text.txt` and adds counts
+to the main lexicon and `target/si-data/words.sigram` on each completed import. The learn
 script uses adjacent Han tokens from that snapshot to discover compound words
 for the main lexicon. Each token may contain multiple characters. Ingest and
 learn both read `config/si.conf`.
@@ -469,6 +471,13 @@ completion and prefix candidates. The macOS app uses the same Rust
 decoder through its native bridge. See [Rust conversion](docs/ARCHITECTURE.md#rust-conversion).
 
 #### Build a local user model
+
+Run `./scripts/si-copy-user-model.py` to copy the installed SI user's active
+`user.silex` and `user.sigram` into `target/si-data/`. The script replaces
+previous copies with the current pair and gives both files owner-only access.
+The copies stay local and are ignored by Git. Clearing Personal Phrases in
+SI leaves these copies on disk. To remove them, delete both files from
+`target/si-data/`.
 
 Use a dedicated `.si-user` profile with an existing base lexicon. Supply
 committed text explicitly as UTF-8, one sentence per line. The profile's

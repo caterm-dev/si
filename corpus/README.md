@@ -86,6 +86,19 @@ Default output: `chinese/prepared/raw-text-v2/{source}/`. Each source contains:
 - `attribution/` for dialogue and Chinese Chatbot Corpus: source notices and
   available local acquisition and license documents, covered by output checksums.
 
+To prepare only the three local collections in one command, run:
+
+```sh
+corpus/.venv/bin/python corpus/prepare_si_raw_text.py
+```
+
+The script reads `corpus/chinese/raw/dialogue/`, `chinese-chatbot-corpus/` and
+`si/`. If `chinese-chatbot-corpus/` is absent, it reads `chinese-corpus/`.
+It writes the same bundle format under `corpus/chinese/prepared/si-corpus/`, with
+`dialogue/`, `chinese-corpus/` and `si/` subdirectories. Use `--raw-root`
+to point at a different collection root and `--output` to create a fresh
+version after changing the raw files.
+
 Preparation verifies archive checksums and every declared dialogue data/license
 file before reading. SI inputs receive a deterministic file inventory with
 sizes and SHA-256 hashes, as do Chinese Chatbot Corpus inputs. Local inventories

@@ -5,6 +5,7 @@ import bz2
 import gzip
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -85,6 +86,37 @@ class RawTextPreparationTests(unittest.TestCase):
         (root / 'download-manifest.json').write_text(json.dumps({
             'schema_version': 1, 'kind': 'raw-conversation-downloads', 'sources': datasets}))
         return snapshot('dialogue', root)
+
+    def test_si_corpus_command_prepares_only_three_local_collections(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            raw = Path(temporary) / 'raw'
+            dialogue = raw / 'dialogue'
+            kdconv = dialogue / 'kdconv/train.json'
+            kdconv.parent.mkdir(parents=True)
+            kdconv.write_text(json.dumps([{'name': 'fixture', 'messages': [{'message': '對話。'}]}]))
+            self.local_manifest(dialogue, [{'id': 'kdconv', 'files': [{'path': 'train.json'}]}])
+            chatbot = raw / 'chinese-corpus' / PTT_V1
+            chatbot.parent.mkdir(parents=True)
+            chatbot.write_text('問題\t回答\n')
+            si = raw / 'si' / 'fixture.txt'
+            si.parent.mkdir()
+            si.write_text('我們。\n')
+            (raw / 'lccc').mkdir()
+            output = Path(temporary) / 'prepared/si-corpus'
+            script = Path(__file__).resolve().parents[1] / 'prepare_si_raw_text.py'
+            command = [sys.executable, script, '--raw-root', raw, '--output', output]
+            expected = {'dialogue': '对话。\n', 'chinese-corpus': '问题\n回答\n', 'si': '我们。\n\n'}
+            subprocess.run(command, check=True, capture_output=True)
+            self.assertEqual({path.name for path in output.iterdir()}, expected.keys())
+            for name, text in expected.items():
+                bundle = output / name
+                self.assertEqual((bundle / 'text.txt').read_text(), text)
+                self.assertTrue((bundle / 'manifest.json').is_file())
+                self.assertTrue((bundle / 'documents.jsonl').is_file())
+
+            (raw / 'chinese-corpus').rename(raw / 'chinese-chatbot-corpus')
+            repeated = subprocess.run(command, check=True, capture_output=True, text=True)
+            self.assertEqual(repeated.stdout.count('Verified completed raw-text extraction'), 3)
 
     def test_si_keeps_conversations_english_repeats_and_simplifies_only_output(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -717,6 +717,8 @@ remain unchanged. SI conversation boundaries and dialogue dataset/split/turn/
 parent metadata survive in line-range sidecars. Existing output identity includes
 input, code and normalization. Dialogue preparation skips LCCC-base because
 the pinned LCCC source extracts it separately.
+The `corpus/prepare_si_raw_text.py` entry point uses the same extractor to
+prepare the three local collections under `chinese/prepared/si-corpus`.
 
 Application dictionary CSV sources and attribution are tracked. The Rust
 resource tools prepare snapshots separately from the app build.

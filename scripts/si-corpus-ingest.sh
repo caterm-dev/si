@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-corpus_dir="$repo_root/corpus/chinese/prepared/raw-text-v2"
+corpus_dir="$repo_root/corpus/chinese/prepared/si-corpus"
 shopt -s nullglob
 sources=("$corpus_dir"/*/text.txt)
 if ((${#sources[@]} == 0)); then
