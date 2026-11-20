@@ -20,7 +20,7 @@ Host key event → SIInputController → client-local InputSession
   → revision-checked CandidateResult → AppKit candidate window or commit
 ```
 
-Xcode copies `target/si-data/main.silex` and `target/si-data/words.sigram`
+Xcode copies `.build/si-data/main.silex` and `.build/si-data/words.sigram`
 into the app's `Contents/Resources/SIEngine/` directory. The build validates
 the pair before packaging. Candidate source spans are relative to the current composition.
 
@@ -676,7 +676,7 @@ first-64 whole-span dictionary candidate pool. V5 includes completions. Python t
 evaluates LightGBM against separate synthetic train/validation sources. Source,
 resource, exporter and feature identities are recorded in immutable local bundles.
 Preparation reads the base pair and, when present, the staged user pair from
-`target/si-data/` by default. Fresh training runs save that prepared bundle
+`.build/si-data/` by default. Fresh training runs save that prepared bundle
 alongside the model. Runs supplied with a prepared bundle reuse its stored rows.
 V3 captures the selected path for offline word-frequency, internal N-gram,
 whole-candidate context, spelling, structure, user-snapshot and correction features.
@@ -715,7 +715,7 @@ the references. The generator receives the paths and preceding text. An input
 without a complete path still uses the Rust pool and character LM.
 
 Each macOS build packages the matching two FP32 bundles and the exported
-LambdaRank trees from `target/si-llm-pinyin`. The background full worker opens the immutable
+LambdaRank trees from `.build/si-llm-pinyin`. The background full worker opens the immutable
 bundle once and uses the current engine snapshot, including local user counts
 and active correction mode. The Rust engine merges exact text and language,
 scores a bounded complete-candidate pool and emits a separate model score.

@@ -65,7 +65,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args()
     profile = Path.home() / "Library/Application Support/SI/Personalization/model.si-user"
-    destination = Path(__file__).resolve().parents[1] / "target/si-data"
+    destination = Path(__file__).resolve().parents[1] / ".build/si-data"
     try:
         copy_user_model(profile, destination)
     except (OSError, ValueError) as error:

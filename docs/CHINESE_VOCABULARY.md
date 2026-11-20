@@ -8,7 +8,7 @@ remain separate entries. Repeating an exact text/reading pair across
 categories adds its counts.
 
 To validate both languages with the standalone Rust compiler, build to a new
-path. Debug and Release package the prepared snapshots under `target/si-data/`.
+path. Debug and Release package the prepared snapshots under `.build/si-data/`.
 
 ```sh
 si_vocab_check="$(mktemp -d)"

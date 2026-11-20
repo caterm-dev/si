@@ -14,7 +14,7 @@ import unicodedata
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / 'eval/lambdarank'
-DEFAULT_RESOURCES = ROOT / 'target/si-data'
+DEFAULT_RESOURCES = ROOT / '.build/si-data'
 EXPORT_BATCH_SIZE = 512
 SCHEMA = 'si-rank-features-v3'
 NEURAL_SCHEMA = 'si-rank-features-v4'
@@ -296,7 +296,7 @@ def resolve_resources(args, schema):
         default_grams = DEFAULT_RESOURCES / 'user.sigram'
         if any(path.exists() or path.is_symlink() for path in (default_lexicon, default_grams)):
             if not (default_lexicon.is_file() and default_grams.is_file()):
-                raise ValueError('Stage both user.silex and user.sigram in target/si-data, or pass --without-user')
+                raise ValueError('Stage both user.silex and user.sigram in .build/si-data, or pass --without-user')
             user_lexicon, user_grams = default_lexicon, default_grams
     return lexicon, grams, user_lexicon, user_grams
 
@@ -578,8 +578,8 @@ def add_source_arguments(parser):
 def add_preparation_arguments(parser):
     add_source_arguments(parser)
     parser.add_argument('--binary', type=Path)
-    parser.add_argument('--lexicon', type=Path, help='Base lexicon (default: target/si-data/main.silex)')
-    parser.add_argument('--grams', type=Path, help='Paired base grams (default with default lexicon: target/si-data/words.sigram)')
+    parser.add_argument('--lexicon', type=Path, help='Base lexicon (default: .build/si-data/main.silex)')
+    parser.add_argument('--grams', type=Path, help='Paired base grams (default with default lexicon: .build/si-data/words.sigram)')
     parser.add_argument('--schema', choices=[V5_SCHEMA, V5_LEXICAL_SCHEMA, NEURAL_SCHEMA, SCHEMA, 'si-rank-features-v2'])
     parser.add_argument('--pinyin-model', type=Path)
     parser.add_argument('--reranker-model', type=Path)
@@ -607,7 +607,7 @@ def main():
     train_parser = sub.add_parser('train', argument_default=argparse.SUPPRESS)
     add_preparation_arguments(train_parser)
     train_parser.add_argument('--bundle', type=Path, default=None,
-                              help='Use an existing bundle; omit to prepare from target/si-data and train')
+                              help='Use an existing bundle; omit to prepare from .build/si-data and train')
     train_parser.add_argument('--output', type=Path, required=True)
     train_parser.add_argument('--rounds', type=int, default=300)
     train_parser.add_argument('--feature-set', choices=FEATURE_SETS, default='all')

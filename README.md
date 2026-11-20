@@ -49,9 +49,9 @@ For `cichuxiande`, the single-character prefix `词` has the same lexical score 
 
 Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate candidate preferences. SI builds a local user model from confirmed candidates by default. Input History can retain each submitted spelling and text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
-Debug and Release bundle `target/si-data/main.silex` and
-`target/si-data/words.sigram` alongside the [ranking bundle](llm/README.md#experimental-input-ranking)
-selected by `target/si-llm-pinyin`. Xcode checks that the paired snapshots and
+Debug and Release bundle `.build/si-data/main.silex` and
+`.build/si-data/words.sigram` alongside the [ranking bundle](llm/README.md#experimental-input-ranking)
+selected by `.build/si-llm-pinyin`. Xcode checks that the paired snapshots and
 ranking checkpoint identities match before packaging them in `SI.app`.
 
 Candidate positioning briefly rechecks the host after a composition starts, allowing a newly opened input field to finish layout. Two matching corrected positions can replace the initial anchor; after the bounded startup checks, the panel stays anchored until the composition ends. Native new-chat and focus-switch behavior still requires the [positioning checks](docs/TESTING.md#candidate-positioning).
@@ -83,7 +83,7 @@ The packaged source notices and licenses are under
 `mac/SI/Core/Resources/`. Use `./scripts/si-lexicon-build.sh` to build
 a standalone Rust dictionary, or pass a new output path as its argument.
 After editing either language's CSVs, run `./scripts/si-lexicon-import.sh`
-to update the existing `target/si-data/main.silex`. Matching entries take
+to update the existing `.build/si-data/main.silex`. Matching entries take
 their current CSV totals, new entries receive new IDs, and existing entries
 absent from the CSVs stay in the lexicon.
 To remove entries, build a fresh lexicon at a new path and regenerate its
@@ -183,11 +183,15 @@ cd si
 ```
 
 Place the prepared `main.silex` and matching `words.sigram` in
-`target/si-data/` and point `target/si-llm-pinyin` at a
+`.build/si-data/` and point `.build/si-llm-pinyin` at a
 [complete ranking bundle](llm/README.md#local-build-with-the-12000-step-contextual-checkpoint).
 Then run `./scripts/build.sh`. The application is built
 at `.build/xcode/Build/Products/Debug/SI.app`. See the
 [resource preparation commands](#rust-engine-workspace).
+
+For existing checkouts, move the local resource and model directories from
+`target/` to `.build/` together with the `si-llm-pinyin` symlink. Keep their
+names and layout so the relative links between bundles still resolve.
 
 The build compiles the Rust bridge. The test script builds a separate fixture
 dictionary from the tracked CSVs. Generated snapshots and history databases
@@ -367,20 +371,20 @@ corpus/.venv/bin/python corpus/prepare_si_raw_text.py
 ```
 
 The build reads `Data/Chinese` and `Data/English` and requires a new
-`target/si-data/main.silex` destination. The preparation command extracts
+`.build/si-data/main.silex` destination. The preparation command extracts
 the three local collections documented in the [corpus guide](corpus/README.md).
 The ingest reads `corpus/chinese/prepared/si-corpus/*/text.txt` and adds counts
-to the main lexicon and `target/si-data/words.sigram` on each completed import. The learn
+to the main lexicon and `.build/si-data/words.sigram` on each completed import. The learn
 script uses adjacent Han tokens from that snapshot to discover compound words
 for the main lexicon. Each token may contain multiple characters. Ingest and
 learn both read `config/si.conf`.
 
 ```sh
-cargo run --release --locked -p si-cli -- lexicon build target/si-data/main.silex 0 Data/Chinese 1 Data/English
-cargo run --release --locked -p si-cli -- lexicon build target/si-data/user.silex 0 /path/to/user-words.csv
-cargo run --release --locked -p si-cli -- lexicon add target/si-data/main.silex 0 /path/to/new-words.csv
-cargo run --release --locked -p si-cli -- corpus build target/si-data/main.silex target/si-data/words.sigram /path/to/tokenized.txt
-cargo run --release --locked -p si-cli -- corpus add target/si-data/main.silex target/si-data/words.sigram /path/to/new-tokenized.txt
+cargo run --release --locked -p si-cli -- lexicon build .build/si-data/main.silex 0 Data/Chinese 1 Data/English
+cargo run --release --locked -p si-cli -- lexicon build .build/si-data/user.silex 0 /path/to/user-words.csv
+cargo run --release --locked -p si-cli -- lexicon add .build/si-data/main.silex 0 /path/to/new-words.csv
+cargo run --release --locked -p si-cli -- corpus build .build/si-data/main.silex .build/si-data/words.sigram /path/to/tokenized.txt
+cargo run --release --locked -p si-cli -- corpus add .build/si-data/main.silex .build/si-data/words.sigram /path/to/new-tokenized.txt
 ```
 
 Ordinary lexicon imports use `text,reading,weight` CSV files. Each reading
@@ -402,7 +406,7 @@ Both default to `4` and accept `2` through `5`. To apply changes without
 rebuilding the CLI, pass `--config` before the command:
 
 ```sh
-cargo run --release --locked -p si-cli -- --config config/si.conf corpus add target/si-data/main.silex target/si-data/words.sigram /path/to/new-tokenized.txt
+cargo run --release --locked -p si-cli -- --config config/si.conf corpus add .build/si-data/main.silex .build/si-data/words.sigram /path/to/new-tokenized.txt
 ```
 
 `max_order` controls which orders the next import counts. Changing it retains
@@ -427,7 +431,7 @@ Use the paired lexicon to prune low-count rows from one order of an existing
 gram snapshot. This example removes four-grams observed exactly once.
 
 ```sh
-cargo run --release --locked -p si-cli -- corpus prune --order 4 --min-count 2 target/si-data/main.silex target/si-data/words.sigram
+cargo run --release --locked -p si-cli -- corpus prune --order 4 --min-count 2 .build/si-data/main.silex .build/si-data/words.sigram
 ```
 
 The command reports the number of rows removed and atomically replaces the
@@ -443,11 +447,11 @@ composition per line. For example, after building the base dictionary:
 
 ```sh
 printf '%s\n' nihao iwanttobuild woxiangyaodeploy |
-  cargo run --release --locked -p si-cli -- candidates target/si-data/main.silex
+  cargo run --release --locked -p si-cli -- candidates .build/si-data/main.silex
 ```
 
-Pass `--grams target/si-data/words.sigram` to use a paired base gram
-snapshot and `--user target/si-data/profile.si-user` to include a local user
+Pass `--grams .build/si-data/words.sigram` to use a paired base gram
+snapshot and `--user .build/si-data/profile.si-user` to include a local user
 model. Both languages are enabled by default. Use `--languages zh-Hans`,
 `--languages en` or `--languages none` to select a different set.
 
@@ -476,11 +480,11 @@ decoder through its native bridge. See [Rust conversion](docs/ARCHITECTURE.md#ru
 #### Build a local user model
 
 Run `./scripts/si-copy-user-model.py` to copy the installed SI user's active
-`user.silex` and `user.sigram` into `target/si-data/`. The script replaces
+`user.silex` and `user.sigram` into `.build/si-data/`. The script replaces
 previous copies with the current pair and gives both files owner-only access.
 The copies stay local and are ignored by Git. Clearing Personal Phrases in
 SI leaves these copies on disk. To remove them, delete both files from
-`target/si-data/`.
+`.build/si-data/`.
 
 Use a dedicated `.si-user` profile with an existing base lexicon. Supply
 committed text explicitly as UTF-8, one sentence per line. The profile's
@@ -495,10 +499,10 @@ listed in a lexicon. Existing entries and counts are retained. This user-only
 rule does not change base `corpus ingest` review or placeholder handling.
 
 ```sh
-cargo run --release --locked -p si-cli -- user ingest target/si-data/profile.si-user target/si-data/main.silex batch-001 /path/to/sentences.txt
-cargo run --release --locked -p si-cli -- user learn target/si-data/profile.si-user target/si-data/main.silex
-cargo run --release --locked -p si-cli -- user status target/si-data/profile.si-user
-cargo run --release --locked -p si-cli -- user clear target/si-data/profile.si-user
+cargo run --release --locked -p si-cli -- user ingest .build/si-data/profile.si-user .build/si-data/main.silex batch-001 /path/to/sentences.txt
+cargo run --release --locked -p si-cli -- user learn .build/si-data/profile.si-user .build/si-data/main.silex
+cargo run --release --locked -p si-cli -- user status .build/si-data/profile.si-user
+cargo run --release --locked -p si-cli -- user clear .build/si-data/profile.si-user
 ```
 
 Use `-` instead of a filename to read standard input. Generate an opaque
@@ -569,8 +573,8 @@ Unmatched punctuation, unknown text, and still-unresolved spellings
 break the n-gram sequence.
 
 ```sh
-cargo run --release --locked -p si-cli -- corpus ingest target/si-data/main.silex target/si-data/words.sigram /path/to/paragraphs.txt
-cargo run --release --locked -p si-cli -- corpus ingest target/si-data/main.silex target/si-data/words.sigram /path/to/more-paragraphs.txt
+cargo run --release --locked -p si-cli -- corpus ingest .build/si-data/main.silex .build/si-data/words.sigram /path/to/paragraphs.txt
+cargo run --release --locked -p si-cli -- corpus ingest .build/si-data/main.silex .build/si-data/words.sigram /path/to/more-paragraphs.txt
 ```
 
 Each import updates both specified files in place and creates missing files.
@@ -587,7 +591,7 @@ original capitalization in `text`, using lowercase lookup keys in
 want to add and import the edited file into index `1`:
 
 ```sh
-cargo run --release --locked -p si-cli -- lexicon add target/si-data/main.silex 1 target/si-data/words.sigram.english.csv
+cargo run --release --locked -p si-cli -- lexicon add .build/si-data/main.silex 1 .build/si-data/words.sigram.english.csv
 ```
 
 Later corpus imports can count the new entries. If an imported reading
@@ -602,7 +606,7 @@ that column after `first_line`. Leave unconfirmed readings blank. Import
 the edited CSV directly into the Pinyin index:
 
 ```sh
-cargo run --release --locked -p si-cli -- lexicon add target/si-data/main.silex 0 target/si-data/words.sigram.review.csv
+cargo run --release --locked -p si-cli -- lexicon add .build/si-data/main.silex 0 .build/si-data/words.sigram.review.csv
 ```
 
 Only completed rows are imported. Their counts become the selected
@@ -616,20 +620,20 @@ previously. If an import is interrupted while publishing, rerun the same
 command to finish publication without recounting the corpus.
 
 Run `./scripts/si-corpus-clear-grams.sh` to delete
-`target/si-data/words.sigram`. The command preserves `main.silex`, the review
+`.build/si-data/words.sigram`. The command preserves `main.silex`, the review
 CSVs and the lock files. It waits for active writers and requires any pending
 ingest publication to finish first. The next ingest starts with empty gram
 counts and still adds word counts to `main.silex`.
 
 #### Export and restore a lexicon
 
-Run `./scripts/si-lexicon-export.sh` to export `target/si-data/main.silex`
-to `target/si-data/main.silex.csv`. The export requires a new destination.
+Run `./scripts/si-lexicon-export.sh` to export `.build/si-data/main.silex`
+to `.build/si-data/main.silex.csv`. The export requires a new destination.
 
 ```sh
-cargo run --release --locked -p si-cli -- lexicon export target/si-data/main.silex target/si-data/main.silex.csv
-cargo run --release --locked -p si-cli -- lexicon export --language zh-Hans target/si-data/main.silex target/si-data/chinese.silex.csv
-cargo run --release --locked -p si-cli -- lexicon restore target/si-data/main.silex.csv target/si-data/restored.silex
+cargo run --release --locked -p si-cli -- lexicon export .build/si-data/main.silex .build/si-data/main.silex.csv
+cargo run --release --locked -p si-cli -- lexicon export --language zh-Hans .build/si-data/main.silex .build/si-data/chinese.silex.csv
+cargo run --release --locked -p si-cli -- lexicon restore .build/si-data/main.silex.csv .build/si-data/restored.silex
 ```
 
 The CSV records each word's `id`, exact text, raw count, primary reading,
@@ -661,9 +665,9 @@ single Han characters and their full Pinyin readings. The `--han` option
 accepts ordinary UTF-8 text and counts contiguous characters.
 
 ```sh
-cargo run --release --locked -p si-cli -- lexicon build target/si-data/learned.silex 0 /path/to/han-seed.csv
-cargo run --release --locked -p si-cli -- corpus build --han target/si-data/learned.silex target/si-data/characters.sigram /path/to/corpus.txt
-cargo run --release --locked -p si-cli -- --config config/si.conf lexicon learn target/si-data/learned.silex target/si-data/characters.sigram
+cargo run --release --locked -p si-cli -- lexicon build .build/si-data/learned.silex 0 /path/to/han-seed.csv
+cargo run --release --locked -p si-cli -- corpus build --han .build/si-data/learned.silex .build/si-data/characters.sigram /path/to/corpus.txt
+cargo run --release --locked -p si-cli -- --config config/si.conf lexicon learn .build/si-data/learned.silex .build/si-data/characters.sigram
 ```
 
 The starting configuration requires at least 40,000 occurrences, at
@@ -690,7 +694,7 @@ any rows you do not want to add. Import the reviewed CSV after supplying
 a reading for every remaining row.
 
 ```sh
-cargo run --release --locked -p si-cli -- lexicon add target/si-data/learned.silex 0 target/si-data/learned.silex.review-1.csv
+cargo run --release --locked -p si-cli -- lexicon add .build/si-data/learned.silex 0 .build/si-data/learned.silex.review-1.csv
 ```
 
 Later exports use a fresh number so you can keep earlier edits. These
@@ -703,7 +707,7 @@ The [offline LambdaRank experiment](eval/lambdarank/README.md) provides editable
 separate synthetic training/validation sets, Rust candidate/feature export and
 Python LightGBM training with reproducible baseline comparisons. Starting a run
 without a prepared bundle reads the paired base resources and any staged user
-pair under `target/si-data/` and saves the generated bundle with the run.
+pair under `.build/si-data/` and saves the generated bundle with the run.
 V3 covers word frequency, internal/context grams, user snapshots and Pinyin correction.
 V4 adds an optional merged pool from SI and Pinyin-to-text, with candidate source
 features and contextual scores from the small character LM. The macOS app runs

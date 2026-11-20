@@ -25,8 +25,8 @@ bridge the app uses, including bilingual results, exact UTF-8 spans, personal
 phrases, confirmation evidence and token preferences.
 SwiftPM uses a separate dictionary generated from the tracked CSVs.
 The Release build and its package check require the paired snapshots under
-`target/si-data/` and the [ranking bundle](../llm/README.md#experimental-input-ranking)
-at `target/si-llm-pinyin`.
+`.build/si-data/` and the [ranking bundle](../llm/README.md#experimental-input-ranking)
+at `.build/si-llm-pinyin`.
 
 Run the worker integration test with the app's staged checkpoints:
 
@@ -88,10 +88,10 @@ Run the CLI with the same lexicon and paired grams that will be evaluated.
 
 ```sh
 cargo build --release --locked -p si-cli
-python3 scripts/eval-pinyin-correction.py --grams target/si-data/words.sigram
-python3 scripts/eval-pinyin-correction.py --grams target/si-data/words.sigram --offset 5000 --seed 361
-python3 scripts/eval-pinyin-correction.py --grams target/si-data/words.sigram --search preview
-python3 scripts/eval-pinyin-correction.py --grams target/si-data/words.sigram --vocabulary diming --show-errors
+python3 scripts/eval-pinyin-correction.py --grams .build/si-data/words.sigram
+python3 scripts/eval-pinyin-correction.py --grams .build/si-data/words.sigram --offset 5000 --seed 361
+python3 scripts/eval-pinyin-correction.py --grams .build/si-data/words.sigram --search preview
+python3 scripts/eval-pinyin-correction.py --grams .build/si-data/words.sigram --vocabulary diming --show-errors
 ```
 
 The script samples maintained public vocabulary and synthesizes a missing key,

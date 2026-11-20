@@ -155,7 +155,7 @@ python3 scripts/lambdarank/pipeline.py validate
 under the run's `bundle/` directory. Standalone `prepare` uses the same defaults.
 Use `train --bundle PATH` to fit from an existing snapshot.
 
-The default base resources are `target/si-data/main.silex` and its paired
+The default base resources are `.build/si-data/main.silex` and its paired
 `words.sigram`. An explicit `--lexicon` without `--grams` supports a lexicon-only
 experiment. Both commands accept `--train`, `--validation` and `--binary` during
 preparation. Use a new output path when regenerating features or fitting a model.
@@ -236,8 +236,8 @@ paths remain excluded; completion-missing-letters is therefore constant zero in
 this experiment. Separator alignment is also constrained by candidate generation.
 These constants are retained as defined signals, not evidence of learned utility.
 
-Preparation automatically loads the pair `target/si-data/user.silex` and
-`target/si-data/user.sigram` when both files are present. With neither file, the
+Preparation automatically loads the pair `.build/si-data/user.silex` and
+`.build/si-data/user.sigram` when both files are present. With neither file, the
 user statistics are unavailable. A partial pair causes an error. Use
 `--without-user` to prepare without a user snapshot or pass `--user-lexicon PATH`
 and its paired `--user-grams PATH` to use a different snapshot. The legacy v2
@@ -406,15 +406,15 @@ To build with a separate calibrated model directory, point the app's bundle
 symlink at it after exporting the matching trees.
 
 ```sh
-mkdir -p target/si-neural-correction-pool
-ln -s ../si-neural/pinyin target/si-neural-correction-pool/pinyin
-ln -s ../si-neural/reranker target/si-neural-correction-pool/reranker
+mkdir -p .build/si-neural-correction-pool
+ln -s ../si-neural/pinyin .build/si-neural-correction-pool/pinyin
+ln -s ../si-neural/reranker .build/si-neural-correction-pool/reranker
 .venv/lambdarank/bin/python scripts/lambdarank/export_runtime.py \
   --run eval/lambdarank/runs/neural-v5-correction-pool \
   --bundle eval/lambdarank/prepared/neural-v5-correction-pool \
   --binary target/release/si-neural \
-  --output target/si-neural-correction-pool/lambdarank.json
-ln -sfn si-neural-correction-pool target/si-llm-pinyin
+  --output .build/si-neural-correction-pool/lambdarank.json
+ln -sfn si-neural-correction-pool .build/si-llm-pinyin
 ./scripts/build.sh
 ```
 

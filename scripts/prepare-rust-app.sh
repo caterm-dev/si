@@ -9,8 +9,8 @@ fi
 library_dir="$1"
 resource_dir="$2"
 shift 2
-lexicon="$repo_root/target/si-data/main.silex"
-grams="$repo_root/target/si-data/words.sigram"
+lexicon="$repo_root/.build/si-data/main.silex"
+grams="$repo_root/.build/si-data/words.sigram"
 if [[ "$fixtures" == false ]]; then
     for snapshot in "$lexicon" "$grams"; do
         if [[ ! -f "$snapshot" ]]; then
@@ -18,8 +18,8 @@ if [[ "$fixtures" == false ]]; then
             exit 2
         fi
     done
-    if ! ranking="$(cd -P "$repo_root/target/si-llm-pinyin" 2>/dev/null && pwd -P)"; then
-        printf 'Missing SI ranking bundle: %s/target/si-llm-pinyin\n' "$repo_root" >&2
+    if ! ranking="$(cd -P "$repo_root/.build/si-llm-pinyin" 2>/dev/null && pwd -P)"; then
+        printf 'Missing SI ranking bundle: %s/.build/si-llm-pinyin\n' "$repo_root" >&2
         exit 2
     fi
 fi

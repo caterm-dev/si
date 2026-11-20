@@ -5,7 +5,7 @@ Thanks for helping build SI. The product principle is simple: users enable langu
 ## Development
 
 1. Install Xcode 26 or later and select it as the active developer directory.
-2. Install Rust 1.89 or later and add the Apple Silicon and Intel macOS targets for universal builds. Place the paired `main.silex` and `words.sigram` under `target/si-data/` and link the [ranking bundle](llm/README.md#experimental-input-ranking) at `target/si-llm-pinyin`. Open `mac/SI.xcodeproj` and choose the shared SI scheme.
+2. Install Rust 1.89 or later and add the Apple Silicon and Intel macOS targets for universal builds. Place the paired `main.silex` and `words.sigram` under `.build/si-data/` and link the [ranking bundle](llm/README.md#experimental-input-ranking) at `.build/si-llm-pinyin`. Open `mac/SI.xcodeproj` and choose the shared SI scheme.
 3. For macOS app code changes beyond vocabulary maintenance, run `./scripts/test.sh` and `./scripts/build.sh` before submitting.
 4. For input-method changes, complete the relevant checks in [docs/TESTING.md](docs/TESTING.md).
 

@@ -270,7 +270,7 @@ def evaluate(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cli", type=Path, default=ROOT / "target/release/si-cli")
-    parser.add_argument("--lexicon", type=Path, default=ROOT / "target/si-data/main.silex")
+    parser.add_argument("--lexicon", type=Path, default=ROOT / ".build/si-data/main.silex")
     parser.add_argument("--grams", type=Path)
     parser.add_argument("--correction-mode", choices=("on", "higher-recall"), default="on")
     parser.add_argument("--search", choices=("full", "preview"), default="full")
