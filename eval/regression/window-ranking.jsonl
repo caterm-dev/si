@@ -1,0 +1,17 @@
+{"id": "regression-pinyin-xiandingge", "input": "xiandingge", "context": "", "references": ["先定个"], "category": "chinese", "languages": ["zh-Hans", "en"], "origin": "reported-regression", "knownTop1Miss": true, "knownTop4Miss": true}
+{"id": "regression-pinyin-xiandinggei", "input": "xiandinggei", "context": "", "references": ["限定给"], "category": "chinese", "languages": ["zh-Hans", "en"], "origin": "reported-regression", "knownTop1Miss": true, "knownTop4Miss": true}
+{"id": "regression-pinyin-shangganqing", "input": "shangganqing", "context": "", "references": ["伤感情"], "category": "chinese", "languages": ["zh-Hans", "en"], "origin": "reported-regression"}
+{"id": "regression-pinyin-xianding", "input": "xianding", "context": "", "references": ["限定"], "category": "chinese", "languages": ["zh-Hans", "en"], "origin": "reported-regression"}
+{"id": "regression-pinyin-jinchao", "input": "jinchao", "context": "", "references": ["金超"], "category": "chinese", "languages": ["zh-Hans", "en"], "origin": "reported-regression"}
+{"id": "regression-english-can", "input": "can", "context": "We know that you ", "references": ["can"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-english-he", "input": "he", "context": "I think that ", "references": ["he"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-english-you", "input": "you", "context": "Thanks to ", "references": ["you"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-english-fan", "input": "fan", "context": "The cooling system uses a ", "references": ["fan"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-english-ban", "input": "ban", "context": "The club voted to ", "references": ["ban"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic", "knownTop1Miss": true}
+{"id": "regression-english-pin", "input": "pin", "context": "Please enter the security ", "references": ["pin"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-english-hang", "input": "hang", "context": "Use this hook to ", "references": ["hang"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-english-sun", "input": "sun", "context": "The planets orbit the ", "references": ["sun"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-english-run", "input": "run", "context": "To start the script, ", "references": ["run"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-english-cannot", "input": "cannot", "context": "This command ", "references": ["cannot"], "category": "english", "languages": ["zh-Hans", "en"], "origin": "synthetic"}
+{"id": "regression-context-river", "input": "he", "context": "这条", "languages": ["zh-Hans", "en"], "references": ["河"], "category": "context", "prior_choices": [{"language": "zh-Hans", "text": "和", "bonus": 4}], "origin": "context-protection"}
+{"id": "regression-context-number", "input": "shi", "context": "九加一等于", "languages": ["zh-Hans", "en"], "references": ["十"], "category": "context", "origin": "context-protection"}
