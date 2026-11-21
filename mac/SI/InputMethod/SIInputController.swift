@@ -8,6 +8,9 @@ import OSLog
 @objc(SIInputController)
 // The legacy superclass is not Sendable. All mutable state remains main-actor isolated.
 final class SIInputController: IMKInputController, @unchecked Sendable {
+    private static let rankingPolicy: CandidateRequest.RankingPolicy =
+        ProcessInfo.processInfo.environment["SI_USE_LEGACY_RANKING"] == "1" ? .engineOrder : .app
+
     private var session = InputSession(candidateGeneration: .deferred)
     private weak var candidateClient: (any IMKTextInput)?
     private lazy var candidatePipeline = CandidatePipeline { [weak self] result in
@@ -294,7 +297,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           compositionLearningEnabled: !secureInput,
                           punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
                           pinyinCorrectionMode: secureInput ? .off : languages.pinyinCorrectionMode,
-                          experimentalRankingEnabled: !secureInput)
+                          experimentalRankingEnabled: !secureInput, rankingPolicy: Self.rankingPolicy)
         return true
     }
 
@@ -578,7 +581,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         } else if let request = session.pendingCandidateRequest {
             presentCandidates(to: client)
             guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
-            if !session.hasCandidatePreview { candidatePreviewPipeline.submit(request) }
+            if request.offersPreview && !session.hasCandidatePreview { candidatePreviewPipeline.submit(request) }
             candidatePipeline.submit(request)
         } else {
             candidatePipeline.invalidate()

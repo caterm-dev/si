@@ -221,7 +221,11 @@ alone does not accept the correction. Type `nihao` as a clean control and
 repeat with correction Off. The clean target should still be available.
 
 Run the shared worker and selection checks with the matching development
-model and packaged resources.
+model and packaged resources. Exercise ordinary typing with correction off,
+and confirm that the full result has the same order when selected before the
+worker returns. With correction enabled, verify the early preview and the
+bounded model result. Relaunch a development process with
+`SI_USE_LEGACY_RANKING=1` to exercise the rollback path.
 
 ```sh
 SI_TEST_CALIBRATED_CORRECTION=1 \

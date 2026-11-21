@@ -5,6 +5,42 @@ import Testing
 
 @MainActor
 struct CandidatePipelineTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil))
+    func appRankingUsesTheSameStatisticalOrderInTheWorkerAndSynchronously() async throws {
+        let gate = Gate()
+        var final: CandidateResult?
+        let pipeline = CandidatePipeline {
+            final = $0
+            gate.didReceive()
+        }
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.simplifiedChinese, .english],
+                          experimentalRankingEnabled: true, rankingPolicy: .app)
+        session.append("xiandingge")
+        let request = try #require(session.pendingCandidateRequest)
+        #expect(!request.offersPreview)
+        let synchronous = request.generate()
+        pipeline.submit(request)
+        await gate.waitForReceipts(1)
+        let background = try #require(final)
+        #expect(background.candidates == synchronous.candidates)
+        #expect(!background.isModelRanked)
+        var selection = CandidateSelection()
+        selection.update(background.candidates)
+        #expect(selection.candidates.first?.text == "先定个")
+
+        session.configure(languages: [.simplifiedChinese, .english], pinyinCorrectionMode: .conservative,
+                          experimentalRankingEnabled: true, rankingPolicy: .app)
+        let correction = try #require(session.pendingCandidateRequest)
+        #expect(correction.offersPreview)
+        let stale = session.accept(background)
+        #expect(!stale)
+        let corrected = correction.generate(useExperimentalRanking: true)
+        #expect(corrected.isModelRanked)
+        selection.update(corrected.candidates)
+        #expect(selection.candidates.first?.text == "先定个")
+    }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_CALIBRATED_CORRECTION"] == "1"))
     func calibratedCorrectionReachesTheFrontPageAndRequiresExplicitAcceptance() throws {
         for (input, target) in [("nihoa", "你好"), ("houmo", "周末")] {

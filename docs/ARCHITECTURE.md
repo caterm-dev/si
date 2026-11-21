@@ -715,21 +715,27 @@ the references. The generator receives the paths and preceding text. An input
 without a complete path still uses the Rust pool and character LM.
 
 Each macOS build packages the matching two FP32 bundles and the exported
-LambdaRank trees from `.build/si-llm-pinyin`. The background full worker opens the immutable
-bundle once and uses the current engine snapshot, including local user counts
-and active correction mode. The Rust engine merges exact text and language,
-scores a bounded complete-candidate pool and emits a separate model score.
-The default worker opens LambdaRank and the character scorer. It opens and
-runs the Pinyin generator only for development processes launched with
-`SI_USE_PINYIN_MODEL=1`. The 61-column v5 layout stays fixed. With generation
-disabled, the Pinyin source flag is zero and beam rank is missing on each row.
+LambdaRank trees from `.build/si-llm-pinyin`. With correction off, synchronous
+resolution and the full worker use the same contextual statistical order.
+That route skips model loading and the separate bounded preview search. While
+the first full result is pending, the exact spelling remains available.
+With correction on, the full worker lazily opens LambdaRank and the
+character scorer. After correction calibration, Swift permits LambdaRank
+order only within 6 bits of the statistical leader. Explicit choices retain
+priority, candidates outside that range retain statistical order, and the
+literal remains available. Launching SI with `SI_USE_LEGACY_RANKING=1`
+restores unrestricted background ranking and early hints. Assets already
+opened in a process are reused if correction is toggled back on.
+On model-ranked routes, `SI_USE_PINYIN_MODEL=1` opts into generation. The
+61-column v5 layout stays fixed. With generation disabled, the Pinyin
+source flag is zero and beam rank is missing on each row.
 For equal model scores, SI candidates use their lexical score with eligible
 learning and the preceding-field adjustment, before the input coverage reward.
 Generated-only candidates follow SI candidates at the same model score and
 retain their beam order within a tie.
 Swift preserves explicit pins, remembered choices, correction and prefix
-policies, and the exact literal fallback. Early preview and synchronous
-resolution use the statistical engine. The session rejects results from obsolete
+policies, and the exact literal fallback. Synchronous resolution and the
+preview on model-ranked routes use the statistical engine. The session rejects results from obsolete
 requests and retains the currently displayed preview after navigation. Secure or
 direct input skips model work. Model-only hypotheses require explicit selection
 and carry no learning, automatic confirmation or prefix evidence. A scored
