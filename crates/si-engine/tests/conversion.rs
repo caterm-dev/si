@@ -28,6 +28,150 @@ const ENGLISH: EnabledLanguages = EnabledLanguages {
 };
 
 #[test]
+fn dictionary_words_share_one_frequency_distribution_without_token_costs() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "you", "有", 29);
+    add(&mut lexicon, ZH, "wu", "无", 10);
+    add(&mut lexicon, ZH, "wu", "五", 0);
+    add(&mut lexicon, ZH, "ni'hao", "你好", 29);
+    let english = add(&mut lexicon, EN, "you", "you", 29);
+    let thanks = add(&mut lexicon, EN, "thanks", "thanks", 10);
+    let mut grams = GramBuilder::new();
+    grams.add(&[thanks, english], 1_000).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+
+    for preview in [false, true] {
+        let convert = |context| {
+            engine.convert_with_context(
+                "you",
+                BILINGUAL,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                context,
+            )
+        };
+        let without_context = convert("");
+        let expected = Some((29.0_f64 / 107.0).log2());
+        assert_eq!(
+            find(&without_context, "you", CandidateLanguage::English, 3).score_bits,
+            expected
+        );
+        assert_eq!(
+            find(&without_context, "有", CandidateLanguage::Chinese, 3).score_bits,
+            expected
+        );
+        let standalone = engine.candidates("nihao", CHINESE);
+        assert_eq!(
+            find(&standalone, "你好", CandidateLanguage::Chinese, 5).score_bits,
+            expected
+        );
+        let zero = engine.candidates("wu", CHINESE);
+        assert!(
+            find(&zero, "五", CandidateLanguage::Chinese, 2)
+                .score_bits
+                .unwrap()
+                .is_finite()
+        );
+        let sequence = engine.convert_with_context(
+            "wuyou",
+            BILINGUAL,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+            "",
+        );
+        let composed = Some((10.0_f64 / 107.0).log2() + expected.unwrap());
+        assert_eq!(
+            find(&sequence, "无有", CandidateLanguage::Chinese, 5).score_bits,
+            composed
+        );
+        assert_eq!(
+            find(&sequence, "无 you", CandidateLanguage::Mixed, 5).score_bits,
+            composed
+        );
+        assert_literal(without_context.last().unwrap(), "you");
+
+        let with_context = convert("Thanks ");
+        assert_eq!(with_context[0].text, "you");
+        assert_eq!(with_context[0].language, CandidateLanguage::English);
+        assert!(has(&with_context, "有", CandidateLanguage::Chinese, 3));
+        assert_literal(with_context.last().unwrap(), "you");
+    }
+    Ok(())
+}
+
+#[test]
+fn gram_history_and_continuation_mass_span_languages() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let try_word = add(&mut lexicon, EN, "try", "try", 20);
+    let yes = add(&mut lexicon, ZH, "you", "有", 20);
+    let you = add(&mut lexicon, EN, "you", "you", 20);
+    let book = add(&mut lexicon, ZH, "shu", "书", 20);
+    let mut grams = GramBuilder::new();
+    grams.add(&[try_word, yes], 64).unwrap();
+    grams.add(&[try_word, you], 32).unwrap();
+    grams.add(&[try_word, yes, book], 512).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+
+    let unigram = 0.25_f64;
+    let mixed_bigram = (64.0 + 32.0 * unigram) / 128.0;
+    let same_language_bigram = (32.0 + 32.0 * unigram) / 128.0;
+    let mixed_trigram = (1.0 - 0.8) * unigram + 0.8;
+    for preview in [false, true] {
+        let convert = |source, preceding| {
+            engine.convert_with_context(
+                source,
+                BILINGUAL,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                preceding,
+            )
+        };
+        let rows = convert("tryyou", "");
+        assert_eq!(
+            find(&rows, "try 有", CandidateLanguage::Mixed, 6).score_bits,
+            Some(unigram.log2() + mixed_bigram.log2()),
+        );
+        assert_eq!(
+            find(&rows, "try you", CandidateLanguage::English, 6).score_bits,
+            Some(unigram.log2() + same_language_bigram.log2()),
+        );
+        let rows = convert("you", "Try ");
+        assert_eq!(rows[0].text, "有");
+        assert_eq!(
+            rows[0].context_adjustment,
+            mixed_bigram.log2() - unigram.log2()
+        );
+        let rows = convert("shu", "Try 有");
+        assert_eq!(
+            rows[0].context_adjustment,
+            mixed_trigram.log2() - unigram.log2()
+        );
+        let rows = convert("you", "Try 有");
+        let absent = find(&rows, "you", CandidateLanguage::English, 3);
+        assert!((absent.context_adjustment - (1.0_f64 - 0.8).log2()).abs() < 1e-12);
+    }
+    let rows = engine.candidates_with_preference_evidence(
+        "you",
+        BILINGUAL,
+        "Try ",
+        ConversionPreferences::default(),
+    );
+    let row = find(&rows, "有", CandidateLanguage::Chinese, 3);
+    let features = si_engine::ranking_features::extract("you", "Try ", row).unwrap();
+    assert_eq!(features[2], Some(unigram.log2()));
+    assert_eq!(features[14], Some(mixed_bigram.log2()));
+    assert_eq!(features[16], Some(2.0));
+    Ok(())
+}
+
+#[test]
 fn preceding_field_uses_only_the_last_sentence_for_gram_scoring() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
@@ -71,10 +215,7 @@ fn preceding_field_uses_only_the_last_sentence_for_gram_scoring() -> io::Result<
         };
         assert_eq!(first_chinese(&baseline), "和");
         assert_eq!(first_chinese(&latest), "河");
-        assert_eq!(
-            find(&latest, "he", CandidateLanguage::English, 2).context_adjustment,
-            0.0
-        );
+        assert!(find(&latest, "he", CandidateLanguage::English, 2).context_adjustment < 0.0);
         assert!(
             find(
                 &convert("he", "The ", preview),
@@ -514,18 +655,161 @@ fn user_ingestion_skips_single_letters_without_bridging_grams() -> io::Result<()
 }
 
 #[test]
+fn user_unigrams_share_one_total_and_only_raise_scores() -> io::Result<()> {
+    let base_dir = Scratch::new()?;
+    let mut base_lexicon = Lexicon::new();
+    add(&mut base_lexicon, EN, "he", "he", 1);
+    add(&mut base_lexicon, EN, "and", "and", 1_000);
+    add(&mut base_lexicon, ZH, "he", "和", 1);
+    add(&mut base_lexicon, ZH, "yun", "云", 1_000);
+    let base = base_dir.resources(&mut base_lexicon, None)?;
+
+    let user_dir = Scratch::new()?;
+    let mut user_lexicon = Lexicon::new();
+    add(&mut user_lexicon, EN, "he", "he", 5);
+    add(&mut user_lexicon, EN, "and", "and", 5);
+    add(&mut user_lexicon, ZH, "he", "和", 10);
+    add(&mut user_lexicon, ZH, "he", "河", 80);
+    let user = user_dir.resources(&mut user_lexicon, None)?;
+
+    let base_engine = CandidateEngine::new(&base, None);
+    let user_engine = CandidateEngine::new(&base, Some(&user));
+    let base_matches = base_engine.candidates("he", BILINGUAL);
+    let user_matches = user_engine.candidates("he", BILINGUAL);
+    let base_prior = 1.0_f64 / 2_002.0;
+    for (text, language, count) in [
+        ("he", CandidateLanguage::English, 5.0),
+        ("和", CandidateLanguage::Chinese, 10.0),
+    ] {
+        let gain = find(&user_matches, text, language, 2).score_bits.unwrap()
+            - find(&base_matches, text, language, 2).score_bits.unwrap();
+        let expected_gain = (1.0 + 0.8 * (count / 100.0 / base_prior - 1.0) * 100.0 / 132.0).log2();
+        assert!((gain - expected_gain).abs() < 1e-12);
+    }
+    for (source, text, language) in [
+        ("and", "and", CandidateLanguage::English),
+        ("yun", "云", CandidateLanguage::Chinese),
+    ] {
+        let baseline = base_engine.candidates(source, BILINGUAL);
+        let personalized = user_engine.candidates(source, BILINGUAL);
+        assert_eq!(
+            find(&personalized, text, language, source.len()).score_bits,
+            find(&baseline, text, language, source.len()).score_bits,
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn user_grams_only_raise_scores_within_compositions_and_after_preceding_text() -> io::Result<()> {
+    let base_dir = Scratch::new()?;
+    let mut base_lexicon = Lexicon::new();
+    let look = add(&mut base_lexicon, ZH, "kan", "看", 100);
+    let book = add(&mut base_lexicon, ZH, "shu", "书", 100);
+    let cloud = add(&mut base_lexicon, ZH, "yun", "云", 100);
+    add(&mut base_lexicon, EN, "paper", "paper", 100);
+    let mut base_grams = GramBuilder::new();
+    base_grams.add(&[look, book], 90).unwrap();
+    base_grams.add(&[look, cloud], 10).unwrap();
+    let base = base_dir.resources(&mut base_lexicon, Some(base_grams))?;
+
+    let user_dir = Scratch::new()?;
+    let mut user_lexicon = Lexicon::new();
+    let look = add(&mut user_lexicon, ZH, "kan", "看", 100);
+    let book = add(&mut user_lexicon, ZH, "shu", "书", 100);
+    add(&mut user_lexicon, ZH, "yun", "云", 100);
+    let paper = add(&mut user_lexicon, EN, "paper", "paper", 100);
+    let mut user_grams = GramBuilder::new();
+    user_grams.add(&[look, book], 1).unwrap();
+    user_grams.add(&[look, paper], 9).unwrap();
+    let user = user_dir.resources(&mut user_lexicon, Some(user_grams))?;
+    let lexicon_only = EngineResources::open(&user_dir.path("base.silex"), None)?;
+    let unigrams = CandidateEngine::new(&base, Some(&lexicon_only));
+    let grams = CandidateEngine::new(&base, Some(&user));
+
+    for (source, context, text, language, boosted) in [
+        ("kanshu", "", "看书", CandidateLanguage::Chinese, false),
+        ("kanyun", "", "看云", CandidateLanguage::Chinese, false),
+        ("kanpaper", "", "看 paper", CandidateLanguage::Mixed, true),
+        ("shu", "看", "书", CandidateLanguage::Chinese, false),
+        ("yun", "看", "云", CandidateLanguage::Chinese, false),
+        ("paper", "看", "paper", CandidateLanguage::English, true),
+    ] {
+        let score = |engine: &CandidateEngine<'_>| {
+            let rows = engine.convert_with_context(
+                source,
+                BILINGUAL,
+                false,
+                &[],
+                ConversionPreferences::default(),
+                context,
+            );
+            let row = find(&rows, text, language, source.len());
+            row.score_bits.unwrap() + row.context_adjustment
+        };
+        if boosted {
+            assert!(score(&grams) > score(&unigrams), "{source}");
+        } else {
+            assert_eq!(score(&grams), score(&unigrams), "{source}");
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn user_only_preceding_word_preserves_base_context_evidence() -> io::Result<()> {
+    let base_dir = Scratch::new()?;
+    let mut base_lexicon = Lexicon::new();
+    add(&mut base_lexicon, ZH, "kan", "看", 10);
+    let book = add(&mut base_lexicon, ZH, "shu", "书", 10);
+    let good = add(&mut base_lexicon, ZH, "hao", "好", 10);
+    add(&mut base_lexicon, ZH, "huai", "坏", 10);
+    let mut base_grams = GramBuilder::new();
+    base_grams.add(&[book, good], 1_000).unwrap();
+    let base = base_dir.resources(&mut base_lexicon, Some(base_grams))?;
+
+    let user_dir = Scratch::new()?;
+    let mut user_lexicon = Lexicon::new();
+    let reading = add(&mut user_lexicon, ZH, "kan'shu", "看书", 12);
+    let bad = add(&mut user_lexicon, ZH, "huai", "坏", 12);
+    let mut user_grams = GramBuilder::new();
+    user_grams.add(&[reading, bad], 8).unwrap();
+    let user = user_dir.resources(&mut user_lexicon, Some(user_grams))?;
+
+    let adjustment = |engine: &CandidateEngine<'_>, source, text| {
+        let rows = engine.convert_with_context(
+            source,
+            CHINESE,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            "看书",
+        );
+        find(&rows, text, CandidateLanguage::Chinese, source.len()).context_adjustment
+    };
+    let base_engine = CandidateEngine::new(&base, None);
+    let user_engine = CandidateEngine::new(&base, Some(&user));
+    let base_good = adjustment(&base_engine, "hao", "好");
+    assert!(base_good > 0.0);
+    assert_eq!(adjustment(&user_engine, "hao", "好"), base_good);
+    assert!(adjustment(&user_engine, "huai", "坏") > 0.0);
+    Ok(())
+}
+
+#[test]
 fn user_word_and_gram_evidence_follow_lexeme_identity_across_files() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
     let ornament = add(&mut lexicon, ZH, "shou'shi", "首饰", 200);
     let luggage = add(&mut lexicon, ZH, "xing'li", "行李", 80);
     let pick_up = add(&mut lexicon, ZH, "shou'shi", "收拾", 5);
-    add(&mut lexicon, ZH, "gui'tai", "柜台", 80);
+    let counter = add(&mut lexicon, ZH, "gui'tai", "柜台", 80);
     add(&mut lexicon, ZH, "yun", "云", 10);
     add(&mut lexicon, ZH, "he", "鹤", 10);
     add(&mut lexicon, ZH, "bai'cha", "白茶", 50);
     let mut grams = GramBuilder::new();
     grams.add(&[ornament, luggage], 300).unwrap();
+    grams.add(&[ornament, counter], 1_200).unwrap();
     let base = directory.resources(&mut lexicon, Some(grams))?;
     let user_store = UserModelStore::new(directory.path("user.si-user"));
     user_store.ingest(
@@ -1159,7 +1443,7 @@ fn pinyin_correction_rejects_a_marginal_lead_over_an_exact_word() -> io::Result<
     let mut lexicon = Lexicon::new();
     add(&mut lexicon, ZH, "duo'jiu", "多久", 600);
     add(&mut lexicon, ZH, "duo'ju", "多聚", 1);
-    add(&mut lexicon, ZH, "zhuang'tai", "状态", 1_200);
+    add(&mut lexicon, ZH, "zhuang'tai", "状态", 900);
     add(&mut lexicon, ZH, "huang'tai", "黄台", 1);
     let resources = directory.resources(&mut lexicon, None)?;
     let engine = CandidateEngine::new(&resources, None).with_pinyin_correction(true);
@@ -1429,7 +1713,7 @@ fn pinyin_correction_requires_strong_context_to_challenge_a_valid_spelling() -> 
     let find_name = add(&mut lexicon, ZH, "zhao", "找", 100);
     let target = add(&mut lexicon, ZH, "gao'su", "告诉", 100);
     let literal_reading = add(&mut lexicon, ZH, "gao'xu", "高旭", 100);
-    add(&mut lexicon, ZH, "zhi'dao", "知道", 1_000_000);
+    add(&mut lexicon, ZH, "zhi'dao", "知道", 2_000_000);
     let mut grams = GramBuilder::new();
     grams.add(&[want, target], 100_000).unwrap();
     grams.add(&[find_name, literal_reading], 100_000).unwrap();
@@ -1642,10 +1926,17 @@ fn pinyin_correction_admission_compares_both_paths_with_context() -> io::Result<
     add(&mut lexicon, ZH, "shi'jie", "世界", 100);
     let mut grams = GramBuilder::new();
     grams.add(&[want, unrelated], 1_000_000).unwrap();
-    grams.add(&[want, target], 100).unwrap();
+    grams.add(&[want, target], 200_000).unwrap();
     let resources = directory.resources(&mut lexicon, Some(grams))?;
     let engine = CandidateEngine::new(&resources, None).with_pinyin_correction(true);
 
+    let without_context = engine.preview("nihoashijie", CHINESE);
+    assert!(
+        without_context
+            .iter()
+            .find(|row| row.is_corrected())
+            .is_some_and(|row| row.text != "拟好世界")
+    );
     let rows = engine.convert_with_context(
         "nihoashijie",
         CHINESE,

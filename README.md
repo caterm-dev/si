@@ -24,11 +24,18 @@ The Rust engine searches a bounded word lattice over full Pinyin and English
 spelling, including mixed paths and final-word completion. Apostrophes
 constrain Pinyin syllable boundaries. Prefix choices consume the exact
 original spelling, including umlaut aliases and trailing separators. The
-engine scores paths using dictionary counts, optional paired word grams,
-and spelling and language-transition costs. Complete candidates precede
-prefixes. Prefixes sort by decreasing consumed length, then by score within
-the same range. The exact original input stays available for every nonempty
+engine calculates word frequency as the word's count divided by the total
+count across the dictionary, including Chinese and English. Word grams score
+continuations across languages using the same rule. At each gram order, the
+score retains at least 20% of the lower-order probability. Spelling costs
+apply to incomplete or edited matches. Complete candidates precede prefixes.
+Prefixes sort by decreasing consumed length, then by score within the same
+range. The exact original input stays available for every nonempty
 composition. [Rust conversion architecture](docs/ARCHITECTURE.md#rust-conversion)
+
+The local Sentence Learning model uses the same count rule within its own
+dictionary. User word frequencies and word grams contribute bounded increases
+to the underlying statistical score.
 
 Rust library callers can opt into bounded, single-edit Pinyin suggestions
 with `CandidateEngine::with_pinyin_correction(true)`. For a CLI preview, add
@@ -346,7 +353,7 @@ crates/si-benchmark/    Synthetic Rust performance benchmarks
 Tests/                 Swift Testing coverage for core, storage, and settings
 scripts/               Build, test, and local installation commands
 docs/                  Architecture, manual checks, and roadmap
-eval/                  Authored 220-query ranking regression dataset
+eval/                  Decoder recall, fixed-pool ranking, and window regressions
 corpus/                Pinned offline Chinese text, English dialogue and lexical reading resources
 llm/                   Offline spelling-to-text training experiments (not loaded by the app)
 ```
@@ -730,14 +737,12 @@ the three models locally from the background conversion worker. See
 The [12,000-step contextual build](llm/README.md#experimental-input-ranking)
 uses the same Rust syllable paths for training features and app inference.
 
-The [ranking evaluation dataset](eval/README.md) contains 220 synthetic queries
-covering documented Pinyin regressions, 100 short Chinese ambiguity cases, English
-hard cases, source aliases, and seeded Chinese, English and mixed sentences.
-It stores inputs and intended outputs for evaluation with candidates from the
-current engine. Run `python3 scripts/generate_ranking_eval.py --check` to verify integrity
-and reproduction. The former ranking/correction/conversion registry was removed.
-These synthetic, correlated cases are regression evidence, not an independent
-production accuracy estimate.
+The [conversion evals](eval/README.md) include 1,020 authored decoder recall
+queries and 997 fixed-pool ranking queries, with both paired preceding-text
+contrasts and context-free examples. Run `python3 scripts/evaluate_conversion.py check`
+to verify the datasets. Recall reports preserve the full returned Rust pool.
+Ranking reports score the frozen candidate text with the character LM. The
+historical 220-query benchmark remains available for comparison.
 
 The [model workspace](llm/README.md) contains offline Pinyin-to-text
 training, small-model training, supplied-candidate scoring and inference

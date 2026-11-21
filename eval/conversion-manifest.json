@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "suite": "conversion-v1",
+  "source": "SI-authored synthetic reference outputs and context contrasts. Context-free distractors are frozen from an offline Rust exact candidate export.",
+  "license": "GPL-3.0-only",
+  "files": {
+    "recall/test.jsonl": {
+      "rows": 1020,
+      "categories": {
+        "arts": 30,
+        "authored-boundaries": 30,
+        "care": 30,
+        "casing-and-terms": 20,
+        "casual": 30,
+        "civic": 30,
+        "conversation-fragments": 30,
+        "daily": 30,
+        "education": 30,
+        "email": 20,
+        "engineering": 30,
+        "errands": 30,
+        "finance": 30,
+        "food": 30,
+        "health-and-movement": 30,
+        "household": 30,
+        "interface": 20,
+        "office": 30,
+        "outdoor": 30,
+        "packaging": 30,
+        "place-names": 30,
+        "publications": 30,
+        "repairs": 30,
+        "science": 30,
+        "segmentation": 20,
+        "short-phrases": 50,
+        "short-verbs": 30,
+        "spelling-boundaries": 30,
+        "spoken": 20,
+        "sports": 30,
+        "technology": 30,
+        "travel": 30,
+        "umlaut": 30,
+        "weather": 30,
+        "work": 30
+      },
+      "sha256": "39dfcec6e69b67d703ef0efab8f87458a0b2f1c53e9de33003dbf26a7084d781"
+    },
+    "ranking/context.jsonl": {
+      "rows": 458,
+      "categories": {
+        "additional-controls": 62,
+        "closed-class-and-common": 40,
+        "commerce-and-work": 28,
+        "common-contrasts": 48,
+        "concrete-disambiguation": 38,
+        "daily-homophones": 52,
+        "homophone-words": 44,
+        "lexical-contrasts": 26,
+        "natural-boundary-contrasts": 34,
+        "services-and-actions": 44,
+        "short-homophones": 42
+      },
+      "sha256": "aea60b17fa073d3223497490f159a39aff109f2b98eaf3d3a40844b90b5818c8"
+    },
+    "ranking/context-free.jsonl": {
+      "rows": 539,
+      "categories": {
+        "cooking-and-shopping": 68,
+        "daily-collocations": 68,
+        "grammatical-contrasts": 41,
+        "hard-phrasing": 63,
+        "idioms": 65,
+        "institutions-and-technical": 62,
+        "places-and-people": 68,
+        "requests-and-decisions": 61,
+        "standard-terms": 43
+      },
+      "sha256": "d78a63059a6ab128bee07a5f698c05988ce8658fa753a707f5fb9b8cc4531548"
+    }
+  },
+  "context_free_distractor_snapshot": {
+    "engine": "si-cli candidates, full search, zh-Hans only, correction off, empty context and user profile",
+    "source_revision": "bff5bc6989a684e53d122babf0f9fe4b0e79f815",
+    "engine_sha256": "f65f8a86fbcee531121ac3eab58f702c958e45377f98ae48d3796d38ffccd046",
+    "lexicon_sha256": "bacc7860489f8c5ca0da88766f903213afde953cc5b14e3aa121e08afdb86fc1",
+    "grams_sha256": "77eb6ad0b505239728ed6e1226cedba2bf6259c5b134a97c2b7f6a0ca6a82d18"
+  }
+}

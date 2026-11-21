@@ -21,7 +21,9 @@ Launch with `SI_USE_LEGACY_RANKING=1` to restore the unrestricted background
 route. The worker scores Rust decoder candidates with the character scorer
 and LambdaRank. App builds project legacy exports onto the 58-feature v5
 layout by resolving splits on the three constant source columns at build
-time. Secure and direct input skip model inference.
+time. The engine supplies missing values for explicit language, switch count
+and language-specific token counts in existing model layouts. Secure and
+direct input skip model inference.
 
 ## Statistical score and presentation
 
@@ -48,9 +50,8 @@ even when it has the first displayed position.
 - `1de758e` bounds a word's probability by the larger of its unigram prior
   and its largest observed continuation fraction across active histories.
   Each base smoothing step is a convex combination of the previous prior
-  and the continuation fraction. The bound keeps the lexical token and
-  completion costs, omits the nonnegative language switch cost, and rounds
-  conservatively. A descending bound scan identifies completions that can
+  and the continuation fraction. The bound includes the completion cost
+  and rounds conservatively. A descending bound scan identifies completions that can
   never enter any relevant full beam. A candidate-level check uses the live
   beam and the same contextual and token bonuses as the ordinary gate.
 - `b87cc2c` also sorts prefix eligibility within destination beam floors.

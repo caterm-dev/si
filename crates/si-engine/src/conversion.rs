@@ -172,9 +172,14 @@ pub struct CandidateEngine<'a> {
 impl<'a> CandidateEngine<'a> {
     pub fn new(base: &'a EngineResources, user: Option<&'a EngineResources>) -> Self {
         let lookup = Lookup::new(base.lexicon(), user.map(EngineResources::lexicon));
-        let scoring = Scoring::new(base, user, &lookup);
-        let context = (base.grams().is_some() || user.is_some_and(|user| user.grams().is_some()))
-            .then(|| context::Context::new(base.lexicon(), user.map(EngineResources::lexicon)));
+        let scoring = Scoring::new(base, user);
+        let user_with_grams = user.filter(|user| user.grams().is_some());
+        let context = (base.grams().is_some() || user_with_grams.is_some()).then(|| {
+            context::Context::new(
+                base.lexicon(),
+                user_with_grams.map(EngineResources::lexicon),
+            )
+        });
         Self {
             pinyin_correction: None,
             base,

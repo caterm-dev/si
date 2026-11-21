@@ -202,17 +202,21 @@ The shared Rust `ranking_features` module defines `si-rank-features-v3` with
 | Internal grams (6) | Sum/mean/minimum internal conditional log probabilities; observed-hit ratio, maximum hit order, mean log support over hits |
 | Context (6) | Availability, sentence-start flag, recognized history length, whole-candidate conditional log probability and gain, maximum cross-boundary hit order |
 | Spelling (4) | Exact-match flag, abbreviated Chinese syllable ratio, missing completion letters, explicit separator alignment |
-| Structure (4) | Actual path token count, single-character fraction of Chinese tokens, language switches, categorical candidate language |
-| User lexicon (6) | Availability, observed-word ratio, mean/minimum log counts, mean smoothed user unigram log probability and lift |
+| Structure (4) | Actual path token count and three reserved legacy language columns |
+| User lexicon (6) | Availability, observed-word ratio, mean/minimum log counts, mean observed user unigram log probability and lift |
 | User grams (6) | Availability, internal hit ratio/support/gain, cross-boundary log support, whole-candidate user-gram gain |
 | Correction (6) | Corrected flag, edit count, actual path correction cost, missing-key/neighbor-key/adjacent-swap indicators |
 
 All observations use the exact selected lexical derivation, including user IDs.
 Whole-candidate context scoring retains external history across successive candidate
-words until bounded N-gram history or a language change removes it. It is diagnostic:
-production retains its existing first-word context adjustment and ranking policy.
-Probabilities use log2; counts use ln(1 + count). User unigram probabilities use
-32 observations of the shared-vocabulary base distribution as a smoothing prior.
+words until bounded n-gram history or a context boundary removes it. The
+production statistical score uses a first-word context adjustment.
+Probabilities use log2 and counts use ln(1 + count). Each lexicon uses a
+single unigram denominator across languages. The user probability feature
+uses observed counts divided by the user total. The user lift measures the
+bounded positive boost applied to the base probability. Explicit language,
+switch counts and language-specific token counts use missing values in
+current v3/v5 feature exports for compatibility with existing models.
 User gram gains compare with/without user grams at identical user-unigram settings,
 so unigram personalization is not counted again. Cross-boundary user support sums
 the log support of each token's highest observed gram that still reaches into

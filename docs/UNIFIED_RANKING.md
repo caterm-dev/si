@@ -4,11 +4,12 @@
 
 The Rust engine loads a count-based `.silex` lexicon and can load a paired
 `.sigram` file keyed by that lexicon's word IDs. It scores exact matches,
-completions and constructed paths using word counts, spelling costs, and
-language-transition costs. When grams are present, the search interpolates
-word-sequence counts with shorter histories and unigram evidence. A language
-change starts a fresh gram history. The default macOS build uses the
-maintained dictionary counts. See [Rust conversion](ARCHITECTURE.md#rust-conversion).
+completions and constructed paths using word frequencies and spelling costs.
+Frequencies divide each word's count by the total across languages in its
+lexicon. With grams present, the search interpolates continuation frequencies
+with shorter histories and unigram evidence. It retains at least 20% of the
+lower-order probability at each step. Word IDs stay in the same history
+through Chinese and English transitions. See [Rust conversion](ARCHITECTURE.md#rust-conversion).
 
 Chinese and English matches share one bounded search, with mixed paths
 available when both languages are enabled. Direct dictionary matches are

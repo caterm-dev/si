@@ -5,19 +5,17 @@ use super::{Language, WordIds};
 use crate::segmentation::{SegmentKind, Segmenter};
 
 pub(super) struct Context<'a> {
-    segmenter: Segmenter<'a>,
+    base_segmenter: Segmenter<'a>,
+    user_segmenter: Option<Segmenter<'a>>,
     base: &'a Lexicon,
     user: Option<&'a Lexicon>,
 }
 
 impl<'a> Context<'a> {
     pub(super) fn new(base: &'a Lexicon, user: Option<&'a Lexicon>) -> Self {
-        let segmenter = user.map_or_else(
-            || Segmenter::new(base),
-            |user| Segmenter::with_user(base, user),
-        );
         Self {
-            segmenter,
+            base_segmenter: Segmenter::new(base),
+            user_segmenter: user.map(|user| Segmenter::with_user(base, user)),
             base,
             user,
         }
@@ -25,13 +23,30 @@ impl<'a> Context<'a> {
 
     pub(super) fn history(&self, preceding_text: &str, scoring: &Scoring<'_>) -> History {
         let sentence = last_sentence(preceding_text);
+        let base = self.segment_history(sentence, &self.base_segmenter, None, scoring);
+        let user = self
+            .user_segmenter
+            .as_ref()
+            .map_or_else(History::default, |segmenter| {
+                self.segment_history(sentence, segmenter, self.user, scoring)
+            });
+        History::from_field(base, user)
+    }
+
+    fn segment_history(
+        &self,
+        sentence: &str,
+        segmenter: &Segmenter<'_>,
+        user: Option<&'a Lexicon>,
+        scoring: &Scoring<'_>,
+    ) -> History {
         let mut history = History::default();
-        for segment in self.segmenter.segment(sentence) {
+        for segment in segmenter.segment(sentence) {
             let (word, from_user) = match segment.kind {
                 SegmentKind::Word(id) => (self.base.word(id), false),
-                SegmentKind::UserWord(id) => (self.user.and_then(|user| user.word(id)), true),
+                SegmentKind::UserWord(id) => (user.and_then(|user| user.word(id)), true),
                 SegmentKind::Letter | SegmentKind::NewEnglishWord => {
-                    self.english_word(&sentence[segment.range])
+                    self.english_word(&sentence[segment.range], user)
                 }
                 SegmentKind::Space => continue,
                 _ => (None, false),
@@ -51,7 +66,7 @@ impl<'a> Context<'a> {
                     } else {
                         WordIds {
                             base: Some(word.id),
-                            user: self.user.and_then(paired),
+                            user: user.and_then(paired),
                         }
                     };
                     Some(scoring.extend_history(history, language, ids))
@@ -61,7 +76,7 @@ impl<'a> Context<'a> {
         history
     }
 
-    fn english_word(&self, surface: &str) -> (Option<Word<'_>>, bool) {
+    fn english_word(&self, surface: &str, user: Option<&'a Lexicon>) -> (Option<Word<'_>>, bool) {
         let lower = surface.to_ascii_lowercase();
         let find = |lexicon: &'a Lexicon| {
             lexicon
@@ -70,7 +85,7 @@ impl<'a> Context<'a> {
         };
         match find(self.base) {
             Some(word) => (Some(word), false),
-            None => (self.user.and_then(find), true),
+            None => (user.and_then(find), true),
         }
     }
 }

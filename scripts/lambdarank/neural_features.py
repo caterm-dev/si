@@ -8,7 +8,6 @@ FEATURE_GROUPS = {
     'candidate_sources': ['from_si_engine', 'from_pinyin_model', 'pinyin_model_beam_rank'],
     'neural_reranker': ['reranker_logp_sum', 'reranker_logp_mean', 'reranker_context_gain'],
 }
-LANGUAGE_CODES = {'zh-Hans': 0, 'en': 1, 'mixed': 2}
 
 
 def candidate_language(text):
@@ -34,7 +33,6 @@ def merge_row(row, rust_names, generate, score):
     for candidate in row['candidates']:
         key = (candidate['language'], candidate['text'])
         pool[key] = [candidate['features'], 1, 0, None]
-    language_index = rust_names.index('candidate_language')
     enabled = set(row['languages'])
     if {'zh-Hans', 'en'} <= enabled:
         enabled.add('mixed')
@@ -47,7 +45,6 @@ def merge_row(row, rust_names, generate, score):
             key = (language, output)
             if key not in pool:
                 features = [None] * len(rust_names)
-                features[language_index] = LANGUAGE_CODES[language]
                 pool[key] = [features, 0, 0, None]
             if pool[key][3] is None:
                 pool[key][2:] = [1, rank]

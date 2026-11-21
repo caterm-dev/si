@@ -36,10 +36,10 @@ def build(workspace):
                  '            english_completion_ratio: next.english_completion_ratio,\n'
                  '            experiment_path: self.experiment_path.iter()\n'
                  '                .chain(&next.experiment_path).cloned().collect(),')
-    replace_once(engine / 'conversion/scoring.rs', '                unigram_bits: base_prior.log2(),',
+    replace_once(engine / 'conversion/scoring.rs', '                unigram_bits: probability_bits(base_prior),',
                  '                english_completion_ratio: 1.0,\n'
-                 '                experiment_path: vec![(word.text.to_owned(), priors.personalized.log2())],\n'
-                 '                unigram_bits: base_prior.log2(),')
+                 '                experiment_path: vec![(word.text.to_owned(), probability_bits(priors.personalized))],\n'
+                 '                unigram_bits: probability_bits(base_prior),')
     replace_once(engine / 'conversion/search.rs',
                  '        evidence.abbreviated_tokens = usize::from(edge.is_abbreviated());',
                  '        if edge.word.language == Language::English && edge.missing > 0 {\n'

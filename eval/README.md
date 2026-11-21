@@ -1,10 +1,94 @@
-# SI ranking evaluation
+# SI conversion evaluation
+
+| Task | Dataset | Unit under test |
+| --- | --- | --- |
+| Recall | [1,020 queries](recall/test.jsonl) | Full Rust decoding before model or window filtering |
+| Ranking with preceding text | [458 queries in 229 paired contrasts](ranking/context.jsonl) | Character scorer on an identical ordered pool for each pair |
+| Ranking at the start of a field | [539 queries](ranking/context-free.jsonl) | Character scorer on fixed, phonetically compatible alternatives |
+| Window regressions | [17 product fixtures](regression/README.md) | Candidate selection and presentation using App policy |
+
+### Recall
+
+The recall suite contains 780 Chinese, 120 English and 120 mixed-language
+targets. It covers conversation, short commands, long compositions, named
+places, specialized vocabulary, typed casing, explicit syllable boundaries and
+umlaut aliases. The reference is the intended exact output. Each reference
+also identifies its expected language and includes the typed Latin runs and
+Pinyin syllables for reviewing alignment. Both languages are enabled, there is
+no preceding text or personal state, and Pinyin correction is off.
+
+The evaluator records every candidate returned by Rust with its language,
+consumed UTF-8 bytes, match kind and score. Recall counts the first exact
+language-matched whole result in the eligible pool. Prefixes, completions,
+corrections and the literal do not count as hits. The report includes full
+returned-pool recall and Recall@9, @27 and
+@32 within eligible candidates. A miss stays in the denominator. There is no
+gold injection in recall. The returned pool is bounded by the decoder's
+production search, so this measures the deployed search policy, including
+pruning, rather than theoretical lexicon reachability.
+
+### Ranking
+
+Each contextual pair holds the typed spelling and candidate order fixed.
+The two authored snippets make different same-spelling continuations
+appropriate. Neither surface appears verbatim in either preceding snippet.
+For example, an e-mail can require a new `登录`, while a boat needs a place to
+`登陆`. The evaluator reruns the exact same pairs with empty context. It
+reports individual Top-1 and MRR, and how many pairs place both context-specific
+references first.
+
+The context-free suite contains 390 natural utterances with localized
+homophonic distractors from a pinned, correction-off Rust export and 149
+authored orthography contrasts. Candidate order is frozen independently of
+gold status and model scores. Acceptable alternate outputs identified in
+review are carried as additional references. A ranking reference is in its
+fixed pool by design, including when the original engine did not return it.
+This isolates scoring from decoder recall. The reports include Top-1, Top-3,
+Top-5 and MRR by category. Two-choice cases saturate Top-3 and Top-5, so use
+Top-1 and MRR when comparing those slices.
+
+[The manifest](conversion-manifest.json) pins exact dataset bytes and the
+decoder binary and snapshots used for the fixed Rust alternatives. The query
+files are the versioned authored sources. The fixtures are synthetic and
+AI-authored. Validation checks the syllables against maintained Chinese
+readings and rejects exact spelling, context and target overlaps with the
+maintained LambdaRank train/validation and Pinyin training fixtures. This
+leaves broader corpus and checkpoint overlap unverified. Independent human
+annotation and representative typing samples are unavailable. Keep these
+test suites outside training and model selection.
+
+### Run the new suites
+
+From the repository root, with a paired local lexicon and word-gram snapshot
+and a local FP32 character scorer export:
+
+```sh
+cargo build --release --locked -p si-cli -p si-neural
+python3 scripts/evaluate_conversion.py check
+python3 -m unittest discover -s Tests/RankingEvalTests -v
+mkdir -p .build/conversion-eval
+python3 scripts/evaluate_conversion.py recall \
+  --output .build/conversion-eval/recall.json
+python3 scripts/evaluate_conversion.py ranking \
+  --model .build/si-llm-pinyin/reranker \
+  --output .build/conversion-eval/ranking.json
+```
+
+Use `--lexicon` and `--grams` to select a different paired decoder snapshot.
+Use a fresh report path for each run. Reports include hashes for the data,
+binary and resources. The recall report contains every candidate per query.
+The ranking report contains every score and ranked index against the candidate
+order in the authored JSONL. Both commands operate offline and use no personal
+profile.
+
+## Historical compact ranking suite
 
 The separate [LambdaRank starter experiment](lambdarank/README.md) has editable
 training and validation data; it checks overlap against this frozen test suite
 and does not train or tune on its answers.
 
-This directory contains one authored [220-query ranking test set](ranking/test.jsonl).
+The original [220-query ranking test set](ranking/test.jsonl) is retained for
+historical comparisons and the LambdaRank overlap check.
 
 | File | Purpose |
 | --- | --- |

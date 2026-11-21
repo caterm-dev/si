@@ -698,7 +698,6 @@ impl Search<'_, '_, '_, '_> {
                 .flat_map(|(_, beam)| beam.paths.iter())
                 .filter(|path| !path.corrected)
                 .map(|path| path.history),
-            language,
         );
         let Some(bounds) = bounds else {
             for edge in completions.drain(..) {
@@ -946,10 +945,8 @@ impl Search<'_, '_, '_, '_> {
                 }
                 if corrected {
                     // The lexical probability is at most one. Even that
-                    // optimistic path must pay the fixed token and edit costs.
-                    let fixed_cost = word_score.token_bits();
-                    let upper_bound = (path.score.personalized
-                        + (-fixed_cost - edge.correction_cost))
+                    // optimistic path must pay the edit cost.
+                    let upper_bound = (path.score.personalized - edge.correction_cost)
                         + context_adjustment.personalized;
                     if upper_bound <= self.correction_floor
                         || !self.lattice[edge.end].corrected.could_enter(

@@ -20,6 +20,7 @@ LEXICAL = 'lexical_score_bits'
 PURE = 'pure_probability_bits'
 LANGUAGES = ('zh-Hans', 'en', 'mixed')
 LIMIT = 1e-6
+FROZEN_V5_ENGLISH_TOKEN_BITS = 1.0
 
 
 def pure_probability(features, indices):
@@ -29,10 +30,16 @@ def pure_probability(features, indices):
     score = value(LEXICAL)
     if score is None:
         return None
+    probability = score
+    switches = value('language_switch_count')
+    if switches is not None:
+        # Historical stage-one bundles carry the original language and token costs.
+        probability += 1 + 4 * switches
+        probability += FROZEN_V5_ENGLISH_TOKEN_BITS * value('english_token_count')
+        probability += (2 / math.log(2)) * value('single_han_token_count')
     missing = value('completion_missing_letters')
     return (
-        score + 1 + 4 * value('language_switch_count') + value('english_token_count')
-        + (2 / math.log(2)) * value('single_han_token_count')
+        probability
         + (4 + missing if missing > 0 else 0)
         + 7 * value('abbreviated_token_count') + value('correction_cost_bits')
     )
@@ -58,13 +65,13 @@ def instrumented_cli(workspace):
                  '            statistics: Vec::new(),\n'
                  '            edge_log2_probabilities: self.edge_log2_probabilities.iter()\n'
                  '                .chain(&next.edge_log2_probabilities).copied().collect(),')
-    replace_once(engine / 'conversion/scoring.rs', '                unigram_bits: base_prior.log2(),',
-                 '                edge_log2_probabilities: vec![priors.personalized.log2()],\n'
-                 '                unigram_bits: base_prior.log2(),')
+    replace_once(engine / 'conversion/scoring.rs', '                unigram_bits: probability_bits(base_prior),',
+                 '                edge_log2_probabilities: vec![probability_bits(priors.personalized)],\n'
+                 '                unigram_bits: probability_bits(base_prior),')
     cli = workspace / 'crates/si-cli/src/rank_features.rs'
     replace_once(cli, '                    writeln!(output, "{language}\\t{text}\\t{features}")?;',
-                 '                    let edge_bits = candidate.ranking_evidence.as_ref().unwrap()\n'
-                 '                        .edge_log2_probabilities.iter().map(f64::to_string)\n'
+                 '                    let path = candidate.ranking_evidence.as_ref().unwrap();\n'
+                 '                    let edge_bits = path.edge_log2_probabilities.iter().map(f64::to_string)\n'
                  '                        .collect::<Vec<_>>().join(",");\n'
                  '                    writeln!(output, "{language}\\t{text}\\t{features}\\t{edge_bits}")?;')
     target = workspace / 'target'

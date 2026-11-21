@@ -195,7 +195,7 @@ fn candidates_accept_preceding_text_for_pinyin_correction() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(
         "zh.csv",
-        "text,reading,weight\n想,xiang,100\n找,zhao,100\n告诉,gao'su,100\n高旭,gao'xu,100\n知道,zhi'dao,1000000\n",
+        "text,reading,weight\n想,xiang,100\n找,zhao,100\n告诉,gao'su,100\n高旭,gao'xu,100\n知道,zhi'dao,2000000\n",
     )?;
     scratch.write("sentences.txt", &"想 告诉\n找 高旭\n".repeat(1_000))?;
     scratch.run(&["lexicon", "build", "base.silex", "0", "zh.csv"])?;

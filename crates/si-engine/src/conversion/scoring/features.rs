@@ -18,12 +18,10 @@ struct Observation {
 }
 
 impl ScoreSession<'_, '_> {
-    fn observe(&mut self, previous: History, language: Language, ids: WordIds) -> Observation {
-        let history = previous.for_language(language);
+    fn observe(&mut self, previous: History, ids: WordIds) -> Observation {
         let model = self.model;
-        let vocab = model.base.vocabulary[language as usize];
         let count = model.base.count(ids.base);
-        let unigram = (count + 1.0) / (vocab.count + vocab.types).max(1.0);
+        let unigram = model.base.frequency(count);
         let mut row = Observation {
             count,
             unigram,
@@ -39,33 +37,18 @@ impl ScoreSession<'_, '_> {
             user_support: 0.0,
         };
         if let Some(user) = model.user {
-            let user_vocab = user.vocabulary[language as usize];
-            let union_prior = (count + 1.0)
-                / (vocab.count + vocab.types + model.user_only_types[language as usize]).max(1.0);
             row.user_count = user.count(ids.user);
-            // A smoothed user distribution, with the shared-vocabulary base distribution as prior.
-            let probability = (row.user_count + USER_UNIGRAM_PRIOR * union_prior)
-                / (user_vocab.count + USER_UNIGRAM_PRIOR);
-            row.user_unigram = Some(probability);
-            row.user_lift = Some(probability.log2() - union_prior.log2());
-            let weight =
-                USER_UNIGRAM_LIMIT * user_vocab.count / (user_vocab.count + USER_UNIGRAM_PRIOR);
-            row.without_user_grams = blend(
-                union_prior,
-                row.user_count / user_vocab.count.max(1.0),
-                weight,
-            );
+            let frequency = user.frequency(row.user_count);
+            row.user_unigram = (frequency > 0.0).then_some(frequency);
+            row.without_user_grams = boost_user_unigram(unigram, user, row.user_count);
+            row.user_lift =
+                Some(probability_bits(row.without_user_grams) - probability_bits(unigram));
         }
-        for (count, mass, order) in continuations(
-            &mut self.base_cache,
-            model.base,
-            history.base,
-            language,
-            ids.base,
-        ) {
-            row.base = (count + BASE_GRAM_PRIOR * row.base) / (mass + BASE_GRAM_PRIOR);
-            row.without_user_grams =
-                (count + BASE_GRAM_PRIOR * row.without_user_grams) / (mass + BASE_GRAM_PRIOR);
+        for (count, mass, order) in
+            continuations(&mut self.base_cache, model.base, previous.base, ids.base)
+        {
+            row.base = smooth_base_gram(row.base, count, mass);
+            row.without_user_grams = smooth_base_gram(row.without_user_grams, count, mass);
             if count > 0.0 {
                 row.base_order = order;
                 row.base_support = count;
@@ -74,10 +57,9 @@ impl ScoreSession<'_, '_> {
         row.with_user_grams = row.without_user_grams;
         if let Some(user) = model.user {
             for (count, mass, order) in
-                continuations(&mut self.user_cache, user, history.user, language, ids.user)
+                continuations(&mut self.user_cache, user, previous.user, ids.user)
             {
-                let weight = (mass / (mass + USER_GRAM_PRIOR)).min(USER_GRAM_LIMIT);
-                row.with_user_grams = blend(row.with_user_grams, count / mass, weight);
+                row.with_user_grams = boost_user_gram(row.with_user_grams, count, mass);
                 if count > 0.0 {
                     row.user_order = order;
                     row.user_support = count;
@@ -92,20 +74,13 @@ impl ScoreSession<'_, '_> {
             return;
         }
         let mut internal = History::default();
-        let mut contextual = self.initial_history;
         let mut rows = Vec::with_capacity(evidence.words.len());
         let mut context_logp = 0.0;
         let mut context_user_gain = 0.0;
         let mut context_order = 0;
         let mut context_user_support = 0.0;
-        let mut crosses_boundary = true;
-        let first_language = if evidence.words[0].language == 0 {
-            Language::Chinese
-        } else {
-            Language::English
-        };
-        let initial = self.initial_history.for_language(first_language);
-        let history_words = initial.base.len.max(initial.user.len);
+        let mut contextual = self.initial_history;
+        let history_words = contextual.base.len.max(contextual.user.len);
         for (i, word) in evidence.words.iter().enumerate() {
             let language = if word.language == 0 {
                 Language::Chinese
@@ -116,19 +91,16 @@ impl ScoreSession<'_, '_> {
                 base: word.base,
                 user: word.user,
             };
-            let row = self.observe(internal, language, ids);
-            let conditioned = self.observe(contextual, language, ids);
-            context_logp += conditioned.base.log2();
-            context_user_gain +=
-                conditioned.with_user_grams.log2() - conditioned.without_user_grams.log2();
-            crosses_boundary &= contextual.last == Some(language);
-            if crosses_boundary {
-                if conditioned.base_order > i + 1 {
-                    context_order = context_order.max(conditioned.base_order);
-                }
-                if conditioned.user_order > i + 1 {
-                    context_user_support += conditioned.user_support.ln_1p();
-                }
+            let row = self.observe(internal, ids);
+            let conditioned = self.observe(contextual, ids);
+            context_logp += probability_bits(conditioned.base);
+            context_user_gain += probability_bits(conditioned.with_user_grams)
+                - probability_bits(conditioned.without_user_grams);
+            if conditioned.base_order > i + 1 {
+                context_order = context_order.max(conditioned.base_order);
+            }
+            if conditioned.user_order > i + 1 {
+                context_user_support += conditioned.user_support.ln_1p();
             }
             internal = self.model.extend_history(internal, language, ids);
             contextual = self.model.extend_history(contextual, language, ids);
@@ -144,15 +116,26 @@ impl ScoreSession<'_, '_> {
         let mut f = vec![None; crate::ranking_features::NAMES.len()];
         f[0] = mean(rows.iter().map(|r| r.count.ln_1p()).collect());
         f[1] = minimum(rows.iter().map(|r| r.count.ln_1p()).collect());
-        let unigram_sum = rows.iter().map(|r| r.unigram.log2()).sum::<f64>();
+        let unigram_sum = rows
+            .iter()
+            .map(|r| probability_bits(r.unigram))
+            .sum::<f64>();
         f[2] = Some(unigram_sum);
         f[3] = Some(unigram_sum / n);
-        f[4] = minimum(rows.iter().map(|r| r.unigram.log2()).collect());
+        f[4] = minimum(rows.iter().map(|r| probability_bits(r.unigram)).collect());
         if links > 0.0 {
-            let sum = internal_rows.iter().map(|r| r.base.log2()).sum::<f64>();
+            let sum = internal_rows
+                .iter()
+                .map(|r| probability_bits(r.base))
+                .sum::<f64>();
             f[5] = Some(sum);
             f[6] = Some(sum / links);
-            f[7] = minimum(internal_rows.iter().map(|r| r.base.log2()).collect());
+            f[7] = minimum(
+                internal_rows
+                    .iter()
+                    .map(|r| probability_bits(r.base))
+                    .collect(),
+            );
             if self.model.base.grams.is_some() {
                 f[8] =
                     Some(internal_rows.iter().filter(|r| r.base_order > 0).count() as f64 / links);
@@ -177,7 +160,7 @@ impl ScoreSession<'_, '_> {
         }
         f[13] = Some(history_words as f64);
         f[14] = Some(context_logp);
-        f[15] = Some(context_logp - rows.iter().map(|r| r.base.log2()).sum::<f64>());
+        f[15] = Some(context_logp - rows.iter().map(|r| probability_bits(r.base)).sum::<f64>());
         f[16] = self
             .model
             .base
@@ -215,7 +198,10 @@ impl ScoreSession<'_, '_> {
                 f[34] = mean(
                     internal_rows
                         .iter()
-                        .map(|r| r.with_user_grams.log2() - r.without_user_grams.log2())
+                        .map(|r| {
+                            probability_bits(r.with_user_grams)
+                                - probability_bits(r.without_user_grams)
+                        })
                         .collect(),
                 );
             }

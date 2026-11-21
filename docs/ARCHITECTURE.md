@@ -57,15 +57,22 @@ units and 4,096 output bytes. Final completions can extend up to eight
 spelling units, with up to 32 direct completions per language. Composed
 prefixes retain up to two distinct outputs per language combination and span.
 
-Each edge adds a unigram or smoothed gram log probability in bits and
-pays explicit spelling, token and language-transition costs. User
-unigrams interpolate with the base prior. Base and user gram evidence is
-interpolated from short to long histories during search, and a language
-change resets the history. User evidence is bounded. Scores are heuristic
-and use only the source consumed by each path. Whole results sort ahead of
-prefixes, longer prefixes precede shorter ones, and score and stable
-identity break ties within a span. The engine retains distinct languages
-for identical output and keeps the exact literal last. The macOS app and the Rust CLI share this lexical scoring.
+Each dictionary edge adds a unigram or smoothed gram log probability in bits
+and pays any spelling cost. A unigram uses its raw count divided by the sum
+of all counts in its lexicon. Base and user lexicons use their own totals,
+each shared across languages. Zero probabilities receive a finite floor
+when converted to log scores so known zero-count words remain selectable.
+Each gram uses its count divided by the total for the same history, including
+continuations in every language. Base interpolation assigns at most 80% to
+each observed gram distribution. User unigrams and user grams can raise the
+current probability through bounded weights. Both histories retain word IDs
+across language changes and stop at unknown tokens or other context boundaries.
+Scores use only the source consumed by each path. Whole results sort ahead
+of prefixes, longer prefixes precede shorter ones, and score and stable
+identity determine ties within a span. The engine retains distinct
+languages for identical output and keeps the exact literal last.
+The macOS app and the Rust CLI share this lexical scoring.
+
 The Rust API exposes an opt-in Pinyin typo search through
 `CandidateEngine::with_pinyin_correction`. It explores one missing key,
 neighboring-key substitution or adjacent swap within a dictionary syllable.
@@ -93,7 +100,7 @@ reaches the end of the input. Subsequent lexical steps add nonpositive scores,
 so corrected paths that cannot clear the threshold can be discarded. The same
 upper bound skips scoring a transition that cannot enter its destination
 correction beam. Paths traversing the same lexical edge reuse its unigram
-prior and fixed token cost. Their word-gram evidence is scored against each
+prior. Their word-gram evidence is scored against each
 path's own history. Corrected paths receive no spelling preference bonuses. They preserve original UTF-8
 consumption spans and explicit apostrophes. Explicit multi-byte umlaut aliases
 stay intact during key edits. Each result set contains at most four whole
@@ -159,12 +166,13 @@ It uses an empty context in secure input or when the host cannot supply the full
 range. Direct input bypasses conversion. The snapshot is transient and local.
 
 Rust selects the last sentence or unfinished sentence fragment from the supplied
-text, including the last completed sentence after terminal punctuation. It uses
-the lexicons to segment the sentence and keeps the final recognized same-language
-word history up to the loaded gram order. The difference between the first word's
-conditioned and unconditioned log probabilities adjusts ranking before pruning.
-Language-start costs and subsequent composition scoring use their existing
-histories. Candidates containing personal or verbatim segments receive no field
+text, including the last completed sentence after terminal punctuation. The base
+gram history uses base-lexicon segmentation. When user grams are available, the
+user gram history uses the user vocabulary as an overlay on the base lexicon.
+Each history keeps the final consecutive recognized words up to its gram
+order. The difference between the first word's conditioned and
+unconditioned log probabilities adjusts ranking before pruning. Later words
+use the history from the composition. Candidates containing personal or verbatim segments receive no field
 adjustment. The adjustment is separate from the lexical score saved by Personal Learning.
 
 ## Rust resource workflow
@@ -770,8 +778,14 @@ prepare the three local collections under `chinese/prepared/si-corpus`.
 Application dictionary CSV sources and attribution are tracked. The Rust
 resource tools prepare snapshots separately from the app build.
 
-`eval/ranking/test.jsonl` contains the 220-query synthetic regression suite, replacing
-all former root evaluation datasets and model adapters. It stores authored exact
+`eval/recall/test.jsonl` contains authored recall queries for Rust full search.
+Its reports retain every returned candidate before model and window filtering.
+`eval/ranking/context.jsonl` and `eval/ranking/context-free.jsonl` use fixed
+candidate pools for separate character-LM evaluation. Context contrasts keep
+the input and candidate order identical while reversing the preferred output.
+The [eval guide](../eval/README.md) documents the execution and provenance.
+
+`eval/ranking/test.jsonl` preserves the historical 220-query suite. It stores authored exact
 source/target pairs, category/template families and bilingual configuration,
 without candidate snapshots or a train/dev split. The reproducible standard-library
 generator uses explicit newly authored text/readings and a fixed seed; it imports

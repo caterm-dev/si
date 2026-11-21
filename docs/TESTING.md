@@ -55,6 +55,12 @@ atomic publication and retries, polyphonic readings, corpus review exports,
 user compound discovery from word grams, removal of retired user character
 files, and concurrent imports.
 
+Scoring fixtures verify shared Chinese and English unigram totals, equal
+unigram scores at equal counts, cross-language word histories and continuation
+totals, lower-order fallback, and parity between decoding and exported
+ranking statistics. Run the LambdaRank tests after building `si-cli` in Release
+to check the compatible feature layout and its reserved language columns.
+
 Segmentation regressions cover `没有输入法` → `没有 / 输入法` in base
 paragraph ingestion, user ingestion and preceding-field ranking, bounded
 user frequency influence, source-byte coverage and ASCII-run preservation.
@@ -461,9 +467,15 @@ local files present, run `corpus/.venv/bin/python corpus/prepare_raw_text.py
 --source chinese-chatbot-corpus` to prepare or verify the bundle. Use the
 separate model guides for training or scoring tests.
 
+Run `python3 scripts/evaluate_conversion.py check` to verify the separate
+[decoder recall and fixed-pool ranking datasets](../eval/README.md).
+Run the recall and ranking commands there to export complete decoder pools
+and measure the character scorer with paired context, ablated context and
+context-free examples.
+
 Run `python3 scripts/generate_ranking_eval.py --check` and
 `python3 -m unittest discover -s Tests/RankingEvalTests` for the authored
-220-query suite. Follow the [ranking protocol](../eval/README.md) to generate
+historical 220-query suite. Follow the [compact suite protocol](../eval/README.md#validate-and-evaluate) to generate
 blind requests and score the first 32 eligible complete candidates.
 
 Offline rank-feature changes: run `cargo test --workspace --locked`, build the Release

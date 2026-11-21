@@ -264,7 +264,7 @@ class PipelineTests(unittest.TestCase):
             f = observed(0, 'check')
             self.assertEqual((f['is_completion'], f['completion_missing_letters'], f['has_exact_dictionary_match']), (1, 1, 0))
             self.assertEqual(f['user_choice_whole_bonus'], 2)
-            self.assertEqual(f['english_token_count'], 1)
+            self.assertEqual(f['token_count'], 1)
             self.assertEqual(f['base_gram_available'], 0)
             self.assertIsNone(f['field_context_adjustment_bits'])
             self.assertEqual(p.export_rows(binary, base, None, [completion])[0]['candidates'], [])
@@ -272,8 +272,13 @@ class PipelineTests(unittest.TestCase):
             self.assertEqual((f['abbreviated_token_count'], f['abbreviated_syllable_count']), (1, 2))
             self.assertIsNone(f['user_choice_whole_bonus'])
             f = observed(2, 'good book')
-            self.assertEqual((f['english_token_count'], f['user_choice_token_bonus']), (2, 3))
+            self.assertEqual((f['token_count'], f['user_choice_token_bonus']), (2, 3))
             self.assertEqual(f['user_choice_whole_bonus'], 0)
+            for row, text in enumerate(('check', '你好', 'good book')):
+                f = observed(row, text)
+                for feature in ('single_han_token_ratio', 'language_switch_count', 'candidate_language',
+                                'pinyin_syllable_count', 'english_token_count', 'single_han_token_count'):
+                    self.assertIsNone(f[feature], feature)
 
     def test_feature_ablation_preserves_candidates_labels_and_legacy_columns(self):
         rows = [dict(id='a', category='x', candidates=[candidate('first', 0), candidate('second', 1)])]
@@ -318,7 +323,7 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual([c['label'] for c in merged['candidates']], [1, 0, 0, 1, 0])
         self.assertEqual(features[0]['reranker_logp_sum'], features[3]['reranker_logp_sum'])
         self.assertIsNone(features[-1]['unigram_logp_sum'])
-        self.assertEqual(features[-1]['candidate_language'], 0)
+        self.assertIsNone(features[-1]['candidate_language'])
         self.assertEqual(features[-1]['reranker_logp_sum'], -3)
         projected, names = p.select_features([merged], p.NEURAL_FEATURES, 'without_neural')
         self.assertEqual(names, p.FEATURES)

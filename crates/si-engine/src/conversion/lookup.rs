@@ -5,7 +5,7 @@ pub(super) use correction::{CorrectionBudget, MIN_CORRECTION_BITS};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use si_lexicon::{Lexicon, WordId};
+use si_lexicon::Lexicon;
 
 use super::input::{Input, english_key_byte};
 use super::{CandidateLanguage, Language, PersonalPhrase, WordIds};
@@ -95,7 +95,6 @@ impl Match<'_> {
 
 pub(super) struct Lookup<'a> {
     entries: [Vec<Entry<'a>>; 2],
-    paired: HashMap<WordId, WordId>,
     abbreviated: HashMap<Vec<u8>, Vec<Entry<'a>>>,
     correction_order: Option<HashMap<Vec<u8>, correction::CorrectionRows>>,
 }
@@ -205,14 +204,9 @@ impl<'a> Lookup<'a> {
         }
         Self {
             entries,
-            paired,
             abbreviated,
             correction_order: None,
         }
-    }
-
-    pub(super) fn paired(&self, user_id: WordId) -> bool {
-        self.paired.contains_key(&user_id)
     }
 
     pub(super) fn personal(phrases: &[PersonalPhrase<'a>]) -> Self {
@@ -264,7 +258,6 @@ impl<'a> Lookup<'a> {
         }
         Self {
             entries,
-            paired: HashMap::new(),
             abbreviated: HashMap::new(),
             correction_order: None,
         }

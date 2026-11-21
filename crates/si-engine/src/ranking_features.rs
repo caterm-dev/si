@@ -306,9 +306,10 @@ pub fn extract_v5(
     values.extend([
         Some(evidence.abbreviated_tokens as f64),
         Some(evidence.abbreviated_syllables as f64),
-        Some(evidence.pinyin_syllables as f64),
-        Some(evidence.tokens.saturating_sub(evidence.chinese_tokens) as f64),
-        Some(evidence.single_character_tokens as f64),
+        // Keep stored model layouts compatible while withholding language counts.
+        None, // pinyin_syllable_count
+        None, // english_token_count
+        None, // single_han_token_count
         Some(f64::from(candidate.completion)),
         Some(f64::from(
             evidence.has_direct_match && candidate.correction.is_none(),
@@ -376,21 +377,14 @@ fn extract_path(
             && evidence.missing_letters == 0
             && candidate.correction.is_none(),
     ));
-    values[18] = (evidence.pinyin_syllables > 0)
-        .then(|| evidence.abbreviated_syllables as f64 / evidence.pinyin_syllables as f64);
+    values[18] =
+        Some(evidence.abbreviated_syllables as f64 / evidence.pinyin_syllables.max(1) as f64);
     values[19] = Some(evidence.missing_letters as f64);
     let separators = source.chars().filter(|c| *c == '\'').count();
     values[20] = (separators > 0).then(|| evidence.aligned_separators as f64 / separators as f64);
     values[21] = Some(evidence.tokens as f64);
-    values[22] = (evidence.chinese_tokens > 0)
-        .then(|| evidence.single_character_tokens as f64 / evidence.chinese_tokens as f64);
-    values[23] = Some(evidence.language_switches as f64);
-    values[24] = Some(match candidate.language {
-        CandidateLanguage::Chinese => 0.0,
-        CandidateLanguage::English => 1.0,
-        CandidateLanguage::Mixed => 2.0,
-        CandidateLanguage::Literal => return None,
-    });
+    // Legacy columns remain in the schema so existing models can load.
+    values[22..25].fill(None);
     use crate::conversion::CorrectionKind;
     let kind = candidate.correction.map(|c| c.kind);
     values[37] = Some(f64::from(kind.is_some()));
