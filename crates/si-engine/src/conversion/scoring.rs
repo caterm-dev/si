@@ -275,10 +275,6 @@ pub(super) struct ScoreSession<'model, 'data> {
 }
 
 impl ScoreSession<'_, '_> {
-    pub(super) fn has_field_history(&self) -> bool {
-        self.initial_history.last.is_some()
-    }
-
     pub(super) fn completion_bounds(
         &mut self,
         histories: impl Iterator<Item = History>,

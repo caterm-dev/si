@@ -22,6 +22,7 @@ const MAX_DERIVATIONS_PER_TEXT: usize = 2;
 const COMPOSED_PREFIXES_PER_LANGUAGE: usize = 2;
 const PERSONAL_EDGES_PER_SPAN: usize = 12;
 const CORRECTION_BEAM_WIDTH: usize = 4;
+const ORDINARY_FRONTIER_BEAMS: usize = 9;
 const ABBREVIATION_BITS: f64 = 7.0;
 
 #[allow(clippy::too_many_arguments)]
@@ -717,7 +718,12 @@ impl Search<'_, '_, '_, '_> {
                 (order, edge, upper)
             })
             .collect();
-        if let Some(cutoff) = self.completion_cutoff(frontier, language) {
+        let prefixes = self.completion_prefixes(frontier, language);
+        if let Some(cutoff) = prefixes
+            .as_ref()
+            .map(|prefixes| prefixes.required[0])
+            .filter(|cutoff| cutoff.is_finite())
+        {
             bounded.sort_unstable_by(|a, b| b.2.total_cmp(&a.2));
             bounded.truncate(bounded.partition_point(|entry| entry.2 >= cutoff));
             // Only the eligibility scan changes order. Insertion order carries
@@ -725,41 +731,93 @@ impl Search<'_, '_, '_, '_> {
             bounded.sort_unstable_by_key(|entry| entry.0);
         }
         for (_, edge, upper) in bounded {
-            self.extend(start, frontier, edge, Some(upper));
+            let paths = prefixes
+                .as_ref()
+                .and_then(|prefixes| prefixes.eligible(upper));
+            self.extend(
+                start,
+                frontier,
+                edge,
+                Some(CompletionPruning { upper, paths }),
+            );
         }
     }
 
-    fn completion_cutoff(&self, frontier: &Frontier, language: Language) -> Option<f64> {
-        if self.scoring.has_field_history()
-            || !self.preferences.0.is_empty()
-            || self.path_preferences.could_adjust(self.limit)
-        {
+    fn completion_prefixes(
+        &self,
+        frontier: &Frontier,
+        language: Language,
+    ) -> Option<CompletionPrefixes> {
+        if !self.preferences.0.is_empty() || self.path_preferences.could_adjust(self.limit) {
             return None;
         }
-        let mut cutoff = f64::INFINITY;
-        for (lane, beam) in frontier.beams() {
-            for path in &beam.paths {
-                if path.corrected {
-                    continue;
+        let terminal = &self.lattice[self.limit];
+        let mut max_context = [0.0_f64; ORDINARY_FRONTIER_BEAMS];
+        let mut minimum_adjusted = [f64::NEG_INFINITY; ORDINARY_FRONTIER_BEAMS];
+        for (destination, (lane, beam)) in
+            terminal.beams().take(ORDINARY_FRONTIER_BEAMS).enumerate()
+        {
+            if beam.paths.len() == self.beam_width {
+                let last = beam.paths.last().expect("full beam has a last path");
+                minimum_adjusted[destination] =
+                    lane.score(last.score + last.context_adjustment, last.search_adjustment);
+                for path in &beam.paths {
+                    max_context[destination] =
+                        max_context[destination].max(lane.score(path.context_adjustment, 0.0));
                 }
-                let private = path.verbatim || path.personal;
-                let mask = path.mask | language.mask();
-                let target = &self.lattice[self.limit];
-                let target = if private {
-                    &target.private[mask - 1]
-                } else {
-                    &target.lanes[lane as usize][mask - 1]
-                };
-                if target.paths.len() < self.beam_width {
-                    return None;
-                }
-                // With field and preference adjustments both absent, the
-                // full beam's last score cannot decrease on subsequent inserts.
-                let last = target.paths.last()?;
-                cutoff = cutoff.min(lane.score(last.score, 0.0) - lane.score(path.score, 0.0));
             }
         }
-        cutoff.is_finite().then_some(cutoff)
+        let mut prefixes = Vec::new();
+        for (source, (lane, beam)) in frontier.beams().take(ORDINARY_FRONTIER_BEAMS).enumerate() {
+            for (index, path) in beam.paths.iter().enumerate() {
+                let private = path.verbatim || path.personal;
+                let mask_index = (path.mask | language.mask()) - 1;
+                let destination = if private { 6 } else { 3 * lane as usize } + mask_index;
+                let context = if private {
+                    Scores::default()
+                } else {
+                    path.context_adjustment
+                };
+                max_context[destination] = max_context[destination].max(lane.score(context, 0.0));
+                prefixes.push((
+                    destination,
+                    source,
+                    index,
+                    lane.score(path.score + context, 0.0),
+                ));
+            }
+        }
+        let mut required: Vec<_> = prefixes
+            .into_iter()
+            .map(|(destination, source, index, prefix)| {
+                // Full beams are ordered by the adjusted score. It can only rise
+                // at the cutoff. The old eligibility gate uses the raw score, so
+                // subtract the largest possible adjustment for any path here.
+                (
+                    minimum_adjusted[destination] - max_context[destination] - prefix,
+                    source,
+                    index,
+                )
+            })
+            .collect();
+        if required.iter().all(|entry| !entry.0.is_finite()) {
+            return None;
+        }
+        // Within each destination this visits the highest-scoring prefixes
+        // first. The per-word suffix of this list is below its beam floors.
+        required.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
+        let mut paths = [0; ORDINARY_FRONTIER_BEAMS];
+        let mut masks = vec![paths];
+        let mut scores = Vec::with_capacity(required.len());
+        for (score, source, index) in required {
+            paths[source] |= 1 << index;
+            scores.push(score);
+            masks.push(paths);
+        }
+        Some(CompletionPrefixes {
+            required: scores,
+            masks,
+        })
     }
 
     fn extend(
@@ -767,7 +825,7 @@ impl Search<'_, '_, '_, '_> {
         start: usize,
         frontier: &Frontier,
         edge: Match<'_>,
-        completion_upper: Option<f64>,
+        pruning: Option<CompletionPruning<'_>>,
     ) {
         let edge_is_corrected = edge.correction_cost > 0.0;
         let language = edge.word.language;
@@ -788,7 +846,7 @@ impl Search<'_, '_, '_, '_> {
             && !edge.is_abbreviated()
             && edge.missing == 0
             && self.exact_suffixes.get(edge.end) == Some(&true);
-        for (lane, beam) in frontier.beams() {
+        for (source, (lane, beam)) in frontier.beams().enumerate() {
             if std::ptr::eq(beam, &frontier.corrected) && !exact_chinese_continuation {
                 continue;
             }
@@ -800,7 +858,15 @@ impl Search<'_, '_, '_, '_> {
             if lane == Lane::Base && edge.word.ids.base.is_none() {
                 continue;
             }
-            for path in &beam.paths {
+            let allowed = pruning
+                .as_ref()
+                .and_then(|pruning| pruning.paths)
+                .map_or(u32::MAX, |paths| paths.get(source).copied().unwrap_or(0));
+            let mut remaining = allowed & ((1u32 << beam.paths.len()) - 1);
+            while remaining != 0 {
+                let index = remaining.trailing_zeros() as usize;
+                remaining &= remaining - 1;
+                let path = &beam.paths[index];
                 if edge.word.verbatim
                     && (path.verbatim || path.mask & Language::Chinese.mask() == 0)
                 {
@@ -857,7 +923,7 @@ impl Search<'_, '_, '_, '_> {
                     && !corrected
                     && lane == Lane::Personalized
                     && self.path_preferences.could_adjust(edge.end);
-                if let Some(upper) = completion_upper
+                if let Some(upper) = pruning.as_ref().map(|pruning| pruning.upper)
                     && !has_path_preferences
                     && !self.lattice[edge.end]
                         .target(lane, mask, private)
@@ -1020,6 +1086,25 @@ impl Search<'_, '_, '_, '_> {
     fn english_end(&self, start: usize) -> usize {
         self.english_ends.get(start).copied().unwrap_or(0)
     }
+}
+
+type PrefixMask = [u32; ORDINARY_FRONTIER_BEAMS];
+
+struct CompletionPrefixes {
+    required: Vec<f64>,
+    masks: Vec<PrefixMask>,
+}
+
+impl CompletionPrefixes {
+    fn eligible(&self, upper: f64) -> Option<&PrefixMask> {
+        let count = self.required.partition_point(|required| *required <= upper);
+        (count != self.required.len()).then(|| &self.masks[count])
+    }
+}
+
+struct CompletionPruning<'a> {
+    upper: f64,
+    paths: Option<&'a PrefixMask>,
 }
 
 fn render<'a>(edge: Match<'a>, typed: &str) -> Cow<'a, str> {
