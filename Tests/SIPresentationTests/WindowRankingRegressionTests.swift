@@ -9,6 +9,7 @@ struct WindowRankingRegressionTests {
         struct Choice: Decodable {
             let language: String
             let text: String
+            let tokenSpelling: String?
             let bonus: Double
         }
         let id: String
@@ -17,57 +18,67 @@ struct WindowRankingRegressionTests {
         let languages: [InputLanguage]
         let references: [String]
         let priorChoices: [Choice]?
-        let knownTop1Miss: Bool?
-        let knownTop4Miss: Bool?
     }
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil))
     func regressionQueriesUseTheActualWindow() throws {
+        // These known positions document the installed ranking baseline.
+        let expectedOff = ["regression-english-ban": 8, "regression-context-number": 2]
+        let expectedOn = ["regression-english-ban": 3]
+        for query in try Self.queries() {
+            let off = try Self.rank(query, correction: .off, learning: LearningProfile())
+            let on = try Self.rank(query, correction: .conservative, learning: LearningProfile())
+            #expect(off == (expectedOff[query.id] ?? 1), "\(query.id) with correction off")
+            #expect(on == (expectedOn[query.id] ?? 1), "\(query.id) with conservative correction")
+        }
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil))
+    func injectedPreferenceUsesItsOwnRegressionSlice() throws {
+        let queries = try Self.queries()
+        let river = try #require(queries.first { $0.id == "regression-context-river" })
+        let now = Date(timeIntervalSince1970: 0)
+        let choices = try #require(river.priorChoices)
+        let profile = LearningProfile(entries: choices.map {
+            LearnedPreference(input: $0.tokenSpelling ?? river.input, text: $0.text,
+                              language: $0.language == "en" ? .english : .simplifiedChinese,
+                              strength: $0.bonus, lastUsed: now, isMixed: $0.language == "mixed")
+        }, now: now, retainsIndefinitely: true)
+        let off = try Self.rank(river, correction: .off, learning: profile)
+        let on = try Self.rank(river, correction: .conservative, learning: profile)
+        #expect(off == 2)
+        #expect(on == 2)
+    }
+
+    private static func queries() throws -> [Query] {
         let fixture = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "eval/regression/window-ranking.jsonl")
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let queries = try String(contentsOf: fixture, encoding: .utf8).split(separator: "\n").map {
+        let rows = try String(contentsOf: fixture, encoding: .utf8).split(separator: "\n").map {
             try decoder.decode(Query.self, from: Data($0.utf8))
         }
-        try #require(!queries.isEmpty)
-        #expect(Set(queries.map(\.id)).count == queries.count)
+        try #require(!rows.isEmpty)
+        #expect(Set(rows.map(\.id)).count == rows.count)
+        return rows
+    }
 
+    private static func rank(_ query: Query, correction: CandidateEngine.PinyinCorrectionMode,
+                             learning: LearningProfile) throws -> Int {
         let now = Date(timeIntervalSince1970: 0)
-        for query in queries {
-            var session = InputSession(candidateGeneration: .deferred)
-            let learning = LearningProfile(entries: (query.priorChoices ?? []).map {
-                LearnedPreference(input: query.input, text: $0.text,
-                                  language: $0.language == "en" ? .english : .simplifiedChinese,
-                                  strength: $0.bonus, lastUsed: now)
-            }, now: now, retainsIndefinitely: true)
-            session.configure(languages: Set(query.languages), learning: learning, now: now,
-                              experimentalRankingEnabled: true)
-            session.setPrecedingText(query.context)
-            session.append(query.input, now: now)
-            let request = try #require(session.pendingCandidateRequest)
-            let result = request.generate(useExperimentalRanking: true)
-            var selection = CandidateSelection()
-            selection.update(result.candidates)
-            let rank = selection.candidates.firstIndex {
-                !$0.isLiteral && !$0.isPartial && query.references.contains($0.text)
-            }.map { $0 + 1 }
-            #expect(rank != nil, "\(query.id) must be selectable")
-            if query.knownTop1Miss == true {
-                withKnownIssue("Existing first-choice miss for \(query.id)", isIntermittent: true) {
-                    #expect(rank == 1)
-                }
-            } else {
-                #expect(rank == 1, "\(query.id)")
-            }
-            if query.knownTop4Miss == true {
-                withKnownIssue("Existing first-four miss for \(query.id)", isIntermittent: true) {
-                    #expect((rank ?? Int.max) <= 4)
-                }
-            } else {
-                #expect((rank ?? Int.max) <= 4, "\(query.id)")
-            }
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: Set(query.languages), learning: learning, now: now,
+                          pinyinCorrectionMode: correction, experimentalRankingEnabled: true, rankingPolicy: .app)
+        session.setPrecedingText(query.context)
+        session.append(query.input, now: now)
+        let request = try #require(session.pendingCandidateRequest)
+        let result = request.generate(useExperimentalRanking: true)
+        var selection = CandidateSelection()
+        selection.update(result.candidates)
+        let index = selection.candidates.firstIndex {
+            !$0.isLiteral && !$0.isPartial && query.references.contains($0.text)
         }
+        return try #require(index, "\(query.id) must be selectable") + 1
     }
 }
