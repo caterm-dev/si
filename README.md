@@ -39,9 +39,13 @@ the background worker uses spelling-edit features to select and rank
 corrections alongside other whole candidates. Preview uses the statistical
 correction rules.
 With correction off, the full search uses contextual statistical order for
-both background conversion and synchronous resolution. With correction on,
+both background conversion and synchronous resolution. A separate bounded
+search shows provisional candidates for the current spelling while the full
+search runs. With correction on,
 the background worker can reorder candidates within 6 bits of the
-statistical leader using LambdaRank and the character scorer. For a local
+statistical leader using LambdaRank and the character scorer. The worker
+computes character scores as the trees need them and shares common prefixes
+within each scoring pass. For a local
 rollback, launch SI with `SI_USE_LEGACY_RANKING=1` to restore unrestricted
 background ranking. The character scorer and LambdaRank reorder candidates
 from the Rust decoder. Pinyin-to-text experiments run offline.

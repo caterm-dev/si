@@ -165,9 +165,19 @@ impl Tokenizer {
 }
 
 fn embed(embedding: &Matrix, positions: &Matrix, tokens: &[usize], scale: f32) -> Matrix {
+    embed_at(embedding, positions, tokens, 0..tokens.len(), scale)
+}
+
+fn embed_at(
+    embedding: &Matrix,
+    positions: &Matrix,
+    tokens: &[usize],
+    position_ids: impl IntoIterator<Item = usize>,
+    scale: f32,
+) -> Matrix {
     let mut out = embedding.select_rows(tokens.iter().copied());
-    for i in 0..out.rows {
-        for (x, position) in out.row_mut(i).iter_mut().zip(positions.row(i)) {
+    for (i, position) in position_ids.into_iter().enumerate() {
+        for (x, position) in out.row_mut(i).iter_mut().zip(positions.row(position)) {
             *x = *x * scale + position;
         }
     }

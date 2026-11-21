@@ -31,6 +31,14 @@ pub(crate) struct Norm {
 }
 
 impl Norm {
+    #[cfg(test)]
+    pub(crate) fn unit(width: usize) -> Self {
+        Self {
+            weights: vec![1.0; width],
+            bias: vec![0.0; width],
+        }
+    }
+
     pub fn load(w: &mut Weights, name: &str, width: usize) -> Result<Self> {
         Ok(Self {
             weights: w.vector(&format!("{name}.weight"), width)?,
@@ -56,6 +64,13 @@ impl Norm {
 pub(crate) struct KeyValue {
     k: Matrix,
     v: Matrix,
+}
+
+#[derive(Clone, Copy)]
+enum AttentionKeys<'a> {
+    All,
+    Causal,
+    Ancestors(&'a [Vec<usize>]),
 }
 
 pub(crate) struct Attention {
@@ -97,18 +112,23 @@ impl Attention {
         }
     }
 
-    pub fn run(&self, query: &Matrix, kv: &KeyValue, causal: bool) -> Matrix {
+    fn run(&self, query: &Matrix, kv: &KeyValue, mask: AttentionKeys<'_>) -> Matrix {
         let q = self.q.run(query);
         let width = q.cols / self.heads;
         let scale = (width as f32).sqrt().recip();
         let mut output = Matrix::zeros(q.rows, q.cols);
+        let sequential: Vec<_> = (0..kv.k.rows).collect();
         let mut logits = vec![0.0; kv.k.rows];
         for i in 0..q.rows {
-            let keys = if causal { i + 1 } else { kv.k.rows };
-            let scores = &mut logits[..keys];
+            let keys = match mask {
+                AttentionKeys::All => &sequential[..],
+                AttentionKeys::Causal => &sequential[..=i],
+                AttentionKeys::Ancestors(paths) => &paths[i],
+            };
+            let scores = &mut logits[..keys.len()];
             for head in 0..self.heads {
                 let range = head * width..(head + 1) * width;
-                for (j, score) in scores.iter_mut().enumerate() {
+                for (&j, score) in keys.iter().zip(scores.iter_mut()) {
                     *score = dot(&q.row(i)[range.clone()], &kv.k.row(j)[range.clone()]) * scale;
                 }
                 let max = scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
@@ -118,7 +138,7 @@ impl Attention {
                     sum += *score;
                 }
                 let row = &mut output.row_mut(i)[range.clone()];
-                for (j, score) in scores.iter().enumerate() {
+                for (&j, score) in keys.iter().zip(scores.iter()) {
                     let probability = *score / sum;
                     for (value, v) in row.iter_mut().zip(&kv.v.row(j)[range.clone()]) {
                         *value += probability * v;
@@ -224,17 +244,88 @@ impl Block {
     }
 
     pub fn run(&self, x: &mut Matrix, memory: Option<&KeyValue>) {
+        let mask = if self.causal {
+            AttentionKeys::Causal
+        } else {
+            AttentionKeys::All
+        };
+        self.apply(x, memory, mask);
+    }
+
+    pub fn run_prefixes(&self, x: &mut Matrix, ancestors: &[Vec<usize>]) {
+        debug_assert!(self.causal && self.cross.is_none());
+        self.apply(x, None, AttentionKeys::Ancestors(ancestors));
+    }
+
+    fn apply(&self, x: &mut Matrix, memory: Option<&KeyValue>, mask: AttentionKeys<'_>) {
         let relative = self.norm1.run(x);
-        x.add(self.attention.run(
-            &relative,
-            &self.attention.key_values(&relative),
-            self.causal,
-        ));
+        x.add(
+            self.attention
+                .run(&relative, &self.attention.key_values(&relative), mask),
+        );
         if let Some((cross, norm)) = &self.cross {
-            x.add(cross.run(&norm.run(x), memory.expect("decoder memory"), false));
+            x.add(cross.run(
+                &norm.run(x),
+                memory.expect("decoder memory"),
+                AttentionKeys::All,
+            ));
         }
         let mut hidden = self.fc.run(&self.norm2.run(x));
         hidden.values.iter_mut().for_each(|x| *x = gelu(*x));
         x.add(self.out.run(&hidden));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefix_attention_matches_separate_causal_sequences() {
+        let projection = || Linear {
+            weights: Matrix {
+                rows: 2,
+                cols: 2,
+                values: vec![0.75, 0.25, -0.25, 0.5],
+            },
+            bias: vec![0.2, -0.1],
+        };
+        let attention = Attention {
+            q: projection(),
+            k: projection(),
+            v: projection(),
+            out: projection(),
+            heads: 1,
+        };
+        let input = Matrix {
+            rows: 5,
+            cols: 2,
+            values: vec![1.0, -1.0, 0.0, 1.0, 1.0, 2.0, 2.0, 1.0, -1.0, 1.0],
+        };
+        let paths = vec![
+            vec![0],
+            vec![0, 1],
+            vec![0, 1, 2],
+            vec![0, 3],
+            vec![0, 3, 4],
+        ];
+        let packed = attention.run(
+            &input,
+            &attention.key_values(&input),
+            AttentionKeys::Ancestors(&paths),
+        );
+        for path in [paths[2].as_slice(), paths[4].as_slice()] {
+            let sequence = input.select_rows(path.iter().copied());
+            let single = attention.run(
+                &sequence,
+                &attention.key_values(&sequence),
+                AttentionKeys::Causal,
+            );
+            for (i, &row) in path.iter().enumerate() {
+                for (&a, &b) in single.row(i).iter().zip(packed.row(row)) {
+                    assert!((a - b).abs() < 1e-6, "{a} vs {b}");
+                }
+            }
+        }
     }
 }

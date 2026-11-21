@@ -500,9 +500,12 @@ Localization stays outside `SICore`. Stable language identifiers, core display-n
 `InputSession` owns the buffer, character-aware caret, and candidate request
 for each client. A deferred edit immediately retains the exact literal.
 The session accepts results for the current request and rejects a preview
-after full results. Explicit selection can commit an already displayed
-preview. Prefixes consume validated source boundaries and keep the exact
-remainder editable.
+after full results. A separate worker computes bounded previews so a full
+search for older spelling does not hold up the latest hints. Keyboard
+selection can commit an already displayed preview. If the user navigates
+the preview, the controller keeps its rows and selection when full results
+arrive and re-enables the panel controls. Prefixes consume validated source
+boundaries and keep the exact remainder editable.
 
 Swift combines Rust's lexical scores with eligible preferences and a
 coverage reward for the consumed source. Complete candidates precede
@@ -723,14 +726,23 @@ columns to the former generation-disabled values. The app packages the
 projected trees and the character scorer. Pinyin-to-text generation and its
 weights stay in the offline workflow. With correction off, synchronous
 resolution and the full worker use the same contextual statistical order.
-That route skips model loading and the separate bounded preview search. While
-the first full result is pending, the exact spelling remains available.
+The bounded preview uses the same ordering rule on its own candidate pool.
+Both searches on that route skip model loading. The exact spelling remains
+available while work is pending.
 With correction on, the full worker lazily opens LambdaRank and the
-character scorer. After correction calibration, Swift permits LambdaRank
+character scorer. The trees walk known lexical features to identify which
+surfaces need conditional character scores. Once those scores are available,
+the trees identify which surfaces also need an unconditional score to compute
+context gain. The whole pool continues to determine the available history.
+Within a pass, the scorer shares causal states along a bounded token trie.
+Each state attends to its ancestor path and uses the position of that token
+on the path. The scorer projects shared output states to the vocabulary in
+bounded chunks. Large tries use individual scoring. This work stays local to
+one request. After correction calibration, Swift permits LambdaRank
 order only within 6 bits of the statistical leader. Explicit choices retain
 priority, candidates outside that range retain statistical order, and the
 literal remains available. Launching SI with `SI_USE_LEGACY_RANKING=1`
-restores unrestricted background ranking and early hints. Assets already
+restores unrestricted background ranking. Assets already
 opened in a process are reused if correction is toggled back on.
 For equal model scores, SI candidates use their lexical score with eligible
 learning and the preceding-field adjustment, before the input coverage reward.

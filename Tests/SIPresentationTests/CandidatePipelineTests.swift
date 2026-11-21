@@ -18,7 +18,7 @@ struct CandidatePipelineTests {
                           experimentalRankingEnabled: true, rankingPolicy: .app)
         session.append("xiandingge")
         let request = try #require(session.pendingCandidateRequest)
-        #expect(!request.offersPreview)
+        #expect(request.offersPreview)
         let synchronous = request.generate()
         pipeline.submit(request)
         await gate.waitForReceipts(1)
@@ -124,16 +124,22 @@ struct CandidatePipelineTests {
         #expect(!acceptedOld)
     }
 
-    @Test func latestHintsRefreshWhileAnObsoleteFinalSearchIsStillBlocked() async throws {
+    @Test func statisticalPreviewRefreshesTheWindowWhileAnObsoleteFullSearchIsBlocked() async throws {
         let fullGate = Gate()
         let previewGate = Gate()
         var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.simplifiedChinese, .english], rankingPolicy: .app)
+        var selection = CandidateSelection()
+        let view = CandidateListView()
         let full = CandidatePipeline(generate: { await fullGate.generate($0) }) { result in
             _ = session.accept(result)
             fullGate.didReceive()
         }
         let preview = CandidatePipeline.preview { result in
-            _ = session.accept(result)
+            if session.accept(result) {
+                selection.update(session.candidates)
+                view.render(selection, isPending: true, refreshPendingRows: session.hasCandidatePreview)
+            }
             previewGate.didReceive()
         }
         session.append("ni")
@@ -143,13 +149,20 @@ struct CandidatePipelineTests {
         preview.submit(first)
         await previewGate.waitForReceipts(1)
         #expect(session.hasCandidatePreview && session.candidates.contains { $0.text == "你" })
+        let firstRows = view.rows.map(\.candidateID)
         session.append("hao")
         let latest = try #require(session.pendingCandidateRequest)
+        #expect(latest.offersPreview)
         full.submit(latest)
         preview.submit(latest)
         await previewGate.waitForReceipts(2)
         #expect(fullGate.started == [first.id])
         #expect(session.hasCandidatePreview && session.candidates.contains { $0.text == "你好" })
+        #expect(view.rows.map(\.candidateID) != firstRows)
+        #expect(view.rows.contains { $0.candidateLabel.stringValue == "你好" })
+        #expect(session.candidates.last?.isLiteral == true && session.candidates.last?.text == "nihao")
+        let lexical = session.candidates.filter { !$0.isLiteral }
+        #expect(lexical == lexical.sorted(by: InputCandidate.precedesInStatistics))
         fullGate.release(first.id)
         await fullGate.waitForStarts(2)
         #expect(session.hasCandidatePreview && session.buffer == "nihao")
@@ -157,6 +170,20 @@ struct CandidatePipelineTests {
         await fullGate.waitForReceipts(2)
         #expect(session.pendingCandidateRequest == nil && !session.hasCandidatePreview)
         #expect(session.candidates.contains { $0.text == "你好" && !$0.isPartial })
+    }
+
+    @Test func navigationKeepsTheDisplayedStatisticalPreviewWhenFullResultsArrive() throws {
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.simplifiedChinese, .english], rankingPolicy: .app)
+        session.append("nihao")
+        let request = try #require(session.pendingCandidateRequest)
+        let preview = request.generatePreview()
+        let accepted = session.accept(preview)
+        #expect(accepted)
+        let full = request.generate()
+        let retained = session.retainPreview(insteadOf: full)
+        #expect(retained && session.pendingCandidateRequest == nil)
+        #expect(session.candidates == preview.candidates)
     }
 
     @Test func rapidEditsRunOnlyTheInFlightAndLatestRequests() async throws {

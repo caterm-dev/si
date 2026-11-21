@@ -176,8 +176,12 @@ office app. Include ordinary and secure fields, using dummy input.
   navigate. Verify Home/End, backward/forward Delete and UTF-16 marked ranges
   with synthetic combining text. Check the exact candidate committed by each
   keyboard or mouse action.
-- Rapidly type and edit long spelling while provisional/full results are
-  pending. Confirm that stale rows cannot commit or reappear after edits,
+- With Pinyin correction off and then on, rapidly type and edit long spelling
+  while provisional/full results are pending. Confirm that provisional rows
+  refresh for the current spelling and settle after a pause. Navigate a
+  visible preview by keyboard, let the full result arrive, and verify that the
+  numbered selection stays stable and mouse controls become available again.
+  Confirm that stale rows cannot commit or reappear after edits,
   cancel, focus/client changes or changes to language/learning settings.
   Check that no characters are dropped or committed twice.
 - With paired word grams, compare the same ambiguous spelling after different

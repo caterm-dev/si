@@ -41,6 +41,7 @@ impl From<Candidate> for RankedCandidate {
 struct Features {
     row_index: usize,
     values: Vec<Option<f64>>,
+    surface_index: Option<usize>,
 }
 
 impl HybridRanking {
@@ -205,42 +206,71 @@ impl HybridRanking {
             } else {
                 ranking_features::extract(source, preceding, candidate)
             };
-            if let Some(values) = values {
-                features.push(Features { row_index, values });
+            if let Some(mut values) = values {
+                values.extend([None; RERANKER_FEATURES.len()]);
+                features.push(Features {
+                    row_index,
+                    values,
+                    surface_index: None,
+                });
             }
         }
         let mut surfaces = Vec::new();
         let mut token_counts = Vec::new();
         let mut scored = HashMap::new();
-        for feature in &features {
+        for feature in &mut features {
             let text = &rows[feature.row_index].candidate.text;
             if let Some(count) = self.reranker.scoreable_token_count(text) {
-                scored.entry(text.clone()).or_insert_with(|| {
+                feature.surface_index = Some(*scored.entry(text.clone()).or_insert_with(|| {
                     let index = surfaces.len();
                     surfaces.push(text.clone());
                     token_counts.push(count);
                     index
-                });
+                }));
             }
         }
-        let conditioned = self.reranker.rank(preceding, &surfaces, Some(0.0))?;
-        let unconditional = if preceding.is_empty() {
-            None
-        } else {
-            Some(self.reranker.rank("", &surfaces, Some(0.0))?)
-        };
+        let total_index = self.ranker.feature_names.len() - RERANKER_FEATURES.len();
+        let mean_index = total_index + 1;
+        let gain_index = total_index + 2;
+        let unresolved_end = gain_index + usize::from(!preceding.is_empty());
+        let mut conditioned_needed = vec![false; surfaces.len()];
+        for feature in &features {
+            if let Some(index) = feature.surface_index
+                && !conditioned_needed[index]
+            {
+                conditioned_needed[index] = self
+                    .ranker
+                    .requires_features(&feature.values, total_index..unresolved_end)?;
+            }
+        }
+        let conditioned =
+            self.reranker
+                .score_selected(preceding, &surfaces, &conditioned_needed)?;
+
+        let mut unconditional_needed = vec![false; surfaces.len()];
+        for feature in &mut features {
+            if let Some(index) = feature.surface_index
+                && let Some(total) = conditioned[index]
+            {
+                feature.values[total_index] = Some(total);
+                feature.values[mean_index] = Some(total / token_counts[index] as f64);
+                if !preceding.is_empty() && !unconditional_needed[index] {
+                    unconditional_needed[index] = self
+                        .ranker
+                        .requires_features(&feature.values, gain_index..gain_index + 1)?;
+                }
+            }
+        }
+        let unconditional = self
+            .reranker
+            .score_selected("", &surfaces, &unconditional_needed)?;
         for mut feature in features {
-            let row = &mut rows[feature.row_index];
-            let index = scored.get(&row.candidate.text).copied();
-            let total = index.and_then(|i| conditioned.scores[i]);
-            let mean = total
-                .zip(index)
-                .map(|(value, i)| value / token_counts[i] as f64);
-            let gain = total
-                .zip(index)
-                .and_then(|(value, i)| Some(value - unconditional.as_ref()?.scores[i]?));
-            feature.values.extend([total, mean, gain]);
-            row.model_score = Some(self.ranker.score(&feature.values)?);
+            if let Some(index) = feature.surface_index {
+                feature.values[gain_index] = conditioned[index]
+                    .zip(unconditional[index])
+                    .map(|(total, base)| total - base);
+            }
+            rows[feature.row_index].model_score = Some(self.ranker.score(&feature.values)?);
         }
         Ok(())
     }

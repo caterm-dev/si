@@ -7,10 +7,10 @@
 | Pinyin correction off (default) | Full contextual statistical order | The same full statistical search and order |
 | Pinyin correction on | Statistical search with conservative correction | Calibrated LambdaRank with a six-bit reorder limit |
 
-The default route skips model loading and the separate preview worker. It
-keeps the exact spelling available while the first full result is pending.
-The correction route can show a statistical preview while the full worker
-finishes. The worker scores ordinary and corrected candidates, applies the
+Both routes use the separate worker for bounded statistical previews, with
+the exact spelling available while results are pending. The default route
+skips model loading. With correction enabled, the full worker scores
+ordinary and corrected candidates, applies the
 calibrated correction margin, then passes the pool to Swift's reorder limit.
 Within the same complete-input span, scored members within 6 bits of the
 statistical leader can take their model order. Statistical candidates

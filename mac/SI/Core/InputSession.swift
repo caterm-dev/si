@@ -25,7 +25,7 @@ public struct CandidateRequest: Sendable {
         rankingPolicy == .app && engine.pinyinCorrectionMode == .off
     }
 
-    public var offersPreview: Bool { !usesStatisticalOrder }
+    public var offersPreview: Bool { !languages.isEmpty }
 
     public func generate(useExperimentalRanking: Bool = false) -> CandidateResult {
         let useRanker = useExperimentalRanking && experimentalRankingEnabled && !usesStatisticalOrder
@@ -49,10 +49,11 @@ public struct CandidateRequest: Sendable {
     }
 
     public func generatePreview() -> CandidateResult {
-        CandidateResult(requestID: id, candidates: engine.previewCandidates(
+        let generated = engine.previewCandidates(
             for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context,
-            applicationMemory: applicationMemory, precedingText: precedingText),
-            isPreview: true)
+            applicationMemory: applicationMemory, precedingText: precedingText)
+        let candidates = usesStatisticalOrder ? Self.statisticalOrder(generated) : generated
+        return CandidateResult(requestID: id, candidates: candidates, isPreview: true)
     }
 
     private static func statisticalOrder(_ candidates: [InputCandidate]) -> [InputCandidate] {
@@ -379,7 +380,7 @@ public struct InputSession: Sendable {
 
     /// Keep the visible list after the user starts navigating it.
     public mutating func retainPreview(insteadOf result: CandidateResult) -> Bool {
-        guard result.isModelRanked, hasCandidatePreview,
+        guard !result.isPreview, hasCandidatePreview,
               pendingCandidateRequest?.id == result.requestID else { return false }
         pendingCandidateRequest = nil
         return true

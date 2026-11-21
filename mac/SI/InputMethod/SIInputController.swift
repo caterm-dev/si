@@ -344,7 +344,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let previousRequest = session.pendingCandidateRequest?.id
         // Consent, secure input, language, dictionary, and context may change while work is running.
         guard configureSession() else { return }
-        if explicitlyNavigated, session.retainPreview(insteadOf: result) { return }
+        if explicitlyNavigated, session.retainPreview(insteadOf: result) {
+            presentCandidates(to: client)
+            return
+        }
         if session.accept(result) {
             if let commit = session.automaticallyConfirm() {
                 apply(commit, to: client)

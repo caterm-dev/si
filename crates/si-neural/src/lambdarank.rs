@@ -1,4 +1,5 @@
 //! Inference for exported single-output LightGBM LambdaRank trees.
+use std::ops::Range;
 use std::path::Path;
 
 use serde_json::Value;
@@ -111,45 +112,68 @@ impl Node {
         }
     }
 
+    fn split_feature(&self) -> Option<usize> {
+        match self {
+            Self::Leaf { .. } => None,
+            Self::Numeric { feature, .. } | Self::Categorical { feature, .. } => Some(*feature),
+        }
+    }
+
+    fn branch(&self, row: &[Option<f64>]) -> &Self {
+        let (test, left, right) = match self {
+            Self::Leaf { .. } => unreachable!("leaf has no branch"),
+            Self::Numeric {
+                feature,
+                threshold,
+                missing,
+                default_left,
+                left,
+                right,
+            } => {
+                let value = row[*feature];
+                let take_left = match missing {
+                    Missing::Nan if value.is_none() => *default_left,
+                    Missing::Zero if value.unwrap_or(0.0).abs() <= 1e-35_f32 as f64 => {
+                        *default_left
+                    }
+                    _ => value.unwrap_or(0.0) <= *threshold,
+                };
+                (take_left, left, right)
+            }
+            Self::Categorical {
+                feature,
+                categories,
+                left,
+                right,
+            } => {
+                let take_left = row[*feature].is_some_and(|value| {
+                    value >= 0.0 && value <= i32::MAX as f64 && categories.contains(&(value as i32))
+                });
+                (take_left, left, right)
+            }
+        };
+        if test { left } else { right }
+    }
+
     fn score(&self, row: &[Option<f64>]) -> f64 {
         let mut node = self;
         loop {
-            let (test, left, right) = match node {
-                Self::Leaf { value } => return *value,
-                Self::Numeric {
-                    feature,
-                    threshold,
-                    missing,
-                    default_left,
-                    left,
-                    right,
-                } => {
-                    let value = row[*feature];
-                    let take_left = match missing {
-                        Missing::Nan if value.is_none() => *default_left,
-                        Missing::Zero if value.unwrap_or(0.0).abs() <= 1e-35_f32 as f64 => {
-                            *default_left
-                        }
-                        _ => value.unwrap_or(0.0) <= *threshold,
-                    };
-                    (take_left, left, right)
-                }
-                Self::Categorical {
-                    feature,
-                    categories,
-                    left,
-                    right,
-                } => {
-                    let take_left = row[*feature].is_some_and(|value| {
-                        value >= 0.0
-                            && value <= i32::MAX as f64
-                            && categories.contains(&(value as i32))
-                    });
-                    (take_left, left, right)
-                }
-            };
-            node = if test { left } else { right };
+            if let Self::Leaf { value } = node {
+                return *value;
+            }
+            node = node.branch(row);
         }
+    }
+
+    fn requires_features(&self, row: &[Option<f64>], unresolved: &Range<usize>) -> bool {
+        let mut node = self;
+        while let Some(feature) = node.split_feature() {
+            if unresolved.contains(&feature) {
+                return true;
+            }
+            node = node.branch(row);
+        }
+        false
     }
 }
 
@@ -211,5 +235,70 @@ impl LambdaRank {
             return Err(invalid("nonfinite LambdaRank score"));
         }
         Ok(score)
+    }
+
+    /// Walk the branches decided by known values, including known missing values.
+    /// Return true as soon as a tree reaches a feature the caller has yet to compute.
+    pub fn requires_features(&self, row: &[Option<f64>], unresolved: Range<usize>) -> Result<bool> {
+        if row.len() != self.feature_names.len() || unresolved.end > row.len() {
+            return Err(invalid("invalid LambdaRank feature row"));
+        }
+        Ok(self
+            .trees
+            .iter()
+            .any(|tree| tree.requires_features(row, &unresolved)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn required_features_follow_known_branches_and_missing_values() {
+        let leaf = |value| Box::new(Node::Leaf { value });
+        let ranker = LambdaRank {
+            feature_names: ["lexical", "conditional", "context_gain"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+            reranker_checkpoint_sha256: String::new(),
+            correction_margins: None,
+            trees: vec![Node::Numeric {
+                feature: 0,
+                threshold: 0.0,
+                missing: Missing::None,
+                default_left: false,
+                left: leaf(1.0),
+                right: Box::new(Node::Numeric {
+                    feature: 1,
+                    threshold: 0.0,
+                    missing: Missing::None,
+                    default_left: false,
+                    left: leaf(2.0),
+                    right: Box::new(Node::Numeric {
+                        feature: 2,
+                        threshold: 0.0,
+                        missing: Missing::Nan,
+                        default_left: false,
+                        left: leaf(3.0),
+                        right: leaf(4.0),
+                    }),
+                }),
+            }],
+        };
+
+        assert!(!ranker.requires_features(&[None, None, None], 1..3).unwrap());
+        assert!(
+            ranker
+                .requires_features(&[Some(1.0), None, None], 1..3)
+                .unwrap()
+        );
+        let skip_gain = [Some(1.0), Some(-1.0), None];
+        assert!(!ranker.requires_features(&skip_gain, 2..3).unwrap());
+        assert_eq!(ranker.score(&skip_gain).unwrap(), 2.0);
+        let known_missing_gain = [Some(1.0), Some(1.0), None];
+        assert!(ranker.requires_features(&known_missing_gain, 2..3).unwrap());
+        assert_eq!(ranker.score(&known_missing_gain).unwrap(), 4.0);
     }
 }
