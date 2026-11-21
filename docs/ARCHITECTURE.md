@@ -719,6 +719,10 @@ LambdaRank trees from `.build/si-llm-pinyin`. The background full worker opens t
 bundle once and uses the current engine snapshot, including local user counts
 and active correction mode. The Rust engine merges exact text and language,
 scores a bounded complete-candidate pool and emits a separate model score.
+The default worker opens LambdaRank and the character scorer. It opens and
+runs the Pinyin generator only for development processes launched with
+`SI_USE_PINYIN_MODEL=1`. The 61-column v5 layout stays fixed. With generation
+disabled, the Pinyin source flag is zero and beam rank is missing on each row.
 For equal model scores, SI candidates use their lexical score with eligible
 learning and the preceding-field adjustment, before the input coverage reward.
 Generated-only candidates follow SI candidates at the same model score and

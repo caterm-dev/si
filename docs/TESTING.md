@@ -444,7 +444,9 @@ Run the model parity check in the model workspace and run
 `experimentalModelsReachWorkerShortlistAndExplicitCommit` with
 `SI_TEST_ENGINE_RESOURCE_DIRECTORY` set to the
 packaged app's `Contents/Resources/SIEngine`. Verify that ordinary candidates
-remain ranked and the literal remains available. In an installed development
+remain ranked and the literal remains available. The Pinyin generator is off
+by default. With `SI_USE_PINYIN_MODEL=1`, repeat that test and run
+`packagedRankingExposesNumberedModelSuggestion`. In an installed development
 build, exercise `fangan` and `fan'gan` with and without preceding text, then
 check Escape, focus changes, and explicit candidate confirmation in a host.
 

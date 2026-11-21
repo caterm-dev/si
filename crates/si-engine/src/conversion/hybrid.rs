@@ -23,7 +23,7 @@ const NEURAL_FEATURES: [&str; 6] = [
 const SI_POOL_LIMIT: usize = 64;
 
 pub struct HybridRanking {
-    pinyin: Pinyin,
+    pinyin: Option<Pinyin>,
     reranker: Reranker,
     ranker: LambdaRank,
     v5: bool,
@@ -52,8 +52,8 @@ struct Features {
 }
 
 impl HybridRanking {
-    /// The three assets must match the v4 training bundle and each other.
-    pub fn open(path: &Path) -> io::Result<Self> {
+    /// Enabled neural assets must match the LambdaRank training bundle.
+    pub fn open(path: &Path, use_pinyin_model: bool) -> io::Result<Self> {
         let ranker = LambdaRank::open(&path.join("lambdarank.json"))?;
         let matches = |extra: &[&str]| {
             ranker
@@ -69,9 +69,13 @@ impl HybridRanking {
         if !v5 && !matches(&[]) {
             return Err(io::Error::other("unexpected ranking feature order"));
         }
-        let pinyin = Pinyin::open(&path.join("pinyin"))?;
+        let pinyin = use_pinyin_model
+            .then(|| Pinyin::open(&path.join("pinyin")))
+            .transpose()?;
         let reranker = Reranker::open(&path.join("reranker"))?;
-        if pinyin.checkpoint_sha256() != ranker.pinyin_checkpoint_sha256
+        if pinyin
+            .as_ref()
+            .is_some_and(|model| model.checkpoint_sha256() != ranker.pinyin_checkpoint_sha256)
             || reranker.checkpoint_sha256() != ranker.reranker_checkpoint_sha256
         {
             return Err(io::Error::other("incompatible ranking checkpoints"));
@@ -237,7 +241,8 @@ impl HybridRanking {
             };
             known.insert((candidate.language, candidate.text.clone()), index);
         }
-        if languages.chinese
+        if let Some(pinyin) = &self.pinyin
+            && languages.chinese
             && !source.is_empty()
             && source.len() <= 128
             && !source.bytes().any(|b| b.is_ascii_uppercase())
@@ -245,7 +250,7 @@ impl HybridRanking {
             let input = Input::new(source);
             let spelling = input.spelling(Language::Chinese);
             if !spelling.is_empty() && spelling.iter().all(u8::is_ascii_lowercase) {
-                let contextual = self.pinyin.uses_context();
+                let contextual = pinyin.uses_context();
                 let paths = if contextual {
                     input.pinyin_paths(engine.base.lexicon())
                 } else {
@@ -261,7 +266,7 @@ impl HybridRanking {
                         }
                     })
                     .collect();
-                let generated = self.pinyin.generate(
+                let generated = pinyin.generate(
                     &normalized,
                     contextual.then_some(preceding),
                     &paths,

@@ -12,8 +12,10 @@ final class RustConversion: @unchecked Sendable {
     // Only the background full conversion worker opens this immutable bundle.
     private final class RankingResources: @unchecked Sendable {
         let handle: OpaquePointer
-        init?(_ directory: URL) {
-            guard let handle = directory.withUnsafeFileSystemRepresentation({ si_ranking_open($0) }) else { return nil }
+        init?(_ directory: URL, usePinyinModel: Bool) {
+            guard let handle = directory.withUnsafeFileSystemRepresentation({
+                si_ranking_open($0, usePinyinModel)
+            }) else { return nil }
             self.handle = handle
         }
         deinit { si_ranking_close(handle) }
@@ -26,7 +28,10 @@ final class RustConversion: @unchecked Sendable {
         #else
         let resource = Bundle.main.resourceURL?.appendingPathComponent("SIEngine", isDirectory: true)
         #endif
-        return resource.flatMap { RankingResources($0.appendingPathComponent("Ranking", isDirectory: true)) }
+        let usePinyinModel = ProcessInfo.processInfo.environment["SI_USE_PINYIN_MODEL"] == "1"
+        return resource.flatMap {
+            RankingResources($0.appendingPathComponent("Ranking", isDirectory: true), usePinyinModel: usePinyinModel)
+        }
     }()
 
     static let shared: RustConversion? = {

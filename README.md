@@ -36,6 +36,9 @@ with `CandidateEngine::with_pinyin_correction(true)`. For a CLI preview, add
 With a calibrated LambdaRank model, the background worker ranks eligible
 corrections alongside other whole candidates. Preview uses the statistical
 correction rules.
+The background ranker uses SI candidates and the character scorer by default.
+Development processes can opt into Pinyin-to-text generation with
+`SI_USE_PINYIN_MODEL=1`.
 
 In compatible macOS text fields, SI passes the full text before the composition
 to the local Rust engine. The engine uses word grams from the last preceding
