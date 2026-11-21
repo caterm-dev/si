@@ -7,8 +7,8 @@ spaces or digits. For a domain, the reading is the full lowercase hostname,
 including its dots and any hyphens or digits. Case-distinct output forms
 are distinct entries. Repeating an exact text/reading pair adds its counts.
 
-The base derives from the pinned Wanxiang English dictionary. The domain
-category includes Cloudflare Radar data under CC BY-NC 4.0. Bucket
+The base uses the Wanxiang-derived English CSV from revision `20a5d03`.
+The domain category includes Cloudflare Radar data under CC BY-NC 4.0. Bucket
 membership records selection by the source and does not measure typing
 frequency. Preserve the data terms and attribution when distributing
 the vocabulary. [English dictionary notices](../mac/SI/Core/Resources/English/) · [Historical English attribution](../mac/SI/Resources/EnglishVocabularyNotices.txt) · [Historical frequency-data attribution](../mac/SI/Resources/RankingNotices.txt)
