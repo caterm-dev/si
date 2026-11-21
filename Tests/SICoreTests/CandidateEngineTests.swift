@@ -47,6 +47,28 @@ struct CandidateEngineTests {
         }
     }
 
+    @Test func modelTiesUseContextualStatisticsThenNativeBeamOrder() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        var contextual = InputCandidate(text: "Contextual", language: .english, score: -35, modelRankingScore: 1)
+        contextual.fieldContextAdjustment = 15
+        let learned = InputCandidate(text: "Learned", language: .english, score: -33, modelRankingScore: 1)
+        let lexical = InputCandidate(text: "Lexical", language: .english, score: -22, modelRankingScore: 1)
+        let strongerModel = InputCandidate(text: "Stronger model", language: .english, score: -100, modelRankingScore: 2)
+        let firstBeam = InputCandidate(text: "Zulu", language: .english, score: 0, modelRankingScore: 1, isNeuralSuggestion: true)
+        let secondBeam = InputCandidate(text: "Alpha", language: .english, score: 0, modelRankingScore: 1, isNeuralSuggestion: true)
+        let engine = CandidateEngine(providers: [RankedProvider(values: [
+            firstBeam, lexical, learned, secondBeam, contextual, strongerModel,
+        ])])
+        let learning = LearningProfile(entries: [
+            LearnedPreference(input: "synthetic", text: "Learned", language: .english, strength: 1, lastUsed: now),
+        ], now: now)
+        let ranked = engine.candidates(for: "synthetic", languages: [.english], learning: learning, now: now)
+        #expect(ranked.map(\.text) == ["Stronger model", "Contextual", "Learned", "Lexical", "Zulu", "Alpha", "synthetic"])
+        #expect(ranked[1].statisticalScore == -20 && ranked[1].presentationScore == 25)
+        #expect(ranked[2].statisticalScore == -21)
+        #expect(ranked[4].statisticalScore == nil && ranked[5].statisticalScore == nil)
+    }
+
     @Test func prefixLearningUsesConsumedSpellingWithoutAReservedPosition() {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         let prefix = InputCandidate(text: "Word", language: .english, score: 5, consumedInputCount: 4)

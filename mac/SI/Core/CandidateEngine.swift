@@ -71,22 +71,28 @@ public struct CandidateEngine: Sendable {
         let preferredID = applicationMemory.preferredCandidateID(for: input, languages: languages)
         let inputCount = input.count
         var best: [String: InputCandidate] = [:]
-        for candidate in entries {
+        var neuralOrder: [String: Int] = [:]
+        for (index, candidate) in entries.enumerated() {
             guard let language = candidate.language, languages.contains(language), !candidate.text.isEmpty,
                   !candidate.isMixed || (language == .simplifiedChinese && languages.contains(.english)) else { continue }
             if let consumed = candidate.consumedInputCount, consumed <= 0 || consumed >= inputCount { continue }
             let spelling = candidate.consumedInputCount.map { String(input.prefix($0)) } ?? input
-            let score = learning.rankingScore(for: candidate, input: spelling, now: now, context: context)
+            let statisticalScore = learning.rankingScore(for: candidate, input: spelling, now: now, context: context)
                 + candidate.fieldContextAdjustment
-                + CandidateScoring.inputCoverageBonus(for: candidate, spelling: spelling)
+            let score = statisticalScore + CandidateScoring.inputCoverageBonus(for: candidate, spelling: spelling)
             let remembered = candidate.canLearn && !candidate.isPartial && candidate.id == preferredID
-            var ranked = candidate.withPresentationScore(score, remembered: remembered)
+            var ranked = candidate.withPresentationScore(score, remembered: remembered,
+                                                          statisticalScore: candidate.isNeuralSuggestion ? nil : statisticalScore)
+            if candidate.isNeuralSuggestion, neuralOrder[candidate.id] == nil {
+                // Rust emits tied model-only candidates in beam order.
+                neuralOrder[candidate.id] = index
+            }
             if let previous = best[ranked.id] {
                 if previous.isNeuralSuggestion != ranked.isNeuralSuggestion {
                     if !ranked.isNeuralSuggestion { best[ranked.id] = ranked }
                     continue
                 }
-                if precedes(previous, ranked, inputCount: inputCount) {
+                if precedes(previous, ranked, inputCount: inputCount, neuralOrder: neuralOrder) {
                     best[ranked.id]?.retainLexicalEvidence(from: ranked)
                     continue
                 }
@@ -94,10 +100,12 @@ public struct CandidateEngine: Sendable {
             }
             best[ranked.id] = ranked
         }
-        return best.values.sorted { precedes($0, $1, inputCount: inputCount) } + [literalCandidate(for: input)]
+        return best.values.sorted { precedes($0, $1, inputCount: inputCount, neuralOrder: neuralOrder) }
+            + [literalCandidate(for: input)]
     }
 
-    private func precedes(_ left: InputCandidate, _ right: InputCandidate, inputCount: Int) -> Bool {
+    private func precedes(_ left: InputCandidate, _ right: InputCandidate, inputCount: Int,
+                          neuralOrder: [String: Int]) -> Bool {
         if left.isPreferred != right.isPreferred { return left.isPreferred }
         if left.isRememberedChoice != right.isRememberedChoice { return left.isRememberedChoice }
         let leftConsumed = left.consumedInputCount ?? inputCount
@@ -109,6 +117,16 @@ public struct CandidateEngine: Sendable {
         // LambdaRank scores include model-ranked corrections and use their own units.
         if left.modelRankingScore != right.modelRankingScore {
             return (left.modelRankingScore ?? -.infinity) > (right.modelRankingScore ?? -.infinity)
+        }
+        if left.modelRankingScore != nil {
+            if left.statisticalScore != right.statisticalScore {
+                return (left.statisticalScore ?? -.infinity) > (right.statisticalScore ?? -.infinity)
+            }
+            if let leftOrder = neuralOrder[left.id], let rightOrder = neuralOrder[right.id],
+               leftOrder != rightOrder {
+                return leftOrder < rightOrder
+            }
+            return left.id < right.id
         }
         let leftScore = left.presentationScore ?? left.rankingScore
         let rightScore = right.presentationScore ?? right.rankingScore

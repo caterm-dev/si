@@ -719,6 +719,10 @@ LambdaRank trees from `.build/si-llm-pinyin`. The background full worker opens t
 bundle once and uses the current engine snapshot, including local user counts
 and active correction mode. The Rust engine merges exact text and language,
 scores a bounded complete-candidate pool and emits a separate model score.
+For equal model scores, SI candidates use their lexical score with eligible
+learning and the preceding-field adjustment, before the input coverage reward.
+Generated-only candidates follow SI candidates at the same model score and
+retain their beam order within a tie.
 Swift preserves explicit pins, remembered choices, correction and prefix
 policies, and the exact literal fallback. Early preview and synchronous
 resolution use the statistical engine. The session rejects results from obsolete

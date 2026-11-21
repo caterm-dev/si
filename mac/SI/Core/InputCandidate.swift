@@ -4,6 +4,8 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let score: Int
     /// Base lexical score for the spelling this candidate actually consumes.
     public let rankingScore: Double
+    /// Lexical score with eligible learning and field context, before input coverage.
+    public private(set) var statisticalScore: Double?
     /// Final engine score, including field context, eligible learning and consumed-spelling coverage.
     public private(set) var presentationScore: Double?
     /// Transient Rust gram adjustment from the preceding field text.
@@ -111,9 +113,10 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         return result
     }
 
-    func withPresentationScore(_ score: Double, remembered: Bool) -> Self {
+    func withPresentationScore(_ score: Double, remembered: Bool, statisticalScore: Double? = nil) -> Self {
         var result = self
         result.presentationScore = score
+        result.statisticalScore = statisticalScore
         result.isRememberedChoice = remembered
         return result
     }
@@ -137,6 +140,8 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         right.modelRankingScore = nil
         left.presentationScore = nil
         right.presentationScore = nil
+        left.statisticalScore = nil
+        right.statisticalScore = nil
         left.isRememberedChoice = false
         right.isRememberedChoice = false
         return left == right
