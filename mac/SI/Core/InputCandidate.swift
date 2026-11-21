@@ -121,6 +121,19 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         return result
     }
 
+    static func precedesInStatistics(_ left: Self, _ right: Self) -> Bool {
+        if left.isPreferred != right.isPreferred { return left.isPreferred }
+        if left.isRememberedChoice != right.isRememberedChoice { return left.isRememberedChoice }
+        let leftSpan = left.consumedInputCount ?? Int.max
+        let rightSpan = right.consumedInputCount ?? Int.max
+        if leftSpan != rightSpan { return leftSpan > rightSpan }
+        if left.isPinyinCorrection != right.isPinyinCorrection { return !left.isPinyinCorrection }
+        let leftScore = left.statisticalScore ?? left.rankingScore
+        let rightScore = right.statisticalScore ?? right.rankingScore
+        if leftScore != rightScore { return leftScore > rightScore }
+        return left.id < right.id
+    }
+
 
     func withDisplaySourceBoundaries(_ boundaries: [Int]) -> Self {
         var result = self

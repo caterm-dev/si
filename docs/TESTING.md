@@ -41,7 +41,10 @@ TextEdit after `先定个`, wait for full
 results, and use number or mouse selection. Check Space, Return and Escape,
 then type a second spelling while a request is pending and switch focus. Confirm
 the result belongs to the current composition and that no old result restores a
-closed panel. Repeat in a second supported host before claiming host compatibility.
+closed panel. With Pinyin correction off and both languages enabled, type
+`xiandingge` in an empty field. Confirm that `先定个` and `限定个` remain
+selectable after the full result arrives. Repeat in a second supported host
+before claiming host compatibility.
 
 Run `cargo test --locked -p si-engine --test conversion` for the bounded search
 and `cargo test --locked -p si-cli --test workflow` for snapshot/resource

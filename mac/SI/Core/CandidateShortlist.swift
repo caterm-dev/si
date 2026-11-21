@@ -22,10 +22,24 @@ public enum CandidateShortlist {
             .prefix(leadingChoices).filter { !isWord($0) }.map(\.id))
         let literal = candidates.filter(\.isLiteral)
         var retained = leadingIDs.union(literal.map(\.id))
+        // Keep both statistical leaders selectable while preserving the incoming order.
+        var wordCount = 0
+        func retainLeader(_ candidate: InputCandidate) {
+            guard !isDictionaryCharacter(candidate) else { return }
+            retained.insert(candidate.id)
+            if isWord(candidate) && !candidate.isPunctuation { wordCount += 1 }
+        }
+        let statistical = ordinary.lazy.filter { $0.statisticalScore != nil }
+        if let first = statistical.min(by: InputCandidate.precedesInStatistics) {
+            retainLeader(first)
+            if let second = statistical.lazy.filter({ $0.id != first.id }).min(by: InputCandidate.precedesInStatistics) {
+                retainLeader(second)
+            }
+        }
         // Rust bounds suggestions separately. They share the overall capacity,
         // without consuming ordinary word slots.
-        var wordCount = 0
         for candidate in ordinary where candidate.isPinyinCorrection || (isWord(candidate) && !isDictionaryCharacter(candidate)) {
+            if retained.contains(candidate.id) { continue }
             guard retained.count < ordinaryCandidateLimit else { break }
             guard candidate.isPinyinCorrection || candidate.isPunctuation || wordCount < wordCandidateLimit else { continue }
             retained.insert(candidate.id)
