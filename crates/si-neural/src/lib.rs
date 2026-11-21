@@ -3,6 +3,7 @@
 mod json;
 mod lambdarank;
 mod layers;
+#[cfg(feature = "pinyin-generation")]
 mod pinyin;
 mod reranker;
 mod tensor;
@@ -14,14 +15,17 @@ use std::path::Path;
 use serde_json::Value;
 
 pub use lambdarank::LambdaRank;
+#[cfg(feature = "pinyin-generation")]
 pub use pinyin::{Generation, Pinyin};
 pub use reranker::{Ranking, Reranker};
 use tensor::{Matrix, Weights};
 
 pub type Result<T> = io::Result<T>;
+#[cfg(feature = "pinyin-generation")]
 const PAD: usize = 0;
 const BOS: usize = 1;
 const EOS: usize = 2;
+#[cfg(feature = "pinyin-generation")]
 const PINYIN_START: usize = 3;
 const BYTE_OFFSET: usize = 4;
 const CHAR_OFFSET: usize = 260;
@@ -133,6 +137,7 @@ impl Tokenizer {
         result
     }
 
+    #[cfg(feature = "pinyin-generation")]
     fn decode(&self, tokens: &[usize]) -> Option<String> {
         let mut output = Vec::new();
         for &token in tokens {

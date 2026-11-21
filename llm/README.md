@@ -134,39 +134,30 @@ checks.
 ## Experimental input ranking
 
 Every app build reads the selected ranking bundle at `.build/si-llm-pinyin`.
-Use a directory or a symlink to a versioned bundle containing the two inference
-bundles (`pinyin/` and `reranker/`) and their matching `lambdarank.json`.
-Builds copy those files into `SI.app/Contents/Resources/SIEngine/Ranking` and
-reject missing files and checkpoint mismatches. The Rust worker also checks
-feature order when it opens the bundle. To change versions, point the symlink
-at a different complete bundle and rebuild. Python trains and exports the models.
-The app runs the generator, scorer and trees in Rust.
+Use a directory or symlink containing the character scorer (`reranker/`)
+and its matching `lambdarank.json`. The build stages the scorer and projects
+older LambdaRank exports onto the app's features by removing splits on the
+constant candidate-source columns. It checks the scorer's checkpoint identity
+before packaging the result in `SI.app/Contents/Resources/SIEngine/Ranking`.
+To change versions, point the symlink at a different bundle and rebuild.
 
-The existing preview appears first. A background full request combines SI
-complete candidates and completions with neural hypotheses, computes the same 61 feature columns
-and returns a model score for each eligible row. For a contextual checkpoint,
-the shared Rust path supplies up to three complete syllable paths and preceding
-text. The small scorer uses
-the preceding field text when available. Generated-only rows require explicit
-selection and are excluded from learning. Model-ranked results skip automatic
-prefix confirmation. If an installed bundle cannot be opened, conversion
-falls back to the statistical engine.
+The Rust worker scores the decoder's complete candidates and completions
+using preceding field text when available. The worker checks feature order
+when opening the bundle and uses statistical conversion if opening fails.
+Model-ranked results skip automatic prefix confirmation. Pinyin-to-text
+checkpoints and combined-pool evaluation remain available for offline research.
 
-### Local build with the 12,000-step contextual checkpoint
+### Export from the offline v5 experiment
 
-Use the 12,000-step `small-pinyin-syllable-100k-v1` checkpoint with the
-`small-chat-v2` reranker. Export both checkpoints and refit LambdaRank using
-their v5 features. The build verifies that the exported trees match both
-checkpoints. The commands below use a new bundle directory, authored queries
-and base dictionary resources.
+To recreate the previous experimental ranker, fit LambdaRank offline using
+the 12,000-step `small-pinyin-syllable-100k-v1` checkpoint and the
+`small-chat-v2` character scorer. The commands below export the scorer and
+tree assets needed for a local build.
 
 ```sh
 bundle_id=neural-v5-syllable-12000-chat-v2
 bundle_name=si-neural-syllable-12000-chat-v2
 cargo build --release --locked -p si-cli -p si-neural
-llm/.venv/bin/python -m llm.export_rust pinyin \
-  --checkpoint llm/pinyin_to_text/runs/small-pinyin-syllable-100k-v1/best.pt \
-  --output ".build/$bundle_name/pinyin"
 llm/.venv/bin/python -m llm.export_rust reranker \
   --checkpoint llm/reranker_small/runs/small-chat-v2/best.pt \
   --output ".build/$bundle_name/reranker"

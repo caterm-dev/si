@@ -155,9 +155,7 @@ impl Node {
 
 pub struct LambdaRank {
     pub feature_names: Vec<String>,
-    pub pinyin_checkpoint_sha256: String,
     pub reranker_checkpoint_sha256: String,
-    pub beam_size: usize,
     pub correction_margins: Option<[f64; 2]>,
     trees: Vec<Node>,
 }
@@ -182,9 +180,7 @@ impl LambdaRank {
         };
         let model = Self {
             feature_names: json::strings(&raw["feature_names"])?,
-            pinyin_checkpoint_sha256: json::text(&raw["pinyin_checkpoint_sha256"])?.to_owned(),
             reranker_checkpoint_sha256: json::text(&raw["reranker_checkpoint_sha256"])?.to_owned(),
-            beam_size: json::integer(&raw["beam_size"])?,
             correction_margins,
             trees: json::array(&raw["trees"])?
                 .iter()
@@ -194,7 +190,6 @@ impl LambdaRank {
         if raw["schema"].as_u64() != Some(1)
             || model.feature_names.is_empty()
             || model.trees.is_empty()
-            || !(1..=32).contains(&model.beam_size)
             || !model
                 .trees
                 .iter()

@@ -12,9 +12,9 @@ final class RustConversion: @unchecked Sendable {
     // Only the background full conversion worker opens this immutable bundle.
     private final class RankingResources: @unchecked Sendable {
         let handle: OpaquePointer
-        init?(_ directory: URL, usePinyinModel: Bool) {
+        init?(_ directory: URL) {
             guard let handle = directory.withUnsafeFileSystemRepresentation({
-                si_ranking_open($0, usePinyinModel)
+                si_ranking_open($0)
             }) else { return nil }
             self.handle = handle
         }
@@ -28,9 +28,8 @@ final class RustConversion: @unchecked Sendable {
         #else
         let resource = Bundle.main.resourceURL?.appendingPathComponent("SIEngine", isDirectory: true)
         #endif
-        let usePinyinModel = ProcessInfo.processInfo.environment["SI_USE_PINYIN_MODEL"] == "1"
         return resource.flatMap {
-            RankingResources($0.appendingPathComponent("Ranking", isDirectory: true), usePinyinModel: usePinyinModel)
+            RankingResources($0.appendingPathComponent("Ranking", isDirectory: true))
         }
     }()
 
@@ -198,7 +197,7 @@ final class RustConversion: @unchecked Sendable {
                 isPreferred: row.preferred,
                 lexicalTokenCount: row.lexical_tokens,
                 confirmationBoundaries: confirmation, isPinyinCorrection: isCorrection,
-                modelRankingScore: row.model_score, isNeuralSuggestion: row.neural_only).withDisplaySourceBoundaries(boundaries)
+                modelRankingScore: row.model_score).withDisplaySourceBoundaries(boundaries)
             if (candidate.canLearn || isCorrection) && row.context_adjustment.isFinite {
                 candidate.fieldContextAdjustment = row.context_adjustment
             }

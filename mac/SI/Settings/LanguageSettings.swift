@@ -13,6 +13,7 @@ final class LanguageSettings {
     static let punctuationKey = "typing.punctuationBehavior"
     static let punctuationCandidatesKey = "typing.punctuationCandidates"
     static let automaticConfirmationKey = "typing.automaticConfirmation"
+    static let pinyinCorrectionKey = "typing.pinyinCorrection"
     static let passthroughApplicationsKey = "typing.passthroughApplications"
     static let directInputShortcutKey = "typing.directInputShortcut"
     var directInputShortcut: DirectInputShortcut {
@@ -46,12 +47,10 @@ final class LanguageSettings {
         configurationGeneration &+= 1
     }
 
-
-    static let pinyinCorrectionKey = "typing.pinyinCorrection"
-    var pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode {
+    var pinyinCorrectionEnabled: Bool {
         didSet {
-            defaults.set(Int(pinyinCorrectionMode.rawValue), forKey: Self.pinyinCorrectionKey)
-            if oldValue != pinyinCorrectionMode { configurationGeneration &+= 1 }
+            defaults.set(pinyinCorrectionEnabled ? 1 : 0, forKey: Self.pinyinCorrectionKey)
+            if oldValue != pinyinCorrectionEnabled { configurationGeneration &+= 1 }
         }
     }
 
@@ -116,8 +115,9 @@ final class LanguageSettings {
         englishEnabled = defaults.bool(forKey: Self.englishKey)
         chineseEnabled = defaults.bool(forKey: Self.chineseKey)
         automaticConfirmationEnabled = defaults.bool(forKey: Self.automaticConfirmationKey)
-        pinyinCorrectionMode = UInt8(exactly: defaults.integer(forKey: Self.pinyinCorrectionKey))
-            .flatMap(CandidateEngine.PinyinCorrectionMode.init(rawValue:)) ?? .off
+        // Both legacy enabled modes map to the single switch.
+        let savedCorrection = defaults.integer(forKey: Self.pinyinCorrectionKey)
+        pinyinCorrectionEnabled = savedCorrection == 1 || savedCorrection == 2
         punctuationCandidatesEnabled = defaults.bool(forKey: Self.punctuationCandidatesKey)
         if let saved = defaults.string(forKey: Self.punctuationKey) {
             punctuationBehavior = PunctuationBehavior(rawValue: saved) ?? .asTyped

@@ -10,13 +10,23 @@ struct LanguageSettingsTests {
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = LanguageSettings(defaults: defaults)
-        #expect(settings.pinyinCorrectionMode == .off)
+        #expect(!settings.pinyinCorrectionEnabled)
         let generation = settings.configurationGeneration
-        settings.pinyinCorrectionMode = .higherRecall
+        settings.pinyinCorrectionEnabled = true
         #expect(settings.configurationGeneration == generation + 1)
-        #expect(LanguageSettings(defaults: defaults).pinyinCorrectionMode == .higherRecall)
-        defaults.set(256, forKey: LanguageSettings.pinyinCorrectionKey)
-        #expect(LanguageSettings(defaults: defaults).pinyinCorrectionMode == .off)
+        #expect(LanguageSettings(defaults: defaults).pinyinCorrectionEnabled)
+        settings.pinyinCorrectionEnabled = false
+        #expect(settings.configurationGeneration == generation + 2)
+        #expect(!LanguageSettings(defaults: defaults).pinyinCorrectionEnabled)
+    }
+
+    @Test(arguments: [0, 1, 2, 256])
+    func pinyinCorrectionReadsLegacyPreferences(value: Int) throws {
+        let name = "SI.LegacyPinyinCorrectionTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(value, forKey: LanguageSettings.pinyinCorrectionKey)
+        #expect(LanguageSettings(defaults: defaults).pinyinCorrectionEnabled == (value == 1 || value == 2))
     }
 
     @Test func languageSwitchesPersistIndependentlyWithoutChangingDirectInputOrConsent() throws {

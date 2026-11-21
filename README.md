@@ -32,8 +32,10 @@ composition. [Rust conversion architecture](docs/ARCHITECTURE.md#rust-conversion
 
 Rust library callers can opt into bounded, single-edit Pinyin suggestions
 with `CandidateEngine::with_pinyin_correction(true)`. For a CLI preview, add
-`--pinyin-correction on` to `si-cli candidates`. In the macOS app, choose a correction mode under Typing. Correction is off by default and suggestions require explicit selection.
-With a calibrated LambdaRank model, the background worker ranks eligible
+`--pinyin-correction on` to `si-cli candidates`. In the macOS app, enable
+**Pinyin correction** under Typing. Correction is off by default and
+suggestions require explicit selection. With a calibrated LambdaRank model,
+the background worker uses spelling-edit features to select and rank
 corrections alongside other whole candidates. Preview uses the statistical
 correction rules.
 With correction off, the full search uses contextual statistical order for
@@ -41,8 +43,8 @@ both background conversion and synchronous resolution. With correction on,
 the background worker can reorder candidates within 6 bits of the
 statistical leader using LambdaRank and the character scorer. For a local
 rollback, launch SI with `SI_USE_LEGACY_RANKING=1` to restore unrestricted
-background ranking. `SI_USE_PINYIN_MODEL=1` remains a separate development
-opt-in for Pinyin-to-text generation on model-ranked routes.
+background ranking. The character scorer and LambdaRank reorder candidates
+from the Rust decoder. Pinyin-to-text experiments run offline.
 
 In compatible macOS text fields, SI passes the full text before the composition
 to the local Rust engine. The engine uses word grams from the last preceding
@@ -58,8 +60,9 @@ Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or
 
 Debug and Release bundle `.build/si-data/main.silex` and
 `.build/si-data/words.sigram` alongside the [ranking bundle](llm/README.md#experimental-input-ranking)
-selected by `.build/si-llm-pinyin`. Xcode checks that the paired snapshots and
-ranking checkpoint identities match before packaging them in `SI.app`.
+selected by `.build/si-llm-pinyin`. Xcode validates the paired snapshots and
+the character scorer's checkpoint identity. It stages the character scorer and
+removes generation-only features from the exported LambdaRank trees.
 
 Candidate positioning briefly rechecks the host after a composition starts, allowing a newly opened input field to finish layout. Two matching corrected positions can replace the initial anchor; after the bounded startup checks, the panel stays anchored until the composition ends. Native new-chat and focus-switch behavior still requires the [positioning checks](docs/TESTING.md#candidate-positioning).
 
@@ -191,7 +194,7 @@ cd si
 
 Place the prepared `main.silex` and matching `words.sigram` in
 `.build/si-data/` and point `.build/si-llm-pinyin` at a
-[complete ranking bundle](llm/README.md#local-build-with-the-12000-step-contextual-checkpoint).
+[complete ranking bundle](llm/README.md#experimental-input-ranking).
 Then run `./scripts/build.sh`. The application is built
 at `.build/xcode/Build/Products/Debug/SI.app`. See the
 [resource preparation commands](#rust-engine-workspace).
@@ -720,7 +723,7 @@ V4 adds an optional merged pool from SI and Pinyin-to-text, with candidate sourc
 features and contextual scores from the small character LM. The macOS app runs
 the three models locally from the background conversion worker. See
 [input ranking setup](llm/README.md#experimental-input-ranking).
-The [12,000-step contextual build](llm/README.md#local-build-with-the-12000-step-contextual-checkpoint)
+The [12,000-step contextual build](llm/README.md#experimental-input-ranking)
 uses the same Rust syllable paths for training features and app inference.
 
 The [ranking evaluation dataset](eval/README.md) contains 220 synthetic queries

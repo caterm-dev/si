@@ -131,7 +131,6 @@ pub struct SICandidateView {
     verbatim: bool,
     token_bonus: f64,
     model_score: f64,
-    neural_only: bool,
 }
 
 /// # Safety
@@ -642,17 +641,14 @@ pub unsafe extern "C" fn si_engine_ranked_candidates_for_mode(
 /// # Safety
 /// A non-null directory must be a valid, terminated UTF-8 string.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn si_ranking_open(
-    directory: *const c_char,
-    use_pinyin_model: bool,
-) -> *mut SIRanking {
+pub unsafe extern "C" fn si_ranking_open(directory: *const c_char) -> *mut SIRanking {
     if directory.is_null() {
         return ptr::null_mut();
     }
     let Ok(path) = unsafe { CStr::from_ptr(directory) }.to_str() else {
         return ptr::null_mut();
     };
-    HybridRanking::open(Path::new(path), use_pinyin_model).map_or(ptr::null_mut(), |ranking| {
+    HybridRanking::open(Path::new(path)).map_or(ptr::null_mut(), |ranking| {
         Box::into_raw(Box::new(SIRanking(ranking)))
     })
 }
@@ -734,7 +730,6 @@ pub unsafe extern "C" fn si_candidates_get(
             verbatim: candidate.verbatim,
             token_bonus: candidate.token_bonus,
             model_score: row.model_score.unwrap_or(f64::NAN),
-            neural_only: row.neural_only,
         });
     }
     true

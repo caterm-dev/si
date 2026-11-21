@@ -56,7 +56,7 @@ public struct CandidateRequest: Sendable {
     }
 
     private static func statisticalOrder(_ candidates: [InputCandidate]) -> [InputCandidate] {
-        candidates.filter { !$0.isLiteral && !$0.isNeuralSuggestion }
+        candidates.filter { !$0.isLiteral }
             .sorted(by: InputCandidate.precedesInStatistics) + candidates.filter(\.isLiteral)
     }
 

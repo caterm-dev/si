@@ -348,9 +348,3 @@
 "Spelling correction · %@" = "拼写纠错 · %@";
 "Pinyin correction" = "拼音纠错";
 "Offer spelling suggestions that require explicit selection." = "提供需要明确选择的拼写建议。";
-"Conservative" = "保守";
-"Higher recall" = "高召回";
-"Off" = "关闭";
-
-"Model suggestion" = "模型建议";
-"Model suggestion · %@" = "模型建议 · %@";

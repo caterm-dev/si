@@ -36,7 +36,8 @@ SI_TEST_ENGINE_RESOURCE_DIRECTORY="$PWD/.build/xcode/Build/Products/Release/SI.a
 ```
 
 It exercises request delivery, the candidate shortlist, the literal fallback
-and explicit submission. On an installed build, type synthetic `fangan` in
+and explicit submission. The package verifier checks that the ranking assets
+contain the matching character scorer and projected trees. On an installed build, type synthetic `fangan` in
 TextEdit after `先定个`, wait for full
 results, and use number or mouse selection. Check Space, Return and Escape,
 then type a second spelling while a request is pending and switch focus. Confirm
@@ -195,7 +196,7 @@ office app. Include ordinary and secure fields, using dummy input.
 
 ### Pinyin correction in a host
 
-In Typing Settings, verify Off is the default, then select Conservative.
+In Typing Settings, verify Pinyin correction is off by default, then turn it on.
 In TextEdit and a browser field, type `nihoa`. Check that `你好` is labeled
 as a spelling correction and the original spelling remains selectable.
 Accept with its displayed number, a click and arrow navigation followed by
@@ -206,10 +207,10 @@ untouched, check Space preserves the original spelling when no ordinary
 whole candidate is available, and Return always preserves it. Use VoiceOver
 to identify the suggestion in both candidate layouts. Change the setting
 during composition and verify obsolete results cannot restore suggestions.
-In both Conservative and Higher recall, type `nihaoo` and `nihaox`.
+With the switch on, type `nihaoo` and `nihaox`.
 Verify that the list contains the exact spelling and offers no whole spelling
-correction to `你好` for either input. Repeat the `nihoa` case with Off and
-check a secure field stays free of correction suggestions.
+correction to `你好` for either input. Repeat the `nihoa` case with the switch
+off and check a secure field stays free of correction suggestions.
 
 For a build containing [a calibrated correction model](../eval/lambdarank/README.md#calibrate-pinyin-correction),
 wait for the background results in TextEdit and a browser field. Verify that
@@ -218,7 +219,7 @@ Space must accept an ordinary whole result or the literal spelling. A
 displayed number, click, or navigation to the correction followed by Space
 should commit `你好` once. Verify that opening the expanded candidate list
 alone does not accept the correction. Type `nihao` as a clean control and
-repeat with correction Off. The clean target should still be available.
+repeat with correction off. The clean target should still be available.
 
 Run the shared worker and selection checks with the matching development
 model and packaged resources. Exercise ordinary typing with correction off,
@@ -441,18 +442,11 @@ and category regressions. The validation split is used for early stopping;
 results are not independent test accuracy or native-window behavior. This
 workflow does not require building or installing the macOS app.
 
-For a contextual Pinyin ranking build, check that the CLI and app use the
-same source-only syllable paths. The LambdaRank tests cover ambiguous
-`fangan`, a typed apostrophe, `u:`, and input that has no full Pinyin path.
-Run the model parity check in the model workspace and run
-`experimentalModelsReachWorkerShortlistAndExplicitCommit` with
-`SI_TEST_ENGINE_RESOURCE_DIRECTORY` set to the
-packaged app's `Contents/Resources/SIEngine`. Verify that ordinary candidates
-remain ranked and the literal remains available. The Pinyin generator is off
-by default. With `SI_USE_PINYIN_MODEL=1`, repeat that test and run
-`packagedRankingExposesNumberedModelSuggestion`. In an installed development
-build, exercise `fangan` and `fan'gan` with and without preceding text, then
-check Escape, focus changes, and explicit candidate confirmation in a host.
+The offline contextual Pinyin parity check uses the CLI's source-only
+syllable paths. The LambdaRank tests cover ambiguous `fangan`, a typed
+apostrophe, `u:`, and input that has no full Pinyin path. See the [Rust
+inference prototype](../llm/README.md#rust-inference-prototype) for the
+standalone model checks.
 
 Use the [corpus guide](../corpus/README.md) for the pinned Python environment.
 Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests` for

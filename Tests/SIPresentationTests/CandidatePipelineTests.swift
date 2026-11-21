@@ -88,7 +88,7 @@ struct CandidatePipelineTests {
         await gate.waitForReceipts(1)
         let ranked = try #require(result)
         #expect(ranked.isModelRanked)
-        #expect(ranked.candidates.contains { $0.modelRankingScore != nil && !$0.isNeuralSuggestion })
+        #expect(ranked.candidates.contains { $0.modelRankingScore != nil })
         let orderedScores = ranked.candidates.compactMap(\.modelRankingScore)
         #expect(orderedScores == orderedScores.sorted(by: >))
         #expect(ranked.candidates.last?.text == "fangan")
@@ -114,64 +114,14 @@ struct CandidatePipelineTests {
 
         var selection = CandidateSelection()
         selection.update(session.candidates)
-        let displayed = try #require(selection.candidates.first { $0.modelRankingScore != nil && !$0.isNeuralSuggestion })
+        let displayed = try #require(selection.candidates.first { $0.modelRankingScore != nil })
         var standard = session
         let ordinary = standard.commitResult(displayed, reason: selection.confirmationReason(for: displayed))
         #expect(ordinary.text == displayed.text)
 
-        if ProcessInfo.processInfo.environment["SI_USE_PINYIN_MODEL"] == "1" {
-            let neuralCandidate = ranked.candidates.first(where: \.isNeuralSuggestion)
-            let suggestion = try #require(neuralCandidate)
-            #expect(suggestion.modelRankingScore != nil && !suggestion.canLearn)
-            #expect(suggestion.requiresExplicitSelection && suggestion.confirmationBoundaries.isEmpty)
-            #expect(selection.confirmationReason(for: suggestion) == .explicitSelection)
-            var implicit = session
-            #expect(implicit.commitResult(suggestion, reason: .defaultAcceptance).text == "fangan")
-            let commit = session.commitResult(suggestion, reason: .explicitSelection)
-            #expect(commit.text == suggestion.text)
-            #expect(commit.input == "fangan" && commit.remainingInput.isEmpty)
-            #expect(!commit.canLearn)
-        } else {
-            #expect(ranked.candidates.filter { !$0.isLiteral }.allSatisfy {
-                !$0.isNeuralSuggestion && $0.statisticalScore != nil
-            })
-        }
+        #expect(ranked.candidates.filter { !$0.isLiteral }.allSatisfy { $0.statisticalScore != nil })
         let acceptedOld = session.accept(ranked)
         #expect(!acceptedOld)
-    }
-
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil
-        && ProcessInfo.processInfo.environment["SI_USE_PINYIN_MODEL"] == "1"))
-    func packagedRankingExposesNumberedModelSuggestion() async throws {
-        let gate = Gate()
-        var result: CandidateResult?
-        let pipeline = CandidatePipeline {
-            result = $0
-            gate.didReceive()
-        }
-        // The packaged checkpoints differ in which query has a model-only result on the first page.
-        for (index, input) in ["huochewandianle", "taiyangluoshanle"].enumerated() {
-            var session = InputSession(candidateGeneration: .deferred)
-            session.configure(languages: [.simplifiedChinese, .english], experimentalRankingEnabled: true)
-            session.append(input)
-            pipeline.submit(try #require(session.pendingCandidateRequest))
-            await gate.waitForReceipts(index + 1)
-            let next = try #require(result)
-            let accepted = session.accept(next)
-            #expect(accepted)
-            var selection = CandidateSelection()
-            selection.update(session.candidates)
-            let modelNumber = (1...selection.visiblePageSize).first {
-                selection.candidate(number: $0)?.isNeuralSuggestion == true
-            }
-            guard let number = modelNumber else { continue }
-            let numbered = try #require(selection.candidate(number: number))
-            let explicit = session.commitResult(numbered, reason: selection.confirmationReason(for: numbered))
-            #expect(explicit.text == numbered.text && explicit.reason == .explicitSelection)
-            #expect(explicit.input == input && explicit.remainingInput.isEmpty)
-            return
-        }
-        Issue.record("Expected a numbered Pinyin model suggestion for a packaged ranking fixture.")
     }
 
     @Test func latestHintsRefreshWhileAnObsoleteFinalSearchIsStillBlocked() async throws {

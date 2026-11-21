@@ -26,12 +26,8 @@ struct TypingSettingsPage: View {
                 title: Text("Pinyin correction"),
                 detail: Text("Offer spelling suggestions that require explicit selection.")
             ) {
-                Picker("Pinyin correction", selection: $settings.pinyinCorrectionMode) {
-                    Text("Off").tag(CandidateEngine.PinyinCorrectionMode.off)
-                    Text("Conservative").tag(CandidateEngine.PinyinCorrectionMode.conservative)
-                    Text("Higher recall").tag(CandidateEngine.PinyinCorrectionMode.higherRecall)
-                }
-                .labelsHidden()
+                Toggle("Pinyin correction", isOn: $settings.pinyinCorrectionEnabled)
+                    .labelsHidden()
             }
             Divider()
             SettingsRow(

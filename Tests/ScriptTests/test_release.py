@@ -369,24 +369,64 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Missing ranking resource: lambdarank.json", result.stderr)
         ranking = engine / "Ranking"
-        ranker = {}
-        for kind, digest in [("pinyin", "a" * 64), ("reranker", "b" * 64)]:
-            model = ranking / kind
-            model.mkdir(parents=True)
-            (model / "model.json").write_text(json.dumps({"kind": kind, "checkpoint_sha256": digest}))
-            (model / "weights.f32").write_bytes(b"synthetic weights")
-            ranker[f"{kind}_checkpoint_sha256"] = digest
+        reranker = ranking / "reranker"
+        reranker.mkdir(parents=True)
+        digest = "b" * 64
+        (reranker / "model.json").write_text(json.dumps({"kind": "reranker", "checkpoint_sha256": digest}))
+        (reranker / "weights.f32").write_bytes(b"synthetic weights")
+        ranker = {"reranker_checkpoint_sha256": digest}
         trees = ranking / "lambdarank.json"
-        trees.write_text(json.dumps({**ranker, "pinyin_checkpoint_sha256": "c" * 64}))
+        trees.write_text(json.dumps({"reranker_checkpoint_sha256": "c" * 64}))
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Ranking checkpoint mismatch: pinyin", result.stderr)
+        self.assertIn("Ranking checkpoint mismatch: reranker", result.stderr)
+        trees.write_text(json.dumps({**ranker, "feature_names": ["from_pinyin_model"]}))
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("obsolete Pinyin generation resources", result.stderr)
         trees.write_text(json.dumps(ranker))
+        (ranking / "pinyin").mkdir()
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("obsolete Pinyin generation resources", result.stderr)
+        (ranking / "pinyin").rmdir()
         subprocess.run(command, check=True, capture_output=True)
         (resources / "KenLM").mkdir()
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("obsolete Swift conversion resources", result.stderr)
+
+    def test_ranking_projection_folds_generation_splits_and_remaps_retained_features(self):
+        left, right = {"kind": "leaf", "value": 2}, {"kind": "leaf", "value": -3}
+
+        def numeric(feature, missing, default_left):
+            return {"kind": "numeric", "feature": feature, "threshold": 0.5, "missing": missing,
+                    "default_left": default_left, "left": left, "right": right}
+
+        legacy = {
+            "schema": 1, "pinyin_checkpoint_sha256": "c" * 64, "beam_size": 5,
+            "reranker_checkpoint_sha256": "b" * 64,
+            "feature_names": ["from_si_engine", "from_pinyin_model",
+                              "pinyin_model_beam_rank", "reranker_logp_sum"],
+            "trees": [
+                {"kind": "categorical", "feature": 0, "categories": [1], "left": left, "right": right},
+                numeric(1, "None", False),
+                numeric(1, "Zero", False),
+                numeric(2, "NaN", False),
+                numeric(3, "NaN", True),
+            ],
+        }
+        original = self.directory / "original.json"
+        projected = self.directory / "projected.json"
+        original.write_text(json.dumps(legacy))
+        subprocess.run([sys.executable, ROOT / "scripts/lambdarank/project_runtime.py", original, projected],
+                       check=True, capture_output=True)
+        self.assertEqual(json.loads(projected.read_text()), {
+            "schema": 1, "reranker_checkpoint_sha256": "b" * 64,
+            "feature_names": ["reranker_logp_sum"],
+            "trees": [left, left, right, right, numeric(0, "NaN", True)],
+        })
+        self.assertEqual(json.loads(original.read_text()), legacy)
 
     def test_rejected_notarization_does_not_expose_final_image(self):
         output = self.directory / "failed"

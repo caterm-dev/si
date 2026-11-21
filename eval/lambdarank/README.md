@@ -395,19 +395,20 @@ spellings and their authored typo variants stay in the same split.
 
 Train a fresh full LambdaRank model on that bundle, then export it with
 `scripts/lambdarank/export_runtime.py`. The export uses clean validation
-queries to pick model-score margins for zero observed false suggestions in
-Conservative mode and at most 5% in Higher recall. It reports clean queries
+queries to pick two model-score margins. The app uses the `conservative`
+margin, calibrated for zero observed false suggestions. The `higher_recall`
+margin targets at most 5% for offline comparison. The exporter reports clean queries
 with any suggestion, how many intended corrections were retrieved, and how
 many pass each margin. These are development operating points measured on
 the same validation split used to select the model iteration. Held-out
 quality requires a separate evaluation.
 
 To build with a separate calibrated model directory, point the app's bundle
-symlink at it after exporting the matching trees.
+symlink at it after exporting the matching trees. The build projects out the
+offline candidate-source features and packages the character scorer.
 
 ```sh
 mkdir -p .build/si-neural-correction-pool
-ln -s ../si-neural/pinyin .build/si-neural-correction-pool/pinyin
 ln -s ../si-neural/reranker .build/si-neural-correction-pool/reranker
 .venv/lambdarank/bin/python scripts/lambdarank/export_runtime.py \
   --run eval/lambdarank/runs/neural-v5-correction-pool \

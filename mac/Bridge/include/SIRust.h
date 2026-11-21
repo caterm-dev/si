@@ -59,7 +59,6 @@ typedef struct SICandidateView {
     bool verbatim;
     double token_bonus;
     double model_score; /* NaN if the candidate was not scored. */
-    bool neural_only;
 } SICandidateView;
 
 /* UTF-8 paths. Grams is optional. NULL indicates resources could not be loaded. */
@@ -113,7 +112,7 @@ SICandidates *si_engine_candidates_for_mode(const SIEngine *engine, const uint8_
                                    const SILearnedToken *tokens, size_t token_count,
                                    const SILearnedPath *paths, size_t path_count, uint8_t mode);
 /* Immutable local model bundle. Call open off the event path. */
-SIRanking *si_ranking_open(const char *directory, bool use_pinyin_model);
+SIRanking *si_ranking_open(const char *directory);
 void si_ranking_close(SIRanking *ranking);
 SICandidates *si_engine_ranked_candidates_for_mode(const SIEngine *engine, const SIRanking *ranking,
                                    const uint8_t *text, size_t length, const uint8_t *preceding_text,

@@ -5,7 +5,7 @@
 | App setting | Synchronous resolution | Full background result |
 | --- | --- | --- |
 | Pinyin correction off (default) | Full contextual statistical order | The same full statistical search and order |
-| Pinyin correction on | Statistical search with the selected correction sensitivity | Calibrated LambdaRank with a six-bit reorder limit |
+| Pinyin correction on | Statistical search with conservative correction | Calibrated LambdaRank with a six-bit reorder limit |
 
 The default route skips model loading and the separate preview worker. It
 keeps the exact spelling available while the first full result is pending.
@@ -18,11 +18,10 @@ outside the band retain their order. Explicit priorities, unscored slots,
 and exact literal fallback remain available.
 
 Launch with `SI_USE_LEGACY_RANKING=1` to restore the unrestricted background
-route. The Pinyin-to-text generator defaults off, independently of the route.
-`SI_USE_PINYIN_MODEL=1` is a development opt-in on model-ranked requests.
-The 61-feature model layout is fixed. With P2T disabled the source
-flag is zero and its beam rank is missing. Secure and direct input skip
-model inference.
+route. The worker scores Rust decoder candidates with the character scorer
+and LambdaRank. App builds project legacy exports onto the 58-feature v5
+layout by resolving splits on the three constant source columns at build
+time. Secure and direct input skip model inference.
 
 ## Statistical score and presentation
 

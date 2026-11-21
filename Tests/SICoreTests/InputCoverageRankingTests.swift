@@ -54,17 +54,6 @@ struct InputCoverageRankingTests {
         #expect(session.presentationScore(for: completion) == 20)
     }
 
-    @Test func modelOnlyOutputDoesNotReceiveLexicalCoverage() {
-        let suggestion = InputCandidate(text: "先定", language: .simplifiedChinese, score: 0,
-                                        modelRankingScore: 1, isNeuralSuggestion: true)
-        let lexical = InputCandidate(text: "先定个", language: .simplifiedChinese, score: -25,
-                                     lexicalTokenCount: 2, modelRankingScore: 1)
-        var session = InputSession(candidateGeneration: .deferred)
-        session.append("xiandingge")
-        #expect(session.presentationScore(for: suggestion) == 0)
-        #expect(session.presentationScore(for: lexical) == 25)
-    }
-
     @Test func separatorsUmlautAliasesAndCaseDoNotInflateCoverage() {
         let word = InputCandidate(text: "绿色", language: .simplifiedChinese, score: -10)
         for spelling in ["lvse", "lü'se'", "lu:'se'", "LÜ'SE'"] {

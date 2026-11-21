@@ -260,7 +260,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         resolveCandidates(to: client)
         guard let current = session.candidates.first(where: {
             $0.id == candidate.id && $0.isPinyinCorrection == candidate.isPinyinCorrection
-                && $0.isNeuralSuggestion == candidate.isNeuralSuggestion
                 && $0.text.utf8.elementsEqual(candidate.text.utf8)
         }) else { update(client); return }
         let commit = session.commitResult(current, reason: selection.confirmationReason(for: current))
@@ -296,7 +295,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           applicationMemory: memory,
                           compositionLearningEnabled: !secureInput,
                           punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
-                          pinyinCorrectionMode: secureInput ? .off : languages.pinyinCorrectionMode,
+                          pinyinCorrectionMode: languages.pinyinCorrectionEnabled && !secureInput ? .conservative : .off,
                           experimentalRankingEnabled: !secureInput, rankingPolicy: Self.rankingPolicy)
         return true
     }

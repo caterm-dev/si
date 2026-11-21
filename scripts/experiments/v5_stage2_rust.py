@@ -49,19 +49,17 @@ def build(workspace):
                  '        evidence.abbreviated_tokens = usize::from(edge.is_abbreviated());')
 
     hybrid = engine / 'conversion/hybrid.rs'
-    replace_once(hybrid, 'use super::input::Input;',
-                 'use super::input::Input;\nuse super::v5_experiment::{self, Extension};')
+    replace_once(hybrid, 'use crate::ranking_features;',
+                 'use crate::ranking_features;\nuse super::v5_experiment::{self, Extension};')
     replace_once(hybrid, '    v5: bool,', '    v5: bool,\n    extension: Option<Extension>,')
-    replace_once(hybrid, '    pub neural_only: bool,',
-                 '    pub neural_only: bool,\n    pub experiment_features: Option<Vec<Option<f64>>>,')
-    replace_once(hybrid, '            neural_only: false,',
-                 '            neural_only: false,\n            experiment_features: None,')
-    replace_once(hybrid, '                            neural_only: true,',
-                 '                            neural_only: true,\n                            experiment_features: None,')
+    replace_once(hybrid, '    pub model_score: Option<f64>,',
+                 '    pub model_score: Option<f64>,\n    pub experiment_features: Option<Vec<Option<f64>>>,')
+    replace_once(hybrid, '            model_score: None,',
+                 '            model_score: None,\n            experiment_features: None,')
     replace_once(hybrid, '        let matches = |extra: &[&str]| {',
                  '        let matches = |extra: &[&str], extension: &[&str]| {')
-    replace_once(hybrid, '                    .chain(NEURAL_FEATURES))',
-                 '                    .chain(NEURAL_FEATURES).chain(extension.iter().copied()))')
+    replace_once(hybrid, '                    .chain(RERANKER_FEATURES))',
+                 '                    .chain(RERANKER_FEATURES).chain(extension.iter().copied()))')
     replace_once(hybrid, '        let v5 = matches(&ranking_features::V5_ADDITIONS);\n        if !v5 && !matches(&[]) {',
                  '        let extension = Extension::ALL.into_iter().find(|extension| {\n'
                  '            matches(&ranking_features::V5_ADDITIONS, extension.names())\n'
@@ -69,9 +67,10 @@ def build(workspace):
                  '        let v5 = extension.is_some() || matches(&ranking_features::V5_ADDITIONS, &[]);\n'
                  '        if !v5 && !matches(&[], &[]) {')
     replace_once(hybrid, '            v5,', '            v5,\n            extension,')
-    replace_once(hybrid, '                            vec![None; self.ranker.feature_names.len() - NEURAL_FEATURES.len()];',
-                 '                            vec![None; ranking_features::NAMES.len()\n'
-                 '                                + if self.v5 { ranking_features::V5_ADDITIONS.len() } else { 0 }];')
+    replace_once(hybrid, '                &mut rows,\n                source,',
+                 '                engine,\n                &mut rows,\n                source,')
+    replace_once(hybrid, '    fn enhance(\n        &self,',
+                 '    fn enhance(\n        &self,\n        engine: &CandidateEngine<\'_>,')
     replace_once(hybrid, '        for mut feature in features {',
                  '        let extended = self.extension.map(|extension| {\n'
                  '            let lexical: Vec<_> = features.iter().map(|feature| feature.values[51]).collect();\n'

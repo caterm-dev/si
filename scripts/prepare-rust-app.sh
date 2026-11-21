@@ -63,15 +63,17 @@ else
     install -m 644 "$lexicon" "$work/main.silex"
     install -m 644 "$grams" "$work/words.sigram"
     "$cli" check-resources "$work/main.silex" "$work/words.sigram"
-    mkdir -p "$work/Ranking/pinyin" "$work/Ranking/reranker"
-    chmod 755 "$work/Ranking" "$work/Ranking/pinyin" "$work/Ranking/reranker"
-    for file in lambdarank.json pinyin/model.json pinyin/weights.f32 reranker/model.json reranker/weights.f32; do
+    mkdir -p "$work/Ranking/reranker"
+    chmod 755 "$work/Ranking" "$work/Ranking/reranker"
+    for file in reranker/model.json reranker/weights.f32; do
         if [[ ! -s "$ranking/$file" ]]; then
             printf 'Missing SI ranking resource: %s\n' "$ranking/$file" >&2
             exit 2
         fi
         install -m 644 "$ranking/$file" "$work/Ranking/$file"
     done
+    python3 "$repo_root/scripts/lambdarank/project_runtime.py" "$ranking/lambdarank.json" "$work/Ranking/lambdarank.json"
+    chmod 644 "$work/Ranking/lambdarank.json"
     python3 "$repo_root/scripts/verify-rust-app.py" --ranking "$work/Ranking"
     mv -f "$work/main.silex" "$resource_dir/main.silex"
     mv -f "$work/words.sigram" "$resource_dir/words.sigram"

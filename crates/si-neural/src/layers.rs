@@ -143,7 +143,9 @@ fn gelu(x: f32) -> f32 {
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum BlockKind {
     CharacterLm,
+    #[cfg(feature = "pinyin-generation")]
     Encoder,
+    #[cfg(feature = "pinyin-generation")]
     Decoder,
 }
 
@@ -167,7 +169,10 @@ impl Block {
         kind: BlockKind,
     ) -> Result<Self> {
         let lm = kind == BlockKind::CharacterLm;
+        #[cfg(feature = "pinyin-generation")]
         let decoder = kind == BlockKind::Decoder;
+        #[cfg(not(feature = "pinyin-generation"))]
+        let decoder = false;
         Ok(Self {
             norm1: Norm::load(w, &format!("{name}.norm1"), width)?,
             attention: Attention::load(
@@ -202,10 +207,14 @@ impl Block {
                 width,
                 hidden,
             )?,
+            #[cfg(feature = "pinyin-generation")]
             causal: kind != BlockKind::Encoder,
+            #[cfg(not(feature = "pinyin-generation"))]
+            causal: true,
         })
     }
 
+    #[cfg(feature = "pinyin-generation")]
     pub fn cross_key_values(&self, memory: &Matrix) -> KeyValue {
         self.cross
             .as_ref()

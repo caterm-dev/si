@@ -11,6 +11,7 @@ import numpy as np
 from v5_stage2 import EXTENSION_SLICES, LEXICAL_INDEX, NAMES, RESOURCES, VARIANTS, enrich, inspect, invoke, names, parse_csv
 from v5_probability_audit import ROOT, pipeline
 from scripts.lambdarank.export_runtime import node
+from scripts.lambdarank.project_runtime import LEGACY_SOURCE_VALUES, project_ranker
 
 PROBES = ('ci', 'goon', 'cannot', 'youyige', 'go on', 'hel', 'HEL', 'Hel', 'hEL',
           'v2.0', 'sample_name', 'a/b', 'nihao', "xi'an", 'xian')
@@ -19,16 +20,15 @@ PROBES = ('ci', 'goon', 'cannot', 'youyige', 'go on', 'hel', 'HEL', 'Hel', 'hEL'
 def native_bundle(output, model, manifest):
     output.mkdir(parents=True)
     source = ROOT / '.build/si-llm-pinyin'
-    for asset in ('pinyin', 'reranker'):
-        (output / asset).symlink_to((source / asset).resolve(), target_is_directory=True)
+    (output / 'reranker').symlink_to((source / 'reranker').resolve(), target_is_directory=True)
     trees = model.dump_model()['tree_info']
-    pipeline.write_json(output / 'lambdarank.json', {
+    ranker = project_ranker({
         'schema': 1, 'feature_names': model.feature_name(),
-        'pinyin_checkpoint_sha256': manifest['resources']['pinyin_model'],
         'reranker_checkpoint_sha256': manifest['resources']['reranker_model'],
-        'beam_size': manifest['neural_models']['beam_size'],
         'trees': [node(tree['tree_structure']) for tree in trees],
     })
+    pipeline.write_json(output / 'lambdarank.json', ranker)
+    return ranker['feature_names']
 
 
 def runtime(binary, model_path):
@@ -82,7 +82,8 @@ def main():
         if model.feature_name() != names(variant):
             raise ValueError('Invalid experiment model features')
         path = args.output / variant
-        native_bundle(path, model, manifest)
+        projected_names = native_bundle(path, model, manifest)
+        base_width = sum(name not in LEGACY_SOURCE_VALUES for name in NAMES)
         groups = runtime(binary, path)
         feature_rows, rust_model_scores, enrichment_inputs = [], [], []
         shared_completion_paths = 0
@@ -90,7 +91,8 @@ def main():
             lexical = [values[LEXICAL_INDEX] for _, _, values in group]
             ratios = []
             for text, score, values in group:
-                feature_rows.append(values)
+                by_name = LEGACY_SOURCE_VALUES | dict(zip(projected_names, values, strict=True))
+                feature_rows.append([by_name[name] for name in model.feature_name()])
                 rust_model_scores.append(score)
                 edge = traces.get((language[values[24]], text))
                 if variant in ('G', 'H') and edge:
@@ -100,11 +102,11 @@ def main():
                 ratio = values[-1] if variant in ('G', 'H') else 1.0
                 ratios.append(ratio)
             enrichment_inputs.append((buffer, lexical, ratios))
-        # Re-evaluate the very same native union, preserving all scored candidate identities.
+        # Re-evaluate the very same native pool, preserving all scored candidate identities.
         if variant != 'A':
             for group, extras in zip(groups, enrich(binary, enrichment_inputs), strict=True):
                 for (_, _, values), expected in zip(group, extras, strict=True):
-                    if values[len(NAMES):] != expected[EXTENSION_SLICES[variant]]:
+                    if values[base_width:] != expected[EXTENSION_SLICES[variant]]:
                         raise ValueError('CLI and App extension features differ for the same pool')
         scores = model.predict(np.asarray(feature_rows, dtype=float), raw_score=True, num_threads=1)
         np.testing.assert_allclose(rust_model_scores, scores, atol=1e-12, rtol=0)

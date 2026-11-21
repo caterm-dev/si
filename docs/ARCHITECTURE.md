@@ -128,8 +128,9 @@ the same bounded, single-edit paths without the exact-path confidence cutoff
 or context backoff. It reserves room for up to four corrections in the shared
 64-candidate SI scoring pool. Edit kind and cost remain model features. Each
 correction must exceed the best scored ordinary SI result by the margin
-exported for the selected mode. When no ordinary SI result was scored, it
-compares the raw model score with that margin. Accepted corrections share
+exported for the app's default operating point (the conservative calibration).
+When no ordinary SI result was scored, it compares the raw model score with
+that margin. Accepted corrections share
 model order with other scored whole results and still require explicit
 selection. Preview, missing calibration and model failures use the
 statistical correction rules.
@@ -140,10 +141,12 @@ list, initial selection falls back to an ordinary whole candidate or the
 original spelling. Suggestions share the overall shortlist capacity and
 preserve their relative engine order. The compact window uses a pencil icon and the expanded
 window displays the spelling-correction label. The accessibility label
-includes this information. Punctuation variants use ordinary candidates only. Typing Settings defaults to Off. Each candidate request captures its
-correction mode. The bridge prepares the lookup index when the base or user
-engine opens, and queries can select a mode without mutating the shared
-engine. Secure input disables suggestions.
+includes this information. Punctuation variants use ordinary candidates only.
+The Typing Settings switch defaults off, and either previously enabled mode
+keeps it on. Each request captures whether correction is enabled. The bridge
+prepares the lookup index when the base or user engine opens, and queries can
+enable correction without mutating the shared engine. Secure input disables
+suggestions.
 
 The app passes opted-in token and consumed-spelling preferences to the search.
 Their larger value counts toward the shared 32-point frequency cap.
@@ -703,8 +706,7 @@ the extractor. The runtime retains compatibility with v4 candidate pools.
 
 The standalone `si-neural` crate loads exported FP32 weights to run both models
 locally. Rust owns Unicode-scalar tokenization, pre-normalized attention,
-encoder/decoder generation and conditional candidate scoring. The macOS build
-uses Accelerate matrix multiplication and the portable implementation provides
+encoder/decoder generation and conditional candidate scoring. On macOS it uses Accelerate matrix multiplication and the portable implementation provides
 a reference without platform libraries. Model exports and parity checks are
 described in [the model workspace](../llm/README.md#rust-inference-prototype).
 For contextual Pinyin, Rust segments the normalized input with base-lexicon
@@ -714,8 +716,12 @@ feature CLI exports those same paths from the source spelling, independently of
 the references. The generator receives the paths and preceding text. An input
 without a complete path still uses the Rust pool and character LM.
 
-Each macOS build packages the matching two FP32 bundles and the exported
-LambdaRank trees from `.build/si-llm-pinyin`. With correction off, synchronous
+Each macOS build reads the FP32 character scorer and exported LambdaRank
+trees from `.build/si-llm-pinyin`. The build projects legacy trees onto the
+app's lexical and character-scoring features by resolving the three source
+columns to the former generation-disabled values. The app packages the
+projected trees and the character scorer. Pinyin-to-text generation and its
+weights stay in the offline workflow. With correction off, synchronous
 resolution and the full worker use the same contextual statistical order.
 That route skips model loading and the separate bounded preview search. While
 the first full result is pending, the exact spelling remains available.
@@ -726,20 +732,14 @@ priority, candidates outside that range retain statistical order, and the
 literal remains available. Launching SI with `SI_USE_LEGACY_RANKING=1`
 restores unrestricted background ranking and early hints. Assets already
 opened in a process are reused if correction is toggled back on.
-On model-ranked routes, `SI_USE_PINYIN_MODEL=1` opts into generation. The
-61-column v5 layout stays fixed. With generation disabled, the Pinyin
-source flag is zero and beam rank is missing on each row.
 For equal model scores, SI candidates use their lexical score with eligible
 learning and the preceding-field adjustment, before the input coverage reward.
-Generated-only candidates follow SI candidates at the same model score and
-retain their beam order within a tie.
 Swift preserves explicit pins, remembered choices, correction and prefix
 policies, and the exact literal fallback. Synchronous resolution and the
 preview on model-ranked routes use the statistical engine. The session rejects results from obsolete
 requests and retains the currently displayed preview after navigation. Secure or
-direct input skips model work. Model-only hypotheses require explicit selection
-and carry no learning, automatic confirmation or prefix evidence. A scored
-result disables automatic prefix confirmation for that request.
+direct input skips model work. A scored result disables automatic prefix
+confirmation for that request.
 
 `corpus/prepare_raw_text.py` extracts sources into versioned
 `chinese/prepared/raw-text-v2` bundles. Six archives retain their existing pins;
@@ -775,11 +775,11 @@ reports exported-pool recall, Top-1/Top-5, MRR, categories and a family macro; i
 measures the exported pool. Independent annotation and model-corpus overlap
 audits remain open. [Dataset and commands](../eval/README.md)
 
-`llm/reranker_small/` implements an independent 7,419,392-parameter causal character-LM baseline: four width-256 pre-norm blocks, four heads, 1,024-wide FFNs, tied embeddings and 256-token context. Its explicit preparation imports verified raw public sources through package-compatible corpus readers, retaining articles/paragraphs, punctuation and English word spaces. Source/group hashes keep Wikipedia pages and conversation turns together; normalized document deduplication and exclusion of cross-split long-paragraph copies reduce exact leakage. Training-only vocabulary, byte fallback and immutable token/window arrays preserve text without joining documents. FP32 training supports strict CPU/MPS resume with RNG/cursor state; CPU is tested bitwise and MPS weights within measured numerical tolerances. Token-loss evaluation, supplied-candidate scoring/benchmarking and inference-only export are separate commands. Bounded validation uses a fixed permutation across source windows. The local 30,000-step checkpoint supports explicit offline Core ML export; native comparison and app staging are removed pending redesign. Pinyin generation, hard-negative ranking fine-tuning and quantization remain separate work.
+`llm/reranker_small/` implements an independent 7,419,392-parameter causal character-LM baseline: four width-256 pre-norm blocks, four heads, 1,024-wide FFNs, tied embeddings and 256-token context. Its explicit preparation imports verified raw public sources through package-compatible corpus readers, retaining articles/paragraphs, punctuation and English word spaces. Source/group hashes keep Wikipedia pages and conversation turns together; normalized document deduplication and exclusion of cross-split long-paragraph copies reduce exact leakage. Training-only vocabulary, byte fallback and immutable token/window arrays preserve text without joining documents. FP32 training supports strict CPU/MPS resume with RNG/cursor state; CPU is tested bitwise and MPS weights within measured numerical tolerances. Token-loss evaluation, supplied-candidate scoring/benchmarking and inference-only export are separate commands. Bounded validation uses a fixed permutation across source windows. The local 30,000-step checkpoint supports explicit offline Core ML export; the Rust runtime uses the separate FP32 export. Pinyin generation remains an offline experiment. Hard-negative ranking fine-tuning and quantization remain separate work.
 
 The [small reranker chat preset](../llm/reranker_small/README.md#chat-continued-pretraining) sets per-source and per-subcorpus training token quotas, reuses the parent tokenizer and keeps exact parent documents in their original splits. It verifies the local `dialogue` and Chinese Chatbot Corpus extracts, preserves their upstream splits and carries their attribution into the bundle. A new AdamW run starts from compatible model weights and records the parent checkpoint identity. Strict resume still restores optimizer, RNG and cursor within the same run.
 
-`llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. The small reranker has no native runtime integration; representative ranking quality remains unverified. The large reranker has no native runtime.
+`llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. The small reranker's FP32 export supplies the app's character scores. Representative ranking quality remains unverified. The large reranker has no native runtime.
 
 The corpus acquisition also supports the latest complete official Chinese Wikipedia current-article dump. Explicit `wikipedia --latest` resolution checks completion metadata, pins a dated URL, verifies the official SHA-1 and records a local SHA-256. The full raw archive retains original simplified/traditional wikitext; streaming preparation selects namespace-0 nonredirect pages and retains page/revision URLs, with Wikipedia's CC BY-SA 4.0 terms kept separate. Existing prepared bundles validate against their own frozen source locks so adding/updating a source does not invalidate historical runs.
 

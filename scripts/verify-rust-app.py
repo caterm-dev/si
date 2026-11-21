@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 import sys
 
+from lambdarank.project_runtime import LEGACY_METADATA, LEGACY_SOURCE_VALUES
+
 
 def verify_ranking(ranking: Path) -> None:
     def manifest(name):
@@ -18,16 +20,21 @@ def verify_ranking(ranking: Path) -> None:
         return result
 
     ranker = manifest("lambdarank.json")
-    for kind in ("pinyin", "reranker"):
-        weights = ranking / kind / "weights.f32"
-        if not weights.is_file() or not weights.stat().st_size:
-            raise ValueError(f"Missing or empty ranking resource: {kind}/weights.f32")
-        model = manifest(f"{kind}/model.json")
-        digest = model.get("checkpoint_sha256")
-        if (model.get("kind") != kind or not isinstance(digest, str)
-                or not re.fullmatch(r"[0-9a-f]{64}", digest)
-                or ranker.get(f"{kind}_checkpoint_sha256") != digest):
-            raise ValueError(f"Ranking checkpoint mismatch: {kind}")
+    generator = ranking / "pinyin"
+    if (generator.exists() or generator.is_symlink()
+            or any(key in ranker for key in LEGACY_METADATA)
+            or any(name in LEGACY_SOURCE_VALUES for name in ranker.get("feature_names", []))):
+        raise ValueError("App contains obsolete Pinyin generation resources")
+
+    weights = ranking / "reranker/weights.f32"
+    if not weights.is_file() or not weights.stat().st_size:
+        raise ValueError("Missing or empty ranking resource: reranker/weights.f32")
+    model = manifest("reranker/model.json")
+    digest = model.get("checkpoint_sha256")
+    if (model.get("kind") != "reranker" or not isinstance(digest, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", digest)
+            or ranker.get("reranker_checkpoint_sha256") != digest):
+        raise ValueError("Ranking checkpoint mismatch: reranker")
 
 
 def verify(resources: Path) -> None:

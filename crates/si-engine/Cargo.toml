@@ -12,7 +12,7 @@ pinyin_pro = "=3.29.4"
 si-gram = { path = "../si-gram" }
 si-lexicon = { path = "../si-lexicon" }
 unicode-segmentation = "=1.13.3"
-si-neural = { path = "../si-neural", optional = true }
+si-neural = { path = "../si-neural", optional = true, default-features = false }
 
 [features]
 experimental-ranking = ["dep:si-neural"]
