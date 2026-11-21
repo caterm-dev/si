@@ -1,7 +1,7 @@
 mod features;
 
 use std::cell::OnceCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use si_gram::{Context, GramModel, MAX_ORDER};
 use si_lexicon::{Lexicon, WordId};
@@ -261,6 +261,10 @@ struct Prepared<'a> {
 
 type ContextCache<'a> = HashMap<ContextKey, Prepared<'a>>;
 
+pub(super) struct CompletionBounds {
+    continuations: HashMap<WordId, f64>,
+}
+
 pub(super) struct ScoreSession<'model, 'data> {
     model: &'model Scoring<'data>,
     capture_evidence: bool,
@@ -271,6 +275,68 @@ pub(super) struct ScoreSession<'model, 'data> {
 }
 
 impl ScoreSession<'_, '_> {
+    pub(super) fn has_field_history(&self) -> bool {
+        self.initial_history.last.is_some()
+    }
+
+    pub(super) fn completion_bounds(
+        &mut self,
+        histories: impl Iterator<Item = History>,
+        language: Language,
+    ) -> Option<CompletionBounds> {
+        // Personalized grams have a separate vocabulary and interpolation.
+        let corpus = self.model.base;
+        if self.model.user.is_some() {
+            return None;
+        }
+        let mut continuations = HashMap::<WordId, f64>::new();
+        if let Some(grams) = corpus.grams {
+            let keys: HashSet<_> = histories
+                .flat_map(|history| context_keys(history.for_language(language).base, language))
+                .collect();
+            for key in keys {
+                let row = prepare_context(&mut self.base_cache, corpus, grams, key);
+                if row.mass > 0.0 {
+                    for (word, count) in row.context.continuations() {
+                        let fraction = count as f64 / row.mass;
+                        continuations
+                            .entry(word)
+                            .and_modify(|largest| *largest = largest.max(fraction))
+                            .or_insert(fraction);
+                    }
+                }
+            }
+        }
+        Some(CompletionBounds { continuations })
+    }
+
+    pub(super) fn completion_upper_bits(
+        &self,
+        bounds: Option<&CompletionBounds>,
+        word: &WordScore<'_>,
+        missing: usize,
+    ) -> f64 {
+        let logp = bounds.map_or(0.0, |bounds| {
+            let unigram = word
+                .unigram
+                .get_or_init(|| self.model.unigram(word.word))
+                .base;
+            let observed = word
+                .word
+                .ids
+                .base
+                .and_then(|id| bounds.continuations.get(&id))
+                .copied()
+                .unwrap_or_default();
+            // Each smoothing step is a weighted average of the old prior and
+            // count / mass. The largest of those inputs bounds the final prior.
+            unigram.max(observed).log2()
+        });
+        // Omit start/switch costs. Allow for accumulated rounding in smoothing
+        // and for the different addition order in the optimistic score.
+        logp - (word.token_bits() + (4.0 + missing as f64)) + 1e-9
+    }
+
     pub(super) fn take_evidence(&mut self) -> Option<Box<PathEvidence>> {
         self.evidence.take()
     }
@@ -475,36 +541,47 @@ where
     corpus
         .grams
         .into_iter()
-        .flat_map(move |grams| {
-            (1..=history.len).map(move |len| {
-                let mut ids = [WordId(0); HISTORY_WORDS];
-                for (destination, &source) in ids.iter_mut().zip(history.ids[..len].iter().rev()) {
-                    *destination = source;
-                }
-                (grams, ContextKey { ids, len, language })
-            })
-        })
+        .flat_map(move |grams| context_keys(history, language).map(move |key| (grams, key)))
         .filter_map(move |(grams, key)| {
-            let row = cache.entry(key).or_insert_with(|| {
-                let context = grams.context(&key.ids[..key.len]);
-                let mass = context
-                    .continuations()
-                    .filter(|(id, _)| {
-                        corpus
-                            .lexicon
-                            .word(*id)
-                            .and_then(|word| word.reading)
-                            .and_then(|reading| Language::from_index(reading.index))
-                            == Some(language)
-                    })
-                    .map(|(_, count)| count as f64)
-                    .sum();
-                Prepared { context, mass }
-            });
+            let row = prepare_context(cache, corpus, grams, key);
             if row.mass == 0.0 {
                 return None;
             }
             let count = id.and_then(|id| row.context.count(id)).unwrap_or(0) as f64;
             Some((count, row.mass, key.len + 1))
         })
+}
+
+fn context_keys(history: HistoryIds, language: Language) -> impl Iterator<Item = ContextKey> {
+    (1..=history.len).map(move |len| {
+        let mut ids = [WordId(0); HISTORY_WORDS];
+        for (destination, &source) in ids.iter_mut().zip(history.ids[..len].iter().rev()) {
+            *destination = source;
+        }
+        ContextKey { ids, len, language }
+    })
+}
+
+fn prepare_context<'cache, 'data>(
+    cache: &'cache mut ContextCache<'data>,
+    corpus: Corpus<'data>,
+    grams: &'data GramModel,
+    key: ContextKey,
+) -> &'cache Prepared<'data> {
+    cache.entry(key).or_insert_with(|| {
+        let context = grams.context(&key.ids[..key.len]);
+        let mass = context
+            .continuations()
+            .filter(|(id, _)| {
+                corpus
+                    .lexicon
+                    .word(*id)
+                    .and_then(|word| word.reading)
+                    .and_then(|reading| Language::from_index(reading.index))
+                    == Some(key.language)
+            })
+            .map(|(_, count)| count as f64)
+            .sum();
+        Prepared { context, mass }
+    })
 }

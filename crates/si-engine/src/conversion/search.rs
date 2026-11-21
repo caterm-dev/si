@@ -154,13 +154,20 @@ pub(super) fn run(
             continue;
         }
         for language in enabled.clone() {
+            let mut completions = Vec::new();
             lookup.visit(language, input, start, limit, |edge| {
-                search.extend(start, &frontier, edge)
+                if edge.end == limit && edge.missing > 0 {
+                    completions.push(edge);
+                } else {
+                    search.extend_completions(start, &frontier, language, &mut completions);
+                    search.extend(start, &frontier, edge, None);
+                }
             });
+            search.extend_completions(start, &frontier, language, &mut completions);
             let mut seen = vec![0; limit + 1];
             personal.visit(language, input, start, limit, |edge| {
                 if allow_personal_edge(&mut seen, edge.end) {
-                    search.extend(start, &frontier, edge);
+                    search.extend(start, &frontier, edge, None);
                 }
             });
         }
@@ -173,7 +180,7 @@ pub(super) fn run(
                 &mut correction_budget,
                 &exact_suffixes,
                 |edge| {
-                    search.extend(start, &frontier, edge);
+                    search.extend(start, &frontier, edge, None);
                 },
             );
         }
@@ -185,7 +192,7 @@ pub(super) fn run(
                 .filter(|&end| end > start)
             {
                 if let Some(edge) = verbatim(input, start, end) {
-                    search.extend(start, &frontier, edge);
+                    search.extend(start, &frontier, edge, None);
                 }
             }
         }
@@ -674,7 +681,94 @@ impl Search<'_, '_, '_, '_> {
         }
     }
 
-    fn extend(&mut self, start: usize, frontier: &Frontier, edge: Match<'_>) {
+    fn extend_completions(
+        &mut self,
+        start: usize,
+        frontier: &Frontier,
+        language: Language,
+        completions: &mut Vec<Match<'_>>,
+    ) {
+        if completions.is_empty() {
+            return;
+        }
+        let bounds = self.scoring.completion_bounds(
+            frontier
+                .beams()
+                .flat_map(|(_, beam)| beam.paths.iter())
+                .filter(|path| !path.corrected)
+                .map(|path| path.history),
+            language,
+        );
+        let Some(bounds) = bounds else {
+            for edge in completions.drain(..) {
+                self.extend(start, frontier, edge, None);
+            }
+            return;
+        };
+        let mut bounded: Vec<_> = completions
+            .drain(..)
+            .enumerate()
+            .map(|(order, edge)| {
+                let upper = self.scoring.completion_upper_bits(
+                    Some(&bounds),
+                    &WordScore::new(edge.word),
+                    edge.missing,
+                );
+                (order, edge, upper)
+            })
+            .collect();
+        if let Some(cutoff) = self.completion_cutoff(frontier, language) {
+            bounded.sort_unstable_by(|a, b| b.2.total_cmp(&a.2));
+            bounded.truncate(bounded.partition_point(|entry| entry.2 >= cutoff));
+            // Only the eligibility scan changes order. Insertion order carries
+            // confirmation-boundary evidence for equal-scoring lexical paths.
+            bounded.sort_unstable_by_key(|entry| entry.0);
+        }
+        for (_, edge, upper) in bounded {
+            self.extend(start, frontier, edge, Some(upper));
+        }
+    }
+
+    fn completion_cutoff(&self, frontier: &Frontier, language: Language) -> Option<f64> {
+        if self.scoring.has_field_history()
+            || !self.preferences.0.is_empty()
+            || self.path_preferences.could_adjust(self.limit)
+        {
+            return None;
+        }
+        let mut cutoff = f64::INFINITY;
+        for (lane, beam) in frontier.beams() {
+            for path in &beam.paths {
+                if path.corrected {
+                    continue;
+                }
+                let private = path.verbatim || path.personal;
+                let mask = path.mask | language.mask();
+                let target = &self.lattice[self.limit];
+                let target = if private {
+                    &target.private[mask - 1]
+                } else {
+                    &target.lanes[lane as usize][mask - 1]
+                };
+                if target.paths.len() < self.beam_width {
+                    return None;
+                }
+                // With field and preference adjustments both absent, the
+                // full beam's last score cannot decrease on subsequent inserts.
+                let last = target.paths.last()?;
+                cutoff = cutoff.min(lane.score(last.score, 0.0) - lane.score(path.score, 0.0));
+            }
+        }
+        cutoff.is_finite().then_some(cutoff)
+    }
+
+    fn extend(
+        &mut self,
+        start: usize,
+        frontier: &Frontier,
+        edge: Match<'_>,
+        completion_upper: Option<f64>,
+    ) {
         let edge_is_corrected = edge.correction_cost > 0.0;
         let language = edge.word.language;
         let surface = render(edge, self.input.source_span(start, edge.end));
@@ -748,6 +842,42 @@ impl Search<'_, '_, '_, '_> {
                         corrected && self.correction_context_backoff,
                     )
                 };
+                let mask = path.mask | language.mask();
+                let splits_english = !private
+                    && (path.splits_english
+                        || start < path.english_end
+                        || (edge.is_abbreviated() && edge.end < english_end));
+                let token_sum = if private || splits_english || corrected {
+                    0.0
+                } else {
+                    path.token_sum + token_sum
+                };
+                let bonus = token_sum / edge.end as f64;
+                let has_path_preferences = !private
+                    && !corrected
+                    && lane == Lane::Personalized
+                    && self.path_preferences.could_adjust(edge.end);
+                if let Some(upper) = completion_upper
+                    && !has_path_preferences
+                    && !self.lattice[edge.end]
+                        .target(lane, mask, private)
+                        .could_enter(
+                            lane.score(
+                                path.score
+                                    + Scores {
+                                        base: upper,
+                                        personalized: upper,
+                                    }
+                                    + context_adjustment,
+                                bonus,
+                            ),
+                            lane,
+                            self.beam_width,
+                            false,
+                        )
+                {
+                    continue;
+                }
                 if corrected {
                     // The lexical probability is at most one. Even that
                     // optimistic path must pay the fixed token and edit costs.
@@ -788,27 +918,12 @@ impl Search<'_, '_, '_, '_> {
                         .map(|previous| Box::new(previous.append(&edge)))
                 });
                 let score = path.score + delta;
-                let mask = path.mask | language.mask();
                 let frontier = &mut self.lattice[edge.end];
                 let (target, width) = if corrected {
                     (&mut frontier.corrected, CORRECTION_BEAM_WIDTH)
                 } else {
                     (frontier.beam(lane, mask, private), self.beam_width)
                 };
-                let splits_english = !private
-                    && (path.splits_english
-                        || start < path.english_end
-                        || (edge.is_abbreviated() && edge.end < english_end));
-                let token_sum = if private || splits_english || corrected {
-                    0.0
-                } else {
-                    path.token_sum + token_sum
-                };
-                let bonus = token_sum / edge.end as f64;
-                let has_path_preferences = !private
-                    && !corrected
-                    && lane == Lane::Personalized
-                    && self.path_preferences.could_adjust(edge.end);
                 if !has_path_preferences
                     && !target.could_enter(
                         lane.score(score + context_adjustment, bonus),
@@ -961,6 +1076,14 @@ struct Frontier {
 }
 
 impl Frontier {
+    fn target(&self, lane: Lane, mask: usize, private: bool) -> &Beam {
+        if private {
+            &self.private[mask - 1]
+        } else {
+            &self.lanes[lane as usize][mask - 1]
+        }
+    }
+
     fn beam(&mut self, lane: Lane, mask: usize, private: bool) -> &mut Beam {
         if private {
             &mut self.private[mask - 1]
