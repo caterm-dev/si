@@ -15,8 +15,9 @@ enum CandidateScoring {
     private static let inputCoverageWeight = 5.0
 
     static func inputCoverageBonus(for candidate: InputCandidate, spelling: String) -> Double {
-        // Verbatim spans are preserved for selection, but are not lexical matches.
-        guard !candidate.isLiteral, !candidate.hasLiteralSegments, !candidate.isPinyinCorrection else { return 0 }
+        // Generated-only output and verbatim spans carry no lexical coverage evidence.
+        guard !candidate.isLiteral, !candidate.hasLiteralSegments,
+              !candidate.isPinyinCorrection, !candidate.isNeuralSuggestion else { return 0 }
         return Double(coverageUnitCount(in: spelling)) * inputCoverageWeight
     }
 
