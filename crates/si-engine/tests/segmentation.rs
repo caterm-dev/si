@@ -151,6 +151,59 @@ fn complete_path_uses_frequencies_and_preserves_valid_long_words() {
 }
 
 #[test]
+fn segmentation_charges_one_bit_per_extra_segment() {
+    for (text, reading, count, pieces, expected) in [
+        (
+            "我的",
+            "wo'de",
+            32,
+            &[("我", "wo"), ("的", "de")][..],
+            &["我的"][..],
+        ),
+        (
+            "好在",
+            "hao'zai",
+            15,
+            &[("好", "hao"), ("在", "zai")][..],
+            &["好", "在"][..],
+        ),
+        (
+            "本地词库",
+            "ben'di'ci'ku",
+            32,
+            &[("本地", "ben'di"), ("词库", "ci'ku")][..],
+            &["本地词库"][..],
+        ),
+        // This split leads by more than one bit before the penalty, but adds two segments.
+        (
+            "现在的我",
+            "xian'zai'de'wo",
+            2,
+            &[("现在", "xian'zai"), ("的", "de"), ("我", "wo")][..],
+            &["现在的我"][..],
+        ),
+    ] {
+        let mut lexicon = Lexicon::new();
+        for &(piece, reading) in pieces {
+            lexicon
+                .add_reading(IndexId(0), reading.as_bytes(), piece, 100)
+                .unwrap();
+        }
+        lexicon
+            .add_reading(IndexId(0), reading.as_bytes(), text, count)
+            .unwrap();
+        let parts: Vec<_> = Segmenter::new(&lexicon)
+            .segment(text)
+            .map(|part| {
+                assert!(matches!(part.kind, SegmentKind::Word(_)));
+                &text[part.range]
+            })
+            .collect();
+        assert_eq!(parts, expected, "{text}");
+    }
+}
+
+#[test]
 fn empty_unknown_and_long_mixed_text_preserve_every_byte() {
     let lexicon = Lexicon::new();
     let segmenter = Segmenter::new(&lexicon);

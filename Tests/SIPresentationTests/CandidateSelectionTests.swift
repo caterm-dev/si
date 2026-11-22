@@ -4,25 +4,27 @@ import SICore
 @testable import SIPresentation
 
 struct CandidateSelectionTests {
-    @Test func expandedGridIsOnePageWithAnIndependentNumberedRow() {
+    @Test func expandedListKeepsFiveRowsVisibleWithAnIndependentNumberedRow() {
         var selection = CandidateSelection()
-        selection.update(candidates(27))
+        selection.update(candidates(33))
         selection.setExpanded(true)
-        for row in 0..<4 {
+        for row in 0..<5 {
             if row > 0 { selection.navigate(.row(1)) }
-            #expect(selection.row == row && selection.page == 0 && selection.pageCount == 2)
-            #expect(selection.displayedRange == 0..<24)
+            #expect(selection.row == row && selection.rowCount == 6)
+            #expect(selection.displayedRange == 0..<30)
             #expect(selection.candidate(number: 1) == selection.candidates[row * 6])
             #expect(selection.candidate(number: 6) == selection.candidates[row * 6 + 5])
         }
+        selection.movePage(by: -1)
+        #expect(selection.row == 0)
         selection.movePage(by: 1)
-        #expect(selection.page == 1 && selection.row == 0)
-        #expect(selection.displayedRange == 24..<27 && selection.visibleRange == 24..<27)
+        #expect(selection.row == 5)
+        #expect(selection.displayedRange == 6..<33 && selection.visibleRange == 30..<33)
         #expect(selection.candidate(number: 3) == selection.candidates.last)
         #expect(selection.candidate(number: 4) == nil)
         for digit in ["7", "8", "9"] { #expect(CandidateSelection.action(keyCode: 0, characters: digit) == nil) }
         selection.setExpanded(false)
-        #expect(selection.displayedRange == selection.visibleRange && selection.page == 4)
+        #expect(selection.displayedRange == selection.visibleRange && selection.row == 5)
     }
 
     @Test func downArrowExpandsWithoutAdvancingTheSelectedCandidate() {
@@ -69,7 +71,7 @@ struct CandidateSelectionTests {
         let values = candidates(22)
         selection.update(values)
         #expect(!selection.isExpanded && selection.visiblePageSize == 6)
-        #expect(selection.visibleRange == 0..<6 && selection.pageCount == 4)
+        #expect(selection.visibleRange == 0..<6 && selection.rowCount == 4)
         #expect(selection.candidate(number: 6) == values[5])
         #expect(selection.candidate(number: 7) == nil)
         #expect(CandidateSelection.action(keyCode: 121, characters: nil, pageSize: selection.visiblePageSize) == .navigate(.page(1)))
@@ -91,7 +93,7 @@ struct CandidateSelectionTests {
             selection.move(by: 1)
         }
         #expect(visited == values.map(\.id))
-        #expect(selection.page == 3 && selection.visibleRange == 18..<22)
+        #expect(selection.row == 3 && selection.visibleRange == 18..<22)
         #expect(selection.candidate(number: 4) == values.last)
         #expect(selection.candidate(number: 5) == nil)
         selection.setExpanded(true)
@@ -155,7 +157,7 @@ struct CandidateSelectionTests {
                                        score: count - $0, lexicalTokenCount: 1) }
     }
 
-    @Test func arrowsAndDigitsReferToTheSamePage() throws {
+    @Test func arrowsAndDigitsReferToTheSameRow() {
         var selection = CandidateSelection()
         selection.setExpanded(true)
         let values = candidates(24)
@@ -166,12 +168,12 @@ struct CandidateSelectionTests {
         selection.move(by: -1)
         #expect(selection.selected == values[0])
         selection.move(by: 6)
-        #expect(selection.page == 0)
+        #expect(selection.displayedRange == 0..<24)
         #expect(selection.visibleRange == 6..<12)
         #expect(selection.candidate(number: 2) == values[7])
         selection.movePage(by: 1)
-        #expect(selection.selected == values[6])
-        #expect(selection.candidate(number: 6) == values[11])
+        #expect(selection.selected == values[18])
+        #expect(selection.candidate(number: 6) == values[23])
         #expect(selection.candidate(number: 7) == nil)
     }
 
@@ -194,9 +196,9 @@ struct CandidateSelectionTests {
         #expect(selection.candidate(number: 10) == nil)
     }
 
-    @Test func arrowsNavigateColumnsAndRowsWithoutTurningTheGridPage() {
+    @Test func arrowNavigationScrollsOneRowAndPreservesTheColumnWherePossible() {
         var selection = CandidateSelection()
-        selection.update(candidates(27))
+        selection.update(candidates(33))
         #expect(CandidateSelection.action(keyCode: 123, characters: nil) == .navigate(.column(-1)))
         #expect(CandidateSelection.action(keyCode: 124, characters: nil) == .navigate(.column(1)))
         #expect(CandidateSelection.action(keyCode: 123, characters: nil, isExpanded: true) == .navigate(.column(-1)))
@@ -206,10 +208,10 @@ struct CandidateSelectionTests {
         #expect(selection.selectedIndex == 1)
         selection.move(by: 4)
         selection.navigate(.column(1))
-        #expect(selection.selectedIndex == 6 && selection.page == 1)
+        #expect(selection.selectedIndex == 6 && selection.displayedRange == 6..<12)
         selection.setExpanded(true)
         selection.navigate(.row(1))
-        #expect(selection.selectedIndex == 12 && selection.page == 0)
+        #expect(selection.selectedIndex == 12 && selection.displayedRange == 0..<30)
         selection.navigate(.column(1))
         #expect(selection.selectedIndex == 13)
         selection.navigate(.row(-1))
@@ -218,17 +220,17 @@ struct CandidateSelectionTests {
         #expect(selection.selectedIndex == 6)
         selection.navigate(.column(10))
         #expect(selection.selectedIndex == 11)
-        selection.navigate(.row(10))
-        #expect(selection.selectedIndex == 23 && selection.page == 0)
+        selection.navigate(.row(3))
+        #expect(selection.selectedIndex == 29 && selection.displayedRange == 0..<30)
         selection.navigate(.row(1))
-        #expect(selection.selectedIndex == 23)
-        selection.navigate(.page(1))
-        #expect(selection.selectedIndex == 26 && selection.page == 1)
+        #expect(selection.selectedIndex == 32 && selection.displayedRange == 6..<33)
         selection.navigate(.row(1))
         selection.navigate(.column(1))
-        #expect(selection.selectedIndex == 26)
+        #expect(selection.selectedIndex == 32)
+        selection.navigate(.row(-1))
+        #expect(selection.selectedIndex == 26 && selection.displayedRange == 6..<33)
         selection.navigate(.page(-1))
-        #expect(selection.selectedIndex == 2 && selection.page == 0)
+        #expect(selection.selectedIndex == 2 && selection.displayedRange == 0..<30)
     }
 
     @Test(arguments: [false, true])
@@ -246,7 +248,7 @@ struct CandidateSelectionTests {
         selection.update(values)
         let shortlist = selection.candidates
         #expect(shortlist.count == 11)
-        #expect(selection.pageCount == (expanded ? 1 : 2))
+        #expect(selection.displayedRange.count == (expanded ? 11 : 6))
         #expect(shortlist == [whole[0], chinese] + Array(whole.dropFirst().prefix(8)) + [literal])
         #expect(shortlist.contains(whole[0]) && shortlist.contains(chinese) && !shortlist.contains(mixed))
         #expect(shortlist.last == literal)
@@ -283,7 +285,7 @@ struct CandidateSelectionTests {
         selection.movePage(by: 2)
         let replacement = [InputCandidate(text: "你好", language: .simplifiedChinese, score: 100)]
         selection.update(replacement)
-        #expect(selection.page == 0)
+        #expect(selection.displayedRange == 0..<1)
         #expect(selection.selected == replacement.first)
         #expect(selection.candidate(number: 2) == nil)
         selection.update([])
@@ -291,7 +293,7 @@ struct CandidateSelectionTests {
         selection.movePage(by: 1)
         #expect(selection.selected == nil)
         #expect(selection.visibleRange.isEmpty)
-        #expect(selection.pageCount == 0)
+        #expect(selection.displayedRange.isEmpty)
         #expect(selection.candidate(number: 1) == nil)
     }
 

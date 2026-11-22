@@ -115,7 +115,12 @@ final class LanguageSettings {
         }
         passthroughApplications = Set((defaults.stringArray(forKey: Self.passthroughApplicationsKey) ?? [])
             .filter { !$0.isEmpty })
-        defaults.register(defaults: [Self.englishKey: true, Self.chineseKey: true])
+        defaults.register(defaults: [
+            Self.englishKey: true,
+            Self.chineseKey: true,
+            Self.pinyinCorrectionKey: 1,
+            Self.localModelRankingKey: true,
+        ])
         for key in ["typing.aiComparison", "typing.aiContext", "typing.aiWeight",
                     "development.kenLMRanking", "development.fullCoverageFirst"] {
             defaults.removeObject(forKey: key)

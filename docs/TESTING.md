@@ -59,6 +59,11 @@ totals, lower-order fallback, and ranking with preceding text.
 Segmentation regressions cover `没有输入法` → `没有 / 输入法` in base
 paragraph ingestion, user ingestion and preceding-field ranking, bounded
 user frequency influence, source-byte coverage and ASCII-run preservation.
+Run `cargo test --locked -p si-engine --test segmentation` to check that the
+one-bit cost applies to each additional segment and still allows stronger splits.
+User ingestion tests also check that URLs with different paths or query
+strings share a scheme-and-host word ID in grams with the surrounding words.
+The full URL and its discarded pieces must be absent from the learned vocabulary.
 After rebuilding the app, verify these boundaries with synthetic Sentence
 Learning captures and preceding-field context in a representative host.
 Existing saved statistics are retained; use a fresh synthetic profile when
@@ -181,11 +186,15 @@ office app. Include ordinary and secure fields, using dummy input.
   exact word choices remain, while Chinese dictionary characters and exact
   original input stay pageable. Repeat with English completions and verify
   number/mouse selection in compact and expanded layouts.
-- Verify collapsed/expanded candidate navigation, whole-page movement and
-  numbers 1–6 relative to the selected row. Check that scrolling does not
-  navigate. Verify Home/End, backward/forward Delete and UTF-16 marked ranges
-  with synthetic combining text. Check the exact candidate committed by each
-  keyboard or mouse action.
+- Type `shi` and press Down to expand while keeping the selected candidate.
+  Use Down past the fifth row, then Up back to the first. The list should
+  scroll one row as the highlight reaches an edge, preserving the column when
+  possible. Use Page Up/Down to move several rows. Check numbers 1–6, Space and
+  clicks on newly visible candidates, including a partial final row. Confirm
+  that edits reset the highlighted row and scroll position. Check that prefix
+  candidates have no arrow and retain their descriptions in tooltips and
+  VoiceOver. Verify Home/End, backward/forward Delete and UTF-16 marked ranges
+  with synthetic combining text.
 - With Pinyin correction off and then on, type Chinese, English and mixed
   spelling, delete letters one by one, and insert in the middle. Every edit
   must return with current candidates, visible numbers and the first item
@@ -214,7 +223,8 @@ office app. Include ordinary and secure fields, using dummy input.
 
 ### Local model ranking in a host
 
-In Typing Settings, verify Local model ranking starts off. Compare
+With fresh preferences, verify Local model ranking starts on in Typing Settings.
+Turn it off, restart SI and verify that the choice persists. Compare
 `xianzaitianjiazimu` in an empty TextEdit field with the option off and on.
 With the bundled snapshots, the model can move `现在添加字幕` ahead of
 `现在添加字母`; both should remain selectable. Repeat with Pinyin correction
@@ -230,7 +240,8 @@ cap, and preservation of the original statistical score.
 
 ### Pinyin correction in a host
 
-In Typing Settings, verify Pinyin correction is off by default, then turn it on.
+With fresh preferences, verify Pinyin correction starts on in Typing Settings.
+Turn it off, restart SI and verify that the choice persists, then turn it on again.
 In TextEdit and a browser field, type `nihoa`. Check that `你好` is labeled
 as a spelling correction and the original spelling remains selectable.
 Accept with its displayed number, a click and arrow navigation followed by
@@ -261,8 +272,11 @@ visible-frame clamping, and displays to the left and above the primary display.
 On an intentionally installed Debug build, type synthetic Pinyin such as
 `dangqian` in a new Claude Desktop composer, the Chrome address bar, a Chrome
 web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Check
-that the panel first appears beside the composition. In each host, try rapid
-typing, a new line, the end of existing text, and starting another composition
+that the panel first appears beside the composition. In Codex, also check a long
+draft with existing text, type until the marked spelling wraps, and move the
+caret within it. Compare the chosen inline offset and rectangle before and
+after the wrap. In each host, try rapid typing, a new line, the end of existing
+text, and starting another composition
 after moving the window. Repeat on a connected external display. Check that
 expand/collapse and paging keep the resized panel beside the composition and
 within the visible frame near the bottom and right edges. Press Escape, commit,
@@ -450,7 +464,7 @@ Check edited vocabulary in conversion, language filtering and secure/direct-inpu
 
 Run `./scripts/test.sh --filter 'CandidateTextSupportTests|CandidateSelectionTests|CandidateViewTests'`. Coverage checks system fallback for ordinary/extension Han, combining marks and emoji, rejects a guaranteed-missing noncharacter alone or inside a word, preserves exact literal bytes and language identities, and verifies that missing candidates do not consume shortlist slots. The synthetic `heihe` regression checks provisional/full results, compact/expanded numbering, mouse identities and exact prefix commits against the filtered list. Engine results and public dictionary entries remain unchanged.
 
-On an intentionally installed build, type `heihe` in TextEdit and a browser field, expand and page through candidates, and confirm that missing-glyph boxes are absent while supported rare characters remain selectable. Check Space, numbers, mouse selection, prefix remainders, Return, cancellation and focus changes in light/dark appearances and with VoiceOver. Coverage depends on installed system fallback fonts; no extension block is excluded wholesale. Original literal input remains available even if it contains an unsupported character. Automated Core Text and offscreen view checks do not establish live host or VoiceOver behavior.
+On an intentionally installed build, type `heihe` in TextEdit and a browser field, expand and scroll through candidates with Down and Up, and confirm that missing-glyph boxes are absent while supported rare characters remain selectable. Check Space, numbers, mouse selection, prefix remainders, Return, cancellation and focus changes in light/dark appearances and with VoiceOver. Coverage depends on installed system fallback fonts; no extension block is excluded wholesale. Original literal input remains available even if it contains an unsupported character. Automated Core Text and offscreen view checks do not establish live host or VoiceOver behavior.
 
 ## Software update verification
 

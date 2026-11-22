@@ -10,34 +10,33 @@ struct LanguageSettingsTests {
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = LanguageSettings(defaults: defaults)
-        #expect(!settings.localModelRankingEnabled)
-        settings.pinyinCorrectionEnabled = true
-        #expect(!LanguageSettings(defaults: defaults).localModelRankingEnabled)
+        #expect(settings.localModelRankingEnabled)
         settings.pinyinCorrectionEnabled = false
+        #expect(LanguageSettings(defaults: defaults).localModelRankingEnabled)
 
         let generation = settings.configurationGeneration
-        settings.localModelRankingEnabled = true
-        let restored = LanguageSettings(defaults: defaults)
-        #expect(restored.localModelRankingEnabled && !restored.pinyinCorrectionEnabled)
-        #expect(settings.configurationGeneration == generation + 1)
         settings.localModelRankingEnabled = false
-        #expect(!LanguageSettings(defaults: defaults).localModelRankingEnabled)
+        let restored = LanguageSettings(defaults: defaults)
+        #expect(!restored.localModelRankingEnabled && !restored.pinyinCorrectionEnabled)
+        #expect(settings.configurationGeneration == generation + 1)
+        settings.localModelRankingEnabled = true
+        #expect(LanguageSettings(defaults: defaults).localModelRankingEnabled)
         #expect(settings.configurationGeneration == generation + 2)
     }
 
-    @Test func pinyinCorrectionSettingPersistsAndDefaultsOff() throws {
+    @Test func pinyinCorrectionSettingPersistsAndDefaultsOn() throws {
         let name = "SI.PinyinCorrectionTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = LanguageSettings(defaults: defaults)
-        #expect(!settings.pinyinCorrectionEnabled)
+        #expect(settings.pinyinCorrectionEnabled)
         let generation = settings.configurationGeneration
-        settings.pinyinCorrectionEnabled = true
-        #expect(settings.configurationGeneration == generation + 1)
-        #expect(LanguageSettings(defaults: defaults).pinyinCorrectionEnabled)
         settings.pinyinCorrectionEnabled = false
-        #expect(settings.configurationGeneration == generation + 2)
+        #expect(settings.configurationGeneration == generation + 1)
         #expect(!LanguageSettings(defaults: defaults).pinyinCorrectionEnabled)
+        settings.pinyinCorrectionEnabled = true
+        #expect(settings.configurationGeneration == generation + 2)
+        #expect(LanguageSettings(defaults: defaults).pinyinCorrectionEnabled)
     }
 
     @Test(arguments: [0, 1, 2, 256])

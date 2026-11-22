@@ -77,7 +77,6 @@ final class CandidateRowButton: NSButton {
         let symbol: String?
         if candidate.isApplicationVocabulary { symbol = "book.closed" }
         else if candidate.isPinyinCorrection { symbol = "pencil" }
-        else if candidate.isPartial { symbol = "arrow.right" }
         else if candidate.isLiteral { symbol = "textformat" }
         else if candidate.isUserPhrase { symbol = "pin.fill" }
         else if candidate.hasLiteralSegments { symbol = "ellipsis" }

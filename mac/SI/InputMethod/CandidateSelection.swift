@@ -2,7 +2,7 @@
 import SICore
 #endif
 
-// One client owns the selected cell, numbered row and displayed page.
+// One client owns the selected cell, numbered row and scroll position.
 struct CandidateSelection {
     /// The displayed global first choice stays neutral, including number/mouse acceptance.
     func confirmationReason(for candidate: InputCandidate?) -> CommitReason {
@@ -24,27 +24,27 @@ struct CandidateSelection {
 
     static let pageSize = 6
     static let compactPageSize = pageSize
-    static let expandedRowCount = 4
+    static let expandedRowCount = 5
     private(set) var isExpanded = false
     var visiblePageSize: Int { Self.pageSize }
-    var pageCapacity: Int { Self.pageSize * (isExpanded ? Self.expandedRowCount : 1) }
     private(set) var candidates: [InputCandidate] = []
     private(set) var selectedIndex = 0
+    private var firstVisibleRow = 0
     private var textSupport = CandidateTextSupport()
 
     var selected: InputCandidate? { candidates.indices.contains(selectedIndex) ? candidates[selectedIndex] : nil }
-    var page: Int { selectedIndex / pageCapacity }
-    var pageCount: Int { (candidates.count + pageCapacity - 1) / pageCapacity }
-    var row: Int { (selectedIndex % pageCapacity) / Self.pageSize }
+    var row: Int { selectedIndex / Self.pageSize }
+    var rowCount: Int { (candidates.count + Self.pageSize - 1) / Self.pageSize }
     // Digits always address the selected row's six columns.
     var visibleRange: Range<Int> {
-        let start = selectedIndex / Self.pageSize * Self.pageSize
+        let start = row * Self.pageSize
         return start..<min(start + Self.pageSize, candidates.count)
     }
 
     var displayedRange: Range<Int> {
-        let start = page * pageCapacity
-        return start..<min(start + pageCapacity, candidates.count)
+        guard isExpanded else { return visibleRange }
+        let start = firstVisibleRow * Self.pageSize
+        return start..<min(start + Self.expandedRowCount * Self.pageSize, candidates.count)
     }
 
     static func action(keyCode: UInt16, characters: String?, pageSize: Int = Self.pageSize,
@@ -67,6 +67,7 @@ struct CandidateSelection {
         if candidates.isEmpty { textSupport = CandidateTextSupport() }
         self.candidates = shortlist(candidates)
         selectedIndex = 0
+        firstVisibleRow = 0
         if self.candidates.isEmpty { isExpanded = false }
     }
 
@@ -78,12 +79,16 @@ struct CandidateSelection {
     }
 
     mutating func setExpanded(_ expanded: Bool) {
+        guard isExpanded != expanded else { return }
         isExpanded = expanded
+        firstVisibleRow = 0
+        if expanded { revealSelectedRow() }
     }
 
     mutating func move(by offset: Int) {
         guard !candidates.isEmpty else { return }
         selectedIndex = max(0, min(candidates.count - 1, selectedIndex + offset))
+        if isExpanded { revealSelectedRow() }
     }
 
     mutating func navigate(_ navigation: Navigation) {
@@ -97,20 +102,26 @@ struct CandidateSelection {
             }
         case .row(let offset):
             guard isExpanded else { return }
-            let column = selectedIndex % Self.pageSize
-            let lastRow = (displayedRange.count - 1) / Self.pageSize
-            let nextRow = max(0, min(lastRow, row + offset))
-            selectedIndex = min(displayedRange.upperBound - 1,
-                                displayedRange.lowerBound + nextRow * Self.pageSize + column)
+            moveRows(by: offset)
         case .page(let offset):
             movePage(by: offset)
         }
     }
 
     mutating func movePage(by offset: Int) {
+        moveRows(by: offset * (isExpanded ? Self.expandedRowCount : 1))
+    }
+
+    private mutating func moveRows(by offset: Int) {
         guard !candidates.isEmpty else { return }
-        let nextPage = max(0, min(pageCount - 1, page + offset))
-        selectedIndex = min(candidates.count - 1, nextPage * pageCapacity + selectedIndex % pageCapacity)
+        let nextRow = max(0, min(rowCount - 1, row + offset))
+        let column = selectedIndex % Self.pageSize
+        move(by: nextRow * Self.pageSize + column - selectedIndex)
+    }
+
+    private mutating func revealSelectedRow() {
+        let earliestStart = max(0, row - Self.expandedRowCount + 1)
+        firstVisibleRow = max(earliestStart, min(firstVisibleRow, row))
     }
 
     func candidate(number: Int) -> InputCandidate? {

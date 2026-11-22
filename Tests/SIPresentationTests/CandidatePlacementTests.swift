@@ -7,19 +7,45 @@ struct CandidatePlacementTests {
                                                     visibleFrame: CGRect(x: 0, y: 40, width: 1440, height: 835))
     private let size = CGSize(width: 300, height: 36)
 
-    @Test func markedStartThenMarkedEndThenSelectionThenZero() {
-        #expect(CandidateAnchor.queryIndices(marked: NSRange(location: 21, length: 7),
-                                             selected: NSRange(location: 26, length: 0)) == [21, 28, 26, 0])
-        #expect(CandidateAnchor.queryIndices(marked: NSRange(location: 21, length: 7),
-                                             selected: NSRange(location: 28, length: 0)) == [21, 28, 0])
+    @Test func inlineCaretPrecedesTheDocumentRanges() {
+        let marked = NSRange(location: 2373, length: 10)
+        for selected in [NSRange(location: 2373, length: 10), NSRange(location: 0, length: 10)] {
+            #expect(CandidateAnchor.queryIndices(inlineText: "dang qianx", caretUTF16Offset: 10,
+                                                 marked: marked, selected: selected) == [10, 9, 2373, 2383, 0])
+        }
+    }
+
+    @Test func aCompositionStartingAtZeroCanStillQueryTheCaret() {
+        let range = NSRange(location: 0, length: 9)
+        #expect(CandidateAnchor.queryIndices(inlineText: "dang qian", caretUTF16Offset: 9,
+                                             marked: range, selected: range) == [9, 8, 0])
+    }
+
+    @Test func theLastCharacterFallbackDoesNotSplitAGrapheme() {
+        let missing = NSRange(location: NSNotFound, length: 0)
+        #expect(CandidateAnchor.queryIndices(inlineText: "a👩‍💻", caretUTF16Offset: 6,
+                                             marked: missing, selected: missing) == [6, 1, 0])
+    }
+
+    @Test func interiorCaretUsesTheSentOffsetBeforeCompatibilityProbes() {
+        var state = MarkedTextState()
+        _ = state.shouldSend("dang qian", selection: NSRange(location: 5, length: 0))
+        let caret = state.caretUTF16Offset
+        #expect(caret == 5)
+        #expect(CandidateAnchor.queryIndices(inlineText: "dang qian", caretUTF16Offset: caret ?? 0,
+                                             marked: NSRange(location: 21, length: 9),
+                                             selected: NSRange(location: 26, length: 0)) == [5, 21, 30, 26, 0])
     }
 
     @Test func missingAndOverflowingOffsetsAreSkipped() {
         let missing = NSRange(location: NSNotFound, length: 0)
-        #expect(CandidateAnchor.queryIndices(marked: missing, selected: missing) == [0])
-        #expect(CandidateAnchor.queryIndices(marked: missing, selected: NSRange(location: 7, length: 0)) == [7, 0])
-        #expect(CandidateAnchor.queryIndices(marked: NSRange(location: Int.max - 1, length: 7),
-                                             selected: missing) == [Int.max - 1, 0])
+        #expect(CandidateAnchor.queryIndices(inlineText: "a", caretUTF16Offset: 1,
+                                             marked: missing, selected: missing) == [1, 0])
+        #expect(CandidateAnchor.queryIndices(inlineText: "a", caretUTF16Offset: 1,
+                                             marked: missing, selected: NSRange(location: 7, length: 0)) == [1, 7, 0])
+        #expect(CandidateAnchor.queryIndices(inlineText: "a", caretUTF16Offset: 1,
+                                             marked: NSRange(location: Int.max - 1, length: 7),
+                                             selected: missing) == [1, Int.max - 1, 0])
     }
 
     @Test func enoughSpacePlacesTheWindowDirectlyBelowTheCaret() throws {

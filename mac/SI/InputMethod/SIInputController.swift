@@ -71,10 +71,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             guard let self, let client = self.client() else { return }
             _ = self.acceptAICompletion(to: client)
         }
-        panel.list.onMovePage = { [weak self] offset in
-            guard let self, self.candidatePanel.ownsPresentation else { return }
-            self.moveCandidateSelection(.page(offset))
-        }
         panel.list.onToggleExpansion = { [weak self] in
             guard let self, self.candidatePanel.ownsPresentation,
                   let client = self.client() else { return }
@@ -398,9 +394,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         updateAISelection(to: client)
     }
 
-    private func moveCandidateSelection(_ navigation: CandidateSelection.Navigation, to eventClient: (any IMKTextInput)? = nil) {
-        guard !session.buffer.isEmpty, let client = eventClient ?? client() else { return }
-        guard configureSession(for: client) else { return }
+    private func moveCandidateSelection(_ navigation: CandidateSelection.Navigation, to client: any IMKTextInput) {
+        guard !session.buffer.isEmpty, configureSession(for: client) else { return }
         session.suspendAutomaticConfirmation()
         automaticConfirmationTask?.cancel()
         selection.navigate(navigation)
@@ -439,7 +434,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // A host call can synchronously service another IMK event. Recheck after each
         // call before using its result or making another request against the old client.
         guard isCurrent(), let activeClient = self.client(), (activeClient as AnyObject) === clientObject,
-              isCurrent() else { return }
+              isCurrent(), let inlineText = markedTextState.text,
+              let caretUTF16Offset = markedTextState.caretUTF16Offset else { return }
         let marked = client.markedRange()
         guard isCurrent() else { return }
         let selected = client.selectedRange()
@@ -454,7 +450,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         var samples: [(index: Int, rect: NSRect)] = []
         var acceptedIndex: Int?
         #endif
-        for index in CandidateAnchor.queryIndices(marked: marked, selected: selected) {
+        for index in CandidateAnchor.queryIndices(inlineText: inlineText, caretUTF16Offset: caretUTF16Offset,
+                                                  marked: marked, selected: selected) {
             var rect = NSRect.zero
             _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
             guard isCurrent() else { return }

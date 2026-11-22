@@ -819,6 +819,78 @@ fn constructed_output_bounds_leave_long_direct_words_and_literal_available() -> 
 }
 
 #[test]
+fn user_ingestion_counts_web_domains_and_discards_url_suffixes() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, EN, "alpha", "alpha", 20);
+    add(&mut lexicon, ZH, "yun", "云", 20);
+    let base = directory.resources(&mut lexicon, None)?;
+    let store = UserModelStore::new(directory.path("addresses.si-user"));
+    let domain = "https://Example.test";
+    let url = "https://Example.test:8443/Case%20Sensitive?q=KeepCase&lang=zh#Section";
+    let other_url = "https://Example.test/Second?Token=Private";
+    let authenticated_url = "https://AccountOnly:Password@Example.test/Docs";
+    let bare = "example.test/路径?q=Value#章节";
+    for batch in ["first", "second"] {
+        store.ingest(
+            base.lexicon(),
+            batch,
+            [
+                Ok(format!("alpha {url} 云")),
+                Ok(format!("alpha {other_url} 云")),
+                Ok(format!("alpha {authenticated_url} 云")),
+                Ok(format!("({bare}).")),
+                Ok("reader.name@sub.example.test".to_owned()),
+            ],
+        )?;
+    }
+    let user = store.load()?.unwrap();
+    let lexicon = user.lexicon();
+    let id = lexicon
+        .find_reading(EN, b"https://example.test", domain)
+        .unwrap();
+    assert_eq!(lexicon.word(id).unwrap().count, 6);
+    assert_eq!(
+        lexicon
+            .word(lexicon.find_word("example.test").unwrap())
+            .unwrap()
+            .count,
+        2
+    );
+    for fragment in [
+        url,
+        other_url,
+        authenticated_url,
+        bare,
+        "https",
+        "Case",
+        "Sensitive",
+        "KeepCase",
+        "Section",
+        "Second",
+        "Token",
+        "Private",
+        "AccountOnly",
+        "Password",
+        "Docs",
+        "路径",
+        "Value",
+        "章节",
+        "sub.example.test",
+    ] {
+        assert_eq!(lexicon.find_word(fragment), None, "{fragment}");
+    }
+    let alpha = lexicon.find_word("alpha").unwrap();
+    let cloud = lexicon.find_word("云").unwrap();
+    let grams = user.grams().unwrap();
+    assert_eq!(grams.count(&[alpha, id]), Some(6));
+    assert_eq!(grams.count(&[id, cloud]), Some(6));
+    assert_eq!(grams.count(&[alpha, id, cloud]), Some(6));
+    assert_eq!(grams.count(&[alpha, cloud]), None);
+    Ok(())
+}
+
+#[test]
 fn user_ingestion_skips_single_letters_without_bridging_grams() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();

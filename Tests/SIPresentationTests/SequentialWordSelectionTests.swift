@@ -209,8 +209,8 @@ struct SequentialWordSelectionTests {
                         for (number, index) in selection.visibleRange.enumerated() {
                             #expect(selection.candidate(number: number + 1)?.id == selection.candidates[index].id)
                         }
-                        if selection.page == selection.pageCount - 1 { break }
-                        selection.movePage(by: 1)
+                        if selection.row == selection.rowCount - 1 { break }
+                        selection.move(by: selection.visiblePageSize)
                     }
                 }
                 #expect(selection.candidates.allSatisfy { engineCandidates.contains($0) })

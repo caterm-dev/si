@@ -42,7 +42,7 @@ struct CandidateViewTests {
         }
     }
 
-    @Test func expandedGridSharesContentSizedColumnsAcrossFourRows() throws {
+    @Test func expandedGridSharesContentSizedColumnsAcrossFiveRows() throws {
         var session = InputSession()
         session.append("sheguofennudehai")
         var selection = CandidateSelection()
@@ -57,7 +57,7 @@ struct CandidateViewTests {
         view.render(selection)
         view.frame = NSRect(origin: .zero, size: view.preferredSize)
         view.layoutSubtreeIfNeeded()
-        #expect(view.rows.count == 24 && view.preferredSize.width >= compactSize.width)
+        #expect(view.rows.count == 30 && view.preferredSize.width >= compactSize.width)
         for (row, previous) in zip(view.rows, firstLine) {
             #expect(row.candidateID == previous.0 && row.isCompact)
             #expect(row.frame.minX >= previous.1 - 0.001 && row.frame.width >= previous.2 - 0.001)
@@ -79,9 +79,9 @@ struct CandidateViewTests {
             expectColumnsAligned(view)
             let narrow = try snapshot(view, appearance: appearance, maximumWidth: 340)
             expectColumnsAligned(view)
-            #expect(Set(view.rows.map { $0.frame.minY }).count == 4)
+            #expect(Set(view.rows.map { $0.frame.minY }).count == 5)
             for row in view.rows {
-                #expect(row.frame.minY >= 34)
+                #expect(row.frame.minY >= 4)
                 #expect(row.frame.maxX <= view.bounds.width - 33 + 0.001)
             }
             #expect(view.rows.allSatisfy { $0.toolTip?.contains($0.candidateLabel.stringValue) == true })
@@ -96,7 +96,7 @@ struct CandidateViewTests {
         }
     }
 
-    @Test func expandedColumnsGrowForLowerRowWordsAndPrefixIndicators() throws {
+    @Test func expandedColumnsGrowForLowerRowWordsAndPrefixesHaveNoArrow() throws {
         let firstLine = ["一", "二", "三", "四", "五", "六"].enumerated().map {
             InputCandidate(text: $0.element, language: .simplifiedChinese, score: 100 - $0.offset, lexicalTokenCount: 1)
         }
@@ -120,8 +120,8 @@ struct CandidateViewTests {
                 #expect(row.candidateLabel.frame.width >= row.candidateLabel.intrinsicContentSize.width)
             }
             #expect(view.rows[6].frame.width > 280)
-            #expect(!view.rows[7].sourceIndicator.isHidden)
-            #expect(view.rows[7].candidateLabel.frame.maxX < view.rows[7].sourceIndicator.frame.minX)
+            #expect(view.rows[7].sourceIndicator.isHidden)
+            #expect(view.rows[7].sourceIndicator.image == nil)
             var clicked: String?
             view.onSelect = { clicked = $0 }
             view.rows[6].performClick(nil)
@@ -201,7 +201,6 @@ struct CandidateViewTests {
                 selection.update(session.candidates)
                 selection.setExpanded(expanded)
                 let index = try #require(selection.candidates.firstIndex { $0.text == "单词" && !$0.isPartial })
-                while selection.page < index / selection.visiblePageSize { selection.movePage(by: 1) }
                 selection.move(by: index - selection.selectedIndex)
                 let number = index % selection.visiblePageSize + 1
                 let chosen = try #require(selection.candidate(number: number))
@@ -216,8 +215,9 @@ struct CandidateViewTests {
                         try snapshot(view, appearance: appearance).write(to: URL(filePath: "\(path).\(layout).\(style).png"))
                     }
                 }
-                view.rows[number - 1].performClick(nil)
-                #expect(clicked == chosen.id && view.rows[number - 1].isCurrent)
+                let row = view.rows[index - selection.displayedRange.lowerBound]
+                row.performClick(nil)
+                #expect(clicked == chosen.id && row.isCurrent)
                 #expect(view.rows[number - 1].numberLabel.stringValue == String(number))
                 let commit = session.commitResult(chosen, reason: .explicitSelection)
                 #expect(commit.text == chosen.text && commit.input == "danci" && session.buffer.isEmpty)
@@ -274,19 +274,14 @@ struct CandidateViewTests {
     }
 
     @Test(arguments: [false, true])
-    func scrollingNeverChangesCandidatePages(expanded: Bool) throws {
+    func wheelGesturesLeaveTheDisplayedCandidatesAndSelectionInPlace(expanded: Bool) throws {
         var selection = CandidateSelection()
         selection.setExpanded(expanded)
         selection.update(pageableCandidates(27, wordPrefix: "Synthetic "))
         selection.movePage(by: 1)
-        let selected = selection.selected
         let view = CandidateListView()
         view.render(selection)
-        var pageMoves: [Int] = []
-        view.onMovePage = {
-            pageMoves.append($0)
-            selection.movePage(by: $0)
-        }
+        let visible = view.rows.map(\.candidateID)
         for units in [CGScrollEventUnit.line, .pixel] {
             for (vertical, horizontal): (Int32, Int32) in [(20, 0), (-20, 0), (0, 20), (0, -20)] {
                 let scroll = try #require(CGEvent(scrollWheelEvent2Source: nil, units: units, wheelCount: 2,
@@ -295,8 +290,8 @@ struct CandidateViewTests {
                 view.scrollWheel(with: event)
             }
         }
-        #expect(pageMoves.isEmpty)
-        #expect(selection.selected == selected && selection.page == 1)
+        #expect(view.rows.map(\.candidateID) == visible)
+        #expect(view.rows.first(where: \.isCurrent)?.candidateID == selection.selected?.id)
     }
 
     @Test func compactRowsShareOneLineAndExpansionPreservesMouseAndNumberMapping() throws {
@@ -317,7 +312,6 @@ struct CandidateViewTests {
         #expect(Set(view.rows.map { $0.frame.minY }).count == 1)
         #expect(view.rows[0].frame.maxX <= view.rows[1].frame.minX)
         #expect(view.rows.last!.frame.maxX <= view.expandButton.frame.minX)
-        #expect(view.pageLabel.isHidden && view.previousButton.isHidden && view.nextButton.isHidden)
         #expect(view.expandButton.accessibilityLabel() == L10n.text("Expand candidates"))
         view.rows[2].performClick(nil)
         #expect(clicked == selection.candidate(number: 3)?.id)
@@ -532,7 +526,7 @@ struct CandidateViewTests {
         #expect(row.accessibilityLabel()?.contains(CandidateDescription.label(for: prefix)) == true)
         #expect(row.toolTip?.contains(CandidateDescription.label(for: prefix)) == true)
         row.configure(candidate: prefix, number: 2, selected: false, compact: true)
-        #expect(row.detailLabel.isHidden && !row.sourceIndicator.isHidden)
+        #expect(row.detailLabel.isHidden && row.sourceIndicator.isHidden)
         #expect(row.accessibilityLabel()?.contains(CandidateDescription.label(for: prefix)) == true)
         #expect(row.toolTip?.contains(CandidateDescription.label(for: prefix)) == true)
         #expect(row.candidateLabel.stringValue == prefix.text && row.candidateID == prefix.id)
@@ -541,26 +535,37 @@ struct CandidateViewTests {
         #expect(row.detailLabel.stringValue == L10n.text("As Typed"))
     }
 
-    @Test func compactSinglePageHidesFooterAndPageButtonsStillNavigate() {
-        let candidates = pageableCandidates(30, wordPrefix: "词")
+    @Test func downArrowScrollsOneRowAtTheBottomAndKeepsSharedCandidateButtons() throws {
+        let candidates = pageableCandidates(40, wordPrefix: "词")
         var selection = CandidateSelection()
         selection.setExpanded(true)
-        selection.update(Array(candidates.prefix(3)))
+        selection.update(candidates)
         let view = CandidateListView()
         view.render(selection)
-        #expect(view.preferredSize.width < 300)
-        #expect(!view.showsPagination)
-        #expect(view.pageLabel.isHidden && view.previousButton.isHidden && view.nextButton.isHidden)
-        selection.update(candidates)
+        let removed = view.rows[0]
+        let retained = view.rows[6]
+        var clicked: String?
+        view.onSelect = { clicked = $0 }
+        let action = try #require(CandidateSelection.action(keyCode: 125, characters: "\u{F701}", isExpanded: true))
+        guard case .navigate(let down) = action else {
+            Issue.record("Expected Down Arrow to move between rows")
+            return
+        }
+        for _ in 0..<4 { selection.navigate(down) }
+        #expect(selection.displayedRange == 0..<30)
+        selection.navigate(down)
         view.render(selection)
-        #expect(view.showsPagination)
-        #expect(view.pageLabel.stringValue == "1 / 2")
-        #expect(!view.previousButton.isEnabled)
-        var pageOffset: Int?
-        view.onMovePage = { pageOffset = $0 }
-        view.nextButton.performClick(nil)
-        #expect(pageOffset == 1)
-        #expect(view.nextButton.accessibilityLabel() == L10n.text("Next page"))
+        #expect(view.rows.map(\.candidateID) == candidates[6..<36].map(\.id))
+        #expect(view.rows.first === retained)
+        #expect(view.rows[24].isCurrent)
+        removed.performClick(nil)
+        #expect(clicked == nil)
+        view.rows[24].performClick(nil)
+        #expect(clicked == selection.candidate(number: 1)?.id)
+        selection.navigate(down)
+        view.render(selection)
+        #expect(view.rows.map(\.candidateID) == candidates[12..<40].map(\.id))
+        #expect(view.rows.last?.numberLabel.stringValue == "4")
     }
 
     @Test func renderedNumbersHighlightAndKeyboardChoiceStayInSync() throws {
@@ -570,8 +575,8 @@ struct CandidateViewTests {
         let view = CandidateListView()
         view.render(selection)
         #expect(view.rows.map { $0.numberLabel.stringValue } == (0..<22).map { String($0 % 6 + 1) })
-        for page in 0..<4 {
-            if page > 0 { selection.navigate(.row(1)) }
+        for rowIndex in 0..<4 {
+            if rowIndex > 0 { selection.navigate(.row(1)) }
             view.render(selection)
             #expect(view.rows.filter(\.isKeyboardRow).map(\.candidateID)
                 == selection.visibleRange.map { selection.candidates[$0].id })
@@ -600,7 +605,7 @@ struct CandidateViewTests {
         view.rows[7].performClick(nil)
         #expect(clicked == selection.candidate(number: 2)?.id)
         #expect(view.rows[7].accessibilityLabel()?.contains("word7") == true)
-        // Other displayed pages remain directly clickable, without changing the keyboard page.
+        // Other displayed rows are directly clickable.
         view.rows[13].performClick(nil)
         #expect(clicked == selection.candidates[13].id && selection.row == 1)
     }
@@ -624,7 +629,7 @@ struct CandidateViewTests {
     }
 
     private func pageableCandidates(_ count: Int, wordPrefix: String) -> [InputCandidate] {
-        // Keep nine words plus characters so navigation still exercises multiple pages.
+        // Keep nine words plus characters to fill multiple rows after shortlisting.
         (0..<count).map {
             InputCandidate(text: $0 < 9 ? "\(wordPrefix)\($0)" : String(UnicodeScalar(0x4E00 + $0)!),
                            language: .simplifiedChinese, score: 100, lexicalTokenCount: 1)

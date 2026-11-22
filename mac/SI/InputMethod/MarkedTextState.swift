@@ -5,6 +5,7 @@ import Foundation
 struct MarkedTextState {
     private(set) var text: String?
     private var selection: NSRange?
+    var caretUTF16Offset: Int? { selection?.location }
 
     mutating func shouldSend(_ text: String, selection: NSRange) -> Bool {
         guard self.selection != selection || self.text?.utf8.elementsEqual(text.utf8) != true else { return false }

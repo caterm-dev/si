@@ -20,7 +20,7 @@ struct HomophonePrefixSelectionTests {
                     let uncommonIndex = try #require(selection.candidates.firstIndex { $0.text == "慈" && $0.isPartial })
                     #expect(wordIndex < uncommonIndex)
                     selection.move(by: wordIndex)
-                    #expect(selection.page == wordIndex / selection.pageCapacity)
+                    #expect(selection.displayedRange.contains(wordIndex))
                     let word = try #require(selection.candidate(number: wordIndex % selection.visiblePageSize + 1))
                     #expect(word.text == "词" && word.language == .simplifiedChinese && !word.isMixed)
                     let commit = session.commitResult(word, reason: .explicitSelection)

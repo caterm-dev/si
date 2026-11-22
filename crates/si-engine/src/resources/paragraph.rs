@@ -108,7 +108,9 @@ impl Observations {
             for segment in segmenter.segment(text) {
                 let id = match segment.kind {
                     SegmentKind::Word(id) => id,
-                    SegmentKind::UserWord(_) => unreachable!("base-only segmenter"),
+                    SegmentKind::UserWord(_) | SegmentKind::WebAddress { .. } => {
+                        unreachable!("base-only segmenter")
+                    }
                     SegmentKind::NewEnglishWord => {
                         self.review.record_english(&text[segment.range])?;
                         Self::finish_run(&mut run, builder).map_err(io::Error::other)?;

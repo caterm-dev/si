@@ -6,7 +6,7 @@ import SILocalization
 
 @MainActor
 struct CharacterPagingTests {
-    @Test func everyCharacterCanBePagedToAndCommittedFromItsGridCell() throws {
+    @Test func everyCharacterCanBeScrolledToAndCommittedFromItsGridCell() throws {
         let characters = (0..<80).map { String(UnicodeScalar(0x4E00 + $0)!) }
         for (input, consumed) in [("bige", "bi"), ("bi'ge", "bi'")] {
             var session = InputSession(engine: CandidateEngine(providers: [CharacterProvider(characters: characters, consumed: consumed.count)]))
@@ -15,11 +15,10 @@ struct CharacterPagingTests {
             var selection = CandidateSelection()
             selection.update(session.candidates)
             selection.setExpanded(true)
-            #expect(selection.pageCount >= 4)
             var seen: Set<String> = []
-            for page in 0..<selection.pageCount {
-                if page > 0 { selection.navigate(.page(1)) }
-                #expect(selection.page == page)
+            for row in 0..<selection.rowCount {
+                if row > 0 { selection.navigate(.row(1)) }
+                #expect(selection.row == row)
                 seen.formUnion(selection.displayedRange.map { selection.candidates[$0].text })
             }
             #expect(Set(characters).isSubset(of: seen) && seen.contains(input))
@@ -27,8 +26,7 @@ struct CharacterPagingTests {
             let index = try #require(selection.candidates.firstIndex { $0.text == target && $0.isPartial })
             #expect(index >= 27)
             selection.move(by: -selection.selectedIndex)
-            selection.navigate(.page(index / 24))
-            selection.navigate(.row(index % 24 / 6))
+            selection.navigate(.row(index / 6))
             selection.navigate(.column(index % 6))
             #expect(selection.selectedIndex == index)
             let view = CandidateListView()
@@ -42,7 +40,6 @@ struct CharacterPagingTests {
             let chosen = try #require(selection.candidate(number: index % 6 + 1))
             #expect(clicked == chosen.id && row.isCurrent)
             #expect(row.accessibilityHelp()?.contains(L10n.format("Row %ld, column %ld", selection.row + 1, index % 6 + 1)) == true)
-            #expect(view.pageLabel.stringValue == "\(selection.page + 1) / \(selection.pageCount)")
             if let path = ProcessInfo.processInfo.environment["SI_SPATIAL_PAGING_SNAPSHOT_PATH"] {
                 for appearance in [NSAppearance.Name.aqua, .darkAqua] {
                     view.appearance = NSAppearance(named: appearance)

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io;
 
@@ -34,7 +35,7 @@ pub(super) fn observe<S: AsRef<str>>(
             continue;
         }
         report.sentences += 1;
-        for segment in segmenter.segment(text) {
+        for segment in segmenter.segment_user_ingest(text) {
             let surface = &text[segment.range];
             // Exclude isolated ASCII letters even when an existing lexicon knows them.
             // They break adjacency rather than creating grams across the skipped text.
@@ -52,11 +53,32 @@ pub(super) fn observe<S: AsRef<str>>(
                     continue;
                 }
                 SegmentKind::Word(id) => base.word(id).and_then(|word| word.reading),
-                SegmentKind::NewEnglishWord => {
+                SegmentKind::NewEnglishWord | SegmentKind::WebAddress { .. } => {
+                    let surface = match segment.kind {
+                        SegmentKind::WebAddress {
+                            host_end,
+                            user_info_bytes: 0,
+                        } => Cow::Borrowed(&surface[..host_end]),
+                        SegmentKind::WebAddress {
+                            host_end,
+                            user_info_bytes,
+                        } => {
+                            let scheme_end =
+                                surface.find("://").expect("user info requires a scheme") + 3;
+                            Cow::Owned(
+                                [
+                                    &surface[..scheme_end],
+                                    &surface[scheme_end + user_info_bytes..host_end],
+                                ]
+                                .concat(),
+                            )
+                        }
+                        _ => Cow::Borrowed(surface),
+                    };
                     let spelling = surface.to_ascii_lowercase();
                     run.push(changes.observe(
                         &state.lexicon,
-                        surface,
+                        &surface,
                         Reading {
                             index: ENGLISH_INDEX,
                             key: spelling.as_bytes(),

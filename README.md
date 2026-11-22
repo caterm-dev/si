@@ -39,9 +39,9 @@ to the underlying statistical score.
 
 Rust library callers can opt into bounded, single-edit Pinyin suggestions
 with `CandidateEngine::with_pinyin_correction(true)`. For a CLI preview, add
-`--pinyin-correction on` to `si-cli candidates`. In the macOS app, enable
-**Pinyin correction** under Typing. Correction is off by default. The first
-displayed candidate gets the default highlight, including a spelling
+`--pinyin-correction on` to `si-cli candidates`. In the macOS app,
+**Pinyin correction** is on by default and can be turned off under Typing.
+The first displayed candidate gets the default highlight, including a spelling
 correction. Space confirms the highlighted candidate.
 Contextual statistical scoring runs in both correction modes. With correction
 enabled, a suggestion must clear the engine's conservative confidence margin
@@ -49,12 +49,12 @@ after its spelling-edit cost. Ordinary whole candidates appear before
 spelling suggestions. Resource-local caches reuse dictionary transitions
 and prepared word-gram contexts across edits.
 
-Enable **Local model ranking** under Typing to let the bundled small character
-model reorder up to eight whole-input candidates within two bits of the
-statistical leader. The option defaults off and is independent of Pinyin
-correction. The model runs on-device and can add up to two bits to an eligible
-candidate's statistical score. SI uses the statistical order whenever model
-scoring is unavailable.
+**Local model ranking** is on by default and can be turned off under Typing.
+The bundled small character model can reorder up to eight whole-input
+candidates within two bits of the statistical leader. The setting is independent
+of Pinyin correction. The model runs on-device and can add up to two bits to an
+eligible candidate's statistical score. SI uses the statistical order whenever
+model scoring is unavailable.
 [Scoring and bounds](docs/ranking-architecture.md#local-model-ranking)
 
 In compatible macOS text fields, SI passes the full text before the composition
@@ -63,7 +63,7 @@ sentence to help rank the first word of each candidate. This context stays in
 memory. If the host cannot provide the text, conversion uses the composition
 and local resources as usual.
 
-The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character that the system font can display. The window retains the first two displayable statistical choices in their ranked positions. Other constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Before shortlisting, the window excludes nonliteral candidates containing missing glyphs, including system LastResort placeholders; supported rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices show a small arrow and consume only their exact source spelling: choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
+The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character that the system font can display. The window retains the first two displayable statistical choices in their ranked positions. Other constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Before shortlisting, the window excludes nonliteral candidates containing missing glyphs, including system LastResort placeholders; supported rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices consume only their exact source spelling. For example, choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 
@@ -76,7 +76,7 @@ The word-gram snapshot is tracked in Git, and `main.silex` is generated locally
 from the maintained CSVs. See [engine resources](Data/Engine/README.md)
 for validation, source notices and maintenance.
 
-Candidate positioning queries the host on the next main-queue turn after marked text and candidate rows are updated. The panel uses the display containing the caret rectangle, flips above the caret when it needs more room, and stays within that display's visible area. If the host returns no usable geometry, SI uses the last valid location for that text client or the mouse position. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
+Candidate positioning queries the host at the marked text’s current caret on the next main-queue turn after marked text and candidate rows are updated. The panel uses the display containing the caret rectangle, flips above the caret when it needs more room, and stays within that display's visible area. If the host returns no usable geometry, SI uses the last valid location for that text client or the mouse position. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
 
 ## Input languages
 
@@ -310,22 +310,22 @@ keeps its original spelling.
 | Return / Enter | Commit the original text without adding a newline |
 | Left / Right | Select the previous/next candidate when collapsed; move columns when expanded |
 | Home / End | Move to the start/end of the composition |
-| Up / Down | Down expands first; move rows in the expanded grid |
-| Page Up / Page Down | Change whole pages: six choices collapsed, 24 expanded |
-| 1–6 | Select candidates on the current highlighted row/page |
+| Up / Down | Down expands first. In the expanded list, move one row and scroll as needed |
+| Page Up / Page Down | Move one row when collapsed or up to five rows when expanded |
+| 1–6 | Select candidates on the highlighted row |
 | Delete / Forward Delete | Remove the previous/next composition character at the caret |
 | Escape | Cancel the composition |
 | Punctuation / symbols | Stay editable in the composition by default; optional punctuation confirmation is configurable |
 | Tab | Apply the configured composition-boundary behavior |
 | A shortcut | Commit original spelling and pass the event through |
 
-Outside composition, control keys and punctuation pass through by default. Enable Show punctuation candidates in Settings → Typing to start common punctuation compositions with language-labeled alternatives for enabled languages. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to six numbered choices. Short candidates such as `a` remain visible beside their numbers. Press Down Arrow or click the chevron to expand to four rows of six candidates, showing up to 24 choices at once. The entire four-row grid is one page; numbers 1–6 act on the highlighted row. Other displayed rows remain directly clickable. Each expanded column is sized for its widest visible candidate, including its number and source symbol; the window grows to show complete text within the available screen width. All rows align their numbers and text with those shared columns. The compact strip also sizes cells to their full text. Narrow screens shrink the columns to fit, with full text retained in tooltips and accessibility labels. Click the top-right chevron to collapse again. The first Down Arrow only expands and preserves the selected candidate; subsequent Down/Up presses move rows, Left/Right moves columns, and Page Up/Down changes whole grid pages. Expansion keeps the current selection and lasts until the composition ends; the next composition starts collapsed. The same shortlist is used in both layouts: six choices per collapsed page or 24 per expanded page, including each matching language identity and the exact original input. All generated Chinese dictionary characters supported by the candidate font remain pageable. Complete-syllable character lookup and character prefixes are exempt from the bounded word and composed-prefix search; other word, initial/completion and sentence search remains bounded.
+Outside composition, control keys and punctuation pass through by default. Enable Show punctuation candidates in Settings → Typing to start common punctuation compositions with language-labeled alternatives for enabled languages. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to six numbered choices. Short candidates such as `a` remain visible beside their numbers. Press Down Arrow or click the chevron to expand to five rows of six candidates, showing up to 30 choices at once. The expanded grid is a continuous list. Numbers 1–6 act on the highlighted row, and every visible candidate can be clicked. Each expanded column is sized for its widest visible candidate, including its number and source symbol; the window grows to show complete text within the available screen width. All rows align their numbers and text with those shared columns. The compact strip also sizes cells to their full text. Narrow screens shrink the columns to fit, with full text retained in tooltips and accessibility labels. Click the top-right chevron to collapse again. The first Down Arrow expands and preserves the selected candidate. The list stays expanded until you collapse it or end the composition. Both layouts use the same shortlist, including matching language identities and the exact original input. All generated Chinese dictionary characters supported by the candidate font remain pageable. Complete-syllable character lookup and character prefixes are exempt from the bounded word and composed-prefix search; other word, initial/completion and sentence search remains bounded.
 
-Number shortcuts 1–6 select within the currently highlighted row in both layouts. Other rows use dimmer numbers until they become active. Left/Right selects candidates in the collapsed strip; Down expands it without changing selection. In the expanded grid, Left/Right moves within a row and Up/Down moves between rows while preserving the column where possible. Row/column movement stops at page boundaries. Page Up/Page Down and the footer buttons change whole pages (six choices collapsed, 24 expanded), preserving the cell position where the destination has it. Space confirms the highlighted candidate. Mouse-wheel and trackpad scrolling do not change pages or selection. Home/End continue editing the composition caret.
+Number shortcuts 1–6 select within the currently highlighted row in both layouts. Other rows use dimmer numbers until they become active. Left/Right selects candidates in the collapsed strip; Down expands it without changing selection. In the expanded grid, Left/Right moves within a row. Up/Down moves between rows, preserving the column where possible and scrolling one row when the selection reaches the edge of the visible list. Page Up/Page Down moves one row when collapsed or up to five rows when expanded. Space confirms the highlighted candidate. Home/End continue editing the composition caret.
 
 Each typing or deletion event synchronously runs full conversion, then updates the marked spelling and candidate window with that completed result. The first displayed candidate is highlighted, numbers remain visible, and keyboard, mouse, paging and expansion controls use the same current list. Space confirms the selected candidate. Return and shortcuts preserve the spelling, and Escape cancels it. Search completes before the next event is handled, so long compositions can delay input. Vocabulary resources load once during application startup.
 
-The candidate window uses a slim neutral strip. The selected candidate has a solid system accent background, blue by default, with white text and numbering. Candidate buttons keep numbers close to their text and fit their content rather than stretching across unused space. Small arrow, pin and text symbols distinguish prefix, personal and typed-text sources in both layouts. Punctuation candidates show a small E (English) or C (Chinese) badge immediately after the text in both layouts; the exact original spelling shows A (As Typed). Full language/source details remain in tooltips and accessibility labels. The system Increased Contrast preference adds a stronger outline; page controls appear only when more than one page is available.
+The candidate window uses a slim neutral strip. The selected candidate has a solid system accent background, blue by default, with white text and numbering. Candidate buttons keep numbers close to their text and fit their content rather than stretching across unused space. Small pin and text symbols distinguish personal and typed-text sources in both layouts. Punctuation candidates show a small E (English) or C (Chinese) badge immediately after the text in both layouts; the exact original spelling shows A (As Typed). Full language/source details remain in tooltips and accessibility labels. The system Increased Contrast preference adds a stronger outline.
 
 The candidate panel uses the first valid screen position reported for the start of the composition. It holds that anchor while typing, editing and paging. Committing, cancelling or changing focus lets the next composition pick a new position. The panel appears below the anchor when there is space and flips above near the bottom of a display.
 
@@ -393,11 +393,13 @@ dictionary's weights. For a fresh rebuild, pass a temporary output path to
 `si-lexicon-build.sh`, regenerate matching word grams, then replace both
 resource files in `Data/Engine/`. The preparation command extracts
 the three local collections documented in the [corpus guide](corpus/README.md).
-The ingest reads `corpus/chinese/prepared/si-corpus/*/text.txt` and adds counts
-to the main lexicon and `Data/Engine/words.sigram` on each completed import. The learn
-script uses adjacent Han tokens from that snapshot to discover compound words
-for the main lexicon. Each token may contain multiple characters. Ingest and
-learn both read `config/si.conf`.
+The ingest reads `corpus/chinese/prepared/si-corpus/*/text.txt`, charges one bit
+per additional segment when splitting the text, and adds counts to the main
+lexicon and `Data/Engine/words.sigram` on each completed import. Rebuild from a
+fresh lexicon and gram snapshot to apply the rule to previously counted text.
+The learn script uses adjacent Han tokens from that snapshot to discover
+compound words for the main lexicon. Each token may contain multiple
+characters. Ingest and learn both read `config/si.conf`.
 
 ```sh
 cargo run --release --locked -p si-cli -- lexicon build .build/si-data/fresh.silex 0 Data/Chinese 1 Data/English
@@ -513,10 +515,14 @@ from that profile. The base lexicon helps segment sentences. Its counts and
 the base gram file stay independent.
 
 User ingestion automatically adds English words with lowercase lookup keys
-and preserves their output casing. Isolated ASCII letters are excluded from
-new vocabulary and gram observations and break word adjacency, even if already
-listed in a lexicon. Existing entries and counts are retained. This user-only
-rule does not change base `corpus ingest` review or placeholder handling.
+and preserves their output casing. A web address supplies its domain and
+any explicit HTTP(S) scheme as one user word and one token in word grams.
+For example, `https://example.com/Docs?q=KeepCase#Section` supplies
+`https://example.com`, and `example.com/Docs` supplies `example.com`.
+User info, ports, paths, query strings and fragments are discarded. Isolated
+ASCII letters are excluded from new vocabulary and gram observations and
+break word adjacency, even if already listed in a lexicon. Existing entries
+and counts are retained. Base `corpus ingest` retains its review and placeholder rules.
 
 ```sh
 cargo run --release --locked -p si-cli -- user ingest .build/si-data/profile.si-user Data/Engine/main.silex batch-001 /path/to/sentences.txt

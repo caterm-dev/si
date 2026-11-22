@@ -6,17 +6,13 @@ import SILocalization
 @MainActor
 final class CandidateListView: NSView {
     private(set) var rows: [CandidateRowButton] = []
-    private(set) var pageLabel = NSTextField(labelWithString: "")
-    private(set) var previousButton = NSButton(title: "", target: nil, action: nil)
-    private(set) var nextButton = NSButton(title: "", target: nil, action: nil)
+    private var renderedRange = 0..<0
     private(set) var expandButton = NSButton(title: "", target: nil, action: nil)
     private(set) var isExpanded = false
-    private(set) var showsPagination = false
     var onSelect: ((String) -> Void)?
     var onSelectPrediction: (() -> Void)?
     let predictionButton = NSButton(title: "", target: nil, action: nil)
     private var predictionHeight: CGFloat { predictionButton.isHidden ? 0 : rowHeight + 6 }
-    var onMovePage: ((Int) -> Void)?
     var onToggleExpansion: (() -> Void)?
     private let rowHeight = CandidateStyle.rowHeight
     private var keyboardLine = 0
@@ -27,26 +23,13 @@ final class CandidateListView: NSView {
         layer?.cornerRadius = 12
         layer?.masksToBounds = true
         setAccessibilityLabel(L10n.text("SI candidates"))
-        pageLabel.font = .systemFont(ofSize: 11)
-        pageLabel.textColor = .secondaryLabelColor
-        previousButton.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: L10n.text("Previous page"))
-        nextButton.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: L10n.text("Next page"))
-        previousButton.setAccessibilityLabel(L10n.text("Previous page"))
-        nextButton.setAccessibilityLabel(L10n.text("Next page"))
-        previousButton.toolTip = L10n.text("Previous page")
-        nextButton.toolTip = L10n.text("Next page")
-        for button in [previousButton, nextButton, expandButton] {
-            button.isBordered = false
-            button.imagePosition = .imageOnly
-            button.symbolConfiguration = .init(pointSize: 9, weight: .medium)
-            button.contentTintColor = .secondaryLabelColor
-            button.target = self
-            addSubview(button)
-        }
-        previousButton.action = #selector(previousPage)
-        nextButton.action = #selector(nextPage)
+        expandButton.isBordered = false
+        expandButton.imagePosition = .imageOnly
+        expandButton.symbolConfiguration = .init(pointSize: 9, weight: .medium)
+        expandButton.contentTintColor = .secondaryLabelColor
+        expandButton.target = self
         expandButton.action = #selector(toggleExpansion)
-        addSubview(pageLabel)
+        addSubview(expandButton)
         predictionButton.target = self
         predictionButton.action = #selector(selectPrediction)
         predictionButton.isBordered = false
@@ -83,7 +66,8 @@ final class CandidateListView: NSView {
             predictionButton.setAccessibilityLabel(nil)
             predictionButton.setAccessibilityHelp(nil)
         }
-        keyboardLine = selection.row
+        let visible = selection.displayedRange
+        keyboardLine = (selection.visibleRange.lowerBound - visible.lowerBound) / selection.visiblePageSize
         isExpanded = selection.isExpanded
         layer?.cornerRadius = cardRadius
         let expansionLabel = L10n.text(isExpanded ? "Collapse candidates" : "Expand candidates")
@@ -93,52 +77,50 @@ final class CandidateListView: NSView {
         expandButton.setAccessibilityValue(L10n.text(isExpanded ? "Expanded" : "Collapsed"))
         expandButton.toolTip = !isExpanded ? "\(expansionLabel) (↓)" : expansionLabel
         let presented = selection.candidates
-        let start = min(selection.page * selection.pageCapacity, max(0, presented.count - 1) / 6 * 6)
-        let visible = Array(start..<min(start + selection.pageCapacity, presented.count))
-        let canReuse = rows.count == visible.count && zip(rows, visible).allSatisfy {
+        let canReuse = renderedRange == visible && zip(rows, visible).allSatisfy {
             $0.0.candidateID == presented[$0.1].id
         }
         if !canReuse {
-            rows.forEach { $0.removeFromSuperview() }
-            rows = visible.map { _ in
+            var previousRows = Dictionary(uniqueKeysWithValues: zip(renderedRange, rows))
+            rows = visible.map { index in
+                if let previous = previousRows[index], previous.candidateID == presented[index].id {
+                    previousRows.removeValue(forKey: index)
+                    return previous
+                }
                 let row = CandidateRowButton()
                 row.target = self
                 row.action = #selector(selectRow(_:))
                 addSubview(row)
                 return row
             }
+            previousRows.values.forEach { $0.removeFromSuperview() }
+            renderedRange = visible
         }
         for (number, index) in visible.enumerated() {
             let row = rows[number]
             row.configure(candidate: presented[index], number: index % selection.visiblePageSize + 1,
                           selected: index == selection.selectedIndex, compact: true,
                           keyboardRow: selection.visibleRange.contains(index))
-            let page = L10n.format("Page %ld of %ld", selection.page + 1, selection.pageCount)
-            let cell = L10n.format("Row %ld, column %ld", (index - selection.displayedRange.lowerBound) / selection.visiblePageSize + 1,
-                                   index % selection.visiblePageSize + 1)
-            row.setAccessibilityHelp("\(page) · \(cell)")
+            let column = index % selection.visiblePageSize + 1
+            if isExpanded {
+                row.setAccessibilityHelp(L10n.format("Row %ld, column %ld", index / selection.visiblePageSize + 1, column))
+            } else {
+                let page = L10n.format("Page %ld of %ld", selection.row + 1, selection.rowCount)
+                let cell = L10n.format("Row %ld, column %ld", 1, column)
+                row.setAccessibilityHelp("\(page) · \(cell)")
+            }
         }
-        showsPagination = selection.pageCount > 1
-        pageLabel.stringValue = "\(selection.page + 1) / \(max(1, selection.pageCount))"
-        pageLabel.setAccessibilityLabel(L10n.format("Page %ld of %ld", selection.page + 1, max(1, selection.pageCount)))
-        for control in [pageLabel, previousButton, nextButton] { control.isHidden = !isExpanded || !showsPagination }
         expandButton.isHidden = rows.isEmpty
-        updateInteraction(selection)
+        expandButton.isEnabled = !rows.isEmpty
+        var accessibilityViews = (rows as [NSView]) + [expandButton]
+        if !predictionButton.isHidden { accessibilityViews.append(predictionButton) }
+        setAccessibilityChildren(accessibilityViews)
         needsLayout = true
         needsDisplay = true
     }
 
     private var cardRadius: CGFloat {
         isExpanded || !predictionButton.isHidden ? 12 : CandidateStyle.stripHeight / 2
-    }
-
-    private func updateInteraction(_ selection: CandidateSelection) {
-        previousButton.isEnabled = selection.page > 0
-        nextButton.isEnabled = selection.page + 1 < selection.pageCount
-        expandButton.isEnabled = !rows.isEmpty
-        var accessibilityViews = (rows as [NSView]) + [expandButton, pageLabel, previousButton, nextButton]
-        if !predictionButton.isHidden { accessibilityViews.append(predictionButton) }
-        setAccessibilityChildren(accessibilityViews)
     }
 
     var preferredSize: NSSize {
@@ -151,8 +133,7 @@ final class CandidateListView: NSView {
         let width = min(max(1, maximumWidth), naturalWidth)
         let lines = isExpanded ? max(1, (rows.count + CandidateSelection.pageSize - 1) / CandidateSelection.pageSize) : 1
         let contentHeight = CGFloat(lines) * (rowHeight + 4) + 4
-        let footer: CGFloat = isExpanded && showsPagination ? 30 : 0
-        return NSSize(width: width, height: contentHeight + footer + predictionHeight)
+        return NSSize(width: width, height: contentHeight + predictionHeight)
     }
 
     private var naturalColumnWidths: [CGFloat] {
@@ -207,9 +188,6 @@ final class CandidateListView: NSView {
                 x += width
             }
         }
-        pageLabel.frame = NSRect(x: 13, y: 7 + predictionOffset, width: max(0, bounds.width - 108), height: 16)
-        previousButton.frame = NSRect(x: bounds.width - 90, y: 3 + predictionOffset, width: 26, height: 24)
-        nextButton.frame = NSRect(x: bounds.width - 62, y: 3 + predictionOffset, width: 26, height: 24)
         expandButton.frame = NSRect(x: bounds.width - 32, y: bounds.height - 32,
                                    width: 26, height: rowHeight)
     }
@@ -238,9 +216,6 @@ final class CandidateListView: NSView {
         if !predictionButton.isHidden {
             drawHorizontalSeparator(at: predictionHeight)
         }
-        if isExpanded && showsPagination {
-            drawHorizontalSeparator(at: 30 + predictionHeight)
-        }
     }
 
     private func drawHorizontalSeparator(at height: CGFloat) {
@@ -253,7 +228,7 @@ final class CandidateListView: NSView {
     }
 
     override func scrollWheel(with event: NSEvent) {
-        // Wheel and trackpad gestures must not change the candidate page or selection.
+        // Candidate navigation is driven by keys and clicks.
     }
 
     @objc private func selectRow(_ sender: CandidateRowButton) {
@@ -263,7 +238,5 @@ final class CandidateListView: NSView {
     @objc private func selectPrediction() {
         if !predictionButton.isHidden, predictionButton.isEnabled { onSelectPrediction?() }
     }
-    @objc private func previousPage() { if previousButton.isEnabled { onMovePage?(-1) } }
-    @objc private func nextPage() { if nextButton.isEnabled { onMovePage?(1) } }
     @objc private func toggleExpansion() { if expandButton.isEnabled { onToggleExpansion?() } }
 }

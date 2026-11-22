@@ -4,14 +4,14 @@
 
 Each edit completes full conversion before the window updates.
 The application loads the paired lexicon and word-gram snapshots before
-opening its IMKServer. Turning on Pinyin correction adds bounded single-edit
-suggestions that meet the conservative statistical confidence margin.
+opening its IMKServer. Pinyin correction is enabled by default and adds bounded
+single-edit suggestions that meet the conservative statistical confidence margin.
 Ordinary whole results precede suggestions of the same span. Secure input
 suppresses suggestions, and direct input passes keys through.
 
 ## Local model ranking
 
-**Local model ranking** is a separate, default-off Typing option. With it on,
+**Local model ranking** is a separate Typing option enabled by default. With it on,
 Rust evaluates up to eight ordinary whole-input candidates within two bits of
 the leading ordinary whole-input score. Completions, literal segments,
 personal phrases and spelling corrections receive no model reward. Each

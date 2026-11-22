@@ -1,5 +1,7 @@
 //! Frequency-scored segmentation of written text against immutable lexicons.
 
+mod web_url;
+
 use std::ops::Range;
 
 use si_lexicon::{Lexicon, Word, WordId};
@@ -12,6 +14,11 @@ pub enum SegmentKind {
     Word(WordId),
     UserWord(WordId),
     NewEnglishWord,
+    /// Only the scheme and host enter the user lexicon.
+    WebAddress {
+        host_end: usize,
+        user_info_bytes: usize,
+    },
     Letter,
     Number,
     Ambiguous,
@@ -37,6 +44,9 @@ pub struct Segmenter<'a> {
 
 // User observations add at most this many pseudo-counts per written word.
 const USER_COUNT_LIMIT: f64 = 32.0;
+
+// One bit expressed in the natural-log units used by path scores.
+const SEGMENT_PENALTY: f64 = std::f64::consts::LN_2;
 
 #[derive(Clone, Copy)]
 struct Entry<'a> {
@@ -123,19 +133,27 @@ impl<'a> Segmenter<'a> {
         // once per immutable index, outside the per-request segmentation path.
         let total = 0.5 + entries.iter().map(|entry| entry.score).sum::<f64>();
         for entry in &mut entries {
-            entry.score = (entry.score / total).ln();
+            entry.score = (entry.score / total).ln() - SEGMENT_PENALTY;
         }
         Self {
             lexicon,
             user,
             entries,
-            unknown_score: (0.5 / total).ln(),
+            unknown_score: (0.5 / total).ln() - SEGMENT_PENALTY,
         }
     }
 
     /// Choose the highest-scoring complete path, preserving exact source byte ranges.
     /// ASCII runs keep their existing whole-run/known-spelling rules.
     pub fn segment(&self, text: &str) -> std::vec::IntoIter<Segment> {
+        self.segment_text(text, false)
+    }
+
+    pub(crate) fn segment_user_ingest(&self, text: &str) -> std::vec::IntoIter<Segment> {
+        self.segment_text(text, true)
+    }
+
+    fn segment_text(&self, text: &str, recognize_urls: bool) -> std::vec::IntoIter<Segment> {
         let mut steps = vec![None; text.len() + 1];
         steps[0] = Some(Step {
             score: 0.0,
@@ -164,7 +182,24 @@ impl<'a> Segmenter<'a> {
             };
             let remaining = &text[start..];
             if first.is_ascii_alphanumeric() {
-                let (length, kind, score) = self.ascii(remaining, first);
+                let url = if recognize_urls
+                    && (start == 0 || !matches!(text.as_bytes()[start - 1], b'@' | b'.'))
+                {
+                    web_url::prefix(remaining)
+                } else {
+                    None
+                };
+                let (length, kind, score) = match url {
+                    Some(url) => (
+                        url.consumed_bytes,
+                        SegmentKind::WebAddress {
+                            host_end: url.host_end,
+                            user_info_bytes: url.user_info_bytes,
+                        },
+                        self.unknown_score,
+                    ),
+                    None => self.ascii(remaining, first, recognize_urls),
+                };
                 offer(length, kind, score);
             } else if first.is_alphanumeric() {
                 self.matches(remaining, |length, entry| {
@@ -225,9 +260,16 @@ impl<'a> Segmenter<'a> {
         matches.next().is_none().then_some(kind)
     }
 
-    fn ascii(&self, text: &str, first: char) -> (usize, SegmentKind, f64) {
+    fn ascii(&self, text: &str, first: char, recognize_urls: bool) -> (usize, SegmentKind, f64) {
         let mut longest = None;
         self.matches(text, |length, entry| {
+            // A learned domain still needs the URL boundary rules, including inside email text.
+            if recognize_urls
+                && entry.text.contains(['.', ':'])
+                && web_url::prefix(entry.text).is_some()
+            {
+                return;
+            }
             longest = Some((length, entry.kind, entry.score))
         });
         if first.is_ascii_digit() {
