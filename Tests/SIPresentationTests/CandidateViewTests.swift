@@ -405,6 +405,27 @@ struct CandidateViewTests {
         #expect(CandidateSelection.action(keyCode: 116, characters: "\u{F72C}") == .navigate(.page(-1)))
     }
 
+    @Test(arguments: [false, true])
+    func selectedLabelsUseEmphasizedTextColors(expanded: Bool) {
+        var selection = CandidateSelection()
+        selection.setExpanded(expanded)
+        selection.update([
+            InputCandidate(text: "我们", language: .simplifiedChinese, score: 100),
+            InputCandidate(text: "我", language: .simplifiedChinese, score: 90),
+        ])
+        let view = CandidateListView()
+        view.render(selection)
+        #expect(view.rows[0].candidateLabel.textColor == .alternateSelectedControlTextColor)
+        #expect(view.rows[0].numberLabel.textColor == .alternateSelectedControlTextColor)
+
+        selection.move(by: 1)
+        view.render(selection)
+        #expect(view.rows[0].candidateLabel.textColor == .labelColor)
+        #expect(view.rows[0].numberLabel.textColor == .secondaryLabelColor)
+        #expect(view.rows[1].candidateLabel.textColor == .alternateSelectedControlTextColor)
+        #expect(view.rows[1].numberLabel.textColor == .alternateSelectedControlTextColor)
+    }
+
     @Test func syntheticCandidateViewCanRenderForVisualInspection() throws {
         var selection = CandidateSelection()
         selection.setExpanded(true)

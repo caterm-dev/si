@@ -206,8 +206,11 @@ office app. Include ordinary and secure fields, using dummy input.
   `My_Type+=Value` under the punctuation policies. Check literal spelling,
   no duplicate delimiter insertion, and no learning from delimiter commits.
 - Check compact/expanded text, numbering, symbols, pagination, keyboard use,
-  VoiceOver, light/dark appearance and Increase Contrast. Inspect the panel
-  near screen edges, with multiple displays and during marked-text wrapping.
+  and VoiceOver. In light and dark appearances, check that the selected
+  candidate uses a solid system accent (blue by default) with white text and
+  numbering. Check the lighter active-row tint in the expanded layout and the
+  selection outline with Increase Contrast. Inspect the panel near screen edges,
+  with multiple displays and during marked-text wrapping.
 
 ### Local model ranking in a host
 
@@ -401,10 +404,9 @@ Use a dedicated synthetic profile and an intentionally installed build; never re
 
 ### Sentence learning
 
-- Use an isolated synthetic profile in TextEdit and a browser or editor. With Personal Learning and Input History off, confirm eligible candidates by Space, number and mouse. Verify the local user vocabulary and word grams update and survive restart.
-- Select several prefixes of one composition and verify the last successful confirmation queues one combined observation. Test editing the remainder, Escape, focus changes, shortcuts, stale selections and failed insertion. No abandoned prefix should be observed in the user model.
-- Type an unknown synthetic English word such as `sigram` in an isolated profile with English enabled. Press Return and verify the exact text is submitted once, without a space or newline. Verify the word appears in Personal Phrases and can be selected as an English candidate on the next composition. Confirm a prefix and press Return to check that Sentence Learning receives only the remaining spelling.
-- Paste synthetic content with a unique word and press Return outside composition. Confirm the host receives Return once and the pasted word is absent from the user model. Check secure/direct input and literal commits caused by shortcuts or host callbacks, punctuation, automatic confirmation and AI completion.
+- Use an isolated synthetic profile with Personal Learning and Input History off. Enter a sentence via separate Space, number or mouse selections, edit a word in the host, and use a Return or Command–Return that clears or leaves the field. Verify the edited sentence feeds cross-word grams once, the edited-out word is absent and the derived model survives restart.
+- With an active composition, press Return and verify it inserts only the exact remaining spelling, once. Check the spelling is eligible for Sentence Learning on a subsequent Return that is passed to the host and ends the field. Verify that individual candidate confirmations, shortcuts other than Command–Return, Escape and switching fields without a pending Return leave the model untouched.
+- Check end-of-field newline and unchanged text skip ingestion. Inserting a newline in the middle triggers ingestion when it breaks literal containment. Try TextEdit, a browser address bar and a chat composer. Include rapid typing after Return, paste, secure/direct input and clearing learning before readback. Check Settings focus, VoiceOver and both localizations.
 - Verify the Sentence Learning page and sample display are gone in both languages. Upgrade an isolated profile with a synthetic recent-samples sidecar. Verify the file is removed and its paired vocabulary and grams survive. Check Delete All cancels pending learning even during a write, and legacy SQLite deletion is still available under Personal Phrases.
 
 ### Input History export and receiver tools

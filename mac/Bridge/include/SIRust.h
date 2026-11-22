@@ -80,7 +80,7 @@ bool si_engine_user_entry(const SIEngine *engine, size_t offset, SIUserEntryView
 bool si_engine_edit_user_entry(const char *profile, const SIUserEntryView *old_entry,
                                const SIUserEntryView *new_entry);
 bool si_engine_load_user(const SIEngine *engine, const char *profile, SIEngine **out);
-/* Concatenated UTF-8 submissions with their exclusive end offsets in bytes. */
+/* Up to 32 nonempty UTF-8 submissions totaling at most 128 KiB, with exclusive byte end offsets. */
 bool si_engine_ingest_user(const SIEngine *engine, const char *profile, const char *batch_id,
                            const uint8_t *text, size_t length, const size_t *ends, size_t count);
 bool si_engine_clear_user(const char *profile);

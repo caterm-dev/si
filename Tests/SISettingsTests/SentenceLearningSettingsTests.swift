@@ -10,25 +10,6 @@ struct SentenceLearningSettingsTests {
         var enabled = false
     }
 
-    private struct SplitProvider: CandidateProvider {
-        let language = InputLanguage.english
-
-        func candidates(for input: String) -> [InputCandidate] {
-            switch input {
-            case "zornaxquivora":
-                [InputCandidate(text: "Zornax", language: language, score: 1, consumedInputCount: 6)]
-            case "quivora":
-                [InputCandidate(text: "Quivora", language: language, score: 1)]
-            default: []
-            }
-        }
-    }
-
-    private func confirmation(_ text: String, reason: CommitReason = .defaultAcceptance) -> InputCommit {
-        InputCommit(input: text.lowercased(), candidate: InputCandidate(text: text, language: .english, score: -7),
-                    reason: reason)
-    }
-
     @Test func personalPhrasesEditTheActiveUserLexicon() async throws {
         let suite = "si-phrase-editor-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
@@ -57,7 +38,7 @@ struct SentenceLearningSettingsTests {
         #expect(try await store.load().entries.isEmpty)
     }
 
-    @Test func returnLearnsExactSpellingAndOnlyTheSubmittedRemainder() async throws {
+    @Test func learnsTheCompleteReturnFieldByDefault() async throws {
         let suite = "si-return-learning-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         let profile = FileManager.default.temporaryDirectory.appending(path: "\(suite).si-user")
@@ -70,26 +51,15 @@ struct SentenceLearningSettingsTests {
         let settings = SentenceLearningSettings(defaults: defaults, store: store, allowsRecording: { !secure.enabled })
         await settings.start()
         let generation = settings.generation
-        let sigram = InputCommit(input: "SiGram", candidate: nil, reason: .literal)
-        settings.record(sigram, expectedGeneration: generation)
+        #expect(settings.canRecord)
         secure.enabled = true
-        settings.record(sigram, expectedGeneration: generation, isReturnCommit: true)
+        settings.recordReturnField("Skipvax", expectedGeneration: generation)
         secure.enabled = false
+        settings.recordReturnField("", expectedGeneration: generation)
         await settings.flush()
         #expect(try await store.load().entries.isEmpty)
 
-        settings.record(sigram, expectedGeneration: generation, isReturnCommit: true)
-        var session = InputSession(engine: CandidateEngine(providers: [SplitProvider()]))
-        session.configure(languages: [.english], compositionLearningEnabled: true)
-        session.append("zornaxquivora")
-        let prefix = try #require(session.candidates.first { $0.text == "Zornax" })
-        let first = session.commitResult(prefix, reason: .explicitSelection)
-        settings.record(session.recordSuccessfulCommit(first) ?? first, expectedGeneration: generation)
-        let remainder = session.commitResult(reason: .literal)
-        #expect(remainder.text == "quivora")
-        #expect(!remainder.canLearn)
-        settings.record(session.recordSuccessfulCommit(remainder) ?? remainder,
-                        expectedGeneration: generation, isReturnCommit: true)
+        settings.recordReturnField("SiGram quivora", expectedGeneration: generation)
         await settings.flush()
 
         let entries = try await store.load().entries
@@ -102,7 +72,27 @@ struct SentenceLearningSettingsTests {
             .contains { $0.text == "SiGram" && $0.language == .english })
     }
 
-    @Test func confirmedCandidatesLearnByDefaultAndDeleteAllInvalidatesPendingWork() async throws {
+    @Test func acceptsLargeReturnFieldSnapshotsInSeparateBatches() async throws {
+        let suite = "si-return-field-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        let profile = FileManager.default.temporaryDirectory.appending(path: "\(suite).si-user")
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: profile)
+        }
+        let store = SentenceLearningStore(profile: profile)
+        let settings = SentenceLearningSettings(defaults: defaults, store: store, allowsRecording: { true })
+        await settings.start()
+        let generation = settings.generation
+        let padding = String(repeating: " ", count: 70 * 1_024)
+        settings.recordReturnField(padding + "Zornax Quivora", expectedGeneration: generation)
+        settings.recordReturnField(padding + "Zornax", expectedGeneration: generation)
+        await settings.flush()
+        #expect(try await store.load().entries.map(\.text).sorted() == ["Quivora", "Zornax"])
+        #expect(settings.entries.first { $0.text == "Zornax" }?.count == 2)
+    }
+
+    @Test func retriesReturnFieldLearningAndDeleteAllInvalidatesPendingWork() async throws {
         let suite = "si-sentence-learning-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         let directory = FileManager.default.temporaryDirectory.appending(path: suite)
@@ -139,30 +129,9 @@ struct SentenceLearningSettingsTests {
         #expect(!settings.canClearAll)
 
         let generation = settings.generation
-        for reason in [CommitReason.literal, .passthrough, .automaticConfirmation, .aiCompletion, .focusChange] {
-            settings.record(confirmation("Skipvax", reason: reason), expectedGeneration: generation)
-        }
-        let prefix = InputCandidate(text: "Prefixvax", language: .english, score: 1, consumedInputCount: 9)
-        settings.record(InputCommit(input: "prefixvax", candidate: prefix, reason: .explicitSelection,
-                                    remainingInput: "pending"), expectedGeneration: generation)
-        secure.enabled = true
-        settings.record(confirmation("Securevax"), expectedGeneration: generation)
-        secure.enabled = false
-
-        var session = InputSession(engine: CandidateEngine(providers: [SplitProvider()]))
-        session.configure(languages: [.english], compositionLearningEnabled: true)
-        session.append("zornaxquivora")
-        let first = try #require(session.candidates.first { $0.text == "Zornax" })
-        let firstCommit = session.commitResult(first, reason: .explicitSelection)
-        settings.record(session.recordSuccessfulCommit(firstCommit) ?? firstCommit, expectedGeneration: generation)
-        await settings.flush()
-        #expect(try await store.load().model == nil)
-
         // Failed writes can be retried without dropping the accepted submission.
         try oldBytes.write(to: profile)
-        let last = try #require(session.candidates.first { $0.text == "Quivora" })
-        let lastCommit = session.commitResult(last, reason: .defaultAcceptance)
-        settings.record(session.recordSuccessfulCommit(lastCommit) ?? lastCommit, expectedGeneration: generation)
+        settings.recordReturnField("ZornaxQuivora", expectedGeneration: generation)
         #expect(settings.canClearAll)
         await settings.flush()
         #expect(settings.canRetry && !settings.canRecord)
@@ -183,18 +152,19 @@ struct SentenceLearningSettingsTests {
         #expect(inputSnapshot().sentenceModel == nil)
         secure.enabled = false
         memory.vocabularyEnabled = true
-        memory.recordVocabulary(confirmation("Quivora"))
-        settings.record(confirmation("Vexora"), expectedGeneration: generation)
+        let candidate = InputCandidate(text: "Quivora", language: .english, score: -7)
+        memory.recordVocabulary(InputCommit(input: "quivora", candidate: candidate, reason: .defaultAcceptance))
+        settings.recordReturnField("Vexora", expectedGeneration: generation)
         settings.clear()
         #expect(inputSnapshot().sentenceModel == nil)
         #expect(inputSnapshot().vocabulary.count == 1)
         await settings.flush()
-        settings.record(confirmation("Stalevax"), expectedGeneration: generation)
+        settings.recordReturnField("Stalevax", expectedGeneration: generation)
         await settings.flush()
         #expect(try await store.load().model == nil)
         #expect(settings.entries.isEmpty)
         #expect(settings.canRecord)
-        settings.record(confirmation("Freshvax"), expectedGeneration: settings.generation)
+        settings.recordReturnField("Freshvax", expectedGeneration: settings.generation)
         await settings.flush()
         #expect(settings.entries.map(\.text) == ["Freshvax"])
         await memory.flush()

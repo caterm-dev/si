@@ -323,7 +323,7 @@
 "Delete All" = "删除全部";
 "Delete all personal phrases?" = "删除全部个人词条？";
 "Deletes all personal phrases and learned word statistics on this Mac." = "删除这台 Mac 上的所有个人词条、学到的词频和词组统计。";
-"SI learns from confirmed candidates and spelling you submit with Return. Words and counts stay on this Mac." = "SI 从你确认的候选和用回车提交的原始拼写中学习。词条和统计保存在这台 Mac 上。";
+"SI checks the active field before and after Return or Command–Return. It can learn from existing, edited or pasted text. Only words and counts stay on this Mac." = "SI 会在回车或 Command–回车前后检查当前输入框，可从已有、修改过或粘贴的文本中学习。只有词条和统计保存在这台 Mac 上。";
 "Delete Old Sentence History…" = "删除旧整句历史…";
 "Delete Old Sentence History" = "删除旧整句历史";
 "Delete old Sentence History?" = "删除旧整句历史？";

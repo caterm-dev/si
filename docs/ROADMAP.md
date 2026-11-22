@@ -37,7 +37,7 @@ and [bridge checks](TESTING.md#automated-checks).
 - [x] Incomplete final mixed-word prediction and bounded preservation of unrecognized spans.
 - [ ] Broader unknown-word/language-boundary detection beyond bounded lexical heuristics.
 - [x] Opt-in global Personal Learning with shared usage/correction counts, neutral first choices, one-correction exact-spelling priority, bounded frequency rewards and global management; no per-app learning controls, decay or age expiry.
-- [x] Default local learning from confirmed candidates persists the Rust user lexicon and word grams.
+- [x] Local learning from Return field snapshots persists the Rust user lexicon and word grams.
 - [ ] Native sentence learning verification across compatible host fields, focus changes, secure input and Settings accessibility.
 - [x] Remove App History recording/completion; migrate app archives to global vocabulary-only schema 4, merging app counts, preserving schema-3 evidence and resetting older ambiguous ranking evidence.
 - [x] Independently opted-in permanent Input History with exact per-submission spelling/output, repeat preservation, local SQLite pages, search, explicit deletion and error/retry controls; no candidate/training integration.

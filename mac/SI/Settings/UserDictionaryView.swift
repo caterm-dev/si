@@ -15,7 +15,7 @@ struct UserDictionaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("SI learns from confirmed candidates and spelling you submit with Return. Words and counts stay on this Mac.")
+            Text("SI checks the active field before and after Return or Command–Return. It can learn from existing, edited or pasted text. Only words and counts stay on this Mac.")
                 .font(.callout).foregroundStyle(.secondary)
             TextField("Search phrases or input codes", text: $search).textFieldStyle(.roundedBorder)
             HStack {

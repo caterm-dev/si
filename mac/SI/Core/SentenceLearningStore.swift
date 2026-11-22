@@ -5,6 +5,9 @@ public actor SentenceLearningStore {
     public enum StoreError: Error { case profile }
     public typealias Snapshot = (model: SentenceLearningModel?, entries: [UserLexiconEntry])
 
+    public static let maximumBatchSize = 32
+    public static let maximumBatchBytes = 128 * 1_024
+
     private let profile: URL
 
     public init(profile: URL) {
@@ -20,7 +23,9 @@ public actor SentenceLearningStore {
     /// A batch ID makes retries safe even if ingestion succeeded but rebuilding the decoder failed.
     public func ingest(_ sentences: [String], batchID: UUID) throws -> Snapshot {
         guard let base = RustConversion.shared,
-              !sentences.isEmpty, sentences.count <= 32, sentences.allSatisfy({ (1...4_096).contains($0.utf8.count) }) else {
+              (1...Self.maximumBatchSize).contains(sentences.count),
+              sentences.allSatisfy({ (1...Self.maximumBatchBytes).contains($0.utf8.count) }),
+              sentences.reduce(0, { $0 + $1.utf8.count }) <= Self.maximumBatchBytes else {
             throw StoreError.profile
         }
         try base.ingestUserSentences(sentences, batchID: batchID, at: profile)

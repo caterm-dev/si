@@ -323,7 +323,7 @@
 "Delete All" = "Delete All";
 "Delete all personal phrases?" = "Delete all personal phrases?";
 "Deletes all personal phrases and learned word statistics on this Mac." = "Deletes all personal phrases and learned word statistics on this Mac.";
-"SI learns from confirmed candidates and spelling you submit with Return. Words and counts stay on this Mac." = "SI learns from confirmed candidates and spelling you submit with Return. Words and counts stay on this Mac.";
+"SI checks the active field before and after Return or Command–Return. It can learn from existing, edited or pasted text. Only words and counts stay on this Mac." = "SI checks the active field before and after Return or Command–Return. It can learn from existing, edited or pasted text. Only words and counts stay on this Mac.";
 "Delete Old Sentence History…" = "Delete Old Sentence History…";
 "Delete Old Sentence History" = "Delete Old Sentence History";
 "Delete old Sentence History?" = "Delete old Sentence History?";

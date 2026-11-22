@@ -34,7 +34,6 @@ final class CandidateRowButton: NSButton {
             addSubview(label)
         }
         sourceIndicator.symbolConfiguration = .init(pointSize: 8, weight: .medium)
-        sourceIndicator.contentTintColor = .tertiaryLabelColor
         sourceIndicator.setAccessibilityElement(false)
         addSubview(sourceIndicator)
     }
@@ -90,10 +89,11 @@ final class CandidateRowButton: NSButton {
         toolTip = "\(candidate.text) — \(description)"
         setAccessibilityLabel("\(number), \(candidate.text), \(description)")
         setAccessibilityValue(selected ? L10n.text("Selected") : "")
-        candidateLabel.textColor = .labelColor
-        numberLabel.textColor = selected ? CandidateStyle.accent : .secondaryLabelColor
+        candidateLabel.textColor = selected ? CandidateStyle.selectionText : .labelColor
+        numberLabel.textColor = selected ? CandidateStyle.selectionText : .secondaryLabelColor
         numberLabel.alphaValue = keyboardRow || CandidateStyle.usesHighContrast ? 1 : 0.6
-        detailLabel.textColor = .secondaryLabelColor
+        detailLabel.textColor = selected ? CandidateStyle.selectionText : .secondaryLabelColor
+        sourceIndicator.contentTintColor = selected ? CandidateStyle.selectionText : .tertiaryLabelColor
         needsLayout = true
         needsDisplay = true
     }
@@ -146,17 +146,18 @@ final class CandidateRowButton: NSButton {
             let highlight = NSBezierPath(roundedRect: content.insetBy(dx: 0.5, dy: 0.5), xRadius: radius, yRadius: radius)
             highlight.fill()
             if CandidateStyle.usesHighContrast {
-                CandidateStyle.accent.setStroke()
+                CandidateStyle.selectionText.setStroke()
                 highlight.lineWidth = 1
                 highlight.stroke()
             }
         }
         if usesBadge, !detailLabel.isHidden {
             let badge = NSBezierPath(roundedRect: detailLabel.frame, xRadius: 4, yRadius: 4)
-            NSColor.labelColor.withAlphaComponent(CandidateStyle.usesHighContrast ? 0.15 : 0.07).setFill()
+            let badgeColor = isCurrent ? CandidateStyle.selectionText : NSColor.labelColor
+            badgeColor.withAlphaComponent(CandidateStyle.usesHighContrast ? 0.15 : 0.07).setFill()
             badge.fill()
             if CandidateStyle.usesHighContrast {
-                NSColor.secondaryLabelColor.setStroke()
+                (isCurrent ? CandidateStyle.selectionText : NSColor.secondaryLabelColor).setStroke()
                 badge.lineWidth = 0.5
                 badge.stroke()
             }

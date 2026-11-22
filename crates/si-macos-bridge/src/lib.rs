@@ -337,6 +337,7 @@ pub unsafe extern "C" fn si_engine_ingest_user(
     ends: *const usize,
     count: usize,
 ) -> bool {
+    const MAX_BATCH_BYTES: usize = 128 * 1024;
     let (Some(engine), Some(store)) = (unsafe { (engine.as_ref(), user_store(profile)) }) else {
         return false;
     };
@@ -345,7 +346,7 @@ pub unsafe extern "C" fn si_engine_ingest_user(
         || len == 0
         || ends.is_null()
         || !(1..=32).contains(&count)
-        || len > count * 4096
+        || len > MAX_BATCH_BYTES
     {
         return false;
     }
@@ -359,10 +360,7 @@ pub unsafe extern "C" fn si_engine_ingest_user(
     let mut start = 0;
     let mut submissions = Vec::with_capacity(count);
     for &end in ends {
-        let Some(submission) = text
-            .get(start..end)
-            .filter(|text| (1..=4096).contains(&text.len()))
-        else {
+        let Some(submission) = text.get(start..end).filter(|text| !text.is_empty()) else {
             return false;
         };
         submissions.push(submission);

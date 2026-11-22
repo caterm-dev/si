@@ -37,10 +37,18 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private weak var memoryClient: (any IMKTextInput)?
     private var applicationID: String?
     private var memoryGeneration: UInt64?
-    private var sentenceLearningGeneration: UInt64?
     private var memoryLanguageGeneration: UInt64?
     private var sessionContextGeneration: UInt64 = 0
     private var keyEventGeneration: UInt64 = 0
+    private struct ReturnFieldCapture {
+        let client: any IMKTextInput
+        let application: String
+        let keyGeneration: UInt64
+        let learningGeneration: UInt64
+        let languageGeneration: UInt64
+        let text: String
+    }
+    private var returnFieldCapture: ReturnFieldCapture?
 
     private lazy var candidatePanel: CandidatePanel = {
         let panel = CandidatePanel()
@@ -87,6 +95,11 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private func handleOnMain(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event, event.type == .keyDown, let client = sender as? any IMKTextInput else { return false }
         keyEventGeneration &+= 1
+        let keyGeneration = keyEventGeneration
+        if let capture = returnFieldCapture {
+            finishReturnFieldLearning(readBack: (capture.client as AnyObject) === (client as AnyObject))
+            guard keyGeneration == keyEventGeneration else { return false }
+        }
         // Check before the passthrough guard so the shortcut can restore conversion too.
         if LanguageSettings.shared.directInputShortcut.matches(keyCode: event.keyCode, modifiers: event.modifierFlags),
            !IsSecureEventInputEnabled(), let identifier = client.bundleIdentifier(), !identifier.isEmpty {
@@ -103,8 +116,11 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         guard configureSession(for: client) else { return false }
         if previousCandidates != session.candidates { update(client) }
 
+        let isLearningReturn = ReturnFieldLearning.matches(keyCode: event.keyCode, modifiers: event.modifierFlags,
+                                                           isRepeat: event.isARepeat)
         if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             commitLiteral(to: client)
+            if isLearningReturn { beginReturnFieldLearning(from: client, keyGeneration: keyGeneration) }
             return false
         }
 
@@ -146,8 +162,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             update(client)
             return true
         case 36, 76: // Return / keypad Enter: preserve the original spelling.
-            guard !session.buffer.isEmpty else { session.breakContext(); return false }
-            commitLiteral(isReturnCommit: true, to: client)
+            guard !session.buffer.isEmpty else {
+                if isLearningReturn { beginReturnFieldLearning(from: client, keyGeneration: keyGeneration) }
+                session.breakContext()
+                return false
+            }
+            commitLiteral(to: client)
             return true
         case 49: // Space
             guard !session.buffer.isEmpty else { return false }
@@ -210,6 +230,60 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         return true
     }
 
+    private func beginReturnFieldLearning(from client: any IMKTextInput, keyGeneration: UInt64) {
+        let learning = SentenceLearningSettings.shared
+        let languages = LanguageSettings.shared
+        guard learning.canRecord, let app = applicationID, !languages.usesPassthrough(in: app) else { return }
+        let learningGeneration = learning.generation
+        let languageGeneration = languages.configurationGeneration
+        guard let text = readReturnField(from: client, isCurrent: {
+            self.isCurrentReturnField(client, application: app)
+                && self.keyEventGeneration == keyGeneration && learning.canRecord
+                && learning.generation == learningGeneration && languages.configurationGeneration == languageGeneration
+        }), !text.isEmpty else { return }
+        returnFieldCapture = ReturnFieldCapture(client: client, application: app, keyGeneration: keyGeneration,
+                                                learningGeneration: learningGeneration,
+                                                languageGeneration: languageGeneration, text: text)
+        // IMK has no host-completion callback for a passed-through key.
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
+            guard self.returnFieldCapture?.keyGeneration == keyGeneration else { return }
+            self.finishReturnFieldLearning()
+        }
+    }
+
+    private func finishReturnFieldLearning(readBack: Bool = true) {
+        guard let capture = returnFieldCapture else { return }
+        returnFieldCapture = nil
+        let learning = SentenceLearningSettings.shared
+        let languages = LanguageSettings.shared
+        func canRecord() -> Bool {
+            learning.canRecord && learning.generation == capture.learningGeneration
+                && languages.configurationGeneration == capture.languageGeneration
+                && !languages.usesPassthrough(in: capture.application)
+        }
+        guard canRecord() else { return }
+        let keyGeneration = keyEventGeneration
+        let after = readBack ? readReturnField(from: capture.client, isCurrent: {
+            self.isCurrentReturnField(capture.client, application: capture.application)
+                && self.keyEventGeneration == keyGeneration && canRecord()
+        }) : nil
+        guard canRecord(), ReturnFieldLearning.shouldIngest(before: capture.text, after: after) else { return }
+        learning.recordReturnField(capture.text, expectedGeneration: capture.learningGeneration)
+    }
+
+    private func isCurrentReturnField(_ client: any IMKTextInput, application: String) -> Bool {
+        let activeClient = self.client()
+        return applicationID == application && candidatePanel.ownsPresentation
+            && (memoryClient as AnyObject?) === (client as AnyObject)
+            && (activeClient as AnyObject?) === (client as AnyObject)
+    }
+
+    private func readReturnField(from client: any IMKTextInput, isCurrent: () -> Bool) -> String? {
+        ReturnFieldLearning.read(isCurrent: isCurrent, selection: { client.selectedRange() },
+                                 markedRange: { client.markedRange() }, length: { client.length() },
+                                 text: { client.attributedSubstring(from: $0)?.string })
+    }
+
     /// The host owns the field. A nested input or focus callback invalidates this capture.
     private func refreshPrecedingText(for client: any IMKTextInput) -> Bool {
         let revision = presentationRevision
@@ -258,12 +332,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             }
         }
         let appSettings = ApplicationMemorySettings.shared
-        let sentences = SentenceLearningSettings.shared
-        if sentenceLearningGeneration != sentences.generation {
-            session.discardCompositionLearning()
-            sentenceLearningGeneration = sentences.generation
-        }
-        let memory = appSettings.snapshot(sentenceModel: sentences.modelForInput)
+        let memory = appSettings.snapshot(sentenceModel: SentenceLearningSettings.shared.modelForInput)
         let languages = LanguageSettings.shared
         let secureInput = IsSecureEventInputEnabled()
         if secureInput { session.setPrecedingText("") }
@@ -438,6 +507,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     nonisolated override func activateServer(_ sender: Any!) {
         super.activateServer(sender)
         MainActor.assumeIsolated {
+            finishReturnFieldLearning(readBack: false)
             presentationRevision &+= 1
             invalidateAICompletion()
 
@@ -452,6 +522,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     nonisolated override func deactivateServer(_ sender: Any!) {
         commitComposition(sender)
         MainActor.assumeIsolated {
+            finishReturnFieldLearning(readBack: false)
             presentationRevision &+= 1
             invalidateAICompletion()
             session.breakContext()
@@ -753,10 +824,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
     }
 
-    private func commitLiteral(isReturnCommit: Bool = false, to client: any IMKTextInput) {
+    private func commitLiteral(to client: any IMKTextInput) {
         defer { session.breakContext() }
         guard !session.buffer.isEmpty else { return }
-        apply(session.commitResult(reason: .literal), isReturnCommit: isReturnCommit, to: client)
+        apply(session.commitResult(reason: .literal), to: client)
     }
 
     @discardableResult
@@ -775,15 +846,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         return true
     }
 
-    private func apply(_ commit: InputCommit, suffix: String = "", isReturnCommit: Bool = false, to client: any IMKTextInput) {
+    private func apply(_ commit: InputCommit, suffix: String = "", to client: any IMKTextInput) {
         let app = applicationID
         let memory = ApplicationMemorySettings.shared
         let generation = memory.generation
         let contextGeneration = sessionContextGeneration
         let languageGeneration = LanguageSettings.shared.configurationGeneration
-        let sentences = SentenceLearningSettings.shared
-        let sentenceGeneration = sentences.generation
-        let recordsSentences = app != nil && sentences.canRecord
         let recordsVocabulary = memory.usesVocabulary && !IsSecureEventInputEnabled()
         var acceptedLearning = false
         defer { if !acceptedLearning { session.discardCompositionLearning() } }
@@ -797,23 +865,15 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return
         }
         if recordsHistory { history.record(commit, suffix: suffix, expectedGeneration: historyGeneration) }
-        if (recordsVocabulary || recordsSentences),
+        if recordsVocabulary,
            (memoryClient as AnyObject?) === (client as AnyObject),
            (self.client() as AnyObject?) === (client as AnyObject), contextGeneration == sessionContextGeneration,
-           languageGeneration == LanguageSettings.shared.configurationGeneration, !IsSecureEventInputEnabled() {
-            let learnsVocabulary = recordsVocabulary && generation == memory.generation && memory.usesVocabulary
-            let learnsSentences = recordsSentences && sentenceGeneration == sentences.generation && sentences.canRecord
-            if learnsVocabulary || learnsSentences {
-                let combined = session.recordSuccessfulCommit(commit)
-                if learnsVocabulary {
-                    memory.recordVocabulary(commit)
-                    if let combined { memory.recordVocabulary(combined) }
-                }
-                if learnsSentences {
-                    sentences.record(combined ?? commit, expectedGeneration: sentenceGeneration, isReturnCommit: isReturnCommit)
-                }
-                acceptedLearning = true
-            }
+           languageGeneration == LanguageSettings.shared.configurationGeneration, !IsSecureEventInputEnabled(),
+           generation == memory.generation, memory.usesVocabulary {
+            let combined = session.recordSuccessfulCommit(commit)
+            memory.recordVocabulary(commit)
+            if let combined { memory.recordVocabulary(combined) }
+            acceptedLearning = true
         }
         if configureSession(for: client), !session.buffer.isEmpty, refreshPrecedingText(for: client) {
             update(client)

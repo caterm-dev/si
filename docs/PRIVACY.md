@@ -62,11 +62,11 @@ New writes use vocabulary-only schema 4. The archive has a 64 MiB limit, owner-o
 
 ### Sentence learning
 
-SI learns by default from successfully submitted lexical candidates and exact composition spelling submitted with Return. It combines successive manually confirmed lexical parts of one unchanged composition once the last part is submitted. After a prefix confirmation, a Return submission contributes only the remaining spelling. Secure/direct input, other literal submissions, punctuation candidates, personal or verbatim candidates, automatic confirmations, delimiter acceptance and AI completions are excluded. Existing or pasted host text is outside this flow.
+Sentence Learning uses the full text exposed by the active InputMethodKit text client around a passed-through Return or Command–Return. That range may include existing, edited or pasted text. The original snapshot becomes one learning observation if the later text no longer contains it, the field loses focus or the client is no longer readable. Secure and direct-input contexts are excluded. The first read must be complete and fit in 128 KiB of UTF-8. Snapshots are local and transient.
 
 The engine segments the queued text and updates the owner-only, unencrypted `SI/Personalization/model.si-user` profile under Application Support. It saves derived words, word frequencies, word grams and opaque batch IDs. Confirmed text is held in memory until processed and discarded after the batch succeeds. Failed batches can be retried while SI is running. Normal termination flushes pending work when storage is available. Opening a valid profile removes the retired recent-samples files without decoding them. Existing derived statistics are retained.
 
-**Personal Phrases → Delete All…** clears the derived model, manually added entries and pending learning. New confirmed candidates can populate the model again. Candidate-choice preferences and Input History have separate controls. **Delete Old Sentence History…** under **Personal Phrases** can delete the older retired SQLite archive, whose contents remain unopened.
+**Personal Phrases → Delete All…** clears the derived model, manually added entries and pending learning. Later eligible Return field snapshots can populate the model again. Candidate-choice preferences and Input History have separate controls. **Delete Old Sentence History…** under **Personal Phrases** can delete the older retired SQLite archive, whose contents remain unopened.
 
 ## Input History
 

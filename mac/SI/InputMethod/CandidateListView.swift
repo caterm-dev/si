@@ -223,7 +223,7 @@ final class CandidateListView: NSView {
         outline.lineWidth = 0.5
         outline.stroke()
         if isExpanded, !rows.isEmpty {
-            CandidateStyle.selection.withAlphaComponent(0.25).setFill()
+            CandidateStyle.activeRow.setFill()
             let line = NSRect(x: 5, y: bounds.height - 4 - rowHeight - CGFloat(keyboardLine) * (rowHeight + 4),
                               width: max(0, bounds.width - 38), height: rowHeight)
             NSBezierPath(roundedRect: line, xRadius: 8, yRadius: 8).fill()

@@ -15,8 +15,6 @@ final class SentenceLearningSettings {
         store: SentenceLearningStore(profile: URL.applicationSupportDirectory.appending(path: "SI/Personalization/model.si-user")),
         retiredHistory: InputHistoryStore(url: URL.applicationSupportDirectory.appending(path: InputHistoryStore.retiredSentenceDatabasePath))
     )
-    private static let maximumBatchSize = 32
-
     private(set) var generation: UInt64 = 0
     private(set) var isLoading: Bool
     private(set) var isClearing = false
@@ -63,7 +61,7 @@ final class SentenceLearningSettings {
 
     var canRecord: Bool {
         store != nil && !isLoading && !isClearing && !isEditing && errorMessage == nil
-            && queued.count < Self.maximumBatchSize && allowsRecording()
+            && queued.count < SentenceLearningStore.maximumBatchSize && allowsRecording()
     }
 
     var modelForInput: SentenceLearningModel? { allowsRecording() ? model : nil }
@@ -120,12 +118,10 @@ final class SentenceLearningSettings {
         entries = snapshot.entries
     }
 
-    func record(_ commit: InputCommit, expectedGeneration: UInt64, isReturnCommit: Bool = false) {
-        let confirmedSpelling = isReturnCommit && commit.reason == .literal && commit.candidate == nil
-        guard generation == expectedGeneration, canRecord, commit.canLearn || confirmedSpelling,
-              commit.remainingInput.isEmpty, !commit.input.isEmpty,
-              !commit.text.isEmpty, commit.text.utf8.count <= 4_096 else { return }
-        queued.append(commit.text)
+    func recordReturnField(_ text: String, expectedGeneration: UInt64) {
+        guard generation == expectedGeneration, canRecord,
+              (1...SentenceLearningStore.maximumBatchBytes).contains(text.utf8.count) else { return }
+        queued.append(text)
         hasPendingLearning = true
         guard delay == nil, worker == nil else { return }
         delay = Task {
@@ -199,8 +195,13 @@ final class SentenceLearningSettings {
                 let batch: Batch
                 if let failed { batch = failed }
                 else {
-                    batch = Batch(sentences: queued)
-                    queued.removeAll()
+                    var bytes = 0
+                    let end = queued.firstIndex { text in
+                        bytes += text.utf8.count
+                        return bytes > SentenceLearningStore.maximumBatchBytes
+                    } ?? queued.endIndex
+                    batch = Batch(sentences: Array(queued[..<end]))
+                    queued.removeFirst(end)
                 }
                 do {
                     let updated = try await store.ingest(batch.sentences, batchID: batch.id)
