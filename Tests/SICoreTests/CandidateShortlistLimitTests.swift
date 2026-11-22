@@ -2,20 +2,20 @@ import Testing
 @testable import SICore
 
 struct CandidateShortlistLimitTests {
-    @Test func statisticalLeadersStaySelectableInRerankedOrder() {
+    @Test func statisticalLeadersStaySelectableInPresentationOrder() {
         let head = (0..<4).map {
             InputCandidate(text: "Completion \($0)", language: .english, score: -40 - $0,
-                           hasCompletion: true, lexicalTokenCount: 2, modelRankingScore: 1)
+                           hasCompletion: true, lexicalTokenCount: 2)
                 .withPresentationScore(10 - Double($0), remembered: false, statisticalScore: -40 - Double($0))
         }
         let lower = InputCandidate(text: "Lower sentence", language: .english, score: -35,
-                                   lexicalTokenCount: 2, modelRankingScore: 0.5)
+                                   lexicalTokenCount: 2)
             .withPresentationScore(15, remembered: false, statisticalScore: -35)
         let second = InputCandidate(text: "限定个", language: .simplifiedChinese, score: -30,
-                                    lexicalTokenCount: 2, modelRankingScore: 0.3)
+                                    lexicalTokenCount: 2)
             .withPresentationScore(20, remembered: false, statisticalScore: -30)
         let first = InputCandidate(text: "先定个", language: .simplifiedChinese, score: -25,
-                                   lexicalTokenCount: 2, modelRankingScore: 0.2)
+                                   lexicalTokenCount: 2)
             .withPresentationScore(25, remembered: false, statisticalScore: -25)
         let literal = InputCandidate(text: "xiandingge", language: nil, score: 0)
         #expect(CandidateShortlist.candidates(from: head + [lower, second, first, literal])
@@ -25,7 +25,7 @@ struct CandidateShortlistLimitTests {
     @Test func protectedWordsCountTowardTheOrdinaryWordBudget() {
         let words = (0..<12).map {
             InputCandidate(text: "Word \($0)", language: .english, score: $0,
-                           lexicalTokenCount: 1, modelRankingScore: Double(12 - $0))
+                           lexicalTokenCount: 1)
                 .withPresentationScore(Double($0), remembered: false, statisticalScore: Double($0))
         }
         let literal = InputCandidate(text: "source", language: nil, score: 0)

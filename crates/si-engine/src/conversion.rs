@@ -1,6 +1,5 @@
+mod cache;
 mod context;
-#[cfg(feature = "experimental-ranking")]
-pub(super) mod hybrid;
 mod input;
 mod lookup;
 mod ranking;
@@ -97,8 +96,6 @@ pub struct ConversionPreferences<'a> {
 /// One possible conversion of a prefix or the whole input.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Candidate {
-    /// Optional diagnostics captured only by the offline feature export entry point.
-    pub ranking_evidence: Option<Box<crate::ranking_features::PathEvidence>>,
     pub text: String,
     pub language: CandidateLanguage,
     /// Exact length in UTF-8 bytes from the start of the original input.
@@ -153,17 +150,10 @@ impl CorrectionSensitivity {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum CorrectionSearch {
-    Heuristic(CorrectionSensitivity),
-    ModelPool,
-}
-
 /// Reuse this engine across requests. Construction indexes dictionary
 /// readings. Candidate generation uses the loaded resources in memory.
 pub struct CandidateEngine<'a> {
     pinyin_correction: Option<CorrectionSensitivity>,
-    base: &'a EngineResources,
     lookup: Lookup<'a>,
     scoring: Scoring<'a>,
     context: Option<context::Context<'a>>,
@@ -182,22 +172,10 @@ impl<'a> CandidateEngine<'a> {
         });
         Self {
             pinyin_correction: None,
-            base,
             lookup,
             scoring,
             context,
         }
-    }
-
-    /// The bounded Pinyin segmentations supplied to the contextual ranking model.
-    pub fn contextual_pinyin_paths(&self, source: &str) -> Vec<String> {
-        if source.is_empty()
-            || source.len() > 128
-            || source.bytes().any(|byte| byte.is_ascii_uppercase())
-        {
-            return Vec::new();
-        }
-        Input::new(source).pinyin_paths(self.base.lexicon())
     }
 
     /// Enable bounded Pinyin typo suggestions. Disabled by default.
@@ -299,136 +277,22 @@ impl<'a> CandidateEngine<'a> {
         preceding_text: &str,
         correction: Option<CorrectionSensitivity>,
     ) -> Vec<Candidate> {
-        self.convert_internal(
-            text,
-            languages,
-            preview,
-            phrases,
-            preferences,
-            preceding_text,
-            false,
-            correction.map(CorrectionSearch::Heuristic),
-        )
-    }
-
-    /// Capture selected-path evidence, including an explicitly supplied user snapshot.
-    /// Full-candidate context probabilities are diagnostic only; conversion order is unchanged.
-    pub fn candidates_with_evidence(
-        &self,
-        text: &str,
-        languages: EnabledLanguages,
-        preceding_text: &str,
-    ) -> Vec<Candidate> {
-        self.convert_for_ranking(
-            text,
-            languages,
-            &[],
-            ConversionPreferences::default(),
-            preceding_text,
-            self.pinyin_correction.map(CorrectionSearch::Heuristic),
-        )
-    }
-
-    /// Offline evidence for an explicitly supplied, pre-request preference snapshot.
-    pub fn candidates_with_preference_evidence(
-        &self,
-        text: &str,
-        languages: EnabledLanguages,
-        preceding_text: &str,
-        preferences: ConversionPreferences<'_>,
-    ) -> Vec<Candidate> {
-        self.convert_for_ranking(
-            text,
-            languages,
-            &[],
-            preferences,
-            preceding_text,
-            self.pinyin_correction.map(CorrectionSearch::Heuristic),
-        )
-    }
-
-    /// Export the bounded correction pool before applying any confidence threshold.
-    /// Callers must prepare the correction index first.
-    pub fn model_pool_with_preference_evidence(
-        &self,
-        text: &str,
-        languages: EnabledLanguages,
-        preceding_text: &str,
-        preferences: ConversionPreferences<'_>,
-    ) -> Vec<Candidate> {
-        self.convert_for_ranking(
-            text,
-            languages,
-            &[],
-            preferences,
-            preceding_text,
-            Some(CorrectionSearch::ModelPool),
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn convert_for_ranking(
-        &self,
-        text: &str,
-        languages: EnabledLanguages,
-        phrases: &[PersonalPhrase<'_>],
-        preferences: ConversionPreferences<'_>,
-        preceding_text: &str,
-        correction: Option<CorrectionSearch>,
-    ) -> Vec<Candidate> {
-        let mut candidates = self.convert_internal(
-            text,
-            languages,
-            false,
-            phrases,
-            preferences,
-            preceding_text,
-            true,
-            correction,
-        );
-        let history = self
-            .context
-            .as_ref()
-            .map_or_else(Default::default, |context| {
-                context.history(preceding_text, &self.scoring)
-            });
-        let mut session = self.scoring.session(history, false);
-        for candidate in &mut candidates {
-            if let Some(evidence) = &mut candidate.ranking_evidence {
-                session.populate_features(evidence);
-            }
-        }
-        candidates
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn convert_internal(
-        &self,
-        text: &str,
-        languages: EnabledLanguages,
-        preview: bool,
-        phrases: &[PersonalPhrase<'_>],
-        preferences: ConversionPreferences<'_>,
-        preceding_text: &str,
-        capture_evidence: bool,
-        correction: Option<CorrectionSearch>,
-    ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();
         }
         let mut candidates = if languages.chinese || languages.english {
-            let personal = Lookup::personal(phrases);
             let history = self
                 .context
                 .as_ref()
                 .map_or_else(Default::default, |context| {
                     context.history(preceding_text, &self.scoring)
                 });
+            let personal = Lookup::personal(phrases);
             search::run(
                 &Input::new(text),
                 languages,
                 &self.lookup,
-                self.scoring.session(history, capture_evidence),
+                self.scoring.session(history),
                 preview,
                 &personal,
                 preferences,
@@ -438,7 +302,6 @@ impl<'a> CandidateEngine<'a> {
             Vec::new()
         };
         candidates.push(Candidate {
-            ranking_evidence: None,
             text: text.to_owned(),
             language: CandidateLanguage::Literal,
             consumed_bytes: text.len(),
@@ -491,8 +354,4 @@ impl Language {
 struct WordIds {
     base: Option<WordId>,
     user: Option<WordId>,
-}
-
-pub(crate) fn normalized_units(source: &str) -> usize {
-    Input::new(source).len()
 }

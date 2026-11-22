@@ -2,11 +2,6 @@ import Foundation
 
 /// Immutable, transient work for one composition revision. No client/UI objects cross this boundary.
 public struct CandidateRequest: Sendable {
-    public enum RankingPolicy: Sendable {
-        case engineOrder
-        case app
-    }
-
     public let id = UUID()
     fileprivate let input: String
     fileprivate let languages: Set<InputLanguage>
@@ -17,67 +12,23 @@ public struct CandidateRequest: Sendable {
     fileprivate let context: CandidateContext?
     fileprivate let precedingText: String
     fileprivate let automaticConfirmationEnabled: Bool
-    fileprivate let experimentalRankingEnabled: Bool
-    fileprivate let rankingPolicy: RankingPolicy
     fileprivate let applicationMemory: ApplicationMemorySnapshot
 
-    private var usesStatisticalOrder: Bool {
-        rankingPolicy == .app && engine.pinyinCorrectionMode == .off
-    }
-
-    public var offersPreview: Bool { !languages.isEmpty }
-
-    public func generate(useExperimentalRanking: Bool = false) -> CandidateResult {
-        let useRanker = useExperimentalRanking && experimentalRankingEnabled && !usesStatisticalOrder
-        let generated = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
+    public func generate() -> CandidateResult {
+        let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context, includesConfirmationEvidence: automaticConfirmationEnabled,
-                                           applicationMemory: applicationMemory, precedingText: precedingText,
-                                           experimentalRanking: useRanker)
-        let candidates: [InputCandidate]
-        if usesStatisticalOrder {
-            candidates = Self.statisticalOrder(generated)
-        } else if rankingPolicy == .app && useRanker {
-            candidates = Self.limitModelOrder(generated)
-        } else {
-            candidates = generated
-        }
-        let isModelRanked = candidates.contains { $0.modelRankingScore != nil }
+                                           applicationMemory: applicationMemory, precedingText: precedingText)
         return CandidateResult(requestID: id, candidates: candidates,
-                               confirmationPrefixes: automaticConfirmationEnabled && !isModelRanked
+                               confirmationPrefixes: automaticConfirmationEnabled
                                 ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
                                                                  now: now, context: context) : [])
     }
 
     public func generatePreview() -> CandidateResult {
-        let generated = engine.previewCandidates(
+        let candidates = engine.previewCandidates(
             for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context,
             applicationMemory: applicationMemory, precedingText: precedingText)
-        let candidates = usesStatisticalOrder ? Self.statisticalOrder(generated) : generated
         return CandidateResult(requestID: id, candidates: candidates, isPreview: true)
-    }
-
-    private static func statisticalOrder(_ candidates: [InputCandidate]) -> [InputCandidate] {
-        candidates.filter { !$0.isLiteral }
-            .sorted(by: InputCandidate.precedesInStatistics) + candidates.filter(\.isLiteral)
-    }
-
-    private static func limitModelOrder(_ candidates: [InputCandidate]) -> [InputCandidate] {
-        let statistical = statisticalOrder(candidates)
-        let prioritized = statistical.prefix { $0.isPreferred || $0.isRememberedChoice }
-        let remaining = statistical.dropFirst(prioritized.count)
-        guard let leader = remaining.first, !leader.isPartial, let best = leader.statisticalScore else {
-            return statistical
-        }
-        let eligible = remaining.filter {
-            !$0.isPartial && ($0.statisticalScore ?? -.infinity) >= best - 6
-        }
-        let scoredIDs = Set(eligible.lazy.filter { $0.modelRankingScore != nil }.map(\.id))
-        guard !scoredIDs.isEmpty else { return statistical }
-        let eligibleIDs = Set(eligible.map(\.id))
-        var ranked = candidates.lazy.filter { scoredIDs.contains($0.id) }.makeIterator()
-        // Unscored candidates keep their slots. The tail keeps statistical order.
-        let head = eligible.map { scoredIDs.contains($0.id) ? ranked.next() ?? $0 : $0 }
-        return Array(prioritized) + head + remaining.filter { !eligibleIDs.contains($0.id) }
     }
 }
 
@@ -85,7 +36,6 @@ public struct CandidateResult: Sendable {
     fileprivate let requestID: UUID
     public let candidates: [InputCandidate]
     public let isPreview: Bool
-    public var isModelRanked: Bool { candidates.contains { $0.modelRankingScore != nil } }
     fileprivate let confirmationPrefixes: [AutomaticConfirmation.Prefix]
 
     fileprivate init(requestID: UUID, candidates: [InputCandidate], isPreview: Bool = false,
@@ -122,8 +72,6 @@ public struct InputSession: Sendable {
     private var recentContext: RecentContext?
     private var precedingText = ""
     private var contextGeneration: UInt64 = 0
-    private var experimentalRankingEnabled = false
-    private var rankingPolicy: CandidateRequest.RankingPolicy = .engineOrder
     private var automaticConfirmationEnabled = false
     private var configurationGeneration: UInt64 = 0
     private var automaticConfirmation = AutomaticConfirmation()
@@ -142,9 +90,7 @@ public struct InputSession: Sendable {
                                    applicationMemory: ApplicationMemorySnapshot = .empty,
                                    compositionLearningEnabled: Bool = false,
                                    punctuationCandidatesEnabled: Bool = false,
-                                   pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode = .off,
-                                   experimentalRankingEnabled: Bool = false,
-                                   rankingPolicy: CandidateRequest.RankingPolicy = .engineOrder) {
+                                   pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode = .off) {
         if self.compositionLearningEnabled != compositionLearningEnabled || self.languages != languages
             || self.contextGeneration != contextGeneration || self.dictionary != dictionary
             || self.configurationGeneration != configurationGeneration {
@@ -158,8 +104,6 @@ public struct InputSession: Sendable {
         guard self.languages != languages || self.learning != learning || self.dictionary != dictionary
                 || self.usesContext != usesContext || contextChanged || expired
                 || self.automaticConfirmationEnabled != automaticConfirmationEnabled
-                || self.experimentalRankingEnabled != experimentalRankingEnabled
-                || self.rankingPolicy != rankingPolicy
                 || self.configurationGeneration != configurationGeneration
                 || engine.punctuationCandidatesEnabled != punctuationCandidatesEnabled
                 || engine.pinyinCorrectionMode != pinyinCorrectionMode
@@ -171,8 +115,6 @@ public struct InputSession: Sendable {
         self.usesContext = usesContext
         self.contextGeneration = contextGeneration
         self.automaticConfirmationEnabled = automaticConfirmationEnabled
-        self.experimentalRankingEnabled = experimentalRankingEnabled
-        self.rankingPolicy = rankingPolicy
         self.configurationGeneration = configurationGeneration
         engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
         engine.pinyinCorrectionMode = pinyinCorrectionMode
@@ -352,8 +294,6 @@ public struct InputSession: Sendable {
                                        dictionary: dictionary, now: now, context: currentContext(now: now),
                                        precedingText: precedingText,
                                        automaticConfirmationEnabled: automaticConfirmationEnabled,
-                                       experimentalRankingEnabled: experimentalRankingEnabled,
-                                       rankingPolicy: rankingPolicy,
                                        applicationMemory: applicationMemory)
         pendingCandidateRequest = request
         hasCandidatePreview = false
@@ -375,14 +315,6 @@ public struct InputSession: Sendable {
             pendingCandidateRequest = nil
             if automaticConfirmationEnabled { automaticConfirmation.observe(result.confirmationPrefixes, input: buffer, now: now) }
         }
-        return true
-    }
-
-    /// Keep the visible list after the user starts navigating it.
-    public mutating func retainPreview(insteadOf result: CandidateResult) -> Bool {
-        guard !result.isPreview, hasCandidatePreview,
-              pendingCandidateRequest?.id == result.requestID else { return false }
-        pendingCandidateRequest = nil
         return true
     }
 

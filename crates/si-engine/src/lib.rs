@@ -3,7 +3,6 @@
 mod conversion;
 mod han;
 mod pinyin;
-pub mod ranking_features;
 pub mod resources;
 pub mod segmentation;
 
@@ -13,6 +12,3 @@ pub use conversion::{
     PersonalPhrase, TokenPreference,
 };
 pub use si_lexicon::IndexId;
-
-#[cfg(feature = "experimental-ranking")]
-pub use conversion::hybrid::{HybridRanking, RankedCandidate};

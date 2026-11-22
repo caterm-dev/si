@@ -1,4 +1,5 @@
 mod correction;
+mod prefix;
 
 pub(super) use correction::{CorrectionBudget, MIN_CORRECTION_BITS};
 
@@ -80,14 +81,6 @@ impl Match<'_> {
         cuts
     }
 
-    pub(super) fn syllables(self) -> usize {
-        if self.word.language == Language::Chinese {
-            self.reading.split('\'').count()
-        } else {
-            0
-        }
-    }
-
     pub(super) fn is_abbreviated(self) -> bool {
         self.abbreviated
     }
@@ -97,6 +90,7 @@ pub(super) struct Lookup<'a> {
     entries: [Vec<Entry<'a>>; 2],
     abbreviated: HashMap<Vec<u8>, Vec<Entry<'a>>>,
     correction_order: Option<HashMap<Vec<u8>, correction::CorrectionRows>>,
+    prefixes: [prefix::PrefixCache; 2],
 }
 
 impl<'a> Lookup<'a> {
@@ -206,6 +200,7 @@ impl<'a> Lookup<'a> {
             entries,
             abbreviated,
             correction_order: None,
+            prefixes: Default::default(),
         }
     }
 
@@ -260,6 +255,7 @@ impl<'a> Lookup<'a> {
             entries,
             abbreviated: HashMap::new(),
             correction_order: None,
+            prefixes: Default::default(),
         }
     }
 
@@ -273,15 +269,12 @@ impl<'a> Lookup<'a> {
         mut emit: impl FnMut(Match<'a>),
     ) {
         let mut rows = self.entries[language as usize].as_slice();
+        let mut prefixes = self.prefixes[language as usize].query(rows);
         for (depth, &byte) in input.spelling(language)[start..limit].iter().enumerate() {
             if byte == 0 {
                 break;
             }
-            let lower =
-                rows.partition_point(|row| row.spelling.get(depth).is_none_or(|&key| key < byte));
-            rows = &rows[lower..];
-            let upper = rows.partition_point(|row| row.spelling.get(depth) == Some(&byte));
-            rows = &rows[..upper];
+            rows = prefixes.matching(rows, depth, byte);
             if rows.is_empty() {
                 break;
             }

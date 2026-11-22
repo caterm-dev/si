@@ -10,6 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(subsystem: "com.caterm.si", category: "Lifecycle")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if RustConversion.shared == nil {
+            logger.error("Unable to load the Rust conversion resources.")
+        }
         guard let identifier = Bundle.main.bundleIdentifier,
               let connection = Bundle.main.object(forInfoDictionaryKey: "InputMethodConnectionName") as? String,
               let server = IMKServer(name: connection, bundleIdentifier: identifier) else {
@@ -24,9 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             async let history: Void = InputHistorySettings.shared.start()
             async let sentences: Void = SentenceLearningSettings.shared.start()
             _ = await (appMemory, history, sentences)
-        }
-        Task.detached(priority: .userInitiated) { [logger] in
-            if RustConversion.shared == nil { logger.error("Unable to load the Rust conversion resources.") }
         }
         if ProcessInfo.processInfo.arguments.contains("--settings") {
             showSettings()

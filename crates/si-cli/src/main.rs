@@ -1,5 +1,4 @@
 mod candidates;
-mod rank_features;
 
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -29,7 +28,6 @@ Usage:
   si-cli corpus ingest <lexicon.silex> <grams.sigram> <source.txt> [<source.txt> ...]
   si-cli corpus clear-grams <lexicon.silex> <grams.sigram>
   si-cli corpus prune  --order <2|3|4|5> --min-count <count> <lexicon.silex> <grams.sigram>
-  si-cli rank-features <base.silex> [--grams <base.sigram>] [--pinyin-correction|--model-correction-pool] [--user-lexicon <user.silex>] [--user-grams <user.sigram>] [--legacy-v2|--v5] [--pinyin-paths]
   si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--languages <zh-Hans,en|zh-Hans|en|none>] [--pinyin-correction <on|higher-recall|off>] [--search <full|preview>] [--preceding <text>]
   si-cli user ingest <profile.si-user> <base.silex> <batch-id> <sentences.txt|->
   si-cli user learn  <profile.si-user> <base.silex> [<si.conf>]
@@ -67,9 +65,6 @@ fn run(args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
     match args {
         [scope, lexicon, grams @ ..] if scope == "check-resources" && grams.len() <= 1 => {
             Some(EngineResources::open(Path::new(lexicon), grams.first().map(Path::new)).map(drop))
-        }
-        [scope, base, options @ ..] if scope == "rank-features" => {
-            rank_features::run(Path::new(base), options)
         }
         [scope, base, options @ ..] if scope == "candidates" => {
             candidates::run(Path::new(base), options)

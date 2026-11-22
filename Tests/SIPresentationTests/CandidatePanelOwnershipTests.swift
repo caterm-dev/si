@@ -1,6 +1,6 @@
 import AppKit
 import Testing
-import SICore
+@testable import SICore
 @testable import SIPresentation
 
 @MainActor

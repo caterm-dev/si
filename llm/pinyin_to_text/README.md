@@ -8,7 +8,7 @@ queries only; converter-specific training, validation and test tools remain here
 Python dependencies and the existing environment remain shared at `llm/requirements.txt`
 and `llm/.venv`; all converter-specific files and artifacts live here.
 
-The default experiment trains a randomly initialized **19,711,488-parameter encoder-decoder** with explicit Pinyin syllable sequences and optional preceding text. This workflow prepares and trains an offline converter. See the [input ranking build](../README.md#experimental-input-ranking) for native integration.
+The default experiment trains a randomly initialized **19,711,488-parameter encoder-decoder** with explicit Pinyin syllable sequences and optional preceding text. This workflow prepares and trains an offline converter. See the [Rust inference prototype](../README.md#rust-inference-prototype) for standalone generation.
 
 ## Active data
 

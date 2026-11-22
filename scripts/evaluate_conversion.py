@@ -172,12 +172,6 @@ def verify_lexicon_readings(suites):
 def verify_maintained_split(suites):
     evaluated = {(normalize(row['input']), row['context'], reference): row['id']
                  for suite in suites.values() for row in suite for reference in row['references']}
-    fixed_lambdarank = DATA / 'lambdarank'
-    for name in ('train.jsonl', 'validation.jsonl'):
-        for row in rows(fixed_lambdarank / name):
-            for target in row['references']:
-                matched = evaluated.get((normalize(row['input']), row['context'], target))
-                ensure(matched is None, f'{matched}: duplicate query and target in LambdaRank {name}')
     pinyin_data = ROOT / 'llm/pinyin_to_text/data'
     for path in sorted(pinyin_data.glob('*/train/*.csv')):
         with path.open(encoding='utf-8', newline='') as stream:

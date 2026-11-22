@@ -2,7 +2,7 @@ use std::io::{self, BufRead, Read, Write};
 use std::path::Path;
 
 use serde_json::{Value, json};
-use si_neural::{LambdaRank, Pinyin, Reranker, Result};
+use si_neural::{Pinyin, Reranker, Result};
 
 fn strings(value: &Value) -> Result<Vec<String>> {
     serde_json::from_value(value.clone()).map_err(|_| io::Error::other("expected array of strings"))
@@ -67,15 +67,8 @@ fn main() -> Result<()> {
                 )
             })
         }
-        [command, path] if command == "score" => {
-            let model = LambdaRank::open(Path::new(path))?;
-            requests(|row| {
-                let row: Vec<Option<f64>> = serde_json::from_value(row)?;
-                Ok(json!(model.score(&row)?))
-            })
-        }
         _ => Err(io::Error::other(
-            "usage: si-neural <generate|rank|score> <bundle> (JSONL requests on stdin)",
+            "usage: si-neural <generate|rank> <bundle> (JSONL requests on stdin)",
         )),
     }
 }

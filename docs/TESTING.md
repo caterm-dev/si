@@ -25,26 +25,23 @@ bridge the app uses, including bilingual results, exact UTF-8 spans, personal
 phrases, confirmation evidence and token preferences.
 SwiftPM uses a separate dictionary generated from the tracked CSVs.
 The Release build and its package check require the paired snapshots under
-`.build/si-data/` and the [ranking bundle](../llm/README.md#experimental-input-ranking)
-at `.build/si-llm-pinyin`.
+`.build/si-data/`. The verifier rejects obsolete model assets in an incremental
+build's resource directory.
 
-Run the worker integration test with the app's staged checkpoints:
+Run the synchronous selection and window regression tests with the app's paired snapshots.
 
 ```sh
 SI_TEST_ENGINE_RESOURCE_DIRECTORY="$PWD/.build/xcode/Build/Products/Release/SI.app/Contents/Resources/SIEngine" \
-  ./scripts/test.sh --filter experimentalModelsReachWorker
+  ./scripts/test.sh --filter 'SynchronousCandidateTests|WindowRankingRegressionTests'
 ```
 
-It exercises request delivery, the candidate shortlist, the literal fallback
-and explicit submission. The package verifier checks that the ranking assets
-contain the matching character scorer and projected trees. On an installed build, type synthetic `fangan` in
-TextEdit after `先定个`, wait for full
-results, and use number or mouse selection. Check Space, Return and Escape,
-then type a second spelling while a request is pending and switch focus. Confirm
-the result belongs to the current composition and that no old result restores a
-closed panel. With Pinyin correction off and both languages enabled, type
+These tests exercise statistical order, spelling suggestions, the candidate
+shortlist, the literal fallback and explicit submission. On an installed build, type synthetic `fangan` in
+TextEdit after `先定个` and use number or mouse selection immediately. Check
+Space, Return and Escape, then type another spelling and switch focus.
+Confirm the displayed result belongs to the current composition. With Pinyin correction off and both languages enabled, type
 `xiandingge` in an empty field. Confirm that `先定个` and `限定个` remain
-selectable after the full result arrives. Repeat in a second supported host
+selectable after each synchronous update. Repeat in a second supported host
 before claiming host compatibility.
 
 Run `cargo test --locked -p si-engine --test conversion` for the bounded search
@@ -57,9 +54,7 @@ files, and concurrent imports.
 
 Scoring fixtures verify shared Chinese and English unigram totals, equal
 unigram scores at equal counts, cross-language word histories and continuation
-totals, lower-order fallback, and parity between decoding and exported
-ranking statistics. Run the LambdaRank tests after building `si-cli` in Release
-to check the compatible feature layout and its reserved language columns.
+totals, lower-order fallback, and ranking with preceding text.
 
 Segmentation regressions cover `没有输入法` → `没有 / 输入法` in base
 paragraph ingestion, user ingestion and preceding-field ranking, bounded
@@ -78,6 +73,15 @@ fixtures.
 For synthetic timings use `./scripts/benchmark.sh`. For quality/recall regression
 reports use the [ranking dataset and candidate export](../eval/README.md).
 Record the exact resource configuration with results.
+
+`reused_search_statistics_preserve_edits_context_and_request_preferences`
+compares reused and fresh engines across append/delete traces, languages,
+context, preferences, personal phrases, aliases, separators, and casing.
+`concurrent_queries_share_resources_without_sharing_compositions`
+checks simultaneous independent spellings. The memo collision regression
+checks exact-key validation after bounded replacement. Repeat the synthetic
+host checks above after an explicitly requested build/install; cached engine
+parity alone does not establish InputMethodKit compatibility.
 
 ### Known Rust recall misses
 
@@ -133,8 +137,8 @@ With the bundled dictionary and paired grams, compare `sihuan` and `jihang`
 in Higher recall with no preceding text and with `--preceding '他买了机票，准备去'`.
 In the recorded synthetic check, the latter offered `四川` and `机场`
 while retaining `四环` and `几行` as the first ordinary candidates.
-The preview run uses the same narrow search as the provisional engine and
-includes timings for all prefixes of a fixed set of typing sequences.
+The offline preview run measures the narrow search and includes timings
+for all prefixes of a fixed set of typing sequences.
 Pass `--stress` to measure clean and mistyped repetitions near the composition
 length limit, separately from the vocabulary sample.
 Host interactions and naturally occurring spelling errors require separate
@@ -182,14 +186,15 @@ office app. Include ordinary and secure fields, using dummy input.
   navigate. Verify Home/End, backward/forward Delete and UTF-16 marked ranges
   with synthetic combining text. Check the exact candidate committed by each
   keyboard or mouse action.
-- With Pinyin correction off and then on, rapidly type and edit long spelling
-  while provisional/full results are pending. Confirm that provisional rows
-  refresh for the current spelling and settle after a pause. Navigate a
-  visible preview by keyboard, let the full result arrive, and verify that the
-  numbered selection stays stable and mouse controls become available again.
-  Confirm that stale rows cannot commit or reappear after edits,
-  cancel, focus/client changes or changes to language/learning settings.
-  Check that no characters are dropped or committed twice.
+- With Pinyin correction off and then on, type Chinese, English and mixed
+  spelling, delete letters one by one, and insert in the middle. Every edit
+  must return with current candidates, visible numbers and the first item
+  highlighted. Space, digits, clicks, navigation and expansion should work
+  immediately on that list. Confirm long-input response time with synthetic
+  examples, especially with correction enabled. Deleting the last letter
+  must close the panel. Start another composition and change languages or
+  learning settings. Check that each confirmation inserts once and Return,
+  shortcuts, cancellation and focus changes preserve their existing behavior.
 - With paired word grams, compare the same ambiguous spelling after different
   synthetic preceding sentences. Change earlier sentences while keeping the
   last sentence fixed. Repeat in the middle of a field and over a selection,
@@ -212,37 +217,20 @@ as a spelling correction and the original spelling remains selectable.
 Accept with its displayed number, a click and arrow navigation followed by
 Space. Confirm each inserts the candidate once. Navigate to the suggestion,
 then type a comma or Tab and verify it does not accept the suggestion or
-convert the delimiter. With the initial selection
-untouched, check Space preserves the original spelling when no ordinary
-whole candidate is available, and Return always preserves it. Use VoiceOver
-to identify the suggestion in both candidate layouts. Change the setting
+convert the delimiter. Check that the first displayed candidate is initially
+highlighted, including when a statistical correction ranks first. Space
+confirms the highlighted candidate. Return preserves the original spelling.
+Use VoiceOver to identify the suggestion in both candidate layouts. Change the setting
 during composition and verify obsolete results cannot restore suggestions.
 With the switch on, type `nihaoo` and `nihaox`.
 Verify that the list contains the exact spelling and offers no whole spelling
 correction to `你好` for either input. Repeat the `nihoa` case with the switch
 off and check a secure field stays free of correction suggestions.
 
-For a build containing [a calibrated correction model](../eval/lambdarank/README.md#calibrate-pinyin-correction),
-wait for the background results in TextEdit and a browser field. Verify that
-`nihoa` offers the numbered correction `你好` on the first page. Untouched
-Space must accept an ordinary whole result or the literal spelling. A
-displayed number, click, or navigation to the correction followed by Space
-should commit `你好` once. Verify that opening the expanded candidate list
-alone does not accept the correction. Type `nihao` as a clean control and
-repeat with correction off. The clean target should still be available.
-
-Run the shared worker and selection checks with the matching development
-model and packaged resources. Exercise ordinary typing with correction off,
-and confirm that the full result has the same order when selected before the
-worker returns. With correction enabled, verify the early preview and the
-bounded model result. Relaunch a development process with
-`SI_USE_LEGACY_RANKING=1` to exercise the rollback path.
-
-```sh
-SI_TEST_CALIBRATED_CORRECTION=1 \
-  SI_TEST_ENGINE_RESOURCE_DIRECTORY="$PWD/.build/xcode/Build/Products/Release/SI.app/Contents/Resources/SIEngine" \
-  ./scripts/test.sh --filter 'calibratedCorrection|leadingRankedCorrection|experimentalModelsReachWorker'
-```
+Verify that opening the expanded candidate list alone does not accept a
+correction. Type `nihao` as a clean control with the switch off and on.
+Exercise deletion in both modes and check that the first candidate is
+highlighted for each edited composition.
 
 ## Candidate positioning
 
@@ -293,13 +281,13 @@ and browser fields. Check Home/End, backward/forward deletion near visual spaces
 candidate navigation, Space/number/mouse confirmation, prefix selection, Return,
 shortcuts, Escape and focus changes. Only real source characters should be edited;
 Return/shortcuts must preserve spelling without display spaces. Check rapid
-typing through provisional/full results, unknown identifiers, disabled languages,
+synchronous typing and deletion, unknown identifiers, disabled languages,
 caret positioning near screen edges, light/dark appearance and VoiceOver. These
 native host and spoken accessibility checks remain unverified by package tests.
 
 ## Language-labeled punctuation candidates
 
-Run `./scripts/test.sh --filter 'PunctuationCandidateTests|CompositionBoundaryTests|CandidateViewTests|LanguageSettingsTests'`. Synthetic cases cover `, . / ; ' "`, default-off generation, persisted independent settings, pending-result invalidation on toggle, enabled-language filtering, unique identities, exact original spelling, complete-word punctuation, retained Pinyin separators, domains/code, bounded repeated punctuation/output, personal/verbatim archive exclusions, no vocabulary/context training, stale results and preview/full delivery. AppKit view checks verify visible E/C/A badges immediately after the candidate text, separate glyph/label frames, exact numbered commits and light/dark offscreen rendering in both layouts. Set `SI_PUNCTUATION_SNAPSHOT_PATH=/tmp/si-punctuation` to write those synthetic snapshots.
+Run `./scripts/test.sh --filter 'PunctuationCandidateTests|CompositionBoundaryTests|CandidateViewTests|LanguageSettingsTests'`. Synthetic cases cover `, . / ; ' "`, default-off generation, persisted independent settings, synchronous candidate refresh on toggle, enabled-language filtering, unique identities, exact original spelling, complete-word punctuation, retained Pinyin separators, domains/code, bounded repeated punctuation/output, personal/verbatim archive exclusions, no vocabulary/context training, stale results and preview/full delivery. AppKit view checks verify visible E/C/A badges immediately after the candidate text, separate glyph/label frames, exact numbered commits and light/dark offscreen rendering in both layouts. Set `SI_PUNCTUATION_SNAPSHOT_PATH=/tmp/si-punctuation` to write those synthetic snapshots.
 
 On an intentionally installed build, verify Settings → Typing → Show punctuation candidates starts off and remains off after restart. With it off, common punctuation outside composition must pass through immediately without a candidate window; trailing punctuation must not produce language variants or show language badges. Turn the switch on and restart to check persistence. While punctuation search/preview work is pending, switch off and verify stale results cannot restore variants, marked spelling/caret remain intact and old selections cannot commit a symbol replacement. Confirm the separate punctuation policy and language/learning choices are preserved.
 
@@ -315,7 +303,7 @@ On an intentionally installed build, open **Direct Input → Manage Direct Input
 
 In a selected Terminal app, type synthetic `echo SI_TEST_42`, use Space, digits, Tab completion, Return, arrows, Home/End, Delete, Escape and Control shortcuts. Every key must reach the host once, without candidates, automatic spacing or an extra Return to finish composition. Repeat with punctuation candidates and automatic confirmation enabled. Switch to TextEdit and verify ordinary Chinese/English candidates, selection and literal Return still work. A browser rule must apply to both its address bar and page inputs; an editor rule must apply to both editor and embedded terminal. No system input-source selection or Accessibility/Input Monitoring prompt should occur.
 
-Toggle direct input across a pending composition/search or pause timer, then return to the host, use candidate mouse/page/expansion controls if still visible and change focus rapidly. Only the exact pending source spelling may be inserted, once, with no extra space; obsolete candidates/timers must not convert or restore it. Turn direct input off and verify fresh conversion, without stale selection or history. With vocabulary/history independently opted in, confirm direct input adds no app records or incomplete history suffix, including after Return; existing records must remain deletable. Inspect data only with synthetic input. Native host, reentry, VoiceOver and appearance checks remain unverified until performed in a login session.
+Toggle direct input across an active composition or pause timer, then return to the host, use candidate mouse/page/expansion controls if still visible and change focus rapidly. Only the exact pending source spelling may be inserted, once, with no extra space; obsolete candidates/timers must not convert or restore it. Turn direct input off and verify fresh conversion, without stale selection or history. With vocabulary/history independently opted in, confirm direct input adds no app records or incomplete history suffix, including after Return; existing records must remain deletable. Inspect data only with synthetic input. Native host, reentry, VoiceOver and appearance checks remain unverified until performed in a login session.
 
 Verify the default **Control + Shift + I** in TextEdit, a browser, an editor and Terminal with SI selected: toggle on/off with an empty composition and with synthetic pending spelling. Confirm the rule affects only the IMK client app, persists across restart, and matches the Settings manager. Hold the shortcut: only one toggle occurs and no letter/control text reaches the host. Add Option or Command, or release Shift: the default must not match. Caps Lock must not prevent a match. Test focus changes, a pending candidate search and AI prediction; entering direct input inserts exact remaining spelling once, with no suffix or stale candidate/prediction. Secure fields and clients without an identifier must not change rules.
 
@@ -348,7 +336,7 @@ System permission dialogs, revocation, Settings keyboard/VoiceOver and live appe
 Use a dedicated synthetic profile on an intentionally installed copy. Settings calls this feature **Personal Learning**.
 
 1. Confirm learning starts off. Enable **Enable Personal Learning**, select a nonfirst `shike` candidate in TextEdit, then type the identical spelling in TextEdit and a browser/editor: the remembered candidate must be the first ordinary choice. A deliberate different selection must replace it everywhere, including after restart. Explicit personal-phrase pins keep priority. Other enabled-language choices and exact original input remain available.
-2. Accept the first choice using Space, number 1, mouse and navigation away/back: usage rises, but frequency strength, correction count and remembered choice do not. A later page's first cell still counts as nonfirst. Every third deliberate nonfirst selection earns one additional frequency point up to 32. Exact first-choice placement works after the first correction, separately from that bonus. Test both provisional and full delivery and compact/expanded pages.
+2. Accept the first choice using Space, number 1, mouse and navigation away/back: usage rises, but frequency strength, correction count and remembered choice do not. A later page's first cell still counts as nonfirst. Every third deliberate nonfirst selection earns one additional frequency point up to 32. Exact first-choice placement works after the first correction, separately from that bonus. Test immediate keyboard selection and selection after background delivery in both layouts.
 3. Check exact normalized spelling (case and ü/v/u: aliases), explicit apostrophe boundaries, shorter input and a longer pending suffix. Only the exact remembered whole spelling gets forced placement. Select a prefix, then confirm its consumed spelling alone is remembered; its pending remainder must never be saved or pinned. Automatic, delimiter, punctuation, literal and personal/verbatim commits never train. Return and shortcuts retain their existing exact-spelling behavior without duplicate commits.
 4. **Manage Learning Data…** searches global words/input, forgets entries and clears all learned vocabulary. Forgetting a selected entry restores ordinary ranking. Explicit phrases remain. There must be no application picker, app discovery or per-app pause/delete/clear controls. Seed the retired `applicationMemory.vocabularyExclusions` key and confirm startup removes it without changing the global learning switch or limiting suggestions. Check off/on consent, the separate direct-input feature, secure input and disabled languages. Changes during pending work must invalidate stale results/clicks. Restart preserves global consent.
 5. Use synthetic archives only. Schemas 1–3 atomically become global schema 4 without app identifiers or history. Equal spelling/language/output rows merge bounded counts and maximum strength; schema-1/2 ambiguous strengths/corrections reset, while schema-3 evidence remains. Old last-use times must not create exact-choice markers. Old records still in the file survive age changes, and newer schema-4 selection markers persist across restart. Corrupt JSON/vocabulary/unsupported schemas must preserve original bytes; check migration-write and clear/retry errors and that older queued writes cannot undo deletion. The separate retired shared archive remains untouched.
@@ -408,7 +396,7 @@ On an intentionally installed build, verify the following in TextEdit, a browser
 - Enable the option and gradually type `nihaopengyouxuexizhongwen`. Leading stable words should commit without a space while the ending remains marked, editable and represented by current candidates. Repeat with rapid typing; no dropped/duplicated letters or synchronous full search should be introduced on append or timer delivery.
 - Type `nihaopengyou` and wait: `你好` may confirm after at least 1.8 seconds, leaving `pengyou`. Continuing to wait must not drain the rest. Type more to permit another confirmation. `shi`, `he`, `nihao`, short `dishiye`, English and mixed leaders, uppercase identifiers, unknown text and symbol-bearing input must not be forced into a prefix conversion. A pause must not confirm an isolated single-character prefix. Nearby homophones that disagree on the beginning must remain editable regardless of pause length. Repeat `nihaotitle` and `nihaotitlezhongwen` with English disabled; their English spans must still suppress automatic conversion.
 - Before a pause fires, delete, move the caret, navigate/page candidates, expand/collapse the panel, press Escape, Return, a shortcut, or change focus. The old task must not insert text or restore candidates. Start a new composition, including the same spelling, and switch between clients; old work must remain invalid. End-of-buffer typing after an edit builds fresh evidence, while middle-of-composition edits remain manual.
-- Change languages, punctuation, automatic confirmation, personal phrases, learning consent/clear and secure input while a search or pause is pending. Also toggle a typing setting away and back without another keystroke. Results and timers from the prior configuration must not commit. No language selection or enabled language alone enables learning.
+- Change languages, punctuation, automatic confirmation, personal phrases, learning consent/clear and secure input during composition or while a pause timer is pending. Also toggle a typing setting away and back without another keystroke. Results and timers from the prior configuration must not commit. No language selection or enabled language alone enables learning.
 - With a dedicated synthetic learning profile, verify automatic commits neither change saved record count/strength/timestamps nor supply previous-word context. Deliberate selections must still train under the existing opt-in rules.
 - After automatic confirmation, Return/shortcuts preserve the remaining original spelling. Confirm Space/number/mouse prefix selection and candidate paging still agree with the displayed rows. Edit already committed text using the host's ordinary controls; automatic restoration of its original Pinyin is not implemented. Check marked UTF-16 selection, candidate positioning, both appearances and VoiceOver after a prefix is inserted.
 
@@ -440,24 +428,6 @@ For the independent static landing page, use the build, browser, localization, a
 
 ## Offline corpus and ranking checks
 
-For the [offline LambdaRank experiment](../eval/lambdarank/README.md), build
-`si-cli` in Release, run `python3 -m unittest discover -s Tests/LambdaRankTests -v`,
-and run the documented validate/train/evaluate sequence plus the feature
-`ablate` command. Check v1 saved-model reload, schema selection, alias variants,
-score reconstruction and best-path evidence through the focused tests. Use the
-LambdaRank Python environment to exercise direct training with synthetic staged
-base and user resources. Compare the reloaded model report to the training
-report, including missing-target queries
-and category regressions. The validation split is used for early stopping;
-results are not independent test accuracy or native-window behavior. This
-workflow does not require building or installing the macOS app.
-
-The offline contextual Pinyin parity check uses the CLI's source-only
-syllable paths. The LambdaRank tests cover ambiguous `fangan`, a typed
-apostrophe, `u:`, and input that has no full Pinyin path. See the [Rust
-inference prototype](../llm/README.md#rust-inference-prototype) for the
-standalone model checks.
-
 Use the [corpus guide](../corpus/README.md) for the pinned Python environment.
 Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests` for
 synthetic archive parsing, normalization, document/source ranges and atomic
@@ -477,10 +447,3 @@ Run `python3 scripts/generate_ranking_eval.py --check` and
 `python3 -m unittest discover -s Tests/RankingEvalTests` for the authored
 historical 220-query suite. Follow the [compact suite protocol](../eval/README.md#validate-and-evaluate) to generate
 blind requests and score the first 32 eligible complete candidates.
-
-Offline rank-feature changes: run `cargo test --workspace --locked`, build the Release
-`si-cli`, and run `python3 -m unittest discover -s Tests/LambdaRankTests -v`.
-The v3 fixtures check cross-boundary trigrams, user-model availability, missing
-context versus known field start, all three correction types, and unchanged
-conversion results after removing diagnostics. Train/reload with fresh bundles
-following `eval/lambdarank/README.md`; do not use live private profiles implicitly.

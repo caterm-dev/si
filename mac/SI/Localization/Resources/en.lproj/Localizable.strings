@@ -129,7 +129,6 @@
 "Typing" = "Typing";
 "Unknown" = "Unknown";
 "Updates are available in the installed Release app." = "Updates are available in the installed Release app.";
-"Updating candidates" = "Updating candidates";
 "Use 1–64 letters, with apostrophes only between letters." = "Use 1–64 letters, with apostrophes only between letters.";
 "Use letters and apostrophes for the code, such as xm or xiang'mu. Use v for ü. The phrase is inserted exactly as saved, and its language must be enabled in Settings." = "Use letters and apostrophes for the code, such as xm or xiang'mu. Use v for ü. The phrase is inserted exactly as saved, and its language must be enabled in Settings.";
 "Version" = "Version";
@@ -347,4 +346,4 @@
 "Spelling correction" = "Spelling correction";
 "Spelling correction · %@" = "Spelling correction · %@";
 "Pinyin correction" = "Pinyin correction";
-"Offer spelling suggestions that require explicit selection." = "Offer spelling suggestions that require explicit selection.";
+"Offer spelling suggestions. Press Space to accept a correction highlighted in first place." = "Offer spelling suggestions. Press Space to accept a correction highlighted in first place.";

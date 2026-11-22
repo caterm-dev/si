@@ -32,8 +32,6 @@ class LocalInstallTests(unittest.TestCase):
         self.executable(self.script, fixture)
         self.executable(scripts / "build.sh", "#!/bin/bash\nexit 0\n")
         shutil.copy2(ROOT / "scripts/verify-rust-app.py", scripts / "verify-rust-app.py")
-        (scripts / "lambdarank").mkdir()
-        shutil.copy2(ROOT / "scripts/lambdarank/project_runtime.py", scripts / "lambdarank/project_runtime.py")
         self.signing_log = self.root / "signing.jsonl"
         self.executable(self.bin / "codesign", f"#!{sys.executable}\n" + '''
 import json
@@ -66,13 +64,6 @@ exec /bin/mv "$@"
         resources.mkdir(parents=True)
         (resources / "main.silex").write_bytes(b"SILEX\0\x03\0synthetic lexicon")
         (resources / "words.sigram").write_bytes(b"SIGRAM\x04\0synthetic word grams")
-        ranking = resources / "Ranking"
-        reranker = ranking / "reranker"
-        reranker.mkdir(parents=True)
-        digest = "b" * 64
-        (reranker / "model.json").write_text(json.dumps({"kind": "reranker", "checkpoint_sha256": digest}))
-        (reranker / "weights.f32").write_bytes(b"synthetic weights")
-        (ranking / "lambdarank.json").write_text(json.dumps({"reranker_checkpoint_sha256": digest}))
 
     def executable(self, path, text):
         path.write_text(text)
@@ -104,10 +95,7 @@ exec /bin/mv "$@"
                          b"SILEX\0\x03\0synthetic lexicon")
         self.assertEqual((self.destination / "Contents/Resources/SIEngine/words.sigram").read_bytes(),
                          b"SIGRAM\x04\0synthetic word grams")
-        ranking = self.destination / "Contents/Resources/SIEngine/Ranking"
-        self.assertEqual((ranking / "reranker/weights.f32").read_bytes(),
-                         b"synthetic weights")
-        self.assertFalse((ranking / "pinyin").exists())
+        self.assertFalse((self.destination / "Contents/Resources/SIEngine/Ranking").exists())
 
     def test_all_nested_code_uses_selected_developer_id(self):
         macos = self.source / "Contents/MacOS"

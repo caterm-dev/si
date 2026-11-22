@@ -21,13 +21,6 @@ pub fn text(value: &Value) -> Result<&str> {
         .ok_or_else(|| invalid("expected JSON string"))
 }
 
-pub fn strings(value: &Value) -> Result<Vec<String>> {
-    array(value)?
-        .iter()
-        .map(|value| text(value).map(str::to_owned))
-        .collect()
-}
-
 pub fn array(value: &Value) -> Result<&[Value]> {
     value
         .as_array()

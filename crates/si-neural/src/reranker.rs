@@ -98,15 +98,6 @@ impl Reranker {
         })
     }
 
-    /// Number of model tokens, if this surface can be scored in a pool.
-    pub fn scoreable_token_count(&self, text: &str) -> Option<usize> {
-        if text.is_empty() || text.len() > 4096 || text.chars().any(char::is_control) {
-            return None;
-        }
-        let count = self.tokenizer.encode(text).len();
-        (count <= self.context).then_some(count)
-    }
-
     pub fn rank(
         &self,
         context: &str,
@@ -120,7 +111,7 @@ impl Reranker {
         let ScoredPool {
             mut scores,
             context_tokens_used,
-        } = self.score_pool(context, candidates, None)?;
+        } = self.score_pool(context, candidates)?;
         let mut order: Vec<_> = (0..scores.len()).collect();
         if context_tokens_used.is_some() {
             for (score, text) in scores.iter_mut().zip(candidates) {
@@ -141,29 +132,7 @@ impl Reranker {
         })
     }
 
-    /// Score selected surfaces without length normalization. The whole pool still
-    /// determines how much history fits, including surfaces whose scores are skipped.
-    pub fn score_selected(
-        &self,
-        context: &str,
-        candidates: &[String],
-        selected: &[bool],
-    ) -> Result<Vec<Option<f64>>> {
-        if selected.len() != candidates.len() || candidates.len() > MAX_CANDIDATES {
-            return Err(invalid("invalid candidate scoring selection"));
-        }
-        if !selected.contains(&true) {
-            return Ok(vec![None; candidates.len()]);
-        }
-        Ok(self.score_pool(context, candidates, Some(selected))?.scores)
-    }
-
-    fn score_pool(
-        &self,
-        context: &str,
-        candidates: &[String],
-        selected: Option<&[bool]>,
-    ) -> Result<ScoredPool> {
+    fn score_pool(&self, context: &str, candidates: &[String]) -> Result<ScoredPool> {
         if candidates.len() > MAX_CANDIDATES
             || candidates.iter().any(|text| {
                 text.is_empty() || text.len() > 4096 || text.chars().any(char::is_control)
@@ -188,9 +157,9 @@ impl Reranker {
             });
         };
         let history = self.tokenizer.suffix(context, available);
-        let scores = match PrefixBatch::new(&history, &encoded, selected) {
+        let scores = match PrefixBatch::new(&history, &encoded) {
             Some(batch) => self.score_prefixes(batch)?,
-            None => self.score_individual(&history, &encoded, selected)?,
+            None => self.score_individual(&history, &encoded)?,
         };
         Ok(ScoredPool {
             scores,
@@ -233,7 +202,7 @@ impl Reranker {
         Ok(batch
             .score_paths
             .into_iter()
-            .map(|path| path.map(|edges| edges.into_iter().map(|i| probabilities[i]).sum()))
+            .map(|path| Some(path.into_iter().map(|i| probabilities[i]).sum()))
             .collect())
     }
 
@@ -241,14 +210,9 @@ impl Reranker {
         &self,
         history: &[usize],
         encoded: &[Vec<usize>],
-        selected: Option<&[bool]>,
     ) -> Result<Vec<Option<f64>>> {
         let mut scores = Vec::with_capacity(encoded.len());
-        for (index, target) in encoded.iter().enumerate() {
-            if selected.is_some_and(|mask| !mask[index]) {
-                scores.push(None);
-                continue;
-            }
+        for target in encoded {
             let input: Vec<_> = [BOS]
                 .into_iter()
                 .chain(history.iter().copied())
@@ -280,7 +244,7 @@ mod tests {
     use crate::CHAR_OFFSET;
 
     #[test]
-    fn skipping_the_longest_candidate_preserves_the_context_budget() {
+    fn longest_candidate_sets_a_shared_context_budget() {
         let model = Reranker {
             checkpoint_sha256: String::new(),
             tokenizer: Tokenizer::new(vec!['甲', '乙'], CHAR_OFFSET + 2).unwrap(),
@@ -304,13 +268,8 @@ mod tests {
         let candidates = ["甲".to_owned(), "乙乙乙".to_owned()];
         let full = model.rank("甲乙甲", &candidates, None).unwrap();
         assert_eq!(full.context_tokens_used, 1);
-        let selected = model
-            .score_selected("甲乙甲", &candidates, &[true, false])
-            .unwrap();
-        assert_eq!(selected[1], None);
-        assert!((selected[0].unwrap() - full.scores[0].unwrap()).abs() < 1e-5);
         let shorter_pool = model.rank("甲乙甲", &candidates[..1], None).unwrap();
         assert_eq!(shorter_pool.context_tokens_used, 3);
-        assert!((selected[0].unwrap() - shorter_pool.scores[0].unwrap()).abs() > 0.01);
+        assert!((full.scores[0].unwrap() - shorter_pool.scores[0].unwrap()).abs() > 0.01);
     }
 }

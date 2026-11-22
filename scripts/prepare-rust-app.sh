@@ -18,10 +18,6 @@ if [[ "$fixtures" == false ]]; then
             exit 2
         fi
     done
-    if ! ranking="$(cd -P "$repo_root/.build/si-llm-pinyin" 2>/dev/null && pwd -P)"; then
-        printf 'Missing SI ranking bundle: %s/.build/si-llm-pinyin\n' "$repo_root" >&2
-        exit 2
-    fi
 fi
 if (( $# == 0 )); then set -- "$(uname -m)"; fi
 export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
@@ -56,31 +52,18 @@ if [[ "$fixtures" == true ]]; then
         printf '%s\n' "$signature" > "$library_dir/lexicon-inputs"
     fi
     rm -f "$resource_dir/words.sigram"
-    rm -rf "$resource_dir/Ranking"
 else
     work="$(mktemp -d "$resource_dir/.snapshots.XXXXXX")"
     trap 'rm -rf "$work"' EXIT
     install -m 644 "$lexicon" "$work/main.silex"
     install -m 644 "$grams" "$work/words.sigram"
     "$cli" check-resources "$work/main.silex" "$work/words.sigram"
-    mkdir -p "$work/Ranking/reranker"
-    chmod 755 "$work/Ranking" "$work/Ranking/reranker"
-    for file in reranker/model.json reranker/weights.f32; do
-        if [[ ! -s "$ranking/$file" ]]; then
-            printf 'Missing SI ranking resource: %s\n' "$ranking/$file" >&2
-            exit 2
-        fi
-        install -m 644 "$ranking/$file" "$work/Ranking/$file"
-    done
-    python3 "$repo_root/scripts/lambdarank/project_runtime.py" "$ranking/lambdarank.json" "$work/Ranking/lambdarank.json"
-    chmod 644 "$work/Ranking/lambdarank.json"
-    python3 "$repo_root/scripts/verify-rust-app.py" --ranking "$work/Ranking"
     mv -f "$work/main.silex" "$resource_dir/main.silex"
     mv -f "$work/words.sigram" "$resource_dir/words.sigram"
-    rm -rf "$resource_dir/Ranking"
-    mv "$work/Ranking" "$resource_dir/Ranking"
     rm -f "$library_dir/lexicon-inputs"
 fi
+# Incremental builds may reuse a resource directory from an older app build.
+rm -rf "$resource_dir/Ranking"
 rm -f "$resource_dir/main.sigram"
 for language in Chinese English; do
     mkdir -p "$resource_dir/Notices/$language"

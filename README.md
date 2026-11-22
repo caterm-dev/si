@@ -40,22 +40,14 @@ to the underlying statistical score.
 Rust library callers can opt into bounded, single-edit Pinyin suggestions
 with `CandidateEngine::with_pinyin_correction(true)`. For a CLI preview, add
 `--pinyin-correction on` to `si-cli candidates`. In the macOS app, enable
-**Pinyin correction** under Typing. Correction is off by default and
-suggestions require explicit selection. With a calibrated LambdaRank model,
-the background worker uses spelling-edit features to select and rank
-corrections alongside other whole candidates. Preview uses the statistical
-correction rules.
-With correction off, the full search uses contextual statistical order for
-both background conversion and synchronous resolution. A separate bounded
-search shows provisional candidates for the current spelling while the full
-search runs. With correction on,
-the background worker can reorder candidates within 6 bits of the
-statistical leader using LambdaRank and the character scorer. The worker
-computes character scores as the trees need them and shares common prefixes
-within each scoring pass. For a local
-rollback, launch SI with `SI_USE_LEGACY_RANKING=1` to restore unrestricted
-background ranking. The character scorer and LambdaRank reorder candidates
-from the Rust decoder. Pinyin-to-text experiments run offline.
+**Pinyin correction** under Typing. Correction is off by default. The first
+displayed candidate gets the default highlight, including a spelling
+correction. Space confirms the highlighted candidate.
+SI uses contextual statistical scoring in both modes. With correction
+enabled, a suggestion must clear the engine's conservative confidence margin
+after its spelling-edit cost. Ordinary whole candidates appear before
+spelling suggestions. Resource-local caches reuse dictionary transitions
+and prepared word-gram contexts across edits.
 
 In compatible macOS text fields, SI passes the full text before the composition
 to the local Rust engine. The engine uses word grams from the last preceding
@@ -63,17 +55,15 @@ sentence to help rank the first word of each candidate. This context stays in
 memory. If the host cannot provide the text, conversion uses the composition
 and local resources as usual.
 
-The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character that the system font can display. The window retains the first two displayable statistical choices in their ranked positions. Other constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Before shortlisting, the window excludes nonliteral candidates containing missing glyphs, including system LastResort placeholders; supported rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices show a small arrow and consume only their exact source spelling: choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Provisional hints may change when full results arrive. Live host compatibility remains unverified.
+The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character that the system font can display. The window retains the first two displayable statistical choices in their ranked positions. Other constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Before shortlisting, the window excludes nonliteral candidates containing missing glyphs, including system LastResort placeholders; supported rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices show a small arrow and consume only their exact source spelling: choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 
 Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate candidate preferences. SI builds a local user model from confirmed candidates by default. Input History can retain each submitted spelling and text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
 Debug and Release bundle `.build/si-data/main.silex` and
-`.build/si-data/words.sigram` alongside the [ranking bundle](llm/README.md#experimental-input-ranking)
-selected by `.build/si-llm-pinyin`. Xcode validates the paired snapshots and
-the character scorer's checkpoint identity. It stages the character scorer and
-removes generation-only features from the exported LambdaRank trees.
+`.build/si-data/words.sigram`. Xcode validates the paired snapshots before
+staging them, and SI opens them before starting the input-method server.
 
 Candidate positioning briefly rechecks the host after a composition starts, allowing a newly opened input field to finish layout. Two matching corrected positions can replace the initial anchor; after the bounded startup checks, the panel stays anchored until the composition ends. Native new-chat and focus-switch behavior still requires the [positioning checks](docs/TESTING.md#candidate-positioning).
 
@@ -114,9 +104,9 @@ paired word grams from the selected corpus before using them in the app.
 
 Enable **Automatically confirm stable prefixes** in **SI Settings → Typing** to let SI confirm leading Chinese words while you continue typing or pause. It is off by default. SI keeps at least four output characters editable during continuous typing, or two after a pause of at least 1.8 seconds; complete-word boundaries can leave a longer ending. Only the confirmed source spelling is consumed, and the remaining exact spelling stays marked and editable without an extra space.
 
-Automatic confirmation requires matching source/output boundaries across nearby full-search alternatives. Continued typing must also preserve the prefix across multiple results with additional input. A pause relaxes the ending length, but requires a prefix of at least two characters and does not override disagreement between candidates. Ambiguous input can remain entirely editable. Provisional hints never trigger confirmation. English/mixed leaders, uppercase/code-like spelling, personal phrases and unrecognized spans are excluded. These are conservative local heuristics, not a guarantee of sentence meaning or a way to predict whether later typing will turn a spelling into an identifier.
+Automatic confirmation requires matching source/output boundaries across nearby full-search alternatives. Continued typing must also preserve the prefix across multiple results with additional input. A pause relaxes the ending length, but requires a prefix of at least two characters and does not override disagreement between candidates. Ambiguous input can remain entirely editable. English/mixed leaders, uppercase/code-like spelling, personal phrases and unrecognized spans are excluded. These are conservative local heuristics, not a guarantee of sentence meaning or a way to predict whether later typing will turn a spelling into an identifier.
 
-Editing, moving the caret, navigating/expanding candidates, or crossing a host boundary cancels automatic confirmation; fresh typing at the composition end starts new evidence. Settings changes, secure input, cancellation and stale asynchronous results cannot authorize a pending confirmation. Each pause can confirm at most once until more input arrives. Automatic confirmation does not train Personal Learning. If separately enabled, Input History records its submitted prefix like other SI commits. Return and shortcuts preserve only the remaining spelling once a prefix has been committed; editing already committed text uses the host application's normal editing tools. Native timer/focus behavior still requires the checks in [testing](docs/TESTING.md#automatic-prefix-confirmation).
+Editing, moving the caret, navigating/expanding candidates, or crossing a host boundary cancels automatic confirmation; fresh typing at the composition end starts new evidence. Settings changes, secure input, cancellation and obsolete confirmation evidence cannot authorize a pending confirmation. Each pause can confirm at most once until more input arrives. Automatic confirmation does not train Personal Learning. If separately enabled, Input History records its submitted prefix like other SI commits. Return and shortcuts preserve only the remaining spelling once a prefix has been committed; editing already committed text uses the host application's normal editing tools. Native timer/focus behavior still requires the checks in [testing](docs/TESTING.md#automatic-prefix-confirmation).
 
 ## Direct input by application
 
@@ -204,15 +194,12 @@ cd si
 ```
 
 Place the prepared `main.silex` and matching `words.sigram` in
-`.build/si-data/` and point `.build/si-llm-pinyin` at a
-[complete ranking bundle](llm/README.md#experimental-input-ranking).
-Then run `./scripts/build.sh`. The application is built
+`.build/si-data/`, then run `./scripts/build.sh`. The application is built
 at `.build/xcode/Build/Products/Debug/SI.app`. See the
 [resource preparation commands](#rust-engine-workspace).
 
-For existing checkouts, move the local resource and model directories from
-`target/` to `.build/` together with the `si-llm-pinyin` symlink. Keep their
-names and layout so the relative links between bundles still resolve.
+For existing checkouts that still keep the paired snapshots in
+`target/si-data/`, move them to `.build/si-data/`.
 
 The build compiles the Rust bridge. The test script builds a separate fixture
 dictionary from the tracked CSVs. Generated snapshots and history databases
@@ -302,8 +289,8 @@ Chinese syllables or English words of the highest-ranked whole candidate:
 `chileme` displays as `chi le me`, and `iwanttobuild` as `i want to build`.
 Mixed candidates use both kinds of boundary. These are display spaces; editing,
 prefix consumption, Return and shortcuts still use the exact original spelling.
-Explicit apostrophes and casing remain intact. Unknown input stays unchanged;
-provisional segmentation can change as current search results arrive.
+Explicit apostrophes and casing remain intact. Input without a whole match
+keeps its original spelling.
 
 | Key | During composition |
 | --- | --- |
@@ -322,11 +309,11 @@ provisional segmentation can change as current search results arrive.
 | Tab | Apply the configured composition-boundary behavior |
 | A shortcut | Commit original spelling and pass the event through |
 
-Outside composition, control keys and punctuation pass through by default. Enable Show punctuation candidates in Settings → Typing to start common punctuation compositions with language-labeled alternatives for enabled languages. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to six numbered choices. Short candidates such as `a` remain visible beside their numbers. Press Down Arrow or click the chevron to expand to four rows of six candidates, showing up to 24 choices at once. The entire four-row grid is one page; numbers 1–6 act on the highlighted row. Other displayed rows remain directly clickable. Each expanded column is sized for its widest visible candidate, including its number and source symbol; the window grows to show complete text within the available screen width. All rows align their numbers and text with those shared columns. The compact strip also sizes cells to their full text. Narrow screens shrink the columns to fit, with full text retained in tooltips and accessibility labels. Click the top-right chevron to collapse again. The first Down Arrow only expands and preserves the selected candidate; subsequent Down/Up presses move rows, Left/Right moves columns, and Page Up/Down changes whole grid pages. Expansion keeps the current selection and lasts until the composition ends; the next composition starts collapsed. The same shortlist is used in both layouts: six choices per collapsed page or 24 per expanded page, including each matching language identity and the exact original input. All generated Chinese dictionary characters supported by the candidate font remain pageable. Complete-syllable character lookup and character prefixes are exempt from the old preview/24-prefix limits; other word, initial/completion and sentence search remains bounded.
+Outside composition, control keys and punctuation pass through by default. Enable Show punctuation candidates in Settings → Typing to start common punctuation compositions with language-labeled alternatives for enabled languages. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to six numbered choices. Short candidates such as `a` remain visible beside their numbers. Press Down Arrow or click the chevron to expand to four rows of six candidates, showing up to 24 choices at once. The entire four-row grid is one page; numbers 1–6 act on the highlighted row. Other displayed rows remain directly clickable. Each expanded column is sized for its widest visible candidate, including its number and source symbol; the window grows to show complete text within the available screen width. All rows align their numbers and text with those shared columns. The compact strip also sizes cells to their full text. Narrow screens shrink the columns to fit, with full text retained in tooltips and accessibility labels. Click the top-right chevron to collapse again. The first Down Arrow only expands and preserves the selected candidate; subsequent Down/Up presses move rows, Left/Right moves columns, and Page Up/Down changes whole grid pages. Expansion keeps the current selection and lasts until the composition ends; the next composition starts collapsed. The same shortlist is used in both layouts: six choices per collapsed page or 24 per expanded page, including each matching language identity and the exact original input. All generated Chinese dictionary characters supported by the candidate font remain pageable. Complete-syllable character lookup and character prefixes are exempt from the bounded word and composed-prefix search; other word, initial/completion and sentence search remains bounded.
 
 Number shortcuts 1–6 select within the currently highlighted row in both layouts. Other rows use dimmer numbers until they become active. Left/Right selects candidates in the collapsed strip; Down expands it without changing selection. In the expanded grid, Left/Right moves within a row and Up/Down moves between rows while preserving the column where possible. Row/column movement stops at page boundaries. Page Up/Page Down and the footer buttons change whole pages (six choices collapsed, 24 expanded), preserving the cell position where the destination has it. Space confirms the highlighted candidate. Mouse-wheel and trackpad scrolling do not change pages or selection. Home/End continue editing the composition caret.
 
-Ordinary typing updates marked spelling before searching candidates off the main thread. A separate bounded search supplies provisional hints for the latest spelling while the full search runs, so an obsolete full search does not hold up every update. Both stages use the same decoder and maintain one running request plus one latest replacement per client. Provisional hints have narrower lexical coverage and may change when full results arrive; they do not replace the final candidate set. Only matching composition revisions may update the window. Pending hints refresh the rows without hiding the panel or shrinking its current size; mouse, page and expansion controls remain disabled until full results arrive. Space, digits, candidate navigation, and optional punctuation confirmation resolve full current candidates before selecting; these confirmation boundaries can still wait for a search. Return, Escape, and shortcuts preserve/cancel spelling without waiting.
+Each typing or deletion event synchronously runs full conversion, then updates the marked spelling and candidate window with that completed result. The first displayed candidate is highlighted, numbers remain visible, and keyboard, mouse, paging and expansion controls use the same current list. Space confirms the selected candidate. Return and shortcuts preserve the spelling, and Escape cancels it. Search completes before the next event is handled, so long compositions can delay input. Vocabulary resources load once during application startup.
 
 The candidate window uses a slim warm-neutral strip, a soft peach selection pill and an orange selected number. Text remains dark in the light appearance, with a coordinated dark palette. Candidate buttons keep numbers close to their text and fit their content rather than stretching across unused space. Small arrow, pin and text symbols distinguish prefix, personal and typed-text sources in both layouts. Punctuation candidates show a small E (English) or C (Chinese) badge immediately after the text in both layouts; the exact original spelling shows A (As Typed). Full language/source details remain in tooltips and accessibility labels. The system Increased Contrast preference adds a stronger outline; page controls appear only when more than one page is available.
 
@@ -723,19 +710,6 @@ count and share thresholds can still admit common fragments, so corpus
 coverage and word quality require separate evaluation.
 
 ## Model training experiments
-
-The [offline LambdaRank experiment](eval/lambdarank/README.md) provides editable,
-separate synthetic training/validation sets, Rust candidate/feature export and
-Python LightGBM training with reproducible baseline comparisons. Starting a run
-without a prepared bundle reads the paired base resources and any staged user
-pair under `.build/si-data/` and saves the generated bundle with the run.
-V3 covers word frequency, internal/context grams, user snapshots and Pinyin correction.
-V4 adds an optional merged pool from SI and Pinyin-to-text, with candidate source
-features and contextual scores from the small character LM. The macOS app runs
-the three models locally from the background conversion worker. See
-[input ranking setup](llm/README.md#experimental-input-ranking).
-The [12,000-step contextual build](llm/README.md#experimental-input-ranking)
-uses the same Rust syllable paths for training features and app inference.
 
 The [conversion evals](eval/README.md) include 1,020 authored decoder recall
 queries and 997 fixed-pool ranking queries, with both paired preceding-text

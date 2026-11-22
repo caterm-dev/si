@@ -29,22 +29,10 @@ struct CandidateSelection {
     var visiblePageSize: Int { Self.pageSize }
     var pageCapacity: Int { Self.pageSize * (isExpanded ? Self.expandedRowCount : 1) }
     private(set) var candidates: [InputCandidate] = []
-    private(set) var selectedIndex = 0 {
-        didSet { movedSelection = movedSelection || selectedIndex != oldValue }
-    }
-    private var movedSelection = false
+    private(set) var selectedIndex = 0
     private var textSupport = CandidateTextSupport()
 
     var selected: InputCandidate? { candidates.indices.contains(selectedIndex) ? candidates[selectedIndex] : nil }
-    private var leadsWithRankedCorrection: Bool {
-        candidates.first?.isPinyinCorrection == true && candidates.first?.modelRankingScore != nil
-    }
-    var spaceConfirmationReason: CommitReason {
-        guard !movedSelection, leadsWithRankedCorrection else {
-            return confirmationReason(for: selected)
-        }
-        return .defaultAcceptance
-    }
     var page: Int { selectedIndex / pageCapacity }
     var pageCount: Int { (candidates.count + pageCapacity - 1) / pageCapacity }
     var row: Int { (selectedIndex % pageCapacity) / Self.pageSize }
@@ -79,14 +67,6 @@ struct CandidateSelection {
         if candidates.isEmpty { textSupport = CandidateTextSupport() }
         self.candidates = shortlist(candidates)
         selectedIndex = 0
-        if leadsWithRankedCorrection {
-            selectedIndex = self.candidates.prefix(Self.pageSize).firstIndex {
-                !$0.requiresExplicitSelection && !$0.isPartial
-            } ?? 0
-        } else if self.candidates.first?.requiresExplicitSelection == true {
-            selectedIndex = self.candidates.firstIndex { !$0.requiresExplicitSelection && !$0.isPartial } ?? 0
-        }
-        movedSelection = false
         if self.candidates.isEmpty { isExpanded = false }
     }
 

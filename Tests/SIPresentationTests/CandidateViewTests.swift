@@ -226,7 +226,7 @@ struct CandidateViewTests {
     }
 
     @Test(arguments: [false, true])
-    func unchangedPreviewAndFinalResultsKeepTheExistingRows(expanded: Bool) {
+    func unchangedCandidatesKeepTheExistingRowsAcrossARefresh(expanded: Bool) {
         var selection = CandidateSelection()
         selection.setExpanded(expanded)
         selection.update([
@@ -236,9 +236,6 @@ struct CandidateViewTests {
         let view = CandidateListView()
         view.render(selection)
         let rows = view.rows
-        view.render(selection, isPending: true, refreshPendingRows: true)
-        #expect(view.rows.elementsEqual(rows, by: { $0 === $1 }))
-        #expect(view.rows.allSatisfy { !$0.isEnabled })
         view.render(selection)
         #expect(view.rows.elementsEqual(rows, by: { $0 === $1 }))
         #expect(view.rows.allSatisfy { $0.isEnabled })
@@ -276,15 +273,15 @@ struct CandidateViewTests {
         }
     }
 
-    @Test(arguments: [false, true], [false, true])
-    func scrollingNeverChangesCandidatePages(expanded: Bool, pending: Bool) throws {
+    @Test(arguments: [false, true])
+    func scrollingNeverChangesCandidatePages(expanded: Bool) throws {
         var selection = CandidateSelection()
         selection.setExpanded(expanded)
         selection.update(pageableCandidates(27, wordPrefix: "Synthetic "))
         selection.movePage(by: 1)
         let selected = selection.selected
         let view = CandidateListView()
-        view.render(selection, isPending: pending)
+        view.render(selection)
         var pageMoves: [Int] = []
         view.onMovePage = {
             pageMoves.append($0)
@@ -300,36 +297,6 @@ struct CandidateViewTests {
         }
         #expect(pageMoves.isEmpty)
         #expect(selection.selected == selected && selection.page == 1)
-    }
-
-    @Test(arguments: [false, true])
-    func freshPendingHintsReplaceOldRowsWithoutShrinkingOrEnablingStaleActions(expanded: Bool) throws {
-        var selection = CandidateSelection()
-        selection.setExpanded(expanded)
-        selection.update((0..<9).map { InputCandidate(text: "Previous long synthetic candidate \($0)", language: .english, score: 100, lexicalTokenCount: 1) })
-        let view = CandidateListView()
-        view.render(selection)
-        let old = view.rows[0]
-        let size = view.preferredSize
-        var selected: [String] = []
-        view.onSelect = { selected.append($0) }
-        for text in ["你", "你好", "你好朋友"] {
-            selection.update([InputCandidate(text: text, language: .simplifiedChinese, score: 100)])
-            view.render(selection, isPending: true, refreshPendingRows: true)
-            #expect(view.rows[0].candidateLabel.stringValue == text)
-            #expect(view.preferredSize == size)
-            #expect(view.isUpdating && !view.rows[0].isEnabled && !view.expandButton.isEnabled)
-            NSApplication.shared.sendAction(try #require(old.action), to: view, from: old)
-            NSApplication.shared.sendAction(try #require(view.rows[0].action), to: view, from: view.rows[0])
-        }
-        #expect(selected.isEmpty)
-        view.render(selection)
-        #expect(!view.isUpdating && view.rows[0].isEnabled)
-        #expect(view.preferredSize.width <= size.width && view.preferredSize.height <= size.height)
-        old.performClick(nil)
-        #expect(selected.isEmpty)
-        view.rows[0].performClick(nil)
-        #expect(selected == [selection.candidates[0].id])
     }
 
     @Test func compactRowsShareOneLineAndExpansionPreservesMouseAndNumberMapping() throws {
@@ -379,71 +346,6 @@ struct CandidateViewTests {
         view.layoutSubtreeIfNeeded()
         // AppKit's frame conversion can introduce fractional floating-point roundoff.
         for row in view.rows { #expect(row.frame.width <= row.preferredWidth + 0.001) }
-    }
-
-    @Test(arguments: [false, true])
-    func pendingSearchKeepsTheCardUntilCurrentCandidatesReplaceIt(expanded: Bool) throws {
-        let view = CandidateListView()
-        var selection = CandidateSelection()
-        selection.setExpanded(expanded)
-        selection.update((0..<12).map { InputCandidate(text: "旧候选\($0)", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1) })
-        view.render(selection)
-        let oldRows = view.rows
-        let size = view.preferredSize
-        let pageText = view.pageLabel.stringValue
-        var selected: [String] = []
-        var pageMoves: [Int] = []
-        var expansions = 0
-        view.onSelect = { selected.append($0) }
-        view.onMovePage = { pageMoves.append($0) }
-        view.onToggleExpansion = { expansions += 1 }
-
-        // Deferred sessions expose only the current literal until their result arrives.
-        for spelling in ["n", "ni", "nihao"] {
-            selection.update([InputCandidate(text: spelling, language: nil, score: 0)])
-            view.render(selection, isPending: true)
-            #expect(view.preferredSize == size)
-            #expect(view.rows.elementsEqual(oldRows, by: { $0 === $1 }))
-            #expect(view.pageLabel.stringValue == pageText)
-            #expect(view.rows.allSatisfy { !$0.isEnabled })
-            #expect(!view.previousButton.isEnabled && !view.nextButton.isEnabled)
-            #expect(!view.expandButton.isEnabled)
-            // Also reject actions already queued before the controls were disabled.
-            NSApplication.shared.sendAction(try #require(oldRows[0].action), to: view, from: oldRows[0])
-            NSApplication.shared.sendAction(try #require(view.nextButton.action), to: view, from: view.nextButton)
-            NSApplication.shared.sendAction(try #require(view.expandButton.action), to: view, from: view.expandButton)
-        }
-        #expect(selected.isEmpty && pageMoves.isEmpty)
-        #expect(expansions == 0)
-        #expect(view.accessibilityHelp() == "Updating candidates")
-
-        selection.update([InputCandidate(text: "你好", language: .simplifiedChinese, score: 100)])
-        view.render(selection)
-        #expect(!view.isUpdating)
-        #expect(view.accessibilityHelp() == nil)
-        #expect(view.rows[0].isEnabled)
-        #expect(view.rows[0].candidateLabel.stringValue == "你好")
-        #expect(!view.showsPagination)
-        oldRows[0].performClick(nil)
-        #expect(selected.isEmpty)
-        view.rows[0].performClick(nil)
-        #expect(selected == [selection.candidates[0].id])
-    }
-
-    @Test func firstPendingCompositionShowsItsLiteralWithoutEnablingSelection() {
-        let view = CandidateListView()
-        var selection = CandidateSelection()
-        selection.setExpanded(true)
-        selection.update([InputCandidate(text: "Ni", language: nil, score: 0)])
-        view.render(selection, isPending: true)
-        #expect(view.rows.map { $0.candidateLabel.stringValue } == ["Ni"])
-        #expect(!view.rows[0].isEnabled)
-        selection.update([])
-        view.render(selection)
-        #expect(view.rows.isEmpty && !view.isUpdating)
-        selection.update([InputCandidate(text: "Other", language: nil, score: 0)])
-        view.render(selection, isPending: true)
-        #expect(view.rows.map { $0.candidateLabel.stringValue } == ["Other"])
     }
 
     @Test func aRemovedRowCannotSelectAReplacementCompositionsCandidate() {

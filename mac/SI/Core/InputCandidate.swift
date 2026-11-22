@@ -31,7 +31,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let hasLiteralSegments: Bool
     public let hasCompletion: Bool
     public let isPinyinCorrection: Bool
-    public private(set) var modelRankingScore: Double?
     public var requiresExplicitSelection: Bool { isPinyinCorrection }
     public let consumedInputCount: Int?
     /// Transient lexical-node count for word-selection presentation, independent of identity and score.
@@ -70,12 +69,11 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
                 lexicalTokenCount: Int? = nil, confirmationBoundaries: [ConfirmationBoundary] = [],
                 isApplicationVocabulary: Bool = false,
                 punctuationLanguage: InputLanguage? = nil, isPunctuation: Bool = false,
-                isPinyinCorrection: Bool = false, modelRankingScore: Double? = nil) {
+                isPinyinCorrection: Bool = false) {
         self.text = text
         self.language = language
         self.score = score
         self.isPinyinCorrection = isPinyinCorrection
-        self.modelRankingScore = modelRankingScore.flatMap { $0.isFinite ? $0 : nil }
         self.rankingScore = rankingScore.flatMap { $0.isFinite ? $0 : nil } ?? Double(score)
         self.tokenLearningBonus = language != nil && !isUserPhrase && !hasLiteralSegments && !isPinyinCorrection && tokenLearningBonus.isFinite
             ? min(32, max(0, tokenLearningBonus)) : 0
@@ -146,8 +144,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         right.displaySourceBoundaries = []
         left.isChineseSentence = false
         right.isChineseSentence = false
-        left.modelRankingScore = nil
-        right.modelRankingScore = nil
         left.presentationScore = nil
         right.presentationScore = nil
         left.statisticalScore = nil

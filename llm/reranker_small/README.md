@@ -238,12 +238,12 @@ requires the prepared dataset to verify provenance and assigns no blanket model
 weight license. Data, runs, reports, exports and weights are ignored by Git.
 The [large reranker](../reranker_large/README.md) remains a separate planned model.
 
-## Native inference
+## Offline inference
 
 The earlier Core ML integration and `scripts/stage_app.sh` are retired.
 `coreml_export` still supports standalone research exports. The
-[macOS input ranking build](../README.md#experimental-input-ranking)
-uses the Rust scorer as a feature source for LambdaRank.
+[fixed-pool ranking suite](../../eval/README.md#ranking)
+evaluates the Rust character scorer on authored candidate lists.
 
 The local Core ML smoke-test bundle was removed. The [Rust inference prototype](../README.md#rust-inference-prototype)
 uses an independent export of the existing checkpoint.

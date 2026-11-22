@@ -246,7 +246,7 @@ struct AICompletionTests {
     }
 
     @MainActor
-    @Test func predictionIsASeparateClickableRowAndDisappearsWhileUpdating() {
+    @Test func predictionIsASeparateClickableRowAndDisappearsWhenCleared() {
         var selection = CandidateSelection()
         selection.update([InputCandidate(text: "See you", language: .english, score: 100)])
         let view = CandidateListView()
@@ -264,7 +264,7 @@ struct AICompletionTests {
         view.onSelectPrediction = { accepts += 1 }
         button.performClick(nil)
         #expect(accepts == 1)
-        view.render(selection, isPending: true)
+        view.render(selection)
         #expect(button.isHidden)
         #expect(!button.isEnabled)
         #expect(view.accessibilityChildren()?.last as? NSButton !== button)

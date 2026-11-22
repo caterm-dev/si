@@ -47,23 +47,22 @@ struct CandidateEngineTests {
         }
     }
 
-    @Test func modelTiesUseContextualStatistics() {
+    @Test func ranksByContextualStatisticsAndLearning() {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
-        var contextual = InputCandidate(text: "Contextual", language: .english, score: -35, modelRankingScore: 1)
+        var contextual = InputCandidate(text: "Contextual", language: .english, score: -35)
         contextual.fieldContextAdjustment = 15
-        let learned = InputCandidate(text: "Learned", language: .english, score: -33, modelRankingScore: 1)
-        let lexical = InputCandidate(text: "Lexical", language: .english, score: -22, modelRankingScore: 1)
-        let strongerModel = InputCandidate(text: "Stronger model", language: .english, score: -100, modelRankingScore: 2)
+        let learned = InputCandidate(text: "Learned", language: .english, score: -33)
+        let lexical = InputCandidate(text: "Lexical", language: .english, score: -22)
         let engine = CandidateEngine(providers: [RankedProvider(values: [
-            lexical, learned, contextual, strongerModel,
+            lexical, learned, contextual,
         ])])
         let learning = LearningProfile(entries: [
             LearnedPreference(input: "synthetic", text: "Learned", language: .english, strength: 1, lastUsed: now),
         ], now: now)
         let ranked = engine.candidates(for: "synthetic", languages: [.english], learning: learning, now: now)
-        #expect(ranked.map(\.text) == ["Stronger model", "Contextual", "Learned", "Lexical", "synthetic"])
-        #expect(ranked[1].statisticalScore == -20 && ranked[1].presentationScore == 25)
-        #expect(ranked[2].statisticalScore == -21)
+        #expect(ranked.map(\.text) == ["Contextual", "Learned", "Lexical", "synthetic"])
+        #expect(ranked[0].statisticalScore == -20 && ranked[0].presentationScore == 25)
+        #expect(ranked[1].statisticalScore == -21)
     }
 
     @Test func prefixLearningUsesConsumedSpellingWithoutAReservedPosition() {

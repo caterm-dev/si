@@ -1,7 +1,6 @@
 //! Local inference for the character scorer and Pinyin encoder-decoder.
 
 mod json;
-mod lambdarank;
 mod layers;
 #[cfg(feature = "pinyin-generation")]
 mod pinyin;
@@ -14,7 +13,6 @@ use std::path::Path;
 
 use serde_json::Value;
 
-pub use lambdarank::LambdaRank;
 #[cfg(feature = "pinyin-generation")]
 pub use pinyin::{Generation, Pinyin};
 pub use reranker::{Ranking, Reranker};

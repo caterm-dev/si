@@ -7,10 +7,13 @@ public struct CandidateEngine: Sendable {
 
     var pinyinCorrectionMode: PinyinCorrectionMode = .off
     private let providers: [any CandidateProvider]?
+    private let usesCoverageAdjustedOrder: Bool
     public var punctuationCandidatesEnabled: Bool
-    public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false) {
+    public init(providers: [any CandidateProvider]? = nil, punctuationCandidatesEnabled: Bool = false,
+                usesCoverageAdjustedOrder: Bool = true) {
         self.providers = providers
         self.punctuationCandidatesEnabled = punctuationCandidatesEnabled
+        self.usesCoverageAdjustedOrder = usesCoverageAdjustedOrder
     }
 
     public func candidates(for input: String, languages: Set<InputLanguage>,
@@ -18,10 +21,10 @@ public struct CandidateEngine: Sendable {
                            now: Date = .now, context: CandidateContext? = nil,
                            includesConfirmationEvidence: Bool = false,
                            applicationMemory: ApplicationMemorySnapshot = .empty,
-                           precedingText: String = "", experimentalRanking: Bool = false) -> [InputCandidate] {
-        return converted(input, languages: languages, learning: learning, dictionary: dictionary,
-                         now: now, context: context, applicationMemory: applicationMemory, preview: false,
-                         includesConfirmation: includesConfirmationEvidence, precedingText: precedingText, experimentalRanking: experimentalRanking)
+                           precedingText: String = "") -> [InputCandidate] {
+        converted(input, languages: languages, learning: learning, dictionary: dictionary,
+                  now: now, context: context, applicationMemory: applicationMemory, preview: false,
+                  includesConfirmation: includesConfirmationEvidence, precedingText: precedingText)
     }
 
 
@@ -37,7 +40,7 @@ public struct CandidateEngine: Sendable {
     private func converted(_ input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot, preview: Bool,
-                           includesConfirmation: Bool = false, precedingText: String, experimentalRanking: Bool = false) -> [InputCandidate] {
+                           includesConfirmation: Bool = false, precedingText: String) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let generated: [InputCandidate]
         if let providers {
@@ -48,8 +51,7 @@ public struct CandidateEngine: Sendable {
             let rust = applicationMemory.sentenceModel?.conversion ?? RustConversion.shared
             generated = rust?.candidates(for: input, languages: languages, preview: preview,
                 dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now,
-                context: context, precedingText: precedingText, correctionMode: pinyinCorrectionMode,
-                experimentalRanking: experimentalRanking)
+                context: context, precedingText: precedingText, correctionMode: pinyinCorrectionMode)
                 ?? dictionary.candidates(for: input, languages: languages)
         }
         var entries = generated
@@ -91,8 +93,10 @@ public struct CandidateEngine: Sendable {
             }
             best[ranked.id] = ranked
         }
-        return best.values.sorted { precedes($0, $1, inputCount: inputCount) }
-            + [literalCandidate(for: input)]
+        let ordered = usesCoverageAdjustedOrder
+            ? best.values.sorted { precedes($0, $1, inputCount: inputCount) }
+            : best.values.sorted(by: InputCandidate.precedesInStatistics)
+        return ordered + [literalCandidate(for: input)]
     }
 
     private func precedes(_ left: InputCandidate, _ right: InputCandidate, inputCount: Int) -> Bool {
@@ -101,19 +105,7 @@ public struct CandidateEngine: Sendable {
         let leftConsumed = left.consumedInputCount ?? inputCount
         let rightConsumed = right.consumedInputCount ?? inputCount
         if leftConsumed != rightConsumed { return leftConsumed > rightConsumed }
-        let leftHeuristicCorrection = left.isPinyinCorrection && left.modelRankingScore == nil
-        let rightHeuristicCorrection = right.isPinyinCorrection && right.modelRankingScore == nil
-        if leftHeuristicCorrection != rightHeuristicCorrection { return !leftHeuristicCorrection }
-        // LambdaRank scores include model-ranked corrections and use their own units.
-        if left.modelRankingScore != right.modelRankingScore {
-            return (left.modelRankingScore ?? -.infinity) > (right.modelRankingScore ?? -.infinity)
-        }
-        if left.modelRankingScore != nil {
-            if left.statisticalScore != right.statisticalScore {
-                return (left.statisticalScore ?? -.infinity) > (right.statisticalScore ?? -.infinity)
-            }
-            return left.id < right.id
-        }
+        if left.isPinyinCorrection != right.isPinyinCorrection { return !left.isPinyinCorrection }
         let leftScore = left.presentationScore ?? left.rankingScore
         let rightScore = right.presentationScore ?? right.rankingScore
         if leftScore != rightScore { return leftScore > rightScore }

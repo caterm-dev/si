@@ -128,12 +128,13 @@ impl<'a> Lookup<'a> {
         let limit = input.len();
         let spelling = input.spelling(Language::Chinese);
         let dictionary = self.entries[Language::Chinese as usize].as_slice();
+        let mut prefixes = self.prefixes[Language::Chinese as usize].query(dictionary);
         let mut reachable = vec![false; limit + 1];
         reachable[limit] = true;
         for start in (0..limit).rev() {
             let mut rows = dictionary;
             for (depth, &byte) in spelling[start..].iter().enumerate() {
-                rows = matching(rows, depth, byte);
+                rows = prefixes.matching(rows, depth, byte);
                 if rows.is_empty() {
                     break;
                 }
@@ -156,8 +157,8 @@ impl<'a> Lookup<'a> {
         reachable
     }
 
-    pub(in crate::conversion) fn visit_corrections(
-        &self,
+    pub(in crate::conversion) fn visit_corrections<'lookup>(
+        &'lookup self,
         input: &Input<'_>,
         start: usize,
         limit: usize,
@@ -187,6 +188,7 @@ impl<'a> Lookup<'a> {
         }
         let spelling = &input.spelling(Language::Chinese)[start..window_end];
         let mut rows = self.entries[Language::Chinese as usize].as_slice();
+        let mut prefixes = self.prefixes[Language::Chinese as usize].query(rows);
         let mut probes = probe_limit;
         let mut terminals = terminal_limit;
         let mut matches: Vec<Match<'a>> = Vec::new();
@@ -198,7 +200,20 @@ impl<'a> Lookup<'a> {
                 break;
             }
 
-            let mut follow = |edit: Edit, mut rows: &[Entry<'a>]| {
+            // Explicit multi-byte umlaut aliases are atomic source units.
+            let key = input.single_letter_key(start + position);
+            let swapped = if key == Some(typed)
+                && let Some(&next) = spelling.get(position + 1)
+                && next != typed
+                && input.single_letter_key(start + position + 1) == Some(next)
+            {
+                let swapped = prefixes.matching(rows, position, next);
+                Some(prefixes.matching(swapped, position + 1, typed))
+            } else {
+                None
+            };
+
+            let mut follow = |edit: Edit, mut rows: &'lookup [Entry<'a>]| {
                 let (source_len, reading_len) = edit.lengths();
                 let mut consumed = position + source_len;
                 let mut depth = position + reading_len;
@@ -264,23 +279,14 @@ impl<'a> Lookup<'a> {
                     let Some(&byte) = spelling.get(consumed).filter(|&&byte| byte != 0) else {
                         break;
                     };
-                    rows = matching(&rows[terminal..], depth, byte);
+                    rows = prefixes.matching(&rows[terminal..], depth, byte);
                     consumed += 1;
                     depth += 1;
                 }
             };
 
-            // Explicit multi-byte umlaut aliases are atomic source units.
-            let key = input.single_letter_key(start + position);
-            if key == Some(typed)
-                && let Some(&next) = spelling.get(position + 1)
-                && next != typed
-                && input.single_letter_key(start + position + 1) == Some(next)
-            {
-                follow(
-                    Edit::Swap,
-                    matching(matching(rows, position, next), position + 1, typed),
-                );
+            if let Some(swapped) = swapped {
+                follow(Edit::Swap, swapped);
             }
 
             let exact = rows.partition_point(|row| row.spelling.len() == position);
@@ -317,13 +323,6 @@ fn syllable_ends(reading: &str) -> u64 {
         ends |= 1 << end;
     }
     ends
-}
-
-fn matching<'r, 'a>(rows: &'r [Entry<'a>], depth: usize, byte: u8) -> &'r [Entry<'a>] {
-    let lower = rows.partition_point(|row| row.spelling.get(depth).is_none_or(|&key| key < byte));
-    let rows = &rows[lower..];
-    let upper = rows.partition_point(|row| row.spelling.get(depth) == Some(&byte));
-    &rows[..upper]
 }
 
 fn aligned(

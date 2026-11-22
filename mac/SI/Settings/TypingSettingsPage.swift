@@ -24,7 +24,7 @@ struct TypingSettingsPage: View {
         SettingsGroup("Composition") {
             SettingsRow(
                 title: Text("Pinyin correction"),
-                detail: Text("Offer spelling suggestions that require explicit selection.")
+                detail: Text("Offer spelling suggestions. Press Space to accept a correction highlighted in first place.")
             ) {
                 Toggle("Pinyin correction", isOn: $settings.pinyinCorrectionEnabled)
                     .labelsHidden()

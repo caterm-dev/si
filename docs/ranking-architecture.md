@@ -1,29 +1,13 @@
 # Candidate ranking architecture
 
-## App routes
+## App conversion
 
-| App setting | Synchronous resolution | Full background result |
-| --- | --- | --- |
-| Pinyin correction off (default) | Full contextual statistical order | The same full statistical search and order |
-| Pinyin correction on | Statistical search with conservative correction | Calibrated LambdaRank with a six-bit reorder limit |
-
-Both routes use the separate worker for bounded statistical previews, with
-the exact spelling available while results are pending. The default route
-skips model loading. With correction enabled, the full worker scores
-ordinary and corrected candidates, applies the
-calibrated correction margin, then passes the pool to Swift's reorder limit.
-Within the same complete-input span, scored members within 6 bits of the
-statistical leader can take their model order. Statistical candidates
-outside the band retain their order. Explicit priorities, unscored slots,
-and exact literal fallback remain available.
-
-Launch with `SI_USE_LEGACY_RANKING=1` to restore the unrestricted background
-route. The worker scores Rust decoder candidates with the character scorer
-and LambdaRank. App builds project legacy exports onto the 58-feature v5
-layout by resolving splits on the three constant source columns at build
-time. The engine supplies missing values for explicit language, switch count
-and language-specific token counts in existing model layouts. Secure and
-direct input skip model inference.
+Each edit completes full statistical conversion before the window updates.
+The application loads the paired lexicon and word-gram snapshots before
+opening its IMKServer. Turning on Pinyin correction adds bounded single-edit
+suggestions that meet the conservative statistical confidence margin.
+Ordinary whole results precede suggestions of the same span. Secure input
+suppresses suggestions, and direct input passes keys through.
 
 ## Statistical score and presentation
 
@@ -41,9 +25,9 @@ and their incoming ranks determine placement. Constructed results
 and completions normally qualify through the first four non-correction
 choices. There are up to 27 ordinary slots and nine ordinary word slots.
 Displayable exact Chinese dictionary characters also remain pageable.
-Language-aware identity and the exact literal are preserved. Corrections
-require explicit selection, and the initial highlight may skip a correction
-even when it has the first displayed position.
+Language-aware identity and the exact literal are preserved. The first
+displayed candidate gets the initial highlight. Space confirms the
+highlighted candidate.
 
 ## Exact terminal-completion pruning
 
@@ -68,24 +52,7 @@ User-corpus interpolation uses the original completion traversal.
 Beam widths, candidate limits, dictionary branches, score formulas and
 selection behavior are unchanged.
 
-## Evaluation and performance
-
-Use an empty personal profile and correction off as the primary evaluation.
-Run the same 185 development queries with conservative correction for the
-secondary evaluation. Authored prior choices are a separate test slice.
-The [regression protocol](../eval/regression/README.md) records the settings
-and the 17 individual ranks.
-
-| Correction off, empty profile | Pure S Top-1 / Top-4 | Unrestricted LTR | X=6 |
-| --- | ---: | ---: | ---: |
-| 138 clean queries | 101 / 118 | 84 / 110 | 103 / 122 |
-| 26 context queries | 9 / 14 | 14 / 24 | 13 / 18 |
-| 17 regressions | 15 / 16 | 14 / 15 | 16 / 17 |
-
-With conservative correction, X=6 scores 133 / 155 on the 185 queries,
-103 / 122 on the clean subset, and 30 / 33 on the correction subset.
-The S leader disappears zero times. With the default route, the first
-synchronous and full background choices agree at every tested prefix.
+## Historical evaluation and performance
 
 Each optimization was compared with `ac2fb6b`. Candidate identity, pool
 order, score bits, and actual Swift window order matched across 1,488
@@ -105,26 +72,37 @@ window, empty profile and correction off. Times are milliseconds.
 | 6–10 | 75.24 / 170.82 | 6.47 / 12.80 | 5.65 / 10.17 |
 | 11+ | 98.85 / 195.19 | 11.12 / 20.78 | 10.24 / 16.85 |
 
-The main-thread resolution path stays in place for an explicit action when
-the full result is still pending. A direct in-process run of
+Before the switch to fully synchronous conversion, a direct in-process run of
 `InputSession.resolveCandidates()` and Swift window selection over 1,357
 prefixes measured p95 / maximum of 11.17 / 27.90 ms with correction off and
 12.30 / 29.38 ms with conservative correction. Native host queuing and
 painting are outside the measurement. These timings apply to the base
 dictionary. Performance with a populated user corpus remains unmeasured.
 
+## Cross-edit search caches
+
+The November 22, 2026 follow-up reuses dictionary transition ranges between
+keystrokes, including transitions explored by correction search. Cached
+prepared word-gram contexts retain their continuation totals across requests.
+Both caches belong to an immutable base/user resource pair, contain only
+dictionary identities/ranges and have bounded capacity. They never retain a
+client composition or a final candidate list. Concurrent requests compute
+locally instead of waiting for a cache. Reloading the resources creates fresh
+caches.
+
+Sampling a Release long-input conversion identified repeated numeric-key
+hashing in gram-context lookup as a major scoring cost. Those ID-only keys
+now use a lightweight hash with full equality checks; candidate identity,
+output comparison and committed bytes are unchanged. The bounded word-history
+update uses a short shift instead of a general slice rotation. Fixtures
+compare reused and fresh engines across edits, case, aliases, separators,
+language settings, context, preferences, personal phrases and concurrent
+requests. The lattice starts fresh on each request.
+
 ## Known limits and follow-up
 
-- Diagnose the installed two-tree LTR using the early-stopping run, feature
-  use and reference positions (C1–C3). Compare with the 185-query reranking
-  model in a separately approved training experiment.
-- Audit reference labels and distribution in the 200k base and 60k
-  ambiguity datasets. Keep the label-v2 proposal separate until approved.
-- Revisit the union gate using the existing bilingual and correction
-  controls.
-- Measure native preview delivery and evaluate a wait window for
-  synchronous and background consistency, including navigation and stale
-  request handling.
+- Measure native synchronous typing, deletion and candidate selection with a
+  populated user corpus.
 - Improve homophone and preceding-context evidence. The gain-weight and
   short-suffix ideas still need empty-profile evaluation and a separate
   authored-preference check.

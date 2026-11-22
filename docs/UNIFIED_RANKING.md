@@ -13,8 +13,9 @@ through Chinese and English transitions. See [Rust conversion](ARCHITECTURE.md#r
 
 Chinese and English matches share one bounded search, with mixed paths
 available when both languages are enabled. Direct dictionary matches are
-available independently of the beam. Preview uses a smaller beam than full
-conversion. Exact outputs may still be missed during composed search.
+available independently of the beam. The app's candidate window uses full
+conversion. The offline preview search uses a smaller beam. Composed
+search can miss exact outputs.
 Ordinary macOS conversion can also send the full preceding field text to the
 local engine. Rust uses the last sentence's ending word history to adjust the
 score of the first word before pruning, independently of Personal Learning.
@@ -31,10 +32,11 @@ Apostrophes and ü/v/u: spellings keep their original source boundaries.
 Rust accepts eligible length-weighted token and exact consumed-spelling
 preferences before pruning. Their maximum contributes up to 32 frequency
 points, and the base search retains alternatives independently. Swift
-applies eligible preferences and adds five presentation points for each
-matched ASCII letter, ASCII digit or ü in the consumed source. The literal
-and paths containing unrecognized verbatim spans receive no coverage
-reward. Learned whole-spelling corrections and explicit personal pins
+applies eligible preferences. The macOS input window uses the contextual
+statistical score. In coverage-adjusted order, the shared core also adds
+five presentation points for each matched ASCII letter, ASCII digit or ü in
+the consumed source. The literal and paths containing unrecognized verbatim
+spans receive no coverage reward. Learned whole-spelling corrections and explicit personal pins
 receive their placement described in [Personal Learning](ARCHITECTURE.md#personal-learning).
 
 ## Merge and candidate window

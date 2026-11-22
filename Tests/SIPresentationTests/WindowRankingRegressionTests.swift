@@ -22,14 +22,17 @@ struct WindowRankingRegressionTests {
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["SI_TEST_ENGINE_RESOURCE_DIRECTORY"] != nil))
     func regressionQueriesUseTheActualWindow() throws {
-        // These known positions document the installed ranking baseline.
-        let expectedOff = ["regression-english-ban": 8, "regression-context-number": 2]
-        let expectedOn = ["regression-english-ban": 3]
+        // Reference positions in the window with the paired production snapshots.
+        let expected = [
+            "regression-english-fan": 28, "regression-english-ban": 20,
+            "regression-english-pin": 9, "regression-english-run": 2,
+            "regression-english-cannot": 2, "regression-context-number": 2,
+        ]
         for query in try Self.queries() {
             let off = try Self.rank(query, correction: .off, learning: LearningProfile())
             let on = try Self.rank(query, correction: .conservative, learning: LearningProfile())
-            #expect(off == (expectedOff[query.id] ?? 1), "\(query.id) with correction off")
-            #expect(on == (expectedOn[query.id] ?? 1), "\(query.id) with conservative correction")
+            #expect(off == (expected[query.id] ?? 1), "\(query.id) with correction off")
+            #expect(on == (expected[query.id] ?? 1), "\(query.id) with conservative correction")
         }
     }
 
@@ -67,15 +70,13 @@ struct WindowRankingRegressionTests {
     private static func rank(_ query: Query, correction: CandidateEngine.PinyinCorrectionMode,
                              learning: LearningProfile) throws -> Int {
         let now = Date(timeIntervalSince1970: 0)
-        var session = InputSession(candidateGeneration: .deferred)
+        var session = InputSession(engine: CandidateEngine(usesCoverageAdjustedOrder: false))
         session.configure(languages: Set(query.languages), learning: learning, now: now,
-                          pinyinCorrectionMode: correction, experimentalRankingEnabled: true, rankingPolicy: .app)
+                          pinyinCorrectionMode: correction)
         session.setPrecedingText(query.context)
         session.append(query.input, now: now)
-        let request = try #require(session.pendingCandidateRequest)
-        let result = request.generate(useExperimentalRanking: true)
         var selection = CandidateSelection()
-        selection.update(result.candidates)
+        selection.update(session.candidates)
         let index = selection.candidates.firstIndex {
             !$0.isLiteral && !$0.isPartial && query.references.contains($0.text)
         }

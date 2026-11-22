@@ -8,17 +8,8 @@ import OSLog
 @objc(SIInputController)
 // The legacy superclass is not Sendable. All mutable state remains main-actor isolated.
 final class SIInputController: IMKInputController, @unchecked Sendable {
-    private static let rankingPolicy: CandidateRequest.RankingPolicy =
-        ProcessInfo.processInfo.environment["SI_USE_LEGACY_RANKING"] == "1" ? .engineOrder : .app
-
-    private var session = InputSession(candidateGeneration: .deferred)
+    private var session = InputSession(engine: CandidateEngine(usesCoverageAdjustedOrder: false))
     private weak var candidateClient: (any IMKTextInput)?
-    private lazy var candidatePipeline = CandidatePipeline { [weak self] result in
-        self?.receiveCandidates(result)
-    }
-    private lazy var candidatePreviewPipeline = CandidatePipeline.preview { [weak self] result in
-        self?.receiveCandidates(result)
-    }
     private var selection = CandidateSelection()
     private var markedTextState = MarkedTextState()
     private var presentationRevision: UInt64 = 0
@@ -65,9 +56,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         panel.list.onSelect = { [weak self] id in
             guard let self, self.candidatePanel.ownsPresentation, let client = self.client(),
-                  self.session.pendingCandidateRequest == nil,
                   let candidate = self.session.candidates.first(where: { $0.id == id }) else { return }
-            guard self.configureSession(for: client), self.session.pendingCandidateRequest == nil else {
+            guard self.configureSession(for: client) else {
                 self.update(client)
                 return
             }
@@ -83,7 +73,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         panel.list.onToggleExpansion = { [weak self] in
             guard let self, self.candidatePanel.ownsPresentation,
-                  self.session.pendingCandidateRequest == nil, let client = self.client() else { return }
+                  let client = self.client() else { return }
             guard self.configureSession(for: client) else { return }
             self.setCandidateListExpanded(!self.selection.isExpanded, to: client)
         }
@@ -114,9 +104,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         candidatePanel.claimPresentation()
         let previousCandidates = session.candidates
-        let previousRequest = session.pendingCandidateRequest?.id
         guard configureSession(for: client) else { return false }
-        if previousCandidates != session.candidates || previousRequest != session.pendingCandidateRequest?.id { update(client) }
+        if previousCandidates != session.candidates { update(client) }
 
         if !event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             commitLiteral(to: client)
@@ -136,7 +125,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         if !session.buffer.isEmpty,
            let action = CandidateSelection.action(keyCode: event.keyCode, characters: event.characters,
                                                   pageSize: selection.visiblePageSize, isExpanded: selection.isExpanded) {
-            resolveCandidates(to: client)
             switch action {
             case .expand: setCandidateListExpanded(true, to: client)
             case .navigate(let navigation): moveCandidateSelection(navigation, to: client)
@@ -167,9 +155,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return true
         case 49: // Space
             guard !session.buffer.isEmpty else { return false }
-            resolveCandidates(to: client)
             let selected = currentCandidate
-            let commit = session.commitResult(selected, reason: selection.spaceConfirmationReason)
+            let commit = session.commitResult(selected, reason: selection.confirmationReason(for: selected))
             let spacingCandidate = selected?.requiresExplicitSelection == true ? commit.candidate : selected
             let suffix = commit.remainingInput.isEmpty && spacingCandidate?.appendsSpaceOnAcceptance != false ? " " : ""
             apply(commit, suffix: suffix, to: client)
@@ -202,7 +189,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             update(client)
             return true
         }
-        resolveCandidates(to: client)
         let selected = currentCandidate
         let boundary = CompositionBoundary.resolve(text: text, selected: selected, explicitlySelected: explicitlyNavigated,
                                                    behavior: punctuation)
@@ -257,7 +243,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         guard let candidate else { return }
         // Mouse selection can arrive after consent, deletion or secure-input changes without a key event.
         guard configureSession(for: client) else { return }
-        resolveCandidates(to: client)
         guard let current = session.candidates.first(where: {
             $0.id == candidate.id && $0.isPinyinCorrection == candidate.isPinyinCorrection
                 && $0.text.utf8.elementsEqual(candidate.text.utf8)
@@ -295,8 +280,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           applicationMemory: memory,
                           compositionLearningEnabled: !secureInput,
                           punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
-                          pinyinCorrectionMode: languages.pinyinCorrectionEnabled && !secureInput ? .conservative : .off,
-                          experimentalRankingEnabled: !secureInput, rankingPolicy: Self.rankingPolicy)
+                          pinyinCorrectionMode: languages.pinyinCorrectionEnabled && !secureInput ? .conservative : .off)
         return true
     }
 
@@ -306,8 +290,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let spelling = session.buffer
         session.reset()
         automaticConfirmationTask?.cancel()
-        candidatePipeline.invalidate()
-        candidatePreviewPipeline.invalidate()
         candidateClient = nil
         selection.update([])
         explicitlyNavigated = false
@@ -336,33 +318,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         memoryGeneration = settings.generation
         memoryLanguageGeneration = languageGeneration
-    }
-
-    private func receiveCandidates(_ result: CandidateResult) {
-        guard candidatePanel.ownsPresentation, let client = candidateClient, let activeClient = self.client(),
-              (client as AnyObject) === (activeClient as AnyObject) else { return }
-        let previousRequest = session.pendingCandidateRequest?.id
-        // Consent, secure input, language, dictionary, and context may change while work is running.
-        guard configureSession() else { return }
-        if explicitlyNavigated, session.retainPreview(insteadOf: result) {
-            presentCandidates(to: client)
-            return
-        }
-        if session.accept(result) {
-            if let commit = session.automaticallyConfirm() {
-                apply(commit, to: client)
-            } else {
-                update(client)
-            }
-        } else if previousRequest != session.pendingCandidateRequest?.id {
-            update(client)
-        }
-    }
-
-    private func resolveCandidates(to client: any IMKTextInput) {
-        guard session.pendingCandidateRequest != nil, !session.hasCandidatePreview else { return }
-        session.resolveCandidates()
-        update(client)
     }
 
     private var currentCandidate: InputCandidate? {
@@ -445,9 +400,9 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             }
         }
         candidatePanel.show(selection: selection, caret: caret, clientLevel: clientLevel, screens: screens,
-                            isPending: session.pendingCandidateRequest != nil, refreshPendingRows: session.hasCandidatePreview,
                             prediction: aiPrediction.map { $0.candidate.text + $0.suffix },
-                            predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil, traceFrame: traceFrame)
+                            predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil,
+                            traceFrame: traceFrame)
     }
 
     nonisolated override func commitComposition(_ sender: Any!) {
@@ -481,8 +436,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             invalidateAICompletion()
             session.breakContext()
             automaticConfirmationTask?.cancel()
-            candidatePipeline.invalidate()
-            candidatePreviewPipeline.invalidate()
             candidateClient = nil
             markedTextState.reset()
             resetCandidateAnchor()
@@ -561,6 +514,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             resetCandidateAnchor()
         }
         candidateClient = client
+        if let commit = session.automaticallyConfirm() {
+            apply(commit, to: client)
+            return
+        }
         if markedTextState.text == nil { resetCandidateAnchor() }
         selection.update(session.candidates)
         explicitlyNavigated = false
@@ -576,18 +533,9 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         selection.update(session.candidates)
         if session.buffer.isEmpty {
             markedTextState.reset()
-            candidatePipeline.invalidate()
-            candidatePreviewPipeline.invalidate()
             resetCandidateAnchor()
             candidatePanel.orderOut(nil)
-        } else if let request = session.pendingCandidateRequest {
-            presentCandidates(to: client)
-            guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
-            if request.offersPreview && !session.hasCandidatePreview { candidatePreviewPipeline.submit(request) }
-            candidatePipeline.submit(request)
         } else {
-            candidatePipeline.invalidate()
-            candidatePreviewPipeline.invalidate()
             presentCandidates(to: client)
             guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
             scheduleAutomaticConfirmation()
@@ -656,7 +604,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         guard settings.enabled, !session.buffer.isEmpty, !IsSecureEventInputEnabled(),
               let app = applicationID, let front = NSWorkspace.shared.frontmostApplication,
               front.bundleIdentifier == app, !LanguageSettings.shared.usesPassthrough(in: app) else { return false }
-        resolveCandidates(to: client)
         guard configureSession(for: client), !session.buffer.isEmpty else { return false }
         session.suspendAutomaticConfirmation()
         automaticConfirmationTask?.cancel()
@@ -755,7 +702,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                                languageGeneration: prediction.languageGeneration, app: prediction.application,
                                pid: prediction.pid, client: client)
         }
-        guard CGPreflightScreenCaptureAccess(), session.pendingCandidateRequest == nil,
+        guard CGPreflightScreenCaptureAccess(),
               currentCandidate?.id == prediction.selectionID,
               session.candidates.contains(where: { $0 == prediction.candidate }),
               isCurrent(), aiField(from: client, isCurrent: isCurrent) == prediction.field, isCurrent(),
@@ -804,8 +751,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let revision = presentationRevision
         invalidateAICompletion()
         automaticConfirmationTask?.cancel()
-        candidatePipeline.invalidate()
-        candidatePreviewPipeline.invalidate()
         candidateClient = nil
         markedTextState.reset()
         resetCandidateAnchor()

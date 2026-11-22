@@ -14,7 +14,7 @@ uses UTF-16 offsets for AppKit ranges.
 
 ```text
 Host key event → SIInputController → client-local InputSession
-  → immutable CandidateRequest → background candidate worker
+  → immutable CandidateRequest → synchronous full conversion
   → Rust decoder → ranked lexical candidates and source evidence
   → local preference and presentation policies
   → revision-checked CandidateResult → AppKit candidate window or commit
@@ -33,6 +33,28 @@ index 1 is English. Base and user entries share statistical evidence only
 when exact output bytes, primary reading and lookup index agree. Every
 gram lookup uses the IDs of its own lexicon. A newly loaded user snapshot
 can be used by constructing a new engine.
+
+Each immutable engine owns bounded, in-memory lookup and gram-context caches.
+Exact lookup, suffix reachability and correction traversal share dictionary
+transition ranges keyed by the parent row range, depth and next byte. Tiny
+ranges are searched directly; larger ranges use up to 8,192 direct-mapped
+entries per language. Full key equality guards cache collisions. Separators,
+source spans, completion eligibility and correction budgets are still checked
+for the current input. No completed candidates or client composition buffers
+are retained in these caches.
+
+Scoring leases the existing prepared gram-context maps across requests,
+including their continuation totals, with at most 8,192 entries per corpus.
+The keys are lexicon word IDs; the cached values refer only to the immutable
+gram snapshot. Numeric identity hashing avoids repeated general-purpose
+hashing in the scoring loop; every map hit still checks the complete ID key.
+Candidate/output equality and ordering are unchanged. Concurrent conversions use local computation if a cache is
+busy and never wait for another conversion. A new base/user engine starts
+with empty caches, so resource reloads and deletion cannot reuse old user
+evidence. Preferences, preceding-text adjustments and candidate selection
+are evaluated for the current request. Nothing is persisted or logged.
+The lattice and its search paths are still rebuilt per request; incremental
+beam-prefix decoding is not implemented.
 
 Input normalization maps spelling to UTF-8 grapheme boundaries in the
 original input. The
@@ -67,6 +89,9 @@ continuations in every language. Base interpolation assigns at most 80% to
 each observed gram distribution. User unigrams and user grams can raise the
 current probability through bounded weights. Both histories retain word IDs
 across language changes and stop at unknown tokens or other context boundaries.
+Terminal completion pruning uses the largest possible unigram or continuation
+probability across the active histories of both lexicons. It skips a path
+only when the optimistic score falls below the destination beam's floor.
 Scores use only the source consumed by each path. Whole results sort ahead
 of prefixes, longer prefixes precede shorter ones, and score and stable
 identity determine ties within a span. The engine retains distinct
@@ -130,22 +155,11 @@ automatic-confirmation evidence. The native bridge exposes this metadata
 through a separate accessor and accepts an explicit correction mode on a live
 engine under exclusive access. Configure it away from the event handler.
 
-With a calibrated LambdaRank bundle, the full background conversion collects
-the same bounded, single-edit paths without the exact-path confidence cutoff
-or context backoff. It reserves room for up to four corrections in the shared
-64-candidate SI scoring pool. Edit kind and cost remain model features. Each
-correction must exceed the best scored ordinary SI result by the margin
-exported for the app's default operating point (the conservative calibration).
-When no ordinary SI result was scored, it compares the raw model score with
-that margin. Accepted corrections share
-model order with other scored whole results and still require explicit
-selection. Preview, missing calibration and model failures use the
-statistical correction rules.
 The Swift adapter carries the correction marker and excludes suggestions
-from learning and automatic confirmation. The session requires explicit
-selection to commit a suggestion. If a suggestion leads the displayed
-list, initial selection falls back to an ordinary whole candidate or the
-original spelling. Suggestions share the overall shortlist capacity and
+from learning and automatic confirmation. The candidate window initially
+highlights the first displayed result for every list. Space confirms a
+highlighted correction through the same explicit selection path as a digit
+or click. Suggestions share the overall shortlist capacity and
 preserve their relative engine order. The compact window uses a pencil icon and the expanded
 window displays the spelling-correction label. The accessibility label
 includes this information. Punctuation variants use ordinary candidates only.
@@ -161,7 +175,7 @@ Their larger value counts toward the shared 32-point frequency cap.
 At composition start and after a prefix commit, `SIInputController` asks the
 active InputMethodKit client for the full UTF-16 range before the insertion point.
 It revalidates the client and ranges across the read. The Swift request carries
-that text separately from composition spelling for both preview and full search.
+that text separately from composition spelling.
 It uses an empty context in secure input or when the host cannot supply the full
 range. Direct input bypasses conversion. The snapshot is transient and local.
 
@@ -505,20 +519,21 @@ Localization stays outside `SICore`. Stable language identifiers, core display-n
 
 ## Composition state and presentation scores
 
-`InputSession` owns the buffer, character-aware caret, and candidate request
-for each client. A deferred edit immediately retains the exact literal.
-The session accepts results for the current request and rejects a preview
-after full results. A separate worker computes bounded previews so a full
-search for older spelling does not hold up the latest hints. Keyboard
-selection can commit an already displayed preview. If the user navigates
-the preview, the controller keeps its rows and selection when full results
-arrive and re-enables the panel controls. Prefixes consume validated source
-boundaries and keep the exact remainder editable.
+`InputSession` owns the buffer, character-aware caret and candidates for each
+client. The app uses synchronous generation. Every edit runs full conversion
+before returning to the controller. The marked
+spelling and candidate window then update from the same completed result.
+The window immediately selects its first candidate and enables its controls.
+Space, digits, mouse actions and navigation use that displayed list. Prefixes
+consume validated source boundaries and keep the exact remainder editable.
+The core retains deferred request and narrow-preview APIs for offline fixtures.
+The app uses the synchronous path for edits and reconfiguration.
 
-Swift combines Rust's lexical scores with eligible preferences and a
-coverage reward for the consumed source. Complete candidates precede
-prefixes. Within a prefix span, candidates compete by score. The same
-bridge and session code runs in the app and SwiftPM tests.
+Swift combines Rust's lexical scores with eligible preferences and
+preceding-field context. The input window uses that statistical order in
+both correction modes. The shared core also supports coverage-adjusted
+ordering for library callers. Complete candidates precede prefixes,
+and candidates within each prefix span compete by score.
 
 `PunctuationCandidates` supplies a fixed local table of English/Chinese alternatives for common ASCII punctuation. The shared engine includes these alongside direct provider and personal matches only when its explicit punctuationCandidatesEnabled option is enabled; this option defaults to false. Exact literal spelling is retained. A single trailing mark can be attached to complete word/sentence choices from the same engine; partial and incomplete choices are excluded. Repeated trailing punctuation does not recurse or expand combinations. Apostrophes after existing input retain their syllable-boundary meaning. `InputCandidate.punctuationLanguage` distinguishes punctuation variants independently of a preceding word's language and participates in cached identity. Explicit isPunctuation metadata also marks the literal fallback for badges and acceptance-spacing behavior, rather than inferring the enabled feature from its text. These variants inherit personal/verbatim exclusions, carry no automatic-confirmation evidence, never train vocabulary/context and never append an acceptance space. Constructed output remains bounded to 4,096 UTF-8 bytes. Full and provisional generation share this path; original input and stale-result validation remain unchanged.
 
@@ -566,7 +581,7 @@ engine searches disable stale rows until revision-checked results arrive.
 
 When enabled, full `CandidateRequest` generation captures transient `ConfirmationBoundary` evidence from the existing lattice: exact source-character counts (including ü/u: normalization and trailing separators) and cumulative output UTF-8 byte counts at up to eight leading, exact Chinese lexical nodes. Immutable shared trace tails bound per-path evidence without copying boundary arrays on each expansion. Capture stops at abbreviation, completion, personal, verbatim or English edges; full results retain earlier exact boundaries. Capture is disabled for provisional searches and ordinary engine callers. Evidence does not affect identity, scores, pruning, lexical presentation or output bytes.
 
-On the background worker, `AutomaticConfirmation.prefixes` compares the leading whole Chinese candidate with every whole alternative within three ranking-score points, including eligible other-language competitors. This is a relative-score band, not a calibrated confidence probability. A proposed prefix must have identical committed bytes and source/output boundaries on every competitor; no textual-prefix or syllable-count guess substitutes for alignment. Mixed/personal/verbatim leaders, uppercase spellings, malformed output boundaries and non-Pinyin symbols do not produce proposals. An exact English word of at least four letters starting at a leading Chinese lexical boundary also suppresses proposals, independently of enabled languages; this protects tails such as `title` from being treated as Chinese-only spelling. Explicit syllable separators constrain this check. Literal fallback remains present but is not statistical evidence against every conversion.
+During synchronous generation, `AutomaticConfirmation.prefixes` compares the leading whole Chinese candidate with every whole alternative within three ranking-score points, including eligible other-language competitors. This is a relative-score band, not a calibrated confidence probability. A proposed prefix must have identical committed bytes and source/output boundaries on every competitor; no textual-prefix or syllable-count guess substitutes for alignment. Mixed/personal/verbatim leaders, uppercase spellings, malformed output boundaries and non-Pinyin symbols do not produce proposals. An exact English word of at least four letters starting at a leading Chinese lexical boundary also suppresses proposals, independently of enabled languages; this protects tails such as `title` from being treated as Chinese-only spelling. Explicit syllable separators constrain this check. Literal fallback remains present but is not statistical evidence against every conversion.
 
 `InputSession` retains at most eight client-local prefix observations. Only accepted full results advance stability, once per distinct appended spelling; pending, provisional, stale and cross-session results cannot confirm. Continuous confirmation requires two observations, six additional source characters since the first observation, at least four remaining output characters and eight remaining normalized letters. Pause confirmation requires at least 1.8 seconds since input, 0.6 seconds since the observation, a prefix of at least two output characters, two remaining output characters and four remaining normalized letters. Both use the same consensus proposals and complete lexical boundaries. Editing/navigation suspends evidence; only fresh end-of-buffer typing can restart it. Configuration, reset, commits and host boundaries invalidate evidence and the timer revision. A prefix commit resets observations, so a timer cannot repeatedly drain a stationary composition.
 
@@ -588,7 +603,7 @@ Personal Phrases now displays `SentenceLearningSettings.entries`, copied from th
 
 `InputSession` owns a bounded `CompositionLearning` accumulator for successful manual prefix confirmations while Personal Learning is eligible. The controller acknowledges each fragment only after insertion and client, consent-generation and secure/direct-input revalidation. Exact consumed source and submitted candidate bytes are joined only when the unchanged remainder is fully confirmed; base scores and lexical counts are summed without scoring hypothetical suffixes. The completed aggregate is additional vocabulary evidence, never a second host insertion or Input History event. Individual fragment learning remains unchanged. Any nonfirst selection supplies whole-spelling correction evidence; all-first sequences stay neutral. Edits, reset/focus/context or relevant configuration changes, disabled/secure learning, failed insertion, source mismatch, size overflow and literal/personal/verbatim/punctuation/automatic/delimiter/AI fragments discard the aggregate. The temporary state stays per client, has no disk/network path, and uses existing schema-4 records and deletion/capacity rules after completion.
 
-A bounded spelling-to-record index maintains one latest deliberate choice per normalized spelling. A new correction clears the former choice's selection marker, even when wall-clock timestamps tie, without deleting its aggregate counts or frequency strength. `ApplicationMemorySnapshot.preferredCandidateID` resolves the whole normalized input against enabled languages. The shared engine's final and provisional merges place this ordinary whole candidate after explicit personal pins and before score-ranked alternatives, leaving all other candidates in their deterministic score order. Prefixes, shorter spellings and longer inputs never gain forced placement. A prefix confirmation can supply the remembered choice only when its consumed spelling is subsequently typed alone. Exact literal input remains explicit and language-aware identity is unchanged. Forgetting a selected entry restores ordinary ranking, without reviving an older selection marker.
+A bounded spelling-to-record index maintains one latest deliberate choice per normalized spelling. A new correction clears the former choice's selection marker, even when wall-clock timestamps tie, without deleting its aggregate counts or frequency strength. `ApplicationMemorySnapshot.preferredCandidateID` resolves the whole normalized input against enabled languages. The shared engine places this ordinary whole candidate after explicit personal pins and before score-ranked alternatives, leaving all other candidates in their deterministic score order. Prefixes, shorter spellings and longer inputs never gain forced placement. A prefix confirmation can supply the remembered choice only when its consumed spelling is subsequently typed alone. Exact literal input remains explicit and language-aware identity is unchanged. Forgetting a selected entry restores ordinary ranking, without reviving an older selection marker.
 
 `ApplicationMemorySettings` owns default-off global learning consent and one cached immutable snapshot. Learning settings/snapshot/record APIs have no app parameter or exclusion list. The retired `applicationMemory.vocabularyExclusions` key is removed without changing existing learning consent. The controller still reads the actual IMK client's bundle identifier for the independent direct-input rule and focus/reentrancy checks; learned records do not retain it. Disabled, direct-input and secure clients neither record nor use the global profile. Client/settings revisions continue to reject stale candidates, clicks and automatic-confirmation tasks. `CandidateSelection.confirmationReason` compares against the displayed first candidate after font filtering/shortlisting; Space, number, mouse and navigation back to the first candidate stay neutral. First cells on later pages remain nonfirst. Punctuation's safeguards remain separate.
 
@@ -636,11 +651,11 @@ The local installer builds Release by default (`./scripts/install.sh Debug` expl
 
 `SIInputController` adapts key events to the core and maintains marked text in the client. It owns one `CandidateSelection` and one nonactivating AppKit `CandidatePanel` per client. Number labels, highlighted rows, arrow/page navigation, Space confirmation, and mouse clicks use the same selection/page state. A composition starts collapsed, with six choices per horizontal page; expanding displays one page of four rows, up to 24 choices. Switching layout preserves the selected candidate and digit while recomputing the page; ending the composition resets expansion. Row labels remain presentation data; only validated candidate text is committed. Objective-C callbacks lack Swift actor annotations. The UI callback boundary uses `MainActor.assumeIsolated` explicitly; this relies on InputMethodKit delivering those callbacks on the main thread. Non-Sendable Objective-C callback arguments are captured using narrowly scoped `nonisolated(unsafe)` locals, and the controller explicitly declares `@unchecked Sendable` while its mutable state stays main-actor isolated. This boundary must be exercised during manual integration checks.
 
-`MarkedTextState` suppresses repeated host updates when the exact composition bytes and UTF-16 selection have not changed. Provisional/final candidate deliveries update the panel without restarting identical host marked text. Edits, caret movement and cancellation still send the required update; commit, deactivation and client changes clear the cache. Async delivery also checks the active client before updating the session. Identical visible candidate identities retain their row views; unchanged row configurations avoid label/accessibility writes. Changed identities still replace rows so removed controls cannot confirm replacement text. Panel resizing finishes layout before display. These remove redundant refresh paths; automated state/view checks do not prove that a reported transient system window is eliminated.
+`MarkedTextState` suppresses repeated host updates when the exact composition bytes and UTF-16 selection have not changed. Full candidate deliveries update the panel without restarting identical host marked text. Edits, caret movement and cancellation still send the required update; commit, deactivation and client changes clear the cache. Identical visible candidate identities retain their row views; unchanged row configurations avoid label/accessibility writes. Changed identities still replace rows so removed controls cannot confirm replacement text. Panel resizing finishes layout before display. These remove redundant refresh paths; automated state/view checks do not prove that a reported transient system window is eliminated.
 
 Candidate panels additionally share one weak main-actor visibility owner. Activation or a current key event claims that owner and hides the previous panel; result delivery, timers, mouse callbacks and panel rendering cannot reclaim it. A late old-client deactivation cannot release a new client's owner. This shares only presentation ownership, never composition buffers or selection. The `activateServer:` override uses the existing main-thread IMK callback assumption, checked against the SDK declaration; actual callback ordering remains a native integration check. Per-controller presentation revisions also reject work superseded by synchronous reentry during host marked-text, insertion and geometry calls. Geometry resolves on a local value copy to avoid overlapping mutation of controller anchor state during such reentry.
 
-`CandidateSelection` applies `CandidateTextSupport` before shortlisting both provisional and full results. Core Text shapes each grapheme with the same system font as `CandidateRowButton`, including system fallback; a LastResort run or glyph zero excludes the entire nonliteral candidate. Exact literal input bypasses the filter. A bounded, client-local cache keys coverage by exact UTF-8 grapheme bytes and clears when composition ends; no text is saved or logged. Filtering before shortlist allocation lets supported replacements compete for the same ranked head and ordinary budget. Numbers, Space, paging and mouse selection all use the filtered list. The shared engine, dictionary, scores and automatic-confirmation evidence are unchanged; offline quality shortlists do not model machine-specific font coverage.
+`CandidateSelection` applies `CandidateTextSupport` before shortlisting results. Core Text shapes each grapheme with the same system font as `CandidateRowButton`, including system fallback; a LastResort run or glyph zero excludes the entire nonliteral candidate. Exact literal input bypasses the filter. A bounded, client-local cache keys coverage by exact UTF-8 grapheme bytes and clears when composition ends; no text is saved or logged. Filtering before shortlist allocation lets supported replacements compete for the same ranked head and ordinary budget. Numbers, Space, paging and mouse selection all use the filtered list. The shared engine, dictionary, scores and automatic-confirmation evidence are unchanged; offline quality shortlists do not model machine-specific font coverage.
 
 `InputCandidate.lexicalTokenCount` carries transient lexical evidence independently of identity, score and commit text. Deduplication preserves single-lexical-unit evidence when a stronger composed derivation shares an identity. `rankingScore`/`inputScore` retain base lexical scores; `InputSession.presentationScore` adds learning/context and the consumed-input coverage reward used by `CandidateEngine.merge`. Keeping coverage outside the decoders leaves same-span terminal/prefix beam selection and automatic-confirmation evidence unchanged. Prefix preferences retain their full capped bonus and never use pending spelling. Punctuation variants embed only the prefix's lexical/preferences score, so coverage is added once during their own merge. Exact personal pins retain their explicit override.
 
@@ -652,7 +667,7 @@ The panel never becomes key/main, preserving the host's input focus. The control
 
 `SI_DEBUG_CANDIDATE_GEOMETRY=1` in the input method's explicit launch environment enables `CandidateGeometry` debug logs. It records the IMK bundle identifier, presentation revision, the initial host rectangle or reused anchor, the requested panel frame and the frame AppKit reports after showing the panel. The records contain geometry and identifiers only.
 
-`CandidateStyle` supplies dynamic warm-neutral light and dark palettes. The selected candidate uses a soft peach/umber background with an orange number and ordinary adaptive label text. The system Increased Contrast preference strengthens the card border and outlines the selection. The default 36-point-high strip lays out up to six 28-point candidate buttons horizontally and reserves a trailing expansion chevron with a subtle divider. Each button keeps a compact gap between its number and candidate labels and fits its full text and source symbol, without a fixed per-cell width cap. Extra retained window width does not stretch compact buttons; narrower screens proportionally shrink them without overlapping the chevron. Text-cell insets are included in width measurement; labels with too little room to draw a complete glyph hide rather than clipping through a symbol. Full text remains in accessibility and tooltips. Expanded mode displays one page of four six-candidate rows, up to 24 choices. `CandidateSelection.visibleRange` is the active six-choice numbered row; `displayedRange` is the current whole page. Page count/controls use 24 choices per expanded page and six per collapsed page. Retained Chinese characters can extend the list beyond the ordinary 27-choice budget. Each row repeats numbers 1–6; only the active row has full-strength numbers and a row highlight. Mouse buttons retain identities across every displayed row, and accessibility help identifies the page, row and column. Expanded natural width uses the widest visible candidate in each column, including number/source spacing, so lower rows can widen the window beyond the compact strip. All rows share those six column origins and widths, including on narrow screens. The shared columns reserve a minimum number/glyph budget before sharing extra width. Cell content and selection backgrounds fit the candidate within its column rather than stretching short words across a wide slot. Number/text insets follow the shared column width to retain vertical alignment. Tight cells reduce padding and hide source icons while retaining full tooltips/accessibility; preferred widths remain independent of constrained icon visibility. `CandidatePanel` measures against the anchor screen's available width before placement. The collapse chevron stays at the top right. A footer with page count/previous/next controls appears only for multiple pages. Ordinary word language descriptions are hidden visually; punctuation variants show small E/C badges immediately after the text in both layouts, and their literal fallback shows A (As Typed). Prefix/personal/literal/verbatim hints use the same small symbols in both layouts; full source descriptions remain in tooltips and accessibility labels. Exact consumed spelling stays in tooltips and accessibility descriptions. Language identity, full text, exact consumed-input descriptions and selection state remain available in accessibility labels and tooltips. Both layouts retain pending geometry, refresh rows on accepted provisional delivery, and disable selection, paging and expansion until full results arrive. Horizontal and vertical scrolling never change pages or selection. Clipping labels never changes committed text.
+`CandidateStyle` supplies dynamic warm-neutral light and dark palettes. The selected candidate uses a soft peach/umber background with an orange number and ordinary adaptive label text. The system Increased Contrast preference strengthens the card border and outlines the selection. The default 36-point-high strip lays out up to six 28-point candidate buttons horizontally and reserves a trailing expansion chevron with a subtle divider. Each button keeps a compact gap between its number and candidate labels and fits its full text and source symbol, without a fixed per-cell width cap. Extra retained window width does not stretch compact buttons; narrower screens proportionally shrink them without overlapping the chevron. Text-cell insets are included in width measurement; labels with too little room to draw a complete glyph hide rather than clipping through a symbol. Full text remains in accessibility and tooltips. Expanded mode displays one page of four six-candidate rows, up to 24 choices. `CandidateSelection.visibleRange` is the active six-choice numbered row; `displayedRange` is the current whole page. Page count/controls use 24 choices per expanded page and six per collapsed page. Retained Chinese characters can extend the list beyond the ordinary 27-choice budget. Each row repeats numbers 1–6; only the active row has full-strength numbers and a row highlight. Mouse buttons retain identities across every displayed row, and accessibility help identifies the page, row and column. Expanded natural width uses the widest visible candidate in each column, including number/source spacing, so lower rows can widen the window beyond the compact strip. All rows share those six column origins and widths, including on narrow screens. The shared columns reserve a minimum number/glyph budget before sharing extra width. Cell content and selection backgrounds fit the candidate within its column rather than stretching short words across a wide slot. Number/text insets follow the shared column width to retain vertical alignment. Tight cells reduce padding and hide source icons while retaining full tooltips/accessibility; preferred widths remain independent of constrained icon visibility. `CandidatePanel` measures against the anchor screen's available width before placement. The collapse chevron stays at the top right. A footer with page count/previous/next controls appears only for multiple pages. Ordinary word language descriptions are hidden visually; punctuation variants show small E/C badges immediately after the text in both layouts, and their literal fallback shows A (As Typed). Prefix/personal/literal/verbatim hints use the same small symbols in both layouts; full source descriptions remain in tooltips and accessibility labels. Exact consumed spelling stays in tooltips and accessibility descriptions. Language identity, full text, exact consumed-input descriptions and selection state remain available in accessibility labels and tooltips. Both layouts render each completed synchronous result with visible shortcut numbers, the same selection and immediately available controls. Horizontal and vertical scrolling never change pages or selection. Clipping labels never changes committed text.
 
 `scripts/generate-icons.swift` produces `InputSourceIconTemplate.tiff` on a 16-point canvas with 16×16 and 32×32 pixel representations. The rounded badge is opaque, while the SI glyphs are cut out with destination-out blending. `TISIconIsTemplate` is true, allowing macOS to tint this alpha mask for menu-bar appearance and selection without flattening opaque lettering and background into a solid block. There is no separate alternate color bitmap. The new resource name distinguishes it from the former full-color assets; installed sources retain their identifiers, connection, and language settings. Core Text glyph bounds, rather than the font's full line box, determine centering. Both representations carry the same logical size, avoiding a 32-point icon in system input-source rows. Resource previews and bundle checks do not establish actual menu-bar rendering; verify the installed update in the login session.
 
@@ -684,83 +699,13 @@ DMGs use compressed UDZO with an explicit HFS+ filesystem. This avoids inheritin
 
 ## Offline model experiments
 
-The [offline LambdaRank workflow](../eval/lambdarank/README.md) uses the Rust
-`ranking_features` module and `si-cli rank-features` to export a versioned
-first-64 whole-span dictionary candidate pool. V5 includes completions. Python trains and
-evaluates LightGBM against separate synthetic train/validation sources. Source,
-resource, exporter and feature identities are recorded in immutable local bundles.
-Preparation reads the base pair and, when present, the staged user pair from
-`.build/si-data/` by default. Fresh training runs save that prepared bundle
-alongside the model. Runs supplied with a prepared bundle reuse its stored rows.
-V3 captures the selected path for offline word-frequency, internal N-gram,
-whole-candidate context, spelling, structure, user-snapshot and correction features.
-External history is retained through the diagnostic candidate probability calculation;
-production first-word context scoring stays unchanged. Missing observations are
-explicit nulls. Correction evidence retains the decoder's actual edit kind and cost.
-Normal conversion disables diagnostic allocation. Python supports legacy v1/v2
-bundles and v3 removal ablations. User snapshots must predate the evaluated queries
-and exclude their target submissions. The authored starter data does not establish
-personalized quality.
-The statistical conversion pipeline supplies the base candidates.
-
-Offline v4 optionally adds the Pinyin-to-text hypotheses to the Rust pool by
-exact text and language. The small character LM scores the merged pool with a
-shared preceding-text window. LambdaRank receives candidate source flags,
-generation rank, conditional log probabilities and context gain. Generated-only
-rows carry missing Rust path evidence. The prepared bundle binds both checkpoint
-hashes to the data; prediction uses only spelling, context and candidates.
-
-V5 adds raw spelling and token counts, completion and exact-match evidence,
-statistical score observations, and the separate whole/token frequency bonuses
-from an available prior choice snapshot. Offline export and the runtime share
-the extractor. The runtime retains compatibility with v4 candidate pools.
-
 The standalone `si-neural` crate loads exported FP32 weights to run both models
 locally. Rust owns Unicode-scalar tokenization, pre-normalized attention,
 encoder/decoder generation and conditional candidate scoring. On macOS it uses Accelerate matrix multiplication and the portable implementation provides
 a reference without platform libraries. Model exports and parity checks are
 described in [the model workspace](../llm/README.md#rust-inference-prototype).
-For contextual Pinyin, Rust segments the normalized input with base-lexicon
-syllables and honors typed apostrophes. It keeps up to three complete paths,
-preferring fewer syllables and then longer earlier syllables. The offline
-feature CLI exports those same paths from the source spelling, independently of
-the references. The generator receives the paths and preceding text. An input
-without a complete path still uses the Rust pool and character LM.
-
-Each macOS build reads the FP32 character scorer and exported LambdaRank
-trees from `.build/si-llm-pinyin`. The build projects legacy trees onto the
-app's lexical and character-scoring features by resolving the three source
-columns to the former generation-disabled values. The app packages the
-projected trees and the character scorer. Pinyin-to-text generation and its
-weights stay in the offline workflow. With correction off, synchronous
-resolution and the full worker use the same contextual statistical order.
-The bounded preview uses the same ordering rule on its own candidate pool.
-Both searches on that route skip model loading. The exact spelling remains
-available while work is pending.
-With correction on, the full worker lazily opens LambdaRank and the
-character scorer. The trees walk known lexical features to identify which
-surfaces need conditional character scores. Once those scores are available,
-the trees identify which surfaces also need an unconditional score to compute
-context gain. The whole pool continues to determine the available history.
-Within a pass, the scorer shares causal states along a bounded token trie.
-Each state attends to its ancestor path and uses the position of that token
-on the path. The scorer projects shared output states to the vocabulary in
-bounded chunks. Large tries use individual scoring. This work stays local to
-one request. After correction calibration, Swift permits LambdaRank
-order only within 6 bits of the statistical leader. Explicit choices retain
-priority, candidates outside that range retain statistical order, and the
-literal remains available. Launching SI with `SI_USE_LEGACY_RANKING=1`
-restores unrestricted background ranking. Assets already
-opened in a process are reused if correction is toggled back on.
-For equal model scores, SI candidates use their lexical score with eligible
-learning and the preceding-field adjustment, before the input coverage reward.
-Swift preserves explicit pins, remembered choices, correction and prefix
-policies, and the exact literal fallback. Synchronous resolution and the
-preview on model-ranked routes use the statistical engine. The session rejects results from obsolete
-requests and retains the currently displayed preview after navigation. Secure or
-direct input skips model work. A scored result disables automatic prefix
-confirmation for that request.
-
+The generator takes explicit syllable paths and optional preceding text. The
+character scorer uses a bounded trie to reuse common candidate prefixes.
 `corpus/prepare_raw_text.py` extracts sources into versioned
 `chinese/prepared/raw-text-v2` bundles. Six archives retain their existing pins;
 local SI TXT, the manifest-pinned dialogue download, and optional Chinese
@@ -805,7 +750,7 @@ audits remain open. [Dataset and commands](../eval/README.md)
 
 The [small reranker chat preset](../llm/reranker_small/README.md#chat-continued-pretraining) sets per-source and per-subcorpus training token quotas, reuses the parent tokenizer and keeps exact parent documents in their original splits. It verifies the local `dialogue` and Chinese Chatbot Corpus extracts, preserves their upstream splits and carries their attribution into the bundle. A new AdamW run starts from compatible model weights and records the parent checkpoint identity. Strict resume still restores optimizer, RNG and cursor within the same run.
 
-`llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. The small reranker's FP32 export supplies the app's character scores. Representative ranking quality remains unverified. The large reranker has no native runtime.
+`llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. The small reranker's FP32 export supports offline character scoring. Representative ranking quality remains unverified.
 
 The corpus acquisition also supports the latest complete official Chinese Wikipedia current-article dump. Explicit `wikipedia --latest` resolution checks completion metadata, pins a dated URL, verifies the official SHA-1 and records a local SHA-256. The full raw archive retains original simplified/traditional wikitext; streaming preparation selects namespace-0 nonredirect pages and retains page/revision URLs, with Wikipedia's CC BY-SA 4.0 terms kept separate. Existing prepared bundles validate against their own frozen source locks so adding/updating a source does not invalidate historical runs.
 

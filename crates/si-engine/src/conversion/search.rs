@@ -1,4 +1,3 @@
-use crate::ranking_features::PathEvidence;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -10,8 +9,8 @@ use super::ranking::{Completions, Results};
 use super::scoring::{History, ScoreSession, Scores, WordScore};
 use super::{
     Candidate, CandidateLanguage, ConversionBoundary, ConversionPreferences, Correction,
-    CorrectionKind, CorrectionSearch, CorrectionSensitivity, EnabledLanguages, Language,
-    MAX_OUTPUT_BYTES, PathPreference, TokenPreference,
+    CorrectionKind, CorrectionSensitivity, EnabledLanguages, Language, MAX_OUTPUT_BYTES,
+    PathPreference, TokenPreference,
 };
 use crate::han;
 
@@ -34,15 +33,11 @@ pub(super) fn run(
     preview: bool,
     personal: &Lookup<'_>,
     preferences: ConversionPreferences<'_>,
-    correction: Option<CorrectionSearch>,
+    correction: Option<CorrectionSensitivity>,
 ) -> Vec<Candidate> {
     let limit = input.len().min(MAX_SEARCH_UNITS);
-    let heuristic = match correction {
-        Some(CorrectionSearch::Heuristic(mode)) => Some(mode),
-        _ => None,
-    };
-    let correction_margin = heuristic.map(CorrectionSensitivity::margin);
-    let correction_context_backoff = heuristic == Some(CorrectionSensitivity::HigherRecall);
+    let correction_margin = correction.map(CorrectionSensitivity::margin);
+    let correction_context_backoff = correction == Some(CorrectionSensitivity::HigherRecall);
     let mut correction = correction.is_some()
         && languages.chinese
         && limit == input.len()
@@ -396,35 +391,12 @@ impl<'a> TokenBonuses<'a> {
 }
 
 impl Search<'_, '_, '_, '_> {
-    fn edge_evidence(&mut self, edge: Match<'_>, start: usize) -> Option<Box<PathEvidence>> {
-        let mut evidence = self.scoring.take_evidence()?;
-        evidence.abbreviated_tokens = usize::from(edge.is_abbreviated());
-        evidence.spelling_cost_bits += evidence.abbreviated_tokens as f64 * ABBREVIATION_BITS;
-        evidence.correction_cost_bits = edge.correction_cost;
-        evidence.spelling_cost_bits += edge.correction_cost;
-        evidence.pinyin_syllables = edge.syllables();
-        evidence.abbreviated_syllables = if edge.is_abbreviated() {
-            edge.syllables()
-        } else {
-            0
-        };
-        evidence.aligned_separators = self.input.separators(start, edge.end).count();
-        evidence.word_boundary_separators = usize::from(
-            self.input
-                .separators(start, edge.end)
-                .any(|offset| offset == edge.end - start),
-        );
-        evidence.has_direct_match = start == 0 && edge.missing == 0 && !edge.is_abbreviated();
-        Some(evidence)
-    }
-
     fn seed_verbatim(&mut self, edge: Match<'_>) {
         let (history, score) = self
             .scoring
             .step(History::default(), &WordScore::new(edge.word), 0);
         let mask = Language::English.mask();
         let path = Path {
-            ranking_evidence: None,
             output: edge.word.text.to_owned(),
             score,
             context_adjustment: Scores::default(),
@@ -487,7 +459,6 @@ impl Search<'_, '_, '_, '_> {
         {
             return;
         }
-        let ranking_evidence = self.edge_evidence(edge, 0);
         let personal = edge.word.personal.is_some();
         let output = render(edge, self.input.source_span(0, edge.end));
         let direct_adjustment = if personal || corrected {
@@ -520,7 +491,6 @@ impl Search<'_, '_, '_, '_> {
         let details = Rc::new(EdgeDetails::new(edge, self.input, 0));
         if !corrected || edge.end == self.input.len() {
             let candidate = Candidate {
-                ranking_evidence: ranking_evidence.clone(),
                 text: output.to_string(),
                 language: candidate_language(mask),
                 consumed_bytes: self.input.source_end(edge.end),
@@ -567,7 +537,6 @@ impl Search<'_, '_, '_, '_> {
             )
         };
         let path = Path {
-            ranking_evidence,
             output: output.into_owned(),
             score,
             context_adjustment,
@@ -660,7 +629,6 @@ impl Search<'_, '_, '_, '_> {
                 );
                 self.results.insert(
                     Candidate {
-                        ranking_evidence: path.ranking_evidence.clone(),
                         text: path.output.clone(),
                         language: candidate_language(mask),
                         consumed_bytes: self.input.source_end(end),
@@ -699,18 +667,12 @@ impl Search<'_, '_, '_, '_> {
                 .filter(|path| !path.corrected)
                 .map(|path| path.history),
         );
-        let Some(bounds) = bounds else {
-            for edge in completions.drain(..) {
-                self.extend(start, frontier, edge, None);
-            }
-            return;
-        };
         let mut bounded: Vec<_> = completions
             .drain(..)
             .enumerate()
             .map(|(order, edge)| {
                 let upper = self.scoring.completion_upper_bits(
-                    Some(&bounds),
+                    &bounds,
                     &WordScore::new(edge.word),
                     edge.missing,
                 );
@@ -975,11 +937,6 @@ impl Search<'_, '_, '_, '_> {
                 {
                     continue;
                 }
-                let ranking_evidence = self.edge_evidence(edge, start).and_then(|edge| {
-                    path.ranking_evidence
-                        .as_ref()
-                        .map(|previous| Box::new(previous.append(&edge)))
-                });
                 let score = path.score + delta;
                 let frontier = &mut self.lattice[edge.end];
                 let (target, width) = if corrected {
@@ -1038,7 +995,6 @@ impl Search<'_, '_, '_, '_> {
                 }
                 target.insert(
                     Path {
-                        ranking_evidence,
                         output,
                         score,
                         context_adjustment,
@@ -1208,7 +1164,6 @@ impl Frontier {
 
 #[derive(Clone)]
 struct Path {
-    ranking_evidence: Option<Box<PathEvidence>>,
     output: String,
     score: Scores,
     context_adjustment: Scores,

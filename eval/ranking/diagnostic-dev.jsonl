@@ -1,9 +1,0 @@
-{"id":"diag-goon","input":"goon","references":["go on"],"origin":"frozen hard-01"}
-{"id":"diag-ci","input":"ci","references":[],"origin":"requested diagnostic"}
-{"id":"diag-youyige","input":"youyige","references":[],"origin":"requested diagnostic"}
-{"id":"diag-go-on","input":"go on","references":[],"origin":"requested diagnostic"}
-{"id":"diag-cannot","input":"cannot","references":["cannot"],"origin":"frozen hard-05"}
-{"id":"diag-into","input":"into","references":["into"],"origin":"frozen hard-02"}
-{"id":"diag-also","input":"also","references":["also"],"origin":"frozen hard-03"}
-{"id":"diag-maybe","input":"maybe","references":["maybe"],"origin":"frozen hard-04"}
-{"id":"diag-myself","input":"myself","references":["myself"],"origin":"frozen hard-06"}

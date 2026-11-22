@@ -31,43 +31,30 @@ struct CandidateLearningTests {
 }
 
 extension CandidateLearningTests {
-    @Test func leadingRankedCorrectionIsVisibleAndRequiresAnExplicitChoice() {
-        let correction = InputCandidate(text: "你好", language: .simplifiedChinese, score: 100,
-                                        isPinyinCorrection: true, modelRankingScore: 2)
-        let ordinary = InputCandidate(text: "你好 OA", language: .simplifiedChinese, score: 80,
-                                      isMixed: true, lexicalTokenCount: 2, modelRankingScore: 1)
-        let literal = InputCandidate(text: "nihoa", language: nil, score: 0)
+    @Test(arguments: [false, true])
+    func firstCorrectionIsHighlightedInEitherLayout(expanded: Bool) {
+        let correction = InputCandidate(text: "候选", language: .simplifiedChinese, score: 100,
+                                        isPinyinCorrection: true)
+        let ordinary = InputCandidate(text: "后 U 西安诺", language: .simplifiedChinese, score: 80,
+                                      isMixed: true, lexicalTokenCount: 2)
+        let literal = InputCandidate(text: "houuxan", language: nil, score: 0)
         var selection = CandidateSelection()
+        selection.setExpanded(expanded)
         selection.update([correction, ordinary, literal])
         #expect(selection.candidate(number: 1)?.id == correction.id)
-        #expect(selection.selected?.id == ordinary.id)
-        #expect(selection.spaceConfirmationReason == .defaultAcceptance)
-        selection.move(by: -1)
-        #expect(selection.selected?.id == correction.id)
-        #expect(selection.spaceConfirmationReason == .explicitSelection)
-
-        let prefixes = ["你", "尼", "泥", "妮", "拟", "逆"].map {
-            InputCandidate(text: $0, language: .simplifiedChinese, score: 70,
-                           consumedInputCount: 2, lexicalTokenCount: 1)
-        }
-        selection.update([correction] + prefixes + [literal])
-        selection.setExpanded(true)
-        #expect(selection.candidate(number: 1)?.id == correction.id)
-        #expect(selection.spaceConfirmationReason == .defaultAcceptance)
-        #expect(selection.confirmationReason(for: selection.candidate(number: 1)) == .explicitSelection)
-    }
-
-    @Test func correctionOnlyResultsInitiallySelectTheOriginalSpelling() {
-        let correction = InputCandidate(text: "你好", language: .simplifiedChinese, score: 100,
-                                        isPinyinCorrection: true)
-        let literal = InputCandidate(text: "nihoa", language: nil, score: 0)
-        var selection = CandidateSelection()
-        selection.update([correction, literal])
-        #expect(selection.selected?.id == literal.id)
-        #expect(selection.candidate(number: 1)?.id == correction.id)
-        #expect(selection.confirmationReason(for: correction) == .explicitSelection)
-        selection.move(by: -1)
         #expect(selection.selected?.id == correction.id)
         #expect(selection.confirmationReason(for: selection.selected) == .explicitSelection)
+        let view = CandidateListView()
+        view.render(selection)
+        #expect(view.rows.first?.isCurrent == true && view.rows.first?.candidateID == correction.id)
+        selection.move(by: 1)
+        #expect(selection.selected?.id == ordinary.id)
+
+        selection.update([correction, literal])
+        #expect(selection.candidate(number: 1)?.id == correction.id)
+        #expect(selection.selected?.id == correction.id)
+        #expect(selection.confirmationReason(for: selection.selected) == .explicitSelection)
+        selection.move(by: 1)
+        #expect(selection.selected?.id == literal.id)
     }
 }

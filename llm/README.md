@@ -1,8 +1,7 @@
 # SI model workspace
 
 Each model family owns its configurations, training code, data preparation,
-checkpoints, reports and exports. Native AI ranking and app model loading have been removed pending redesign. Offline models are not loaded
-by the input method.
+checkpoints, reports and exports. The model work here runs offline.
 
 The root [ranking regression dataset](../eval/README.md) holds authored
 input/target queries for the Rust engine. Model-specific training,
@@ -10,7 +9,7 @@ token-loss evaluation and supplied-candidate scoring live here.
 
 | Directory | Purpose | Current status |
 | --- | --- | --- |
-| [reranker_small/](reranker_small/README.md) | Small candidate language-model scorer. | Offline 7.4M baseline training and standalone scoring/export remain implemented; native AI ranking is removed pending redesign; independent quality review remains pending. |
+| [reranker_small/](reranker_small/README.md) | Small candidate language-model scorer. | Offline 7.4M baseline training, standalone scoring and export are implemented. Independent quality review remains pending. |
 | [reranker_large/](reranker_large/README.md) | Candidate scoring after a typing pause, and a larger comparison model. | Reserved; training/inference implementation and weights are not created. |
 | [pinyin_to_text/](pinyin_to_text/README.md) | Pinyin-to-text conversion from explicit syllables and optional preceding text. | Offline encoder-decoder framework with a 19.7M preset and 100,000 dictionary-derived examples. |
 
@@ -130,57 +129,6 @@ beam 8 and 78 ms for a 32-candidate ranking request. These timings include the
 JSON transport and exclude training/export. They cover a single machine and
 fixture per operation. Linux and Windows still need native build and latency
 checks.
-
-## Experimental input ranking
-
-Every app build reads the selected ranking bundle at `.build/si-llm-pinyin`.
-Use a directory or symlink containing the character scorer (`reranker/`)
-and its matching `lambdarank.json`. The build stages the scorer and projects
-older LambdaRank exports onto the app's features by removing splits on the
-constant candidate-source columns. It checks the scorer's checkpoint identity
-before packaging the result in `SI.app/Contents/Resources/SIEngine/Ranking`.
-To change versions, point the symlink at a different bundle and rebuild.
-
-The Rust worker scores the decoder's complete candidates and completions
-using preceding field text when available. The worker checks feature order
-when opening the bundle and uses statistical conversion if opening fails.
-Model-ranked results skip automatic prefix confirmation. Pinyin-to-text
-checkpoints and combined-pool evaluation remain available for offline research.
-
-### Export from the offline v5 experiment
-
-To recreate the previous experimental ranker, fit LambdaRank offline using
-the 12,000-step `small-pinyin-syllable-100k-v1` checkpoint and the
-`small-chat-v2` character scorer. The commands below export the scorer and
-tree assets needed for a local build.
-
-```sh
-bundle_id=neural-v5-syllable-12000-chat-v2
-bundle_name=si-neural-syllable-12000-chat-v2
-cargo build --release --locked -p si-cli -p si-neural
-llm/.venv/bin/python -m llm.export_rust reranker \
-  --checkpoint llm/reranker_small/runs/small-chat-v2/best.pt \
-  --output ".build/$bundle_name/reranker"
-llm/.venv/bin/python scripts/lambdarank/pipeline.py prepare \
-  --without-user --model-correction-pool --device cpu --pinyin-beam 5 \
-  --pinyin-model llm/pinyin_to_text/runs/small-pinyin-syllable-100k-v1/best.pt \
-  --reranker-model llm/reranker_small/runs/small-chat-v2/best.pt \
-  --output "eval/lambdarank/prepared/$bundle_id"
-.venv/lambdarank/bin/python scripts/lambdarank/pipeline.py train \
-  --bundle "eval/lambdarank/prepared/$bundle_id" \
-  --output "eval/lambdarank/runs/$bundle_id"
-.venv/lambdarank/bin/python scripts/lambdarank/export_runtime.py \
-  --run "eval/lambdarank/runs/$bundle_id" \
-  --bundle "eval/lambdarank/prepared/$bundle_id" \
-  --binary target/release/si-neural --output ".build/$bundle_name/lambdarank.json"
-ln -s "$bundle_name" .build/si-llm-pinyin
-./scripts/build.sh Release
-```
-
-To replace an existing symlink, use `ln -sfn "$bundle_name" .build/si-llm-pinyin`.
-For local installation, run `./scripts/install.sh Release` once SI has stopped
-and a Developer ID Application identity is available. To exercise the worker
-with the packaged resources, follow the [integration checks](../docs/TESTING.md#automated-checks).
 
 ## Existing experiments and compatibility
 

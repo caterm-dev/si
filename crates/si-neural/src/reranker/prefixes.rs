@@ -14,18 +14,15 @@ pub(super) struct PrefixBatch {
     pub(super) tokens: Vec<usize>,
     pub(super) ancestors: Vec<Vec<usize>>,
     pub(super) predictions: Vec<Vec<(usize, usize)>>,
-    pub(super) score_paths: Vec<Option<Vec<usize>>>,
+    pub(super) score_paths: Vec<Vec<usize>>,
     pub(super) score_count: usize,
 }
 
 impl PrefixBatch {
-    pub(super) fn new(
-        history: &[usize],
-        candidates: &[Vec<usize>],
-        selected: Option<&[bool]>,
-    ) -> Option<Self> {
-        let is_selected = |i: usize| selected.is_none_or(|mask| mask[i]);
-        (0..candidates.len()).filter(|&i| is_selected(i)).nth(1)?;
+    pub(super) fn new(history: &[usize], candidates: &[Vec<usize>]) -> Option<Self> {
+        if candidates.len() < 2 {
+            return None;
+        }
         let mut batch = Self {
             tokens: std::iter::once(BOS)
                 .chain(history.iter().copied())
@@ -36,11 +33,7 @@ impl PrefixBatch {
             score_count: 0,
         };
         let mut edges = HashMap::new();
-        for (i, candidate) in candidates.iter().enumerate() {
-            if !is_selected(i) {
-                batch.score_paths.push(None);
-                continue;
-            }
+        for candidate in candidates {
             let mut row = history.len();
             let mut path = Vec::with_capacity(candidate.len());
             for (position, &token) in candidate.iter().enumerate() {
@@ -71,7 +64,7 @@ impl PrefixBatch {
                 }
                 row = edge.next_row.expect("next prefix row");
             }
-            batch.score_paths.push(Some(path));
+            batch.score_paths.push(path);
         }
         Some(batch)
     }
@@ -83,24 +76,21 @@ mod tests {
 
     #[test]
     fn shares_scored_edges_at_candidate_ends_and_across_branches() {
-        let candidates = [vec![10], vec![10, 11], vec![20], vec![10, 12]];
-        let batch = PrefixBatch::new(&[30], &candidates, Some(&[true, true, false, true])).unwrap();
+        let candidates = [vec![10], vec![10, 11], vec![10, 12]];
+        let batch = PrefixBatch::new(&[30], &candidates).unwrap();
         assert_eq!(batch.tokens, [BOS, 30, 10]);
         assert_eq!(batch.ancestors, [vec![0], vec![0, 1], vec![0, 1, 2]]);
         assert_eq!(
             batch.predictions,
             [vec![], vec![(10, 0)], vec![(11, 1), (12, 2)]]
         );
-        assert_eq!(
-            batch.score_paths,
-            [Some(vec![0]), Some(vec![0, 1]), None, Some(vec![0, 2])]
-        );
+        assert_eq!(batch.score_paths, [vec![0], vec![0, 1], vec![0, 2]]);
         assert_eq!(batch.score_count, 3);
     }
 
     #[test]
     fn falls_back_when_distinct_paths_exceed_the_batch_limit() {
         let candidates: Vec<_> = (1..=3).map(|token| vec![token; 512]).collect();
-        assert!(PrefixBatch::new(&[], &candidates, None).is_none());
+        assert!(PrefixBatch::new(&[], &candidates).is_none());
     }
 }

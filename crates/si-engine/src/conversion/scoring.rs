@@ -1,15 +1,14 @@
-mod features;
-
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
+use std::hash::BuildHasherDefault;
+use std::sync::Mutex;
 
 use si_gram::{Context, GramModel, MAX_ORDER};
 use si_lexicon::{Lexicon, WordId};
 
+use super::cache::IdHasher;
 use super::lookup::Lexeme;
 use super::{Language, WordIds};
-use crate::han;
-use crate::ranking_features::PathEvidence;
 use crate::resources::EngineResources;
 
 const USER_UNIGRAM_PRIOR: f64 = 32.0;
@@ -18,6 +17,7 @@ const BASE_GRAM_PRIOR: f64 = 32.0;
 const USER_GRAM_PRIOR: f64 = 8.0;
 const GRAM_WEIGHT_LIMIT: f64 = 0.8;
 const HISTORY_WORDS: usize = MAX_ORDER - 1;
+const CONTEXT_CACHE_CAPACITY: usize = 8_192;
 
 #[derive(Clone, Copy)]
 struct Corpus<'a> {
@@ -60,6 +60,7 @@ impl<'a> Corpus<'a> {
 pub(super) struct Scoring<'a> {
     base: Corpus<'a>,
     user: Option<Corpus<'a>>,
+    contexts: Mutex<Option<ContextCaches<'a>>>,
 }
 
 impl<'a> Scoring<'a> {
@@ -68,7 +69,11 @@ impl<'a> Scoring<'a> {
         let user = user
             .map(Corpus::new)
             .filter(|corpus| !corpus.lexicon.is_empty());
-        Self { base, user }
+        Self {
+            base,
+            user,
+            contexts: Mutex::new(Some(ContextCaches::default())),
+        }
     }
 
     pub(super) fn has_user(&self) -> bool {
@@ -100,18 +105,18 @@ impl<'a> Scoring<'a> {
         }
     }
 
-    pub(super) fn session(
-        &self,
-        initial_history: History,
-        capture_evidence: bool,
-    ) -> ScoreSession<'_, 'a> {
+    pub(super) fn session(&self, initial_history: History) -> ScoreSession<'_, 'a> {
         ScoreSession {
             model: self,
-            capture_evidence,
-            evidence: None,
             initial_history,
-            base_cache: HashMap::new(),
-            user_cache: HashMap::new(),
+            // Lease the cached dictionary contexts for this request. Concurrent
+            // conversions compute locally, without waiting for the lease.
+            contexts: self
+                .contexts
+                .try_lock()
+                .ok()
+                .and_then(|mut cached| cached.take())
+                .unwrap_or_default(),
         }
     }
 }
@@ -166,7 +171,9 @@ impl Default for HistoryIds {
 impl HistoryIds {
     fn with_word(mut self, id: Option<WordId>, limit: usize) -> Self {
         let Some(id) = id else { return Self::default() };
-        self.ids[..limit].rotate_right(1);
+        for index in (1..limit).rev() {
+            self.ids[index] = self.ids[index - 1];
+        }
         self.ids[0] = id;
         self.len = (self.len + 1).min(limit);
         self
@@ -205,80 +212,66 @@ struct Prepared<'a> {
     mass: f64,
 }
 
-type ContextCache<'a> = HashMap<ContextKey, Prepared<'a>>;
+// Keys contain only bounded dictionary IDs. Full equality still guards every
+// hit; no output text or canonical candidate identity uses this fast hash.
+type ContextCache<'a> = HashMap<ContextKey, Prepared<'a>, BuildHasherDefault<IdHasher>>;
+
+#[derive(Default)]
+struct ContextCaches<'a> {
+    base: ContextCache<'a>,
+    user: ContextCache<'a>,
+}
 
 pub(super) struct CompletionBounds {
-    continuations: HashMap<WordId, f64>,
+    base: HashMap<WordId, f64>,
+    user: HashMap<WordId, f64>,
 }
 
 pub(super) struct ScoreSession<'model, 'data> {
     model: &'model Scoring<'data>,
-    capture_evidence: bool,
-    evidence: Option<Box<PathEvidence>>,
     initial_history: History,
-    base_cache: ContextCache<'data>,
-    user_cache: ContextCache<'data>,
+    contexts: ContextCaches<'data>,
 }
 
 impl ScoreSession<'_, '_> {
     pub(super) fn completion_bounds(
         &mut self,
         histories: impl Iterator<Item = History>,
-    ) -> Option<CompletionBounds> {
-        // Personalized grams have a separate vocabulary and interpolation.
-        let corpus = self.model.base;
-        if self.model.user.is_some() {
-            return None;
+    ) -> CompletionBounds {
+        let histories: Vec<_> = histories.collect();
+        CompletionBounds {
+            base: completion_continuations(
+                &mut self.contexts.base,
+                self.model.base.grams,
+                histories.iter().map(|history| history.base),
+            ),
+            user: completion_continuations(
+                &mut self.contexts.user,
+                self.model.user.and_then(|user| user.grams),
+                histories.iter().map(|history| history.user),
+            ),
         }
-        let mut continuations = HashMap::<WordId, f64>::new();
-        if let Some(grams) = corpus.grams {
-            let keys: HashSet<_> = histories
-                .flat_map(|history| context_keys(history.base))
-                .collect();
-            for key in keys {
-                let row = prepare_context(&mut self.base_cache, grams, key);
-                if row.mass > 0.0 {
-                    for (word, count) in row.context.continuations() {
-                        let fraction = count as f64 / row.mass;
-                        continuations
-                            .entry(word)
-                            .and_modify(|largest| *largest = largest.max(fraction))
-                            .or_insert(fraction);
-                    }
-                }
-            }
-        }
-        Some(CompletionBounds { continuations })
     }
 
     pub(super) fn completion_upper_bits(
         &self,
-        bounds: Option<&CompletionBounds>,
+        bounds: &CompletionBounds,
         word: &WordScore<'_>,
         missing: usize,
     ) -> f64 {
-        let logp = bounds.map_or(0.0, |bounds| {
-            let unigram = word
-                .unigram
-                .get_or_init(|| self.model.unigram(word.word))
-                .base;
-            let observed = word
-                .word
-                .ids
-                .base
-                .and_then(|id| bounds.continuations.get(&id))
-                .copied()
-                .unwrap_or_default();
-            // Each smoothing step is a weighted average of the old prior and
-            // count / mass. The largest of those inputs bounds the final prior.
-            probability_bits(unigram.max(observed))
-        });
+        let unigram = word
+            .unigram
+            .get_or_init(|| self.model.unigram(word.word))
+            .personalized;
+        let base = word.word.ids.base.and_then(|id| bounds.base.get(&id));
+        let user = word.word.ids.user.and_then(|id| bounds.user.get(&id));
+        // Smoothing and user boosts cannot exceed the larger of their two inputs.
+        // The personalized unigram is also an upper bound on the base unigram.
+        let upper = unigram
+            .max(base.copied().unwrap_or_default())
+            .max(user.copied().unwrap_or_default());
         // Allow for accumulated rounding in smoothing and the optimistic score.
-        logp - (4.0 + missing as f64) + 1e-9
-    }
-
-    pub(super) fn take_evidence(&mut self) -> Option<Box<PathEvidence>> {
-        self.evidence.take()
+        probability_bits(upper) - (4.0 + missing as f64) + 1e-9
     }
 
     pub(super) fn has_user(&self) -> bool {
@@ -288,7 +281,6 @@ impl ScoreSession<'_, '_> {
     pub(super) fn start(&mut self, word: Lexeme<'_>, missing: usize) -> (History, Scores, Scores) {
         let word_score = WordScore::new(word);
         let (history, scores) = self.step(History::default(), &word_score, missing);
-        let mut evidence = self.evidence.take();
         let mut adjustment = Scores::default();
         let preceding = self.initial_history;
         if (preceding.base.len > 0 || preceding.user.len > 0)
@@ -297,16 +289,9 @@ impl ScoreSession<'_, '_> {
         {
             // Compare the same first word with and without preceding grams, using the same costs.
             let (_, conditioned) = self.step(preceding, &word_score, missing);
-            if let (Some(base), Some(context)) = (&mut evidence, self.evidence.take()) {
-                base.context_history_words = preceding.base.len;
-                base.context_matched = context.gram_hit_tokens > 0;
-                base.context_gram_order = context.max_gram_order;
-                base.context_log_support = context.gram_log_support;
-            }
             adjustment.base = conditioned.base - scores.base;
             adjustment.personalized = conditioned.personalized - scores.personalized;
         }
-        self.evidence = evidence;
         (history, scores, adjustment)
     }
 
@@ -316,7 +301,6 @@ impl ScoreSession<'_, '_> {
         word_score: &WordScore<'_>,
         missing: usize,
     ) -> (History, Scores) {
-        self.evidence = None;
         let word = word_score.word;
         let language = word.language;
         if word.verbatim {
@@ -353,22 +337,15 @@ impl ScoreSession<'_, '_> {
         }
         let base = self.model.base;
         let mut priors = *word_score.unigram.get_or_init(|| self.model.unigram(word));
-        let base_prior = priors.base;
-        let mut gram_order = 0;
-        let mut gram_support = 0.0;
-        for (observed, mass, order) in
-            continuations(&mut self.base_cache, base, previous.base, word.ids.base)
+        for (observed, mass) in
+            continuations(&mut self.contexts.base, base, previous.base, word.ids.base)
         {
-            if self.capture_evidence && observed > 0.0 {
-                gram_order = order;
-                gram_support = observed;
-            }
             priors.base = smooth_base_gram(priors.base, observed, mass);
             priors.personalized = smooth_base_gram(priors.personalized, observed, mass);
         }
         if let Some(user) = self.model.user {
-            for (observed, mass, _) in
-                continuations(&mut self.user_cache, user, previous.user, word.ids.user)
+            for (observed, mass) in
+                continuations(&mut self.contexts.user, user, previous.user, word.ids.user)
             {
                 priors.personalized = boost_user_gram(priors.personalized, observed, mass);
             }
@@ -378,35 +355,6 @@ impl ScoreSession<'_, '_> {
         } else {
             0.0
         };
-        if self.capture_evidence {
-            let scalars = word.text.chars().count();
-            self.evidence = Some(Box::new(PathEvidence {
-                words: vec![crate::ranking_features::EvidenceWord {
-                    language: language as u8,
-                    base: word.ids.base,
-                    user: word.ids.user,
-                }],
-                chinese_tokens: usize::from(language == Language::Chinese),
-                missing_letters: missing,
-                gram_model_available: base.grams.is_some(),
-                unigram_bits: probability_bits(base_prior),
-                gram_adjustment_bits: probability_bits(priors.base) - probability_bits(base_prior),
-                spelling_cost_bits: cost,
-                gram_hit_tokens: usize::from(gram_order > 0),
-                max_gram_order: gram_order,
-                gram_log_support: gram_support.ln_1p(),
-                tokens: 1,
-                single_character_tokens: usize::from(
-                    language == Language::Chinese && han::single(word.text).is_some(),
-                ),
-                min_token_scalars: scalars,
-                max_token_scalars: scalars,
-                language_switches: usize::from(
-                    previous.last.is_some_and(|previous| previous != language),
-                ),
-                ..Default::default()
-            }));
-        }
         let next = self.model.extend_history(previous, language, word.ids);
         (
             next,
@@ -415,6 +363,16 @@ impl ScoreSession<'_, '_> {
                 personalized: probability_bits(priors.personalized) - cost,
             },
         )
+    }
+}
+
+impl Drop for ScoreSession<'_, '_> {
+    fn drop(&mut self) {
+        if let Ok(mut cached) = self.model.contexts.try_lock()
+            && cached.is_none()
+        {
+            *cached = Some(std::mem::take(&mut self.contexts));
+        }
     }
 }
 
@@ -451,7 +409,7 @@ fn continuations<'cache, 'data>(
     corpus: Corpus<'data>,
     history: HistoryIds,
     id: Option<WordId>,
-) -> impl Iterator<Item = (f64, f64, usize)> + 'cache
+) -> impl Iterator<Item = (f64, f64)> + 'cache
 where
     'data: 'cache,
 {
@@ -465,7 +423,7 @@ where
                 return None;
             }
             let count = id.and_then(|id| row.context.count(id)).unwrap_or(0) as f64;
-            Some((count, row.mass, key.len + 1))
+            Some((count, row.mass))
         })
 }
 
@@ -479,11 +437,39 @@ fn context_keys(history: HistoryIds) -> impl Iterator<Item = ContextKey> {
     })
 }
 
+fn completion_continuations<'data>(
+    cache: &mut ContextCache<'data>,
+    grams: Option<&'data GramModel>,
+    histories: impl Iterator<Item = HistoryIds>,
+) -> HashMap<WordId, f64> {
+    let mut continuations = HashMap::<WordId, f64>::new();
+    let Some(grams) = grams else {
+        return continuations;
+    };
+    let keys: HashSet<_> = histories.flat_map(context_keys).collect();
+    for key in keys {
+        let row = prepare_context(cache, grams, key);
+        if row.mass > 0.0 {
+            for (word, count) in row.context.continuations() {
+                let fraction = count as f64 / row.mass;
+                continuations
+                    .entry(word)
+                    .and_modify(|largest| *largest = largest.max(fraction))
+                    .or_insert(fraction);
+            }
+        }
+    }
+    continuations
+}
+
 fn prepare_context<'cache, 'data>(
     cache: &'cache mut ContextCache<'data>,
     grams: &'data GramModel,
     key: ContextKey,
 ) -> &'cache Prepared<'data> {
+    if cache.len() >= CONTEXT_CACHE_CAPACITY && !cache.contains_key(&key) {
+        cache.clear();
+    }
     cache.entry(key).or_insert_with(|| {
         let context = grams.context(&key.ids[..key.len]);
         let mass = context.continuations().map(|(_, count)| count as f64).sum();

@@ -52,7 +52,7 @@ decoder binary and snapshots used for the fixed Rust alternatives. The query
 files are the versioned authored sources. The fixtures are synthetic and
 AI-authored. Validation checks the syllables against maintained Chinese
 readings and rejects exact spelling, context and target overlaps with the
-maintained LambdaRank train/validation and Pinyin training fixtures. This
+maintained Pinyin training fixtures. This
 leaves broader corpus and checkpoint overlap unverified. Independent human
 annotation and representative typing samples are unavailable. Keep these
 test suites outside training and model selection.
@@ -70,7 +70,7 @@ mkdir -p .build/conversion-eval
 python3 scripts/evaluate_conversion.py recall \
   --output .build/conversion-eval/recall.json
 python3 scripts/evaluate_conversion.py ranking \
-  --model .build/si-llm-pinyin/reranker \
+  --model .build/si-neural/reranker \
   --output .build/conversion-eval/ranking.json
 ```
 
@@ -83,12 +83,8 @@ profile.
 
 ## Historical compact ranking suite
 
-The separate [LambdaRank starter experiment](lambdarank/README.md) has editable
-training and validation data; it checks overlap against this frozen test suite
-and does not train or tune on its answers.
-
 The original [220-query ranking test set](ranking/test.jsonl) is retained for
-historical comparisons and the LambdaRank overlap check.
+historical comparisons.
 
 | File | Purpose |
 | --- | --- |

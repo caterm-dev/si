@@ -143,7 +143,6 @@ dependencies = [
  "pinyin_pro",
  "si-gram",
  "si-lexicon",
- "si-neural",
  "unicode-segmentation",
 ]
 

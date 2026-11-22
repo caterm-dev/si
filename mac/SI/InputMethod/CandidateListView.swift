@@ -12,7 +12,6 @@ final class CandidateListView: NSView {
     private(set) var expandButton = NSButton(title: "", target: nil, action: nil)
     private(set) var isExpanded = false
     private(set) var showsPagination = false
-    private(set) var isUpdating = false
     var onSelect: ((String) -> Void)?
     var onSelectPrediction: (() -> Void)?
     let predictionButton = NSButton(title: "", target: nil, action: nil)
@@ -20,7 +19,6 @@ final class CandidateListView: NSView {
     var onMovePage: ((Int) -> Void)?
     var onToggleExpansion: (() -> Void)?
     private let rowHeight = CandidateStyle.rowHeight
-    private var pendingMinimumSize: NSSize?
     private var keyboardLine = 0
 
     init() {
@@ -66,9 +64,9 @@ final class CandidateListView: NSView {
         needsDisplay = true
     }
 
-    func render(_ selection: CandidateSelection, isPending: Bool = false, refreshPendingRows: Bool = false, prediction: String? = nil, predictionStatus: String? = nil) {
-        predictionButton.isHidden = (isPending || prediction == nil) && predictionStatus == nil
-        predictionButton.isEnabled = !isPending && prediction != nil
+    func render(_ selection: CandidateSelection, prediction: String? = nil, predictionStatus: String? = nil) {
+        predictionButton.isHidden = prediction == nil && predictionStatus == nil
+        predictionButton.isEnabled = prediction != nil
         if let prediction, !predictionButton.isHidden {
             predictionButton.title = L10n.format("AI · Tab   %@", prediction)
             predictionButton.toolTip = prediction
@@ -85,20 +83,8 @@ final class CandidateListView: NSView {
             predictionButton.setAccessibilityLabel(nil)
             predictionButton.setAccessibilityHelp(nil)
         }
-        if !isPending { pendingMinimumSize = nil }
-        else if !rows.isEmpty { pendingMinimumSize = preferredSize }
-        isUpdating = isPending
-        // Keep the current card intact while a newer composition is being searched.
-        // These rows are only a visual placeholder; they cannot confirm stale text.
-        if isPending, !refreshPendingRows, !rows.isEmpty {
-            layer?.cornerRadius = cardRadius
-            updateInteraction(selection)
-            needsLayout = true
-            needsDisplay = true
-            return
-        }
-        isExpanded = selection.isExpanded
         keyboardLine = selection.row
+        isExpanded = selection.isExpanded
         layer?.cornerRadius = cardRadius
         let expansionLabel = L10n.text(isExpanded ? "Collapse candidates" : "Expand candidates")
         expandButton.image = NSImage(systemSymbolName: isExpanded ? "chevron.up" : "chevron.down",
@@ -147,14 +133,12 @@ final class CandidateListView: NSView {
     }
 
     private func updateInteraction(_ selection: CandidateSelection) {
-        rows.forEach { $0.isEnabled = !isUpdating }
-        previousButton.isEnabled = !isUpdating && selection.page > 0
-        nextButton.isEnabled = !isUpdating && selection.page + 1 < selection.pageCount
-        expandButton.isEnabled = !isUpdating
+        previousButton.isEnabled = selection.page > 0
+        nextButton.isEnabled = selection.page + 1 < selection.pageCount
+        expandButton.isEnabled = !rows.isEmpty
         var accessibilityViews = (rows as [NSView]) + [expandButton, pageLabel, previousButton, nextButton]
         if !predictionButton.isHidden { accessibilityViews.append(predictionButton) }
         setAccessibilityChildren(accessibilityViews)
-        setAccessibilityHelp(isUpdating ? L10n.text("Updating candidates") : nil)
     }
 
     var preferredSize: NSSize {
@@ -164,11 +148,11 @@ final class CandidateListView: NSView {
     func preferredSize(constrainedTo maximumWidth: CGFloat) -> NSSize {
         let predictionWidth = predictionButton.isHidden ? 0 : min(540, predictionButton.fittingSize.width + 22)
         let naturalWidth = max(160, naturalColumnWidths.reduce(0, +) + 38, predictionWidth)
-        let width = min(max(1, maximumWidth), max(naturalWidth, pendingMinimumSize?.width ?? 0))
+        let width = min(max(1, maximumWidth), naturalWidth)
         let lines = isExpanded ? max(1, (rows.count + CandidateSelection.pageSize - 1) / CandidateSelection.pageSize) : 1
         let contentHeight = CGFloat(lines) * (rowHeight + 4) + 4
         let footer: CGFloat = isExpanded && showsPagination ? 30 : 0
-        return NSSize(width: width, height: max(contentHeight + footer + predictionHeight, pendingMinimumSize?.height ?? 0))
+        return NSSize(width: width, height: contentHeight + footer + predictionHeight)
     }
 
     private var naturalColumnWidths: [CGFloat] {
@@ -273,13 +257,13 @@ final class CandidateListView: NSView {
     }
 
     @objc private func selectRow(_ sender: CandidateRowButton) {
-        guard !isUpdating, rows.contains(where: { $0 === sender }) else { return }
+        guard rows.contains(where: { $0 === sender }) else { return }
         onSelect?(sender.candidateID)
     }
     @objc private func selectPrediction() {
         if !predictionButton.isHidden, predictionButton.isEnabled { onSelectPrediction?() }
     }
-    @objc private func previousPage() { if !isUpdating { onMovePage?(-1) } }
-    @objc private func nextPage() { if !isUpdating { onMovePage?(1) } }
-    @objc private func toggleExpansion() { if !isUpdating { onToggleExpansion?() } }
+    @objc private func previousPage() { if previousButton.isEnabled { onMovePage?(-1) } }
+    @objc private func nextPage() { if nextButton.isEnabled { onMovePage?(1) } }
+    @objc private func toggleExpansion() { if expandButton.isEnabled { onToggleExpansion?() } }
 }

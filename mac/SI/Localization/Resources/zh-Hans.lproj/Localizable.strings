@@ -129,7 +129,6 @@
 "Typing" = "输入设置";
 "Unknown" = "未知";
 "Updates are available in the installed Release app." = "请使用已安装的 Release 版应用检查更新。";
-"Updating candidates" = "正在更新候选";
 "Use 1–64 letters, with apostrophes only between letters." = "请输入 1–64 个字母，单引号只能放在字母之间。";
 "Use letters and apostrophes for the code, such as xm or xiang'mu. Use v for ü. The phrase is inserted exactly as saved, and its language must be enabled in Settings." = "输入码可使用字母和单引号，例如 xm 或 xiang'mu。用 v 表示 ü。短语会按保存的原文插入，且对应语言必须在设置中启用。";
 "Version" = "版本";
@@ -347,4 +346,4 @@
 "Spelling correction" = "拼写纠错";
 "Spelling correction · %@" = "拼写纠错 · %@";
 "Pinyin correction" = "拼音纠错";
-"Offer spelling suggestions that require explicit selection." = "提供需要明确选择的拼写建议。";
+"Offer spelling suggestions. Press Space to accept a correction highlighted in first place." = "提供拼写建议。按空格确认高亮的首位纠错候选。";
