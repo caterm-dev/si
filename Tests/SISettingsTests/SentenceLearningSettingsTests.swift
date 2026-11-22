@@ -57,6 +57,51 @@ struct SentenceLearningSettingsTests {
         #expect(try await store.load().entries.isEmpty)
     }
 
+    @Test func returnLearnsExactSpellingAndOnlyTheSubmittedRemainder() async throws {
+        let suite = "si-return-learning-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        let profile = FileManager.default.temporaryDirectory.appending(path: "\(suite).si-user")
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: profile)
+        }
+        let store = SentenceLearningStore(profile: profile)
+        let secure = SecureInput()
+        let settings = SentenceLearningSettings(defaults: defaults, store: store, allowsRecording: { !secure.enabled })
+        await settings.start()
+        let generation = settings.generation
+        let sigram = InputCommit(input: "SiGram", candidate: nil, reason: .literal)
+        settings.record(sigram, expectedGeneration: generation)
+        secure.enabled = true
+        settings.record(sigram, expectedGeneration: generation, isReturnCommit: true)
+        secure.enabled = false
+        await settings.flush()
+        #expect(try await store.load().entries.isEmpty)
+
+        settings.record(sigram, expectedGeneration: generation, isReturnCommit: true)
+        var session = InputSession(engine: CandidateEngine(providers: [SplitProvider()]))
+        session.configure(languages: [.english], compositionLearningEnabled: true)
+        session.append("zornaxquivora")
+        let prefix = try #require(session.candidates.first { $0.text == "Zornax" })
+        let first = session.commitResult(prefix, reason: .explicitSelection)
+        settings.record(session.recordSuccessfulCommit(first) ?? first, expectedGeneration: generation)
+        let remainder = session.commitResult(reason: .literal)
+        #expect(remainder.text == "quivora")
+        #expect(!remainder.canLearn)
+        settings.record(session.recordSuccessfulCommit(remainder) ?? remainder,
+                        expectedGeneration: generation, isReturnCommit: true)
+        await settings.flush()
+
+        let entries = try await store.load().entries
+        #expect(entries.sorted { $0.text < $1.text } == [
+            UserLexiconEntry(text: "SiGram", reading: "sigram", index: 1, count: 1),
+            UserLexiconEntry(text: "quivora", reading: "quivora", index: 1, count: 1),
+        ])
+        #expect(CandidateEngine().candidates(for: "sigram", languages: [.english],
+            applicationMemory: ApplicationMemorySnapshot(sentenceModel: settings.modelForInput))
+            .contains { $0.text == "SiGram" && $0.language == .english })
+    }
+
     @Test func confirmedCandidatesLearnByDefaultAndDeleteAllInvalidatesPendingWork() async throws {
         let suite = "si-sentence-learning-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))

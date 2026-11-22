@@ -43,11 +43,19 @@ with `CandidateEngine::with_pinyin_correction(true)`. For a CLI preview, add
 **Pinyin correction** under Typing. Correction is off by default. The first
 displayed candidate gets the default highlight, including a spelling
 correction. Space confirms the highlighted candidate.
-SI uses contextual statistical scoring in both modes. With correction
+Contextual statistical scoring runs in both correction modes. With correction
 enabled, a suggestion must clear the engine's conservative confidence margin
 after its spelling-edit cost. Ordinary whole candidates appear before
 spelling suggestions. Resource-local caches reuse dictionary transitions
 and prepared word-gram contexts across edits.
+
+Enable **Local model ranking** under Typing to let the bundled small character
+model reorder up to eight whole-input candidates within two bits of the
+statistical leader. The option defaults off and is independent of Pinyin
+correction. The model runs on-device and can add up to two bits to an eligible
+candidate's statistical score. SI uses the statistical order whenever model
+scoring is unavailable.
+[Scoring and bounds](docs/ranking-architecture.md#local-model-ranking)
 
 In compatible macOS text fields, SI passes the full text before the composition
 to the local Rust engine. The engine uses word grams from the last preceding
@@ -59,7 +67,7 @@ The window uses one 27-choice ordinary shortlist, including the exact original i
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 
-Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate candidate preferences. SI builds a local user model from confirmed candidates by default. Input History can retain each submitted spelling and text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
+Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or cloud dependency for ordinary typing. Optional, user-initiated software update checks contact SI's download service without sending input or personal phrases. Language and learning settings are saved in UserDefaults. Personal Learning and Input History are independently off by default. Personal Learning retains aggregate candidate preferences. SI builds a local user model by default from confirmed candidates and composition spelling submitted with Return. Input History can retain each submitted spelling and text pair permanently on this Mac. Separately enabled AI completion can send composition and app context to a selected provider. See [personalization and privacy](docs/PRIVACY.md) for retained fields, retention, pause, deletion, and storage limitations.
 
 Debug and Release bundle `Data/Engine/main.silex` and
 `Data/Engine/words.sigram`. Xcode validates the paired snapshots before
@@ -68,7 +76,7 @@ The word-gram snapshot is tracked in Git, and `main.silex` is generated locally
 from the maintained CSVs. See [engine resources](Data/Engine/README.md)
 for validation, source notices and maintenance.
 
-Candidate positioning briefly rechecks the host after a composition starts, allowing a newly opened input field to finish layout. Two matching corrected positions can replace the initial anchor; after the bounded startup checks, the panel stays anchored until the composition ends. Native new-chat and focus-switch behavior still requires the [positioning checks](docs/TESTING.md#candidate-positioning).
+Candidate positioning queries the host on the next main-queue turn after marked text and candidate rows are updated. The panel uses the display containing the caret rectangle, flips above the caret when it needs more room, and stays within that display's visible area. If the host returns no usable geometry, SI uses the last valid location for that text client or the mouse position. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
 
 ## Input languages
 
@@ -155,7 +163,7 @@ The former App History completion/draft feature and previous-word pair learning 
 
 ### Sentence learning
 
-SI learns locally from successfully submitted candidates you confirm with Space, a number key or a click. This runs by default, independently of Personal Learning. Confirming several parts of an unchanged composition supplies one combined observation after the last part is submitted. An interrupted chain discards its pending fragments. Secure and direct input, literal text, punctuation, automatic confirmations and AI completions are excluded. Return outside composition passes through to the app.
+SI learns locally from candidates you confirm with Space, a number key or a click, and from exact spelling you submit with Return during composition. This runs by default, independently of Personal Learning. For example, submitting `sigram` with Return can add it to the user dictionary. Confirming several parts of an unchanged composition supplies one combined observation after the last part is submitted. If you use Return after confirming a prefix, only the submitted remainder enters Sentence Learning. Secure and direct input, other literal submissions, punctuation candidates, automatic confirmations and AI completions are excluded. Return outside composition passes through to the app.
 
 SI batches confirmed text in memory and reuses the Rust ingestion and word discovery behind `si-cli user ingest` and `si-cli user learn`. Only derived words, counts and batch IDs are saved. On upgrade, SI removes the old recent-samples files and keeps the existing derived model. Use **Personal Phrases → Delete All…** to clear the local vocabulary and word grams. See [sentence learning privacy and retention](docs/PRIVACY.md#sentence-learning) and [native checks](docs/TESTING.md#sentence-learning).
 

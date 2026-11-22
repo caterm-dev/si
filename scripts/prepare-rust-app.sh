@@ -65,6 +65,9 @@ fi
 # Incremental builds may reuse a resource directory from an older app build.
 rm -rf "$resource_dir/Ranking"
 rm -f "$resource_dir/main.sigram"
+mkdir -p "$resource_dir/RerankerSmall"
+cp -R Data/RerankerSmall/. "$resource_dir/RerankerSmall/"
+chmod -R a+rX "$resource_dir/RerankerSmall"
 for language in Chinese English; do
     mkdir -p "$resource_dir/Notices/$language"
     for notice in "mac/SI/Core/Resources/$language/"*.txt "mac/SI/Core/Resources/$language/"*.md; do

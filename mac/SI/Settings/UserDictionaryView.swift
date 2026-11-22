@@ -15,7 +15,7 @@ struct UserDictionaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("SI learns from candidates you confirm and stores the resulting words and counts on this Mac.")
+            Text("SI learns from confirmed candidates and spelling you submit with Return. Words and counts stay on this Mac.")
                 .font(.callout).foregroundStyle(.secondary)
             TextField("Search phrases or input codes", text: $search).textFieldStyle(.roundedBorder)
             HStack {
@@ -28,7 +28,7 @@ struct UserDictionaryView: View {
                         Button("Delete All", role: .destructive, action: deleteAll)
                         Button("Cancel", role: .cancel) {}
                     } message: {
-                        Text("Deletes all personal phrases and the local word statistics learned from confirmed candidates.")
+                        Text("Deletes all personal phrases and learned word statistics on this Mac.")
                     }
             }
             List(visibleEntries) { phrase in

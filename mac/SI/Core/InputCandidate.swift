@@ -6,10 +6,12 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let rankingScore: Double
     /// Lexical score with eligible learning and field context, before input coverage.
     public private(set) var statisticalScore: Double?
-    /// Final engine score, including field context, eligible learning and consumed-spelling coverage.
+    /// Presentation score, including field context, eligible learning, coverage and model adjustment.
     public private(set) var presentationScore: Double?
     /// Transient Rust gram adjustment from the preceding field text.
     var fieldContextAdjustment = 0.0
+    /// Ephemeral whole-input reward from the local character model.
+    var rerankingBonus = 0.0
     /// Exact-spelling correction priority is separate from statistical score units.
     public private(set) var isRememberedChoice = false
     /// Lexical score before learning and the consumed-input coverage reward.
@@ -117,14 +119,22 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     }
 
     static func precedesInStatistics(_ left: Self, _ right: Self) -> Bool {
+        precedes(left, right, includesReranking: false)
+    }
+
+    static func precedesInRanking(_ left: Self, _ right: Self) -> Bool {
+        precedes(left, right, includesReranking: true)
+    }
+
+    private static func precedes(_ left: Self, _ right: Self, includesReranking: Bool) -> Bool {
         if left.isPreferred != right.isPreferred { return left.isPreferred }
         if left.isRememberedChoice != right.isRememberedChoice { return left.isRememberedChoice }
         let leftSpan = left.consumedInputCount ?? Int.max
         let rightSpan = right.consumedInputCount ?? Int.max
         if leftSpan != rightSpan { return leftSpan > rightSpan }
         if left.isPinyinCorrection != right.isPinyinCorrection { return !left.isPinyinCorrection }
-        let leftScore = left.statisticalScore ?? left.rankingScore
-        let rightScore = right.statisticalScore ?? right.rankingScore
+        let leftScore = (left.statisticalScore ?? left.rankingScore) + (includesReranking ? left.rerankingBonus : 0)
+        let rightScore = (right.statisticalScore ?? right.rankingScore) + (includesReranking ? right.rerankingBonus : 0)
         if leftScore != rightScore { return leftScore > rightScore }
         return left.id < right.id
     }
@@ -148,6 +158,8 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         right.presentationScore = nil
         left.statisticalScore = nil
         right.statisticalScore = nil
+        left.rerankingBonus = 0
+        right.rerankingBonus = 0
         left.isRememberedChoice = false
         right.isRememberedChoice = false
         return left == right

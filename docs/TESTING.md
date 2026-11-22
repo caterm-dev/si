@@ -25,8 +25,8 @@ bridge the app uses, including bilingual results, exact UTF-8 spans, personal
 phrases, confirmation evidence and token preferences.
 SwiftPM uses a separate dictionary generated from the tracked CSVs.
 The Release build and its package check use the locally generated lexicon
-and tracked word grams under `Data/Engine/`. The verifier rejects obsolete model assets in an incremental
-build's resource directory.
+and tracked word grams under `Data/Engine/`. The verifier checks the packaged
+small reranker and rejects obsolete LambdaRank resources in incremental builds.
 
 Run the synchronous selection and window regression tests with the app's paired snapshots.
 
@@ -209,6 +209,22 @@ office app. Include ordinary and secure fields, using dummy input.
   VoiceOver, light/dark appearance and Increase Contrast. Inspect the panel
   near screen edges, with multiple displays and during marked-text wrapping.
 
+### Local model ranking in a host
+
+In Typing Settings, verify Local model ranking starts off. Compare
+`xianzaitianjiazimu` in an empty TextEdit field with the option off and on.
+With the bundled snapshots, the model can move `现在添加字幕` ahead of
+`现在添加字母`; both should remain selectable. Repeat with Pinyin correction
+enabled, then type `nihoa` with each option enabled independently. Check
+keyboard and mouse selection, Return's exact spelling, focus changes, and a
+second host such as Safari. Repeat in an eligible field with preceding text,
+then verify direct and secure input suppress model use. Check VoiceOver's
+setting label and value. The automated integration test covers the two
+correction modes and the separation between model and statistical scores.
+The Rust regression `small_reranker_scores_within_two_bits_and_caps_the_bonus_at_two`
+uses `yuanshipinxie` to verify the two-bit scoring range, the two-bit bonus
+cap, and preservation of the original statistical score.
+
 ### Pinyin correction in a host
 
 In Typing Settings, verify Pinyin correction is off by default, then turn it on.
@@ -234,27 +250,46 @@ highlighted for each edited composition.
 
 ## Candidate positioning
 
-`CandidatePlacementTests` covers a plausible upper-right host rectangle arriving
-after the composition has acquired a lower-middle anchor. The panel stays near
-the first position and a reset lets a new composition acquire the new position.
-Fixtures also cover a plausible stale first rectangle corrected by two matching
-deferred samples, isolated startup outliers, invalid samples breaking correction
-evidence, bounded retries, delayed valid geometry without another key, reset
-isolation, display selection at a boundary, disconnected displays and the
-above/below placement rules.
+`CandidatePlacementTests` covers the probe order, missing ranges, invalid line
+rectangles, last-valid and mouse fallbacks, below/above placement, resizing,
+visible-frame clamping, and displays to the left and above the primary display.
+`CandidatePanelOwnershipTests` covers a focus switch between rendering and display.
 
-On an intentionally installed build, open a new chat or previously unused text
-field and type one synthetic character, then wait without typing. Verify that
-the panel settles beside the composition after startup layout. Repeat with rapid
-typing and with Escape, commit, direct input, focus switches and a new composition
-during the startup retry window: old tasks must not restore or move a new panel.
-Verify that typing, wrapping, caret edits and paging retain the settled
-composition anchor in TextEdit and a browser. Commit,
-cancel or switch focus and verify that the next composition acquires a new
-anchor. With `SI_DEBUG_CANDIDATE_GEOMETRY=1` in the launch environment, compare
-the `inline`/`inline-recheck` samples and `selected-inline` or `selected-pinned` rectangle with `panel-requested` and
-`panel-applied` for an observed jump. A scroll or window move during composition
-leaves the fixed anchor in place. Live host behavior remains unverified.
+On an intentionally installed Debug build, type synthetic Pinyin such as
+`dangqian` in a new Claude Desktop composer, the Chrome address bar, a Chrome
+web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Check
+that the panel first appears beside the composition. In each host, try rapid
+typing, a new line, the end of existing text, and starting another composition
+after moving the window. Repeat on a connected external display. Check that
+expand/collapse and paging keep the resized panel beside the composition and
+within the visible frame near the bottom and right edges. Press Escape, commit,
+switch focus and enable a direct-input rule during composition. A queued update
+must not restore a dismissed panel or position it for another client. Exercise
+a shortcut during composition to check that focus and host routing are preserved.
+
+Enable geometry logging in the Debug build with the following preference. If
+needed, restart the Debug input method to pick up the preference. Type in a
+synthetic field to create the log, then follow it:
+
+```sh
+defaults write com.caterm.si debug.candidateGeometryLogging -bool true
+tail -f "$HOME/Library/Logs/SI/CandidateGeometry.log"
+```
+
+Each placement uses one line in this order: UTC timestamp with milliseconds,
+frontmost bundle ID, marked range, selected range, all attempted indices and raw
+rectangles, selected index, display geometry, and final window frame. A selected
+index of `none` indicates that no host rectangle was chosen. Save the relevant
+log lines and screenshots from synthetic fields per host. Logs exclude secure
+input and typed content. The writer clears the file before an append that would
+exceed 2 MB. Disable logging before deleting the file:
+
+```sh
+defaults write com.caterm.si debug.candidateGeometryLogging -bool false
+rm -f "$HOME/Library/Logs/SI/CandidateGeometry.log"
+```
+
+Live host behavior requires login-session verification.
 
 ## Settings navigation
 
@@ -368,7 +403,8 @@ Use a dedicated synthetic profile and an intentionally installed build; never re
 
 - Use an isolated synthetic profile in TextEdit and a browser or editor. With Personal Learning and Input History off, confirm eligible candidates by Space, number and mouse. Verify the local user vocabulary and word grams update and survive restart.
 - Select several prefixes of one composition and verify the last successful confirmation queues one combined observation. Test editing the remainder, Escape, focus changes, shortcuts, stale selections and failed insertion. No abandoned prefix should be observed in the user model.
-- Paste synthetic content with a unique word and press Return outside composition. Confirm the host receives Return once and the pasted word is absent from the user model. Check secure/direct input and literal, punctuation, automatic and AI commits.
+- Type an unknown synthetic English word such as `sigram` in an isolated profile with English enabled. Press Return and verify the exact text is submitted once, without a space or newline. Verify the word appears in Personal Phrases and can be selected as an English candidate on the next composition. Confirm a prefix and press Return to check that Sentence Learning receives only the remaining spelling.
+- Paste synthetic content with a unique word and press Return outside composition. Confirm the host receives Return once and the pasted word is absent from the user model. Check secure/direct input and literal commits caused by shortcuts or host callbacks, punctuation, automatic confirmation and AI completion.
 - Verify the Sentence Learning page and sample display are gone in both languages. Upgrade an isolated profile with a synthetic recent-samples sidecar. Verify the file is removed and its paired vocabulary and grams survive. Check Delete All cancels pending learning even during a write, and legacy SQLite deletion is still available under Personal Phrases.
 
 ### Input History export and receiver tools

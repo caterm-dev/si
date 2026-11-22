@@ -57,10 +57,13 @@ typedef struct SICandidateView {
     bool preferred;
     bool verbatim;
     double token_bonus;
+    double reranking_bonus;
 } SICandidateView;
 
 /* UTF-8 paths. Grams is optional. NULL indicates resources could not be loaded. */
 SIEngine *si_engine_open(const char *lexicon, const char *grams);
+/* Optional local model. Call with exclusive access before publishing the engine. */
+bool si_engine_load_reranker(SIEngine *engine, const char *directory);
 void si_engine_close(SIEngine *engine);
 /* Profile I/O and index construction. Call away from the event handler.
    On success, release any non-NULL outputs with the matching close/free functions. */
@@ -108,7 +111,8 @@ SICandidates *si_engine_candidates_for_mode(const SIEngine *engine, const uint8_
                                    size_t preceding_length, uint8_t languages, bool preview,
                                    const SIUserPhrase *phrases, size_t phrase_count,
                                    const SILearnedToken *tokens, size_t token_count,
-                                   const SILearnedPath *paths, size_t path_count, uint8_t mode);
+                                   const SILearnedPath *paths, size_t path_count, uint8_t mode,
+                                   bool rerank);
 bool si_engine_has_english_word_prefix(const SIEngine *engine, const uint8_t *text,
                                        size_t length, size_t minimum);
 size_t si_candidates_count(const SICandidates *results);

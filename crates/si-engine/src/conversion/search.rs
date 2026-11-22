@@ -10,7 +10,7 @@ use super::scoring::{History, ScoreSession, Scores, WordScore};
 use super::{
     Candidate, CandidateLanguage, ConversionBoundary, ConversionPreferences, Correction,
     CorrectionKind, CorrectionSensitivity, EnabledLanguages, Language, MAX_OUTPUT_BYTES,
-    PathPreference, TokenPreference,
+    PathPreference, SmallReranker, TokenPreference,
 };
 use crate::han;
 
@@ -34,6 +34,7 @@ pub(super) fn run(
     personal: &Lookup<'_>,
     preferences: ConversionPreferences<'_>,
     correction: Option<CorrectionSensitivity>,
+    reranking: Option<(&SmallReranker, &str, usize)>,
 ) -> Vec<Candidate> {
     let limit = input.len().min(MAX_SEARCH_UNITS);
     let correction_margin = correction.map(CorrectionSensitivity::margin);
@@ -193,7 +194,7 @@ pub(super) fn run(
             }
         }
     }
-    search.results.ranked(search.correction_floor)
+    search.results.ranked(search.correction_floor, reranking)
 }
 
 fn correction_context(adjustment: Scores, backoff: bool) -> Scores {
@@ -496,6 +497,7 @@ impl Search<'_, '_, '_, '_> {
                 consumed_bytes: self.input.source_end(edge.end),
                 score_bits: Some(score.personalized),
                 context_adjustment: context_adjustment.personalized,
+                reranking_bonus: 0.0,
                 completion: edge.missing != 0,
                 lexical_tokens: 1,
                 source_boundaries: details.cuts.clone(),
@@ -634,6 +636,7 @@ impl Search<'_, '_, '_, '_> {
                         consumed_bytes: self.input.source_end(end),
                         score_bits: Some(path.score.personalized),
                         context_adjustment: path.context_adjustment.personalized,
+                        reranking_bonus: 0.0,
                         completion: path.completion,
                         lexical_tokens: path.lexical_tokens,
                         source_boundaries,

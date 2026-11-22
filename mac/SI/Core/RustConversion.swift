@@ -20,17 +20,19 @@ final class RustConversion: @unchecked Sendable {
         let lexicon = resourceDirectory.appendingPathComponent("main.silex")
         let grams = resourceDirectory.appendingPathComponent("words.sigram")
         #if SWIFT_PACKAGE
-        let engine = RustConversion(lexicon: lexicon, grams: FileManager.default.fileExists(atPath: grams.path) ? grams : nil)
+        let gramResource = FileManager.default.fileExists(atPath: grams.path) ? grams : nil
         #else
-        let engine = RustConversion(lexicon: lexicon, grams: grams)
+        let gramResource = grams
         #endif
+        let engine = RustConversion(lexicon: lexicon, grams: gramResource,
+                                    reranker: resourceDirectory.appendingPathComponent("RerankerSmall", isDirectory: true))
         ready.withLock { $0 = engine }
         return engine
     }()
 
     typealias PinyinCorrectionMode = CandidateEngine.PinyinCorrectionMode
 
-    init?(lexicon: URL, grams: URL? = nil, correctionMode: PinyinCorrectionMode = .off) {
+    init?(lexicon: URL, grams: URL? = nil, correctionMode: PinyinCorrectionMode = .off, reranker: URL? = nil) {
         guard let handle = lexicon.withUnsafeFileSystemRepresentation({ lexiconPath in
             if let grams {
                 return grams.withUnsafeFileSystemRepresentation { si_engine_open(lexiconPath, $0) }
@@ -40,6 +42,9 @@ final class RustConversion: @unchecked Sendable {
         if correctionMode != .off && !si_engine_set_correction(handle, correctionMode.rawValue) {
             si_engine_close(handle)
             return nil
+        }
+        if let reranker {
+            _ = reranker.withUnsafeFileSystemRepresentation { si_engine_load_reranker(handle, $0) }
         }
         engine = handle
         self.correctionMode = correctionMode
@@ -122,7 +127,7 @@ final class RustConversion: @unchecked Sendable {
                     dictionary: UserDictionary = UserDictionary(), includesConfirmation: Bool = false,
                     learning: LearningProfile = LearningProfile(), now: Date = .now,
                     context: CandidateContext? = nil, precedingText: String = "",
-                    correctionMode: PinyinCorrectionMode? = nil) -> [InputCandidate] {
+                    correctionMode: PinyinCorrectionMode? = nil, rerankingEnabled: Bool = false) -> [InputCandidate] {
         let mode = correctionMode ?? self.correctionMode
         var mask: UInt8 = 0
         if languages.contains(.simplifiedChinese) { mask |= 1 }
@@ -139,7 +144,8 @@ final class RustConversion: @unchecked Sendable {
                 precedingText.withUTF8 { preceding in
                     si_engine_candidates_for_mode(engine, input.baseAddress, input.count, preceding.baseAddress, preceding.count,
                                                   mask, preview, phrases.baseAddress, phrases.count,
-                                                  tokens.baseAddress, tokens.count, paths.baseAddress, paths.count, mode.rawValue)
+                                                  tokens.baseAddress, tokens.count, paths.baseAddress, paths.count,
+                                                  mode.rawValue, rerankingEnabled)
                 }
             }
         }) else { return [] }
@@ -175,6 +181,7 @@ final class RustConversion: @unchecked Sendable {
             if (candidate.canLearn || isCorrection) && row.context_adjustment.isFinite {
                 candidate.fieldContextAdjustment = row.context_adjustment
             }
+            candidate.rerankingBonus = row.reranking_bonus
             return row.language == 1 && row.lexical_tokens > 1 ? candidate.withChineseSentenceOrigin() : candidate
         }
     }

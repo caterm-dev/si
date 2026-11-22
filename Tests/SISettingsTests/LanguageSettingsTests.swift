@@ -5,6 +5,26 @@ import SICore
 
 @MainActor
 struct LanguageSettingsTests {
+    @Test func localModelRankingPersistsIndependentlyOfPinyinCorrection() throws {
+        let name = "SI.LocalModelRankingTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = LanguageSettings(defaults: defaults)
+        #expect(!settings.localModelRankingEnabled)
+        settings.pinyinCorrectionEnabled = true
+        #expect(!LanguageSettings(defaults: defaults).localModelRankingEnabled)
+        settings.pinyinCorrectionEnabled = false
+
+        let generation = settings.configurationGeneration
+        settings.localModelRankingEnabled = true
+        let restored = LanguageSettings(defaults: defaults)
+        #expect(restored.localModelRankingEnabled && !restored.pinyinCorrectionEnabled)
+        #expect(settings.configurationGeneration == generation + 1)
+        settings.localModelRankingEnabled = false
+        #expect(!LanguageSettings(defaults: defaults).localModelRankingEnabled)
+        #expect(settings.configurationGeneration == generation + 2)
+    }
+
     @Test func pinyinCorrectionSettingPersistsAndDefaultsOff() throws {
         let name = "SI.PinyinCorrectionTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))

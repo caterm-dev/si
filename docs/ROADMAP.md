@@ -93,6 +93,7 @@ Ordinary conversion is local. Optional AI Completion has its own consent and an 
 
 - [x] Independent 7.4M causal character-LM baseline with whole-document corpus preparation, train-only vocabulary, grouped splits, strict resume, held-out token-loss and standalone supplied-candidate scoring, plus inference-only export.
 - [x] Local 30,000-step small checkpoint and explicit offline FP32 Core ML conversion.
+- [x] Optional bounded small-model reranking during macOS conversion, independent of Pinyin correction.
 - [ ] Redesign native AI integration; the former original/AI comparison is removed.
 - [ ] Independent ranking-quality evidence, hard-negative fine-tuning, quantization and native host/VoiceOver verification for future native AI integration.
 - [x] Independent from-scratch encoder-decoder framework with training/resume, train-only tokenizer, evaluation/comparison and inference export, with a 19.7M model preset for explicit Pinyin syllables and optional context.

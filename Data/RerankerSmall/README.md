@@ -3,7 +3,9 @@
 This directory contains the FP32 Rust inference export of the
 7,419,392-parameter `small-character-v1` model at step 30,000.
 It has four width-256 Transformer blocks, four attention heads and a
-256-token context. The model scores supplied candidates in offline evaluations.
+256-token context. It scores supplied candidates in offline evaluations and
+is bundled with macOS SI for optional, bounded Local model ranking.
+[Runtime policy](../../docs/ranking-architecture.md#local-model-ranking)
 
 | File | Contents |
 | --- | --- |

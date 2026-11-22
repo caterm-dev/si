@@ -21,19 +21,25 @@ struct CandidatePanelOwnershipTests {
         #expect(!first.ownsPresentation && !second.ownsPresentation)
     }
 
-    @Test func aLateUpdateFromAnotherClientCannotRenderOrShowItsPanel() {
+    @Test func aLateUpdateFromAnotherClientCannotRenderOrShowItsPanel() throws {
         _ = NSApplication.shared
         let stale = CandidatePanel()
         let active = CandidatePanel()
         defer { stale.releasePresentation(); active.releasePresentation(); stale.close(); active.close() }
-        stale.claimPresentation()
-        active.claimPresentation()
         var selection = CandidateSelection()
         selection.update([InputCandidate(text: "Synthetic", language: .english, score: 1)])
-        stale.show(selection: selection, caret: CGRect(x: 0, y: 0, width: 1, height: 20), clientLevel: 0,
-                   screens: [CandidatePlacement.Screen(frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
-                                                        visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 875))])
-        #expect(!stale.isVisible && stale.list.rows.isEmpty)
+        let screen = CandidatePlacement.Screen(frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                                               visibleFrame: CGRect(x: 0, y: 0, width: 1440, height: 875))
+        let anchor = try #require(CandidateAnchor(CGRect(x: 100, y: 100, width: 1, height: 20), screens: [screen]))
+        // Render while this panel owns presentation, then let a focus switch precede its deferred show.
+        stale.claimPresentation()
+        stale.render(selection: selection)
+        active.claimPresentation()
+        stale.show(at: anchor, clientLevel: 0)
+        #expect(!stale.isVisible && stale.list.rows.count == 1)
+        selection.update([])
+        stale.render(selection: selection)
+        #expect(stale.list.rows.count == 1)
         #expect(!active.isVisible && active.list.rows.isEmpty)
         #expect(active.ownsPresentation)
     }

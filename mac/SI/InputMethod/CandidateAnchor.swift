@@ -1,48 +1,35 @@
-import CoreGraphics
+import Foundation
 
-// Recheck startup geometry after the host has had time to lay out a new field.
-// Once startup ends, keep the anchor fixed for the rest of the composition.
 struct CandidateAnchor {
-    private var pinned: CGRect?
-    private var pendingCorrection: CGRect?
-    private var remainingRechecks = 4
+    let rect: CGRect
+    let screen: CandidatePlacement.Screen
 
-    var needsRecheck: Bool { remainingRechecks > 0 }
-
-    mutating func reset() {
-        pinned = nil
-        pendingCorrection = nil
-        remainingRechecks = 4
+    init?(_ rawRect: CGRect, screens: [CandidatePlacement.Screen]) {
+        guard let rect = CandidatePlacement.normalizedAnchor(rawRect),
+              let screen = CandidatePlacement.screen(for: rect, screens: screens) else { return nil }
+        self.rect = rect
+        self.screen = screen
     }
 
-    mutating func resolve(screens: [CandidatePlacement.Screen], recheck: Bool = false,
-                          trace: ((String, Int?, CGRect?) -> Void)? = nil,
-                          queryStart: () -> CGRect) -> CGRect? {
-        if let pinned, CandidatePlacement.screen(for: pinned, screens: screens) == nil { reset() }
-        let shouldRecheck = recheck && needsRecheck
-        if let pinned, !shouldRecheck {
-            trace?("selected-pinned", nil, pinned)
-            return pinned
+    static func queryIndices(marked: NSRange, selected: NSRange) -> [Int] {
+        var indices: [Int] = []
+        func append(_ index: Int) {
+            if index >= 0, index != NSNotFound, !indices.contains(index) { indices.append(index) }
         }
-        if shouldRecheck { remainingRechecks -= 1 }
-        let raw = queryStart()
-        trace?(shouldRecheck ? "inline-recheck" : "inline", 0, raw)
-        guard let rect = CandidatePlacement.normalizedAnchor(raw),
-              rect.height < 200, rect.origin != .zero,
-              CandidatePlacement.screen(for: rect, screens: screens) != nil else {
-            pendingCorrection = nil
-            trace?("unavailable", nil, nil)
-            return pinned
+        if marked.location >= 0, marked.location != NSNotFound {
+            append(marked.location)
+            let (end, overflow) = marked.location.addingReportingOverflow(marked.length)
+            if marked.length >= 0, !overflow { append(end) }
         }
-        if pinned == nil {
-            pinned = rect
-        } else if shouldRecheck {
-            // One displaced response must not move a good anchor. Require the same
-            // corrected start on two consecutive deferred host queries.
-            if rect == pendingCorrection { pinned = rect }
-            pendingCorrection = rect
-        }
-        trace?("selected-inline", 0, pinned)
-        return pinned
+        append(selected.location)
+        append(0)
+        return indices
+    }
+
+    static func fallback(lastValid: CGRect?, mouseLocation: @autoclosure () -> CGPoint,
+                         screens: [CandidatePlacement.Screen]) -> CandidateAnchor? {
+        if let lastValid, let anchor = CandidateAnchor(lastValid, screens: screens) { return anchor }
+        let rect = CGRect(origin: mouseLocation(), size: CGSize(width: 1, height: 1))
+        return CandidateAnchor(rect, screens: screens)
     }
 }

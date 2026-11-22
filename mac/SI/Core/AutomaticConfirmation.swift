@@ -81,6 +81,10 @@ struct AutomaticConfirmation: Sendable {
               leader.language == .simplifiedChinese, !leader.isMixed, !leader.isUserPhrase, !leader.hasLiteralSegments, !leader.requiresExplicitSelection,
               !leader.isApplicationVocabulary,
               !leader.confirmationBoundaries.isEmpty else { return [] }
+        // A model-promoted choice may lead the window but may not trigger an implicit commit.
+        if candidates.contains(where: { $0.rerankingBonus > 0 }),
+           candidates.lazy.filter({ !$0.isPartial && !$0.isLiteral })
+            .min(by: InputCandidate.precedesInStatistics)?.id != leader.id { return [] }
         // Language selection must not remove code/English safeguards. Only test established Chinese
         // word boundaries: scanning every letter would mistake the overlapping "open" in nihaopengyou.
         for boundary in leader.confirmationBoundaries {

@@ -111,7 +111,7 @@ impl Reranker {
         let ScoredPool {
             mut scores,
             context_tokens_used,
-        } = self.score_pool(context, candidates)?;
+        } = self.score_pool(context, candidates, self.context, self.context)?;
         let mut order: Vec<_> = (0..scores.len()).collect();
         if context_tokens_used.is_some() {
             for (score, text) in scores.iter_mut().zip(candidates) {
@@ -132,9 +132,35 @@ impl Reranker {
         })
     }
 
-    fn score_pool(&self, context: &str, candidates: &[String]) -> Result<ScoredPool> {
+    /// Mean log probability per output scalar with a shared, bounded context.
+    /// Abstains when a complete candidate would exceed the token budget.
+    pub fn bounded_mean_scores(
+        &self,
+        context: &str,
+        candidates: &[&str],
+        context_tokens: usize,
+        candidate_tokens: usize,
+    ) -> Result<Option<Vec<f64>>> {
+        let pool = self.score_pool(context, candidates, context_tokens, candidate_tokens)?;
+        Ok(pool.context_tokens_used.map(|_| {
+            pool.scores
+                .into_iter()
+                .zip(candidates)
+                .map(|(score, text)| score.expect("scored pool") / text.chars().count() as f64)
+                .collect()
+        }))
+    }
+
+    fn score_pool(
+        &self,
+        context: &str,
+        candidates: &[impl AsRef<str>],
+        context_tokens: usize,
+        candidate_tokens: usize,
+    ) -> Result<ScoredPool> {
         if candidates.len() > MAX_CANDIDATES
             || candidates.iter().any(|text| {
+                let text = text.as_ref();
                 text.is_empty() || text.len() > 4096 || text.chars().any(char::is_control)
             })
         {
@@ -142,7 +168,7 @@ impl Reranker {
         }
         let encoded: Vec<_> = candidates
             .iter()
-            .map(|text| self.tokenizer.encode(text))
+            .map(|text| self.tokenizer.encode(text.as_ref()))
             .collect();
         let Some(longest) = encoded.iter().map(Vec::len).max() else {
             return Ok(ScoredPool {
@@ -150,13 +176,19 @@ impl Reranker {
                 context_tokens_used: Some(0),
             });
         };
-        let Some(available) = self.context.checked_sub(longest) else {
+        let Some(available) = self
+            .context
+            .checked_sub(longest)
+            .filter(|_| longest <= candidate_tokens)
+        else {
             return Ok(ScoredPool {
                 scores: vec![None; candidates.len()],
                 context_tokens_used: None,
             });
         };
-        let history = self.tokenizer.suffix(context, available);
+        let history = self
+            .tokenizer
+            .suffix(context, available.min(context_tokens));
         let scores = match PrefixBatch::new(&history, &encoded) {
             Some(batch) => self.score_prefixes(batch)?,
             None => self.score_individual(&history, &encoded)?,
@@ -271,5 +303,23 @@ mod tests {
         let shorter_pool = model.rank("甲乙甲", &candidates[..1], None).unwrap();
         assert_eq!(shorter_pool.context_tokens_used, 3);
         assert!((full.scores[0].unwrap() - shorter_pool.scores[0].unwrap()).abs() > 0.01);
+
+        let texts = ["甲", "乙乙乙"];
+        assert_eq!(
+            model.bounded_mean_scores("甲乙甲", &texts, 1, 2).unwrap(),
+            None
+        );
+        let bounded = model
+            .bounded_mean_scores("前缀甲", &texts, 1, 3)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            bounded,
+            model
+                .bounded_mean_scores("甲", &texts, 1, 3)
+                .unwrap()
+                .unwrap()
+        );
+        assert!((bounded[1] - full.scores[1].unwrap() / 3.0).abs() < 1e-8);
     }
 }

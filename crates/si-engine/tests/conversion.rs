@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use si_engine::resources::EngineResources;
 use si_engine::resources::user::{UserLearningConfig, UserModelStore};
 use si_engine::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionPreferences, EnabledLanguages,
-    PersonalPhrase,
+    Candidate, CandidateEngine, CandidateLanguage, ConversionOptions, ConversionPreferences,
+    EnabledLanguages, PersonalPhrase, SmallReranker,
 };
 use si_gram::GramBuilder;
 use si_lexicon::{IndexId, Lexicon, WordId};
@@ -26,6 +26,96 @@ const ENGLISH: EnabledLanguages = EnabledLanguages {
     chinese: false,
     english: true,
 };
+
+#[test]
+fn small_reranker_scores_eight_close_homophones() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for text in ["诗", "施", "狮", "尸", "师", "失", "湿", "时", "十"] {
+        add(&mut lexicon, ZH, "shi", text, 100);
+    }
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let baseline = engine.candidates("shi", CHINESE);
+    let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let reranker = SmallReranker::open(&model)?;
+    let ranked = engine.convert_with_options(
+        "shi",
+        CHINESE,
+        false,
+        &[],
+        ConversionPreferences::default(),
+        "",
+        ConversionOptions {
+            correction: None,
+            reranker: Some(&reranker),
+        },
+    );
+    assert_eq!(baseline.len(), 10);
+    assert_eq!(ranked.len(), baseline.len());
+    // The model measures rewards relative to its lowest-scoring result, which gets zero.
+    assert_eq!(
+        ranked
+            .iter()
+            .filter(|row| row.reranking_bonus > 0.0)
+            .count(),
+        7
+    );
+    assert_eq!(
+        ranked
+            .iter()
+            .find(|row| row.text == baseline[8].text)
+            .unwrap()
+            .reranking_bonus,
+        0.0
+    );
+    assert_eq!(ranked.last(), baseline.last());
+    Ok(())
+}
+
+#[test]
+fn small_reranker_scores_within_two_bits_and_caps_the_bonus_at_two() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let reranker = SmallReranker::open(&model)?;
+
+    // The count ratios put the gaps just below and above two bits.
+    for (leader_count, expected_bonus, expected_first) in
+        [(390, 2.0, "原始拼写"), (410, 0.0, "元是拼写")]
+    {
+        let mut lexicon = Lexicon::new();
+        add(
+            &mut lexicon,
+            ZH,
+            "yuan'shi'pin'xie",
+            "元是拼写",
+            leader_count,
+        );
+        add(&mut lexicon, ZH, "yuan'shi'pin'xie", "原始拼写", 100);
+        let resources = directory.resources(&mut lexicon, None)?;
+        let engine = CandidateEngine::new(&resources, None);
+        let baseline = engine.candidates("yuanshipinxie", CHINESE);
+        assert_eq!(baseline[0].text, "元是拼写");
+
+        let ranked = engine.convert_with_options(
+            "yuanshipinxie",
+            CHINESE,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            "",
+            ConversionOptions {
+                correction: None,
+                reranker: Some(&reranker),
+            },
+        );
+        let expected = ranked.iter().find(|row| row.text == "原始拼写").unwrap();
+        assert_eq!(ranked[0].text, expected_first);
+        assert_eq!(expected.score_bits, baseline[1].score_bits);
+        assert_eq!(expected.reranking_bonus, expected_bonus);
+    }
+    Ok(())
+}
 
 #[test]
 fn reused_search_statistics_preserve_edits_context_and_request_preferences() -> io::Result<()> {

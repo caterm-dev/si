@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -365,6 +366,11 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("invalid SIEngine/words.sigram header", result.stderr)
         grams.write_bytes(b"SIGRAM\x04\0synthetic word grams")
 
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing SIEngine/RerankerSmall/manifest.json", result.stderr)
+        model = engine / "RerankerSmall"
+        shutil.copytree(ROOT / "Data/RerankerSmall", model)
         subprocess.run(command, check=True, capture_output=True)
         ranking = engine / "Ranking"
         ranking.mkdir()
@@ -376,6 +382,11 @@ class ReleaseTests(unittest.TestCase):
         result = subprocess.run(command, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("obsolete Swift conversion resources", result.stderr)
+        (resources / "KenLM").rmdir()
+        (model / "weights.f32").write_bytes(b"invalid")
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Checksum differs for SIEngine/RerankerSmall/weights.f32", result.stderr)
 
     def test_rejected_notarization_does_not_expose_final_image(self):
         output = self.directory / "failed"

@@ -4,7 +4,7 @@
 
 The editor exposes exact output text, Chinese/English reading and unsigned integer frequency. Readings use lowercase ASCII letters and apostrophes (use `v` for ü), up to 256 bytes. Text is nonempty, at most 4,096 UTF-8 bytes and cannot contain control characters. Entries without a reading remain visible and editable; they do not provide a spelling lookup until a reading is assigned. Duplicate text/reading/index identities are rejected. There is no separate 1,000-entry phrase limit, pin, shortcut expansion, or JSON import/export.
 
-The stored user model participates in eligible conversion and learns from confirmed candidates by default. Enabled languages and secure/direct-input safeguards apply.
+The stored user model participates in eligible conversion and learns by default from confirmed candidates and spelling submitted with Return during composition. Secure/direct-input safeguards apply.
 
 ## Storage and deletion
 

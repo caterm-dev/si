@@ -90,7 +90,8 @@ public struct InputSession: Sendable {
                                    applicationMemory: ApplicationMemorySnapshot = .empty,
                                    compositionLearningEnabled: Bool = false,
                                    punctuationCandidatesEnabled: Bool = false,
-                                   pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode = .off) {
+                                   pinyinCorrectionMode: CandidateEngine.PinyinCorrectionMode = .off,
+                                   rerankingEnabled: Bool = false) {
         if self.compositionLearningEnabled != compositionLearningEnabled || self.languages != languages
             || self.contextGeneration != contextGeneration || self.dictionary != dictionary
             || self.configurationGeneration != configurationGeneration {
@@ -107,6 +108,7 @@ public struct InputSession: Sendable {
                 || self.configurationGeneration != configurationGeneration
                 || engine.punctuationCandidatesEnabled != punctuationCandidatesEnabled
                 || engine.pinyinCorrectionMode != pinyinCorrectionMode
+                || engine.rerankingEnabled != rerankingEnabled
                 || self.applicationMemory != applicationMemory else { return }
         self.languages = languages
         self.learning = learning
@@ -118,6 +120,7 @@ public struct InputSession: Sendable {
         self.configurationGeneration = configurationGeneration
         engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
         engine.pinyinCorrectionMode = pinyinCorrectionMode
+        engine.rerankingEnabled = rerankingEnabled
         automaticConfirmation = AutomaticConfirmation()
         if !usesContext || languagesChanged || contextChanged { recentContext = nil }
         refresh(now: now)

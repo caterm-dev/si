@@ -4,6 +4,59 @@ import Testing
 @testable import SICore
 
 struct RustConversionIntegrationTests {
+    @Test func localModelReordersWholeCandidatesIndependentlyOfCorrection() throws {
+        let languages = Set(InputLanguage.allCases)
+        let spelling = "xianzaitianjiazimu"
+        var session = InputSession(engine: CandidateEngine(usesCoverageAdjustedOrder: false), candidateGeneration: .deferred)
+        session.configure(languages: languages)
+        session.append(spelling)
+        let baseline = try #require(session.pendingCandidateRequest).generate()
+        #expect(baseline.candidates.first?.text == "现在添加字母")
+
+        session.configure(languages: languages, rerankingEnabled: true)
+        let request = try #require(session.pendingCandidateRequest)
+        let acceptedObsolete = session.accept(baseline)
+        #expect(!acceptedObsolete)
+        #expect(request.generatePreview().candidates.allSatisfy { $0.rerankingBonus == 0 })
+        let ranked = request.generate()
+        let promoted = try #require(ranked.candidates.first)
+        #expect(promoted.text == "现在添加字幕")
+        #expect(promoted.rerankingBonus > 0 && promoted.rerankingBonus <= 2)
+        #expect(Set(ranked.candidates.map(\.id)) == Set(baseline.candidates.map(\.id)))
+        let baselineScores = Dictionary(uniqueKeysWithValues: baseline.candidates.map { ($0.id, $0.statisticalScore) })
+        #expect(ranked.candidates.allSatisfy { baselineScores[$0.id] == .some($0.statisticalScore) })
+        #expect(ranked.candidates.filter { $0.rerankingBonus > 0 }.count < 8)
+        for row in ranked.candidates where row.isPartial || row.isLiteral || row.hasCompletion || row.hasLiteralSegments {
+            #expect(row.rerankingBonus == 0)
+        }
+        let shortlist = CandidateShortlist.candidates(from: ranked.candidates)
+        #expect(shortlist.first?.id == promoted.id)
+        #expect(shortlist.contains { $0.text == "现在添加字母" && !$0.isPartial })
+        #expect(shortlist.last?.isLiteral == true && shortlist.last?.text == spelling)
+
+        session.configure(languages: languages, pinyinCorrectionMode: .conservative, rerankingEnabled: true)
+        let withCorrection = try #require(session.pendingCandidateRequest).generate()
+        #expect(withCorrection.candidates.first?.id == promoted.id)
+        #expect(withCorrection.candidates.first?.rerankingBonus == promoted.rerankingBonus)
+        #expect(withCorrection.candidates.filter(\.isPinyinCorrection).allSatisfy { $0.rerankingBonus == 0 })
+        let accepted = session.accept(withCorrection)
+        #expect(accepted)
+        let commit = session.commitResult(promoted, reason: .defaultAcceptance)
+        #expect(commit.text.utf8.elementsEqual("现在添加字幕".utf8))
+        #expect(commit.input == spelling && commit.remainingInput.isEmpty)
+    }
+
+    @Test func missingLocalModelFallsBackToStatisticalCandidates() throws {
+        let path = try #require(ProcessInfo.processInfo.environment["SI_ENGINE_RESOURCE_DIRECTORY"])
+        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        let absent = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        let engine = try #require(RustConversion(lexicon: directory.appending(path: "main.silex"), reranker: absent))
+        let spelling = "xianzaitianjiazimu"
+        let baseline = engine.candidates(for: spelling, languages: [.simplifiedChinese])
+        #expect(!baseline.isEmpty)
+        #expect(engine.candidates(for: spelling, languages: [.simplifiedChinese], rerankingEnabled: true) == baseline)
+    }
+
     @Test func pinyinCorrectionChangesDoNotAcceptObsoleteResults() throws {
         _ = try #require(RustConversion.shared)
         var session = InputSession(candidateGeneration: .deferred)

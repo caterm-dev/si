@@ -23,6 +23,14 @@ struct TypingSettingsPage: View {
         }
         SettingsGroup("Composition") {
             SettingsRow(
+                title: Text("Local model ranking"),
+                detail: Text("Use the on-device model to reorder close whole-input candidates.")
+            ) {
+                Toggle("Local model ranking", isOn: $settings.localModelRankingEnabled)
+                    .labelsHidden()
+            }
+            Divider()
+            SettingsRow(
                 title: Text("Pinyin correction"),
                 detail: Text("Offer spelling suggestions. Press Space to accept a correction highlighted in first place.")
             ) {

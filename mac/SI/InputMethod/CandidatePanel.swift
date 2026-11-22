@@ -41,15 +41,15 @@ final class CandidatePanel: NSPanel {
         setAccessibilityLabel(L10n.text("SI candidates"))
     }
 
-    func show(selection: CandidateSelection, caret: NSRect, clientLevel: Int, screens: [CandidatePlacement.Screen],
-              prediction: String? = nil, predictionStatus: String? = nil,
-              traceFrame: ((NSRect, NSRect) -> Void)? = nil) {
+    func render(selection: CandidateSelection, prediction: String? = nil, predictionStatus: String? = nil) {
         guard ownsPresentation else { return }
-        guard !selection.candidates.isEmpty else { orderOut(nil); return }
         list.render(selection, prediction: prediction, predictionStatus: predictionStatus)
-        let width = CandidatePlacement.screen(for: caret, screens: screens)?.visibleFrame.width ?? list.preferredSize.width
-        let size = list.preferredSize(constrainedTo: max(1, width - 8))
-        guard let frame = CandidatePlacement.frame(preferredSize: size, anchor: caret, screens: screens) else {
+    }
+
+    func show(at anchor: CandidateAnchor, clientLevel: Int) {
+        guard ownsPresentation, !list.rows.isEmpty else { return }
+        let size = list.preferredSize(constrainedTo: max(1, anchor.screen.visibleFrame.width))
+        guard let frame = CandidatePlacement.frame(preferredSize: size, anchor: anchor) else {
             orderOut(nil)
             return
         }
@@ -59,6 +59,5 @@ final class CandidatePanel: NSPanel {
         // the resized window synchronously can expose the old row geometry for a frame.
         list.layoutSubtreeIfNeeded()
         if !isVisible { orderFrontRegardless() }
-        traceFrame?(frame, self.frame)
     }
 }

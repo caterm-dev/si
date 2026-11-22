@@ -2,12 +2,56 @@
 
 ## App conversion
 
-Each edit completes full statistical conversion before the window updates.
+Each edit completes full conversion before the window updates.
 The application loads the paired lexicon and word-gram snapshots before
 opening its IMKServer. Turning on Pinyin correction adds bounded single-edit
 suggestions that meet the conservative statistical confidence margin.
 Ordinary whole results precede suggestions of the same span. Secure input
 suppresses suggestions, and direct input passes keys through.
+
+## Local model ranking
+
+**Local model ranking** is a separate, default-off Typing option. With it on,
+Rust evaluates up to eight ordinary whole-input candidates within two bits of
+the leading ordinary whole-input score. Completions, literal segments,
+personal phrases and spelling corrections receive no model reward. Each
+candidate can use up to 12 model tokens, sharing up to 16 trailing context
+tokens from the current field. Empty context works at the start of a field.
+
+The character model's mean log probability per output scalar is converted
+to bits, measured relative to the least likely scored output, weighted by
+0.8, and capped at two bits. Rust adds that reward after statistical
+search and preserves deterministic ties. Swift carries the reward into its
+final ordering and retains the original statistical scores for the shortlist.
+An exact remembered choice retains priority. If the model changes the
+leading whole candidate, that result cannot trigger prefix auto-confirmation.
+
+The app loads the packaged small FP32 model once at startup and shares it
+with user-dictionary snapshots. Secure input and provisional preview skip
+inference. Missing or invalid weights, an unscorable pool or inference errors
+use the statistical results. All scoring runs locally and transiently.
+[Model provenance](../Data/RerankerSmall/README.md)
+
+An in-process Release comparison on macOS 27.0.1 arm64 used the original
+four-candidate limit, two-bit margin and 0.5 model weight, with empty personal
+state and correction off. The paired
+snapshots had SHA-256 prefixes
+`bd590908fc4a` (lexicon) and `7f50295ba035` (word grams). With the same
+decoded pools and Swift shortlist, enabling the model raised first-choice
+hits from 196 to 211 across 458 authored context queries. The 220 compact
+queries without context had 160 first-choice hits in either mode. Across
+5,585 typing-prefix conversions from the compact queries, median time went
+from 10.3 to 10.6 ms and p95 rounded to 31.3 ms in both modes. All queries
+retained the full engine candidate identities and exact original spelling.
+These authored fixtures do not establish native host latency or representative
+ranking quality.
+[Evaluation fixtures](../eval/README.md)
+
+With the same snapshots and two-bit margin, increasing the model pool from
+four to eight scored additional candidates for 22 of the 678 complete queries.
+First-choice hits went from 211 to 210 on the contextual queries and remained
+160 on the compact queries. On a 1,403-edit sample from the compact queries,
+in-process p95 went from 32.3 to 32.2 ms.
 
 ## Statistical score and presentation
 

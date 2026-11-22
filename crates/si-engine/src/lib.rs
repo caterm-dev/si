@@ -7,8 +7,8 @@ pub mod resources;
 pub mod segmentation;
 
 pub use conversion::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionPreferences,
-    Correction, CorrectionKind, CorrectionSensitivity, EnabledLanguages, PathPreference,
-    PersonalPhrase, TokenPreference,
+    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionOptions,
+    ConversionPreferences, Correction, CorrectionKind, CorrectionSensitivity, EnabledLanguages,
+    PathPreference, PersonalPhrase, SmallReranker, TokenPreference,
 };
 pub use si_lexicon::IndexId;

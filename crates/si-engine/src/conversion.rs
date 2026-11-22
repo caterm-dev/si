@@ -3,6 +3,7 @@ mod context;
 mod input;
 mod lookup;
 mod ranking;
+mod reranking;
 mod scoring;
 mod search;
 
@@ -12,6 +13,7 @@ use self::input::Input;
 use self::lookup::Lookup;
 use self::scoring::Scoring;
 use crate::resources::EngineResources;
+pub use reranking::SmallReranker;
 
 const MAX_OUTPUT_BYTES: usize = 4_096;
 
@@ -93,6 +95,13 @@ pub struct ConversionPreferences<'a> {
     pub paths: &'a [PathPreference<'a>],
 }
 
+/// Optional scoring stages selected independently for a single conversion.
+#[derive(Clone, Copy, Default)]
+pub struct ConversionOptions<'a> {
+    pub correction: Option<CorrectionSensitivity>,
+    pub reranker: Option<&'a SmallReranker>,
+}
+
 /// One possible conversion of a prefix or the whole input.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Candidate {
@@ -104,6 +113,8 @@ pub struct Candidate {
     pub score_bits: Option<f64>,
     /// Transient change in log probability from the host field's preceding text.
     pub context_adjustment: f64,
+    /// Bounded whole-input reward from the optional character model.
+    pub reranking_bonus: f64,
     /// The last word extends the typed spelling.
     pub completion: bool,
     /// Lexical units in the strongest derivation, with direct-word evidence retained.
@@ -277,6 +288,31 @@ impl<'a> CandidateEngine<'a> {
         preceding_text: &str,
         correction: Option<CorrectionSensitivity>,
     ) -> Vec<Candidate> {
+        self.convert_with_options(
+            text,
+            languages,
+            preview,
+            phrases,
+            preferences,
+            preceding_text,
+            ConversionOptions {
+                correction,
+                reranker: None,
+            },
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn convert_with_options(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preview: bool,
+        phrases: &[PersonalPhrase<'_>],
+        preferences: ConversionPreferences<'_>,
+        preceding_text: &str,
+        options: ConversionOptions<'_>,
+    ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();
         }
@@ -296,7 +332,11 @@ impl<'a> CandidateEngine<'a> {
                 preview,
                 &personal,
                 preferences,
-                correction,
+                options.correction,
+                options
+                    .reranker
+                    .filter(|_| !preview)
+                    .map(|model| (model, preceding_text, text.len())),
             )
         } else {
             Vec::new()
@@ -307,6 +347,7 @@ impl<'a> CandidateEngine<'a> {
             consumed_bytes: text.len(),
             score_bits: None,
             context_adjustment: 0.0,
+            reranking_bonus: 0.0,
             completion: false,
             lexical_tokens: 0,
             source_boundaries: Vec::new(),

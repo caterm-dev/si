@@ -120,8 +120,9 @@ final class SentenceLearningSettings {
         entries = snapshot.entries
     }
 
-    func record(_ commit: InputCommit, expectedGeneration: UInt64) {
-        guard generation == expectedGeneration, canRecord, commit.canLearn,
+    func record(_ commit: InputCommit, expectedGeneration: UInt64, isReturnCommit: Bool = false) {
+        let confirmedSpelling = isReturnCommit && commit.reason == .literal && commit.candidate == nil
+        guard generation == expectedGeneration, canRecord, commit.canLearn || confirmedSpelling,
               commit.remainingInput.isEmpty, !commit.input.isEmpty,
               !commit.text.isEmpty, commit.text.utf8.count <= 4_096 else { return }
         queued.append(commit.text)

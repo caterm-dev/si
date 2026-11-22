@@ -9,8 +9,10 @@ Requires macOS 14+, Xcode 26+ with Swift 6.2+, and Python 3.9+. No extra Python 
 Packaging requires Rust 1.89+ with the targets for the selected app
 architectures. Packaging uses the locally generated `Data/Engine/main.silex`
 and its paired, tracked `Data/Engine/words.sigram`. Xcode builds the static Rust
-bridge, validates the pair and bundles both snapshots. The packaging verifier
-checks both resource headers before signing the staged app.
+bridge, validates the pair and bundles both snapshots alongside the small
+FP32 scorer in `Data/RerankerSmall/`, including its source notices. The
+packaging verifier checks the snapshot headers and the model manifest's file
+checksums before signing the staged app.
 
 ```sh
 ./scripts/package-dmg.sh --dry-run

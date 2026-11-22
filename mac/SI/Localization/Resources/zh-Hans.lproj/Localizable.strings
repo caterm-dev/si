@@ -322,8 +322,8 @@
 "Delete All…" = "删除全部…";
 "Delete All" = "删除全部";
 "Delete all personal phrases?" = "删除全部个人词条？";
-"Deletes all personal phrases and the local word statistics learned from confirmed candidates." = "删除所有个人词条以及从已确认候选学习到的本地词频和词组统计。";
-"SI learns from candidates you confirm and stores the resulting words and counts on this Mac." = "SI 从你确认上屏的候选中学习，并将词条和词频保存在这台 Mac 上。";
+"Deletes all personal phrases and learned word statistics on this Mac." = "删除这台 Mac 上的所有个人词条、学到的词频和词组统计。";
+"SI learns from confirmed candidates and spelling you submit with Return. Words and counts stay on this Mac." = "SI 从你确认的候选和用回车提交的原始拼写中学习。词条和统计保存在这台 Mac 上。";
 "Delete Old Sentence History…" = "删除旧整句历史…";
 "Delete Old Sentence History" = "删除旧整句历史";
 "Delete old Sentence History?" = "删除旧整句历史？";
@@ -346,4 +346,6 @@
 "Spelling correction" = "拼写纠错";
 "Spelling correction · %@" = "拼写纠错 · %@";
 "Pinyin correction" = "拼音纠错";
+"Local model ranking" = "本地模型排序";
+"Use the on-device model to reorder close whole-input candidates." = "用本机模型重排分数接近的整段输入候选。";
 "Offer spelling suggestions. Press Space to accept a correction highlighted in first place." = "提供拼写建议。按空格确认高亮的首位纠错候选。";

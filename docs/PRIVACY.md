@@ -15,6 +15,11 @@ memory for conversion and are never logged, saved, sent to a service or used as
 training data by this path. AI Completion has separate
 triggers and data flows described below.
 
+The optional Local model ranking switch also uses a short suffix of the
+already available preceding text and a bounded pool of current candidates.
+Its on-device scores and inputs stay transient. Secure and direct input skip
+inference. The switch grants no recording consent or network access.
+
 ## Software update requests
 
 **Check for Updates…** uses Sparkle 2.10.0 to request SI's public HTTPS appcast on `downloads.caterm.com`, followed by an update archive only when the user chooses to download/install. Automatic checks, automatic installation, and system-profile submission are disabled. Requests expose ordinary connection metadata, including the IP address and HTTP user agent (which may identify app/framework/OS versions), to the download service. They do not include composition text, committed text, host-document text, personal phrases, learned preferences, or chronological typing history. The updater has no reference to input sessions or personal-data models.
@@ -35,11 +40,11 @@ Screenshots may include private messages and other content elsewhere in that win
 
 SI keeps screenshot bytes and context transient. Claude Code receives an in-memory base64 image via stdin. OpenAI receives an HTTPS image data URL with `store: false`. Codex requires an owner-only temporary PNG, removed after normal completion or cancellation; forced termination or cleanup failure can leave it in the OS temporary directory. The selected provider applies its own network and retention policies. CLI session persistence is disabled. API keys are stored in Keychain and can be removed in Settings.
 
-Edits and app/window changes invalidate suggestions. Provider, path and key changes disable completion until re-enabled. If Input History is independently enabled, accepted submissions can be retained locally; screenshots and context are not stored in Input History. Accepting a suggestion does not trigger learning. A later Return can include the text in the separately controlled field capture described below.
+Edits and app/window changes invalidate suggestions. Provider, path and key changes disable completion until re-enabled. If Input History is independently enabled, accepted submissions can be retained locally; screenshots and context are not stored in Input History. Accepting a suggestion does not trigger learning.
 
 ## Personal Learning
 
-**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. Candidate-choice learning and the default local user model both use confirmed SI candidates. Optional experimental permissions are described below; SI uses no Input Monitoring permission or global event tap.
+**Enable Personal Learning** in **Personal Learning** defaults to off. Eligible apps share one local vocabulary. There are no per-app learning controls. The separate direct-input feature uses the IMK client's bundle identifier and stops all conversion and learning in selected apps; browser tabs share that direct-input rule. Personal Learning uses confirmed candidate choices. The default local user model also learns from spelling submitted with Return during composition. Optional experimental permissions are described below; SI uses no Input Monitoring permission or global event tap.
 
 Each record retains normalized consumed spelling, exact output/language/mixed identity, bounded strength, aggregate usage/nonfirst-choice counts, base score, lexical-unit evidence and last-use time. The currently remembered deliberate choice for a spelling also retains its selection time. A new deliberate nonfirst choice replaces the prior selection marker for that spelling; no chronological sequence is saved by Personal Learning. App identifiers are no longer stored in vocabulary rows. First-choice Space/number/mouse acceptance only updates usage, never preference strength or the selection marker. Every three nonfirst choices add one frequency point up to 32. Separately, one deliberate selection is enough to lead the next exact normalized-spelling search, after any explicit personal-phrase pin. Prefixes save only consumed spelling. Literal, personal/verbatim, punctuation, delimiter and automatic confirmations are excluded, and a confirmed output is kept as one candidate-choice entry.
 
@@ -57,7 +62,7 @@ New writes use vocabulary-only schema 4. The archive has a 64 MiB limit, owner-o
 
 ### Sentence learning
 
-SI learns by default from the lexical text of candidates successfully submitted through manual confirmation. It combines successive confirmed parts of one unchanged composition once the last part is submitted. Secure/direct input, literal text, punctuation, personal or verbatim candidates, automatic confirmations, delimiter acceptance and AI completions are excluded. The feature receives candidate output only. Existing or pasted host text is outside this flow.
+SI learns by default from successfully submitted lexical candidates and exact composition spelling submitted with Return. It combines successive manually confirmed lexical parts of one unchanged composition once the last part is submitted. After a prefix confirmation, a Return submission contributes only the remaining spelling. Secure/direct input, other literal submissions, punctuation candidates, personal or verbatim candidates, automatic confirmations, delimiter acceptance and AI completions are excluded. Existing or pasted host text is outside this flow.
 
 The engine segments the queued text and updates the owner-only, unencrypted `SI/Personalization/model.si-user` profile under Application Support. It saves derived words, word frequencies, word grams and opaque batch IDs. Confirmed text is held in memory until processed and discarded after the batch succeeds. Failed batches can be retried while SI is running. Normal termination flushes pending work when storage is available. Opening a valid profile removes the retired recent-samples files without decoding them. Existing derived statistics are retained.
 

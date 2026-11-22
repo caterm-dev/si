@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Check that the staged app contains the Rust conversion resources."""
 
+import hashlib
+import json
 from pathlib import Path
 import sys
 
@@ -26,6 +28,31 @@ def verify(resources: Path) -> None:
     ranking = resources / "SIEngine/Ranking"
     if ranking.exists() or ranking.is_symlink():
         raise ValueError("App contains obsolete SIEngine/Ranking resources")
+    verify_reranker(resources / "SIEngine/RerankerSmall")
+
+
+def verify_reranker(directory: Path) -> None:
+    manifest = directory / "manifest.json"
+    if not manifest.is_file():
+        raise ValueError("App is missing SIEngine/RerankerSmall/manifest.json")
+    data = json.loads(manifest.read_text(encoding="utf-8"))
+    files = data.get("files") if isinstance(data, dict) else None
+    required = {"model.json", "weights.f32", "NOTICE.md", "source-lock.json"}
+    if not isinstance(files, dict) or not required.issubset(files):
+        raise ValueError("Invalid SIEngine/RerankerSmall resource manifest")
+    for name, expected in files.items():
+        relative = Path(name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError("Invalid SIEngine/RerankerSmall resource path")
+        path = directory / relative
+        if not path.is_file():
+            raise ValueError(f"App is missing SIEngine/RerankerSmall/{name}")
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+        if digest.hexdigest() != expected:
+            raise ValueError(f"Checksum differs for SIEngine/RerankerSmall/{name}")
 
 
 if __name__ == "__main__":

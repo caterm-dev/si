@@ -8,9 +8,9 @@ use std::sync::Arc;
 use si_engine::resources::EngineResources;
 use si_engine::resources::user::{UserLearningConfig, UserModelStore};
 use si_engine::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionPreferences,
-    CorrectionKind, CorrectionSensitivity, EnabledLanguages, PathPreference, PersonalPhrase,
-    TokenPreference,
+    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionOptions,
+    ConversionPreferences, CorrectionKind, CorrectionSensitivity, EnabledLanguages, PathPreference,
+    PersonalPhrase, SmallReranker, TokenPreference,
 };
 
 struct OwnedResources(NonNull<(Arc<EngineResources>, Option<EngineResources>)>);
@@ -25,6 +25,7 @@ impl Drop for OwnedResources {
 pub struct SIEngine {
     decoder: CandidateEngine<'static>,
     correction_sensitivity: Option<CorrectionSensitivity>,
+    reranker: Option<Arc<SmallReranker>>,
     // Field drop order keeps the resources alive until after the decoder drops.
     resources: OwnedResources,
 }
@@ -34,6 +35,7 @@ impl SIEngine {
         base: Arc<EngineResources>,
         user: Option<EngineResources>,
         sensitivity: Option<CorrectionSensitivity>,
+        reranker: Option<Arc<SmallReranker>>,
     ) -> Self {
         let resources = OwnedResources(NonNull::from(Box::leak(Box::new((base, user)))));
         // SAFETY: the allocation outlives the decoder and its data is immutable.
@@ -44,6 +46,7 @@ impl SIEngine {
         Self {
             decoder,
             correction_sensitivity: sensitivity,
+            reranker,
             resources,
         }
     }
@@ -129,6 +132,7 @@ pub struct SICandidateView {
     preferred: bool,
     verbatim: bool,
     token_bonus: f64,
+    reranking_bonus: f64,
 }
 
 /// # Safety
@@ -155,7 +159,35 @@ pub unsafe extern "C" fn si_engine_open(
     let Ok(resources) = EngineResources::open(Path::new(lexicon), grams) else {
         return ptr::null_mut();
     };
-    Box::into_raw(Box::new(SIEngine::new(Arc::new(resources), None, None)))
+    Box::into_raw(Box::new(SIEngine::new(
+        Arc::new(resources),
+        None,
+        None,
+        None,
+    )))
+}
+
+/// # Safety
+/// The engine must be live and exclusively accessible. The directory must be a UTF-8 C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_load_reranker(
+    engine: *mut SIEngine,
+    directory: *const c_char,
+) -> bool {
+    let Some(engine) = (unsafe { engine.as_mut() }) else {
+        return false;
+    };
+    if directory.is_null() {
+        return false;
+    }
+    let Ok(directory) = (unsafe { CStr::from_ptr(directory) }).to_str() else {
+        return false;
+    };
+    let Ok(reranker) = SmallReranker::open(Path::new(directory)) else {
+        return false;
+    };
+    engine.reranker = Some(Arc::new(reranker));
+    true
 }
 
 unsafe fn user_store(profile: *const c_char) -> Option<UserModelStore> {
@@ -286,6 +318,7 @@ pub unsafe extern "C" fn si_engine_load_user(
             Arc::clone(engine.base()),
             Some(user),
             engine.correction_sensitivity,
+            engine.reranker.clone(),
         )))
     });
     true
@@ -401,6 +434,7 @@ pub unsafe extern "C" fn si_engine_candidates(
             paths,
             path_count,
             u8::MAX,
+            false,
         )
     }
 }
@@ -423,6 +457,7 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
     paths: *const SILearnedPath,
     path_count: usize,
     mode: u8,
+    rerank: bool,
 ) -> *mut SICandidates {
     let Some(engine) = (unsafe { engine.as_ref() }) else {
         return ptr::null_mut();
@@ -566,14 +601,17 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
         tokens: &tokens,
         paths: &paths,
     };
-    let rows = engine.decoder.convert_with_correction(
+    let rows = engine.decoder.convert_with_options(
         text,
         languages,
         preview,
         &phrases,
         preferences,
         preceding_text,
-        correction,
+        ConversionOptions {
+            correction,
+            reranker: engine.reranker.as_deref().filter(|_| rerank),
+        },
     );
     Box::into_raw(Box::new(SICandidates(rows)))
 }
@@ -645,6 +683,7 @@ pub unsafe extern "C" fn si_candidates_get(
             preferred: candidate.preferred,
             verbatim: candidate.verbatim,
             token_bonus: candidate.token_bonus,
+            reranking_bonus: candidate.reranking_bonus,
         });
     }
     true

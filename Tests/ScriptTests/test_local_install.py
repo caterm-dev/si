@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -64,6 +65,14 @@ exec /bin/mv "$@"
         resources.mkdir(parents=True)
         (resources / "main.silex").write_bytes(b"SILEX\0\x03\0synthetic lexicon")
         (resources / "words.sigram").write_bytes(b"SIGRAM\x04\0synthetic word grams")
+        reranker = resources / "RerankerSmall"
+        reranker.mkdir()
+        files = {}
+        for name in ("model.json", "weights.f32", "NOTICE.md", "source-lock.json"):
+            data = name.encode()
+            (reranker / name).write_bytes(data)
+            files[name] = hashlib.sha256(data).hexdigest()
+        (reranker / "manifest.json").write_text(json.dumps({"files": files}), encoding="utf-8")
 
     def executable(self, path, text):
         path.write_text(text)

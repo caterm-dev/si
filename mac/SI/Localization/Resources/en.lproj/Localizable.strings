@@ -322,8 +322,8 @@
 "Delete All…" = "Delete All…";
 "Delete All" = "Delete All";
 "Delete all personal phrases?" = "Delete all personal phrases?";
-"Deletes all personal phrases and the local word statistics learned from confirmed candidates." = "Deletes all personal phrases and the local word statistics learned from confirmed candidates.";
-"SI learns from candidates you confirm and stores the resulting words and counts on this Mac." = "SI learns from candidates you confirm and stores the resulting words and counts on this Mac.";
+"Deletes all personal phrases and learned word statistics on this Mac." = "Deletes all personal phrases and learned word statistics on this Mac.";
+"SI learns from confirmed candidates and spelling you submit with Return. Words and counts stay on this Mac." = "SI learns from confirmed candidates and spelling you submit with Return. Words and counts stay on this Mac.";
 "Delete Old Sentence History…" = "Delete Old Sentence History…";
 "Delete Old Sentence History" = "Delete Old Sentence History";
 "Delete old Sentence History?" = "Delete old Sentence History?";
@@ -346,4 +346,6 @@
 "Spelling correction" = "Spelling correction";
 "Spelling correction · %@" = "Spelling correction · %@";
 "Pinyin correction" = "Pinyin correction";
+"Local model ranking" = "Local model ranking";
+"Use the on-device model to reorder close whole-input candidates." = "Use the on-device model to reorder close whole-input candidates.";
 "Offer spelling suggestions. Press Space to accept a correction highlighted in first place." = "Offer spelling suggestions. Press Space to accept a correction highlighted in first place.";

@@ -6,6 +6,7 @@ public struct CandidateEngine: Sendable {
     }
 
     var pinyinCorrectionMode: PinyinCorrectionMode = .off
+    var rerankingEnabled = false
     private let providers: [any CandidateProvider]?
     private let usesCoverageAdjustedOrder: Bool
     public var punctuationCandidatesEnabled: Bool
@@ -24,7 +25,8 @@ public struct CandidateEngine: Sendable {
                            precedingText: String = "") -> [InputCandidate] {
         converted(input, languages: languages, learning: learning, dictionary: dictionary,
                   now: now, context: context, applicationMemory: applicationMemory, preview: false,
-                  includesConfirmation: includesConfirmationEvidence, precedingText: precedingText)
+                  includesConfirmation: includesConfirmationEvidence, precedingText: precedingText,
+                  rerankingEnabled: rerankingEnabled)
     }
 
 
@@ -40,7 +42,8 @@ public struct CandidateEngine: Sendable {
     private func converted(_ input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot, preview: Bool,
-                           includesConfirmation: Bool = false, precedingText: String) -> [InputCandidate] {
+                           includesConfirmation: Bool = false, precedingText: String,
+                           rerankingEnabled: Bool = false) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let generated: [InputCandidate]
         if let providers {
@@ -51,7 +54,8 @@ public struct CandidateEngine: Sendable {
             let rust = applicationMemory.sentenceModel?.conversion ?? RustConversion.shared
             generated = rust?.candidates(for: input, languages: languages, preview: preview,
                 dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now,
-                context: context, precedingText: precedingText, correctionMode: pinyinCorrectionMode)
+                context: context, precedingText: precedingText, correctionMode: pinyinCorrectionMode,
+                rerankingEnabled: rerankingEnabled)
                 ?? dictionary.candidates(for: input, languages: languages)
         }
         var entries = generated
@@ -81,6 +85,7 @@ public struct CandidateEngine: Sendable {
             let statisticalScore = learning.rankingScore(for: candidate, input: spelling, now: now, context: context)
                 + candidate.fieldContextAdjustment
             let score = statisticalScore + CandidateScoring.inputCoverageBonus(for: candidate, spelling: spelling)
+                + candidate.rerankingBonus
             let remembered = candidate.canLearn && !candidate.isPartial && candidate.id == preferredID
             var ranked = candidate.withPresentationScore(score, remembered: remembered,
                                                          statisticalScore: statisticalScore)
@@ -95,7 +100,7 @@ public struct CandidateEngine: Sendable {
         }
         let ordered = usesCoverageAdjustedOrder
             ? best.values.sorted { precedes($0, $1, inputCount: inputCount) }
-            : best.values.sorted(by: InputCandidate.precedesInStatistics)
+            : best.values.sorted(by: InputCandidate.precedesInRanking)
         return ordered + [literalCandidate(for: input)]
     }
 
