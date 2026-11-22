@@ -7,8 +7,8 @@ SI is a development preview. These scripts build distributables and the user-ini
 Requires macOS 14+, Xcode 26+ with Swift 6.2+, and Python 3.9+. No extra Python packages or DMG utilities are needed.
 
 Packaging requires Rust 1.89+ with the targets for the selected app
-architectures. Prepare `.build/si-data/main.silex` and its paired
-`.build/si-data/words.sigram` before packaging. Xcode builds the static Rust
+architectures. Packaging uses the locally generated `Data/Engine/main.silex`
+and its paired, tracked `Data/Engine/words.sigram`. Xcode builds the static Rust
 bridge, validates the pair and bundles both snapshots. The packaging verifier
 checks both resource headers before signing the staged app.
 

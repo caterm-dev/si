@@ -5,7 +5,8 @@ SI maintains explicit `text,reading,weight` entries in
 The Rust compiler sums counts for identical text, reading, and language
 across category files. Different readings, casing, and exact output bytes
 retain separate identities. Xcode bundles the prepared `main.silex` and
-`words.sigram` from `.build/si-data/`.
+`words.sigram` from `Data/Engine/`. The lexicon is generated locally from
+the maintained CSVs, and the word-gram snapshot is tracked in Git.
 
 Both languages use the Rust word lattice for exact spans and final-word
 completion. Apostrophes constrain spelling boundaries. Pinyin aliases keep

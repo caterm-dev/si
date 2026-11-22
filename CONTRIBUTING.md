@@ -5,7 +5,7 @@ Thanks for helping build SI. The product principle is simple: users enable langu
 ## Development
 
 1. Install Xcode 26 or later and select it as the active developer directory.
-2. Install Rust 1.89 or later and add the Apple Silicon and Intel macOS targets for universal builds. Place the paired `main.silex` and `words.sigram` under `.build/si-data/`. Open `mac/SI.xcodeproj` and choose the shared SI scheme.
+2. Install Rust 1.89 or later and add the Apple Silicon and Intel macOS targets for universal builds. Generate `Data/Engine/main.silex` from the maintained CSVs with `./scripts/si-lexicon-build.sh` and validate it against the tracked `words.sigram`. Open `mac/SI.xcodeproj` and choose the shared SI scheme.
 3. For macOS app code changes beyond vocabulary maintenance, run `./scripts/test.sh` and `./scripts/build.sh` before submitting.
 4. For input-method changes, complete the relevant checks in [docs/TESTING.md](docs/TESTING.md).
 
@@ -30,7 +30,15 @@ or builds unless requested.
 ## Local corpus and model artifacts
 
 Keep the maintained dictionary CSVs, manifests and attribution in Git.
-Generate Rust dictionary and word-gram snapshots locally.
+Keep the app's base word-gram snapshot under version control in `Data/Engine/`.
+Generate `main.silex` locally from the maintained CSVs. It is ignored by Git.
+Validate the pair with `si-cli check-resources` after updates.
+Review snapshot changes together with their
+vocabulary or corpus changes and existing source notices.
+
+The selected small character scorer's FP32 inference bundle is tracked in
+`Data/RerankerSmall/` with its checkpoint identity and selected-source notices.
+Keep its weights, tokenizer metadata and provenance together when updating it.
 
 Keep maintained [Pinyin training CSVs](llm/pinyin_to_text/data/README.md) and their provenance declarations in Git.
 

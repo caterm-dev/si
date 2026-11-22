@@ -235,7 +235,9 @@ before selecting models. Timing includes the first/cold case and is not host lat
 Exports contain FP32 weights, tokenizer, hashes and actual selected-source
 attribution, without optimizer/RNG. Loading needs no original corpus. Export
 requires the prepared dataset to verify provenance and assigns no blanket model
-weight license. Data, runs, reports, exports and weights are ignored by Git.
+weight license. Training data, runs, reports and experimental exports are
+ignored by Git. The selected Rust inference export and its source notices
+are tracked in [Data/RerankerSmall](../../Data/RerankerSmall/README.md).
 The [large reranker](../reranker_large/README.md) remains a separate planned model.
 
 ## Offline inference

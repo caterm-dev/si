@@ -14,6 +14,6 @@ fi
 
 exec cargo run --release --locked --offline -p si-cli -- \
     --config "$repo_root/config/si.conf" corpus ingest \
-    "$repo_root/.build/si-data/main.silex" \
-    "$repo_root/.build/si-data/words.sigram" \
+    "$repo_root/Data/Engine/main.silex" \
+    "$repo_root/Data/Engine/words.sigram" \
     "${sources[@]}"

@@ -34,6 +34,8 @@ build/
 *.sigram.ingest-pending/
 *.sigram.review.csv
 *.sigram.english.csv
+# Packaged word-gram snapshot.
+!/Data/Engine/words.sigram
 *.si-corpus/
 *.si-corpus.lock
 .*.si-corpus.*.tmp/

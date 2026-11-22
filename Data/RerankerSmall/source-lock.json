@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "language": "zh-Hans",
+  "sources": [
+    {
+      "id": "lccc",
+      "name": "LCCC-base training dialogues",
+      "kind": "lccc",
+      "repository": "https://huggingface.co/datasets/silver/lccc",
+      "revision": "5bd582fa28cd7143f2f9c852e08e23089d677c44",
+      "path": "lccc_base_train.jsonl.gz",
+      "size": 369854377,
+      "sha256": "2162e0ed923fba62329cabf7e1493fbe59248afc94a62508e4abdea61e624627",
+      "license": "MIT",
+      "share_alike": false,
+      "homepage": "https://github.com/thu-coai/CDial-GPT",
+      "license_url": "https://raw.githubusercontent.com/thu-coai/CDial-GPT/81064865221d3503251d633f3d0b651004c938a6/LICENSE",
+      "url": "https://huggingface.co/datasets/silver/lccc/resolve/5bd582fa28cd7143f2f9c852e08e23089d677c44/lccc_base_train.jsonl.gz",
+      "dataset_card": {
+        "path": "licenses/lccc-DATASET_CARD.md",
+        "sha256": "51d1d953671afc7fd5c0294518372839581c40946f275cabd79e52b3e2ed616e"
+      },
+      "license_document": {
+        "path": "licenses/lccc-LICENSE.txt",
+        "sha256": "03da0dd5f60f263f146b6e9c8922ddbce716ffb1ddb8cbceacb0a76f1940b366"
+      }
+    },
+    {
+      "id": "mc4",
+      "name": "mC4 Chinese training shard 0 of 1024",
+      "kind": "mc4",
+      "repository": "https://huggingface.co/datasets/allenai/c4",
+      "revision": "1588ec454efa1a09f29cd18ddd04fe05fc8653a2",
+      "path": "multilingual/c4-zh.tfrecord-00000-of-01024.json.gz",
+      "size": 70106866,
+      "sha256": "b58e2bfa1b5319623877a479525affdab7e0e01c26216a7bc2f6c02ec2cca027",
+      "license": "ODC-BY-1.0",
+      "share_alike": false,
+      "homepage": "https://huggingface.co/datasets/allenai/c4",
+      "license_url": "https://opendatacommons.org/licenses/by/1.0/index.html",
+      "url": "https://huggingface.co/datasets/allenai/c4/resolve/1588ec454efa1a09f29cd18ddd04fe05fc8653a2/multilingual/c4-zh.tfrecord-00000-of-01024.json.gz",
+      "dataset_card": {
+        "path": "licenses/mc4-DATASET_CARD.md",
+        "sha256": "bfa4b9d8af6f9d2955d39b7cb617d580763aad7fb9024e425be60738b69ea140"
+      },
+      "license_document": {
+        "path": "licenses/mc4-LICENSE.txt",
+        "sha256": "d19b417c9ae059c2ed8c5a97f1e87b59574e0fe478191cc8544d5b13f4737c3b"
+      }
+    },
+    {
+      "id": "kubernetes",
+      "name": "Kubernetes Chinese documentation",
+      "kind": "markdown",
+      "repository": "https://github.com/kubernetes/website",
+      "revision": "43374c571c6f1c7b0f23daffb16e401232ea7bf3",
+      "prefix": "content/zh-cn/",
+      "license": "CC-BY-4.0",
+      "share_alike": false,
+      "path": "source.tar.gz",
+      "url": "https://codeload.github.com/kubernetes/website/tar.gz/43374c571c6f1c7b0f23daffb16e401232ea7bf3",
+      "license_url": "https://raw.githubusercontent.com/kubernetes/website/43374c571c6f1c7b0f23daffb16e401232ea7bf3/LICENSE",
+      "sha256": "215ac511de285ddcd4ffd4dedcce7ca1984ffc6897e1a3dfafb36997ced65838",
+      "size": 340919606,
+      "license_document": {
+        "path": "licenses/kubernetes-LICENSE.txt",
+        "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+      }
+    },
+    {
+      "id": "tensorflow",
+      "name": "TensorFlow Chinese documentation",
+      "kind": "markdown",
+      "repository": "https://github.com/tensorflow/docs-l10n",
+      "revision": "7cb584af651df3863a3bebc93674163f8dc6db7b",
+      "prefix": "site/zh-cn/",
+      "license": "Apache-2.0",
+      "share_alike": false,
+      "path": "source.tar.gz",
+      "url": "https://codeload.github.com/tensorflow/docs-l10n/tar.gz/7cb584af651df3863a3bebc93674163f8dc6db7b",
+      "license_url": "https://raw.githubusercontent.com/tensorflow/docs-l10n/7cb584af651df3863a3bebc93674163f8dc6db7b/LICENSE",
+      "sha256": "21d71dda5392f4223bd5d8aafc079c3f273ed057ab48f28403f0d6a745a42d8c",
+      "size": 182591930,
+      "license_document": {
+        "path": "licenses/tensorflow-LICENSE.txt",
+        "sha256": "9a97acbe7fac6fc504253eb3972f346f6f2f091563df496a66e81a0990398c59"
+      }
+    },
+    {
+      "id": "mdn",
+      "name": "MDN Simplified Chinese documentation",
+      "kind": "markdown",
+      "repository": "https://github.com/mdn/translated-content",
+      "revision": "033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+      "prefix": "files/zh-cn/",
+      "license": "CC-BY-SA-2.5",
+      "share_alike": true,
+      "path": "source.tar.gz",
+      "url": "https://codeload.github.com/mdn/translated-content/tar.gz/033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+      "license_url": "https://raw.githubusercontent.com/mdn/translated-content/033e5bf0a0ed3d4203313a5079bc95e054df7aa6/LICENSE.md",
+      "sha256": "c5128a8382a007a7a2840f94edeb03d2f47ce00fa8b9a5cd515643d3bcb81164",
+      "size": 60711236,
+      "license_document": {
+        "path": "licenses/mdn-LICENSE.txt",
+        "sha256": "57c0d7e200fadfdbadb04b9ab220297809ba7f2ac0adaa6707a07fba432b2ebe"
+      }
+    },
+    {
+      "id": "wikipedia",
+      "name": "Chinese Wikipedia current article text",
+      "kind": "wikipedia",
+      "repository": "https://dumps.wikimedia.org/zhwiki/",
+      "revision": "20261001",
+      "path": "zhwiki-20261001-pages-articles.xml.bz2",
+      "url": "https://dumps.wikimedia.org/zhwiki/20261001/zhwiki-20261001-pages-articles.xml.bz2",
+      "size": 3430912430,
+      "sha1": "04d5eec3c249fdf8604b97f4435e019c60a4ec94",
+      "license": "CC-BY-SA-4.0",
+      "share_alike": true,
+      "license_document": {
+        "path": "licenses/wikipedia-LICENSE.txt",
+        "sha256": "28a9529c7d0bb4dc51f4bf5c116a3d16ef247a052f7591466768ddf563fd1cf5",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt"
+      },
+      "additional_documents": [
+        {
+          "path": "licenses/wikipedia-DUMP_TERMS.html",
+          "sha256": "104242365285791c1d60d61b2ec8eac34e5c4b6a74ae5fdca9996a52f9cd3714",
+          "url": "https://dumps.wikimedia.org/legal.html"
+        },
+        {
+          "path": "metadata/wikipedia/20261001/dumpstatus.json",
+          "sha256": "f8e6648ce9750e72efdf59ceed794244ba129887c109ec8a754f057092e70a81",
+          "url": "https://dumps.wikimedia.org/zhwiki/20261001/dumpstatus.json"
+        },
+        {
+          "path": "metadata/wikipedia/20261001/sha1sums.txt",
+          "sha256": "533b4be44e26fdcc6d5a3e5d74879b74b11736ba804e9ca7cd9b0db62e29b7b6",
+          "url": "https://dumps.wikimedia.org/zhwiki/20261001/zhwiki-20261001-sha1sums.txt"
+        }
+      ],
+      "scope": "Complete pages-articles current-revision dump; cleaning selects namespace 0, excludes redirects.",
+      "download_url": "https://ftp.acc.umu.se/mirror/wikimedia.org/dumps/zhwiki/20261001/zhwiki-20261001-pages-articles.xml.bz2",
+      "sha256": "5db9052efe9ca97aa3da05ffe5b2f12c8ffe5e040f0a9d1ced82ec2fda5d7e2f"
+    }
+  ]
+}

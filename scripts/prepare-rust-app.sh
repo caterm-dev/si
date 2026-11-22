@@ -9,8 +9,8 @@ fi
 library_dir="$1"
 resource_dir="$2"
 shift 2
-lexicon="$repo_root/.build/si-data/main.silex"
-grams="$repo_root/.build/si-data/words.sigram"
+lexicon="$repo_root/Data/Engine/main.silex"
+grams="$repo_root/Data/Engine/words.sigram"
 if [[ "$fixtures" == false ]]; then
     for snapshot in "$lexicon" "$grams"; do
         if [[ ! -f "$snapshot" ]]; then

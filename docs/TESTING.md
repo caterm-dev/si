@@ -24,8 +24,8 @@ manifest sandbox from running. For a focused bridge check, use
 bridge the app uses, including bilingual results, exact UTF-8 spans, personal
 phrases, confirmation evidence and token preferences.
 SwiftPM uses a separate dictionary generated from the tracked CSVs.
-The Release build and its package check require the paired snapshots under
-`.build/si-data/`. The verifier rejects obsolete model assets in an incremental
+The Release build and its package check use the locally generated lexicon
+and tracked word grams under `Data/Engine/`. The verifier rejects obsolete model assets in an incremental
 build's resource directory.
 
 Run the synchronous selection and window regression tests with the app's paired snapshots.
@@ -102,10 +102,10 @@ Run the CLI with the same lexicon and paired grams that will be evaluated.
 
 ```sh
 cargo build --release --locked -p si-cli
-python3 scripts/eval-pinyin-correction.py --grams .build/si-data/words.sigram
-python3 scripts/eval-pinyin-correction.py --grams .build/si-data/words.sigram --offset 5000 --seed 361
-python3 scripts/eval-pinyin-correction.py --grams .build/si-data/words.sigram --search preview
-python3 scripts/eval-pinyin-correction.py --grams .build/si-data/words.sigram --vocabulary diming --show-errors
+python3 scripts/eval-pinyin-correction.py --grams Data/Engine/words.sigram
+python3 scripts/eval-pinyin-correction.py --grams Data/Engine/words.sigram --offset 5000 --seed 361
+python3 scripts/eval-pinyin-correction.py --grams Data/Engine/words.sigram --search preview
+python3 scripts/eval-pinyin-correction.py --grams Data/Engine/words.sigram --vocabulary diming --show-errors
 ```
 
 The script samples maintained public vocabulary and synthesizes a missing key,

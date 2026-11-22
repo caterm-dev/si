@@ -20,7 +20,7 @@ Host key event → SIInputController → client-local InputSession
   → revision-checked CandidateResult → AppKit candidate window or commit
 ```
 
-Xcode copies `.build/si-data/main.silex` and `.build/si-data/words.sigram`
+Xcode copies `Data/Engine/main.silex` and `Data/Engine/words.sigram`
 into the app's `Contents/Resources/SIEngine/` directory. The build validates
 the pair before packaging. Candidate source spans are relative to the current composition.
 

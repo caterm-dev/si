@@ -70,7 +70,7 @@ mkdir -p .build/conversion-eval
 python3 scripts/evaluate_conversion.py recall \
   --output .build/conversion-eval/recall.json
 python3 scripts/evaluate_conversion.py ranking \
-  --model .build/si-neural/reranker \
+  --model Data/RerankerSmall \
   --output .build/conversion-eval/ranking.json
 ```
 
