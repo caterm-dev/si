@@ -33,16 +33,21 @@ struct CandidateShortlistLimitTests {
         #expect(CandidateShortlist.candidates(from: words + [literal]) == expected)
     }
 
-    @Test func correctionAfterTheConstructedHeadRemainsSelectable() {
-        let ordinary = (0..<6).map {
-            InputCandidate(text: "Sentence \($0)", language: .simplifiedChinese, score: 100 - $0,
-                           lexicalTokenCount: 2)
-        }
-        let correction = InputCandidate(text: "你好世界", language: .simplifiedChinese, score: 80,
-                                        lexicalTokenCount: 2, isPinyinCorrection: true)
-        let literal = InputCandidate(text: "nihoashijie", language: nil, score: 0)
-        let ranked = ordinary + [correction, literal]
-        #expect(CandidateShortlist.candidates(from: ranked) == Array(ordinary.prefix(4)) + [correction, literal])
+    @Test func correctionsCompletionsAndOrdinaryCandidatesShareTheLeadingFour() {
+        let correction = InputCandidate(text: "也是", language: .simplifiedChinese, score: -18,
+                                        lexicalTokenCount: 1, isPinyinCorrection: true)
+        let completion = InputCandidate(text: "也会死人", language: .simplifiedChinese, score: -20,
+                                        hasCompletion: true, lexicalTokenCount: 2)
+        let word = InputCandidate(text: "Sample", language: .english, score: -21, lexicalTokenCount: 1)
+        let sentence = InputCandidate(text: "也会四", language: .simplifiedChinese, score: -23, lexicalTokenCount: 2)
+        let lowerCorrection = InputCandidate(text: "夜市", language: .simplifiedChinese, score: -26,
+                                             lexicalTokenCount: 1, isPinyinCorrection: true)
+        let lowerCompletion = InputCandidate(text: "也会死的", language: .simplifiedChinese, score: -28,
+                                             hasCompletion: true, lexicalTokenCount: 2)
+        let literal = InputCandidate(text: "yehsi", language: nil, score: 0)
+        let leading = [correction, completion, word, sentence]
+        let ranked = leading + [lowerCorrection, lowerCompletion, literal]
+        #expect(CandidateShortlist.candidates(from: ranked) == leading + [literal])
     }
 
     @Test(arguments: InputLanguage.allCases)

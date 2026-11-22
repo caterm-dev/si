@@ -132,7 +132,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         let leftSpan = left.consumedInputCount ?? Int.max
         let rightSpan = right.consumedInputCount ?? Int.max
         if leftSpan != rightSpan { return leftSpan > rightSpan }
-        if left.isPinyinCorrection != right.isPinyinCorrection { return !left.isPinyinCorrection }
         let leftScore = (left.statisticalScore ?? left.rankingScore) + (includesReranking ? left.rerankingBonus : 0)
         let rightScore = (right.statisticalScore ?? right.rankingScore) + (includesReranking ? right.rerankingBonus : 0)
         if leftScore != rightScore { return leftScore > rightScore }

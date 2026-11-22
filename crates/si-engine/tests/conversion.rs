@@ -28,10 +28,12 @@ const ENGLISH: EnabledLanguages = EnabledLanguages {
 };
 
 #[test]
-fn small_reranker_scores_eight_close_homophones() -> io::Result<()> {
+fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
-    for text in ["诗", "施", "狮", "尸", "师", "失", "湿", "时", "十"] {
+    for text in [
+        "诗", "施", "狮", "尸", "师", "失", "湿", "时", "十", "史", "始", "是", "市",
+    ] {
         add(&mut lexicon, ZH, "shi", text, 100);
     }
     let resources = directory.resources(&mut lexicon, None)?;
@@ -51,7 +53,7 @@ fn small_reranker_scores_eight_close_homophones() -> io::Result<()> {
             reranker: Some(&reranker),
         },
     );
-    assert_eq!(baseline.len(), 10);
+    assert_eq!(baseline.len(), 14);
     assert_eq!(ranked.len(), baseline.len());
     // The model measures rewards relative to its lowest-scoring result, which gets zero.
     assert_eq!(
@@ -59,12 +61,12 @@ fn small_reranker_scores_eight_close_homophones() -> io::Result<()> {
             .iter()
             .filter(|row| row.reranking_bonus > 0.0)
             .count(),
-        7
+        11
     );
     assert_eq!(
         ranked
             .iter()
-            .find(|row| row.text == baseline[8].text)
+            .find(|row| row.text == baseline[12].text)
             .unwrap()
             .reranking_bonus,
         0.0
@@ -74,14 +76,14 @@ fn small_reranker_scores_eight_close_homophones() -> io::Result<()> {
 }
 
 #[test]
-fn small_reranker_scores_within_two_bits_and_caps_the_bonus_at_two() -> io::Result<()> {
+fn small_reranker_scores_beyond_two_bits_and_caps_the_bonus_at_two() -> io::Result<()> {
     let directory = Scratch::new()?;
     let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
     let reranker = SmallReranker::open(&model)?;
 
-    // The count ratios put the gaps just below and above two bits.
-    for (leader_count, expected_bonus, expected_first) in
-        [(390, 2.0, "原始拼写"), (410, 0.0, "元是拼写")]
+    // Score candidates across large statistical gaps while retaining the reward cap.
+    for (leader_count, expected_first) in
+        [(390, "原始拼写"), (410, "元是拼写"), (10_000, "元是拼写")]
     {
         let mut lexicon = Lexicon::new();
         add(
@@ -112,7 +114,7 @@ fn small_reranker_scores_within_two_bits_and_caps_the_bonus_at_two() -> io::Resu
         let expected = ranked.iter().find(|row| row.text == "原始拼写").unwrap();
         assert_eq!(ranked[0].text, expected_first);
         assert_eq!(expected.score_bits, baseline[1].score_bits);
-        assert_eq!(expected.reranking_bonus, expected_bonus);
+        assert_eq!(expected.reranking_bonus, 2.0);
     }
     Ok(())
 }
@@ -1386,6 +1388,32 @@ fn correction_rejects_suggestions_below_the_exact_path_floor() -> io::Result<()>
 }
 
 #[test]
+fn pinyin_correction_ranks_with_completions_and_exact_candidates() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "zhou'mo", "周末", 2_600);
+    add(&mut lexicon, ZH, "hou'mo", "后模", 1);
+    add(&mut lexicon, ZH, "hou'mo'ju", "后模具", 16);
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None).with_pinyin_correction(true);
+
+    let input = "houmo";
+    let rows = engine.candidates(input, CHINESE);
+    assert_eq!(rows[0].text, "周末");
+    assert!(rows[0].is_corrected());
+    let completion = find(&rows, "后模具", CandidateLanguage::Chinese, input.len());
+    assert!(completion.completion);
+    let exact = find(&rows, "后模", CandidateLanguage::Chinese, input.len());
+    assert!(!exact.is_corrected() && !exact.completion);
+    assert_eq!(
+        Candidate::default_for_whole_input(&rows, input.len()),
+        rows.iter()
+            .find(|row| row.text == "后模" || row.text == "后模具")
+    );
+    Ok(())
+}
+
+#[test]
 fn pinyin_correction_preserves_exact_results_and_original_spans() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
@@ -1659,11 +1687,10 @@ fn pinyin_correction_rejects_a_marginal_lead_over_an_exact_word() -> io::Result<
     let higher_recall =
         engine.with_correction_sensitivity(Some(si_engine::CorrectionSensitivity::HigherRecall));
     let rows = higher_recall.candidates("duoju", CHINESE);
-    assert_eq!(rows[0].text, "多聚");
-    assert!(
-        rows.iter()
-            .any(|row| row.text == "多久" && row.is_corrected())
-    );
+    assert_eq!(rows[0].text, "多久");
+    assert!(rows[0].is_corrected());
+    assert_eq!(rows[1].text, "多聚");
+    assert!(!rows[1].is_corrected());
     assert_literal(rows.last().unwrap(), "duoju");
     Ok(())
 }
@@ -1933,7 +1960,7 @@ fn pinyin_correction_requires_strong_context_to_challenge_a_valid_spelling() -> 
                 )
             };
             let rows = convert(&correction);
-            assert_eq!(rows[0].text, "高旭");
+            assert_eq!(rows[0].text, if should_suggest { "告诉" } else { "高旭" });
             assert!(
                 convert(&ordinary)
                     .iter()

@@ -6,14 +6,15 @@ Each edit completes full conversion before the window updates.
 The application loads the paired lexicon and word-gram snapshots before
 opening its IMKServer. Pinyin correction is enabled by default and adds bounded
 single-edit suggestions that meet the conservative statistical confidence margin.
-Ordinary whole results precede suggestions of the same span. Secure input
-suppresses suggestions, and direct input passes keys through.
+Whole spelling suggestions, completions and ordinary whole results share the
+same score order. Secure input suppresses suggestions, and direct input passes
+keys through.
 
 ## Local model ranking
 
 **Local model ranking** is a separate Typing option enabled by default. With it on,
-Rust evaluates up to eight ordinary whole-input candidates within two bits of
-the leading ordinary whole-input score. Completions, literal segments,
+Rust evaluates the first 12 eligible ordinary whole-input candidates in statistical
+order, without a score-gap cutoff. Completions, literal segments,
 personal phrases and spelling corrections receive no model reward. Each
 candidate can use up to 12 model tokens, sharing up to 16 trailing context
 tokens from the current field. Empty context works at the start of a field.
@@ -65,9 +66,9 @@ consumed span when comparing their scores.
 
 The Swift window filters undisplayable glyphs and retains the two highest
 displayable S candidates in their incoming positions. Both remain selectable
-and their incoming ranks determine placement. Constructed results
-and completions normally qualify through the first four non-correction
-choices. There are up to 27 ordinary slots and nine ordinary word slots.
+and their incoming ranks determine placement. Spelling corrections, constructed
+results and completions normally qualify through the first four ranked choices.
+There are up to 27 ordinary slots and nine ordinary word slots.
 Displayable exact Chinese dictionary characters also remain pageable.
 Language-aware identity and the exact literal are preserved. The first
 displayed candidate gets the initial highlight. Space confirms the

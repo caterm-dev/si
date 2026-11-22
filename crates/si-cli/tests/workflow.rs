@@ -227,13 +227,17 @@ fn candidates_accept_preceding_text_for_pinyin_correction() -> io::Result<()> {
         let output = child.wait_with_output()?;
         assert!(output.status.success());
         let stdout = String::from_utf8(output.stdout).map_err(io::Error::other)?;
-        assert!(stdout.lines().next().unwrap().ends_with("\t高旭"));
+        let rows: Vec<_> = stdout.lines().collect();
+        assert!(rows[0].ends_with(if suggest { "\t告诉" } else { "\t高旭" }));
+        assert!(
+            rows.iter()
+                .any(|row| row.starts_with("zh-Hans\t5\texact\t") && row.ends_with("\t高旭"))
+        );
         assert_eq!(
-            stdout
-                .lines()
+            rows.iter()
                 .any(|row| row.starts_with("zh-Hans\t5\tcorrection\t") && row.ends_with("\t告诉")),
             suggest,
-            "{preceding:?}",
+            "{preceding:?}"
         );
         assert!(stdout.ends_with("literal\t5\tliteral\t\tgaoxu\n\n"));
     }

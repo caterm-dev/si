@@ -3,9 +3,8 @@ use std::path::Path;
 
 use si_neural::Reranker;
 
-pub(super) const MAX_CANDIDATES: usize = 8;
+pub(super) const MAX_CANDIDATES: usize = 12;
 pub(super) const MAX_CANDIDATE_BYTES: usize = MAX_CANDIDATE_TOKENS * 4;
-pub(super) const SCORE_WINDOW_BITS: f64 = 2.0;
 const MAX_BONUS_BITS: f64 = 2.0;
 const MAX_CANDIDATE_TOKENS: usize = 12;
 const MAX_CONTEXT_TOKENS: usize = 16;

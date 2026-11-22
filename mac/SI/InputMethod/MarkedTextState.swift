@@ -5,7 +5,12 @@ import Foundation
 struct MarkedTextState {
     private(set) var text: String?
     private var selection: NSRange?
-    var caretUTF16Offset: Int? { selection?.location }
+    // Store the host rectangle in screen coordinates and resolve the current display on use.
+    var candidateStartRect: CGRect?
+
+    func candidateAnchor(screens: [CandidatePlacement.Screen], queryStart: () -> CandidateAnchor?) -> CandidateAnchor? {
+        candidateStartRect.flatMap { CandidateAnchor($0, screens: screens) } ?? queryStart()
+    }
 
     mutating func shouldSend(_ text: String, selection: NSRange) -> Bool {
         guard self.selection != selection || self.text?.utf8.elementsEqual(text.utf8) != true else { return false }
@@ -17,5 +22,6 @@ struct MarkedTextState {
     mutating func reset() {
         text = nil
         selection = nil
+        candidateStartRect = nil
     }
 }

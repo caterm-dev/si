@@ -90,6 +90,11 @@ public struct CandidateEngine: Sendable {
             var ranked = candidate.withPresentationScore(score, remembered: remembered,
                                                          statisticalScore: statisticalScore)
             if let previous = best[ranked.id] {
+                // Keep the original spelling evidence when both paths give the same output.
+                if previous.isPinyinCorrection != ranked.isPinyinCorrection {
+                    if !ranked.isPinyinCorrection { best[ranked.id] = ranked }
+                    continue
+                }
                 if precedes(previous, ranked, inputCount: inputCount) {
                     best[ranked.id]?.retainLexicalEvidence(from: ranked)
                     continue
@@ -110,7 +115,6 @@ public struct CandidateEngine: Sendable {
         let leftConsumed = left.consumedInputCount ?? inputCount
         let rightConsumed = right.consumedInputCount ?? inputCount
         if leftConsumed != rightConsumed { return leftConsumed > rightConsumed }
-        if left.isPinyinCorrection != right.isPinyinCorrection { return !left.isPinyinCorrection }
         let leftScore = left.presentationScore ?? left.rankingScore
         let rightScore = right.presentationScore ?? right.rankingScore
         if leftScore != rightScore { return leftScore > rightScore }

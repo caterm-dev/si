@@ -26,26 +26,91 @@ struct ReturnFieldLearningTests {
         #expect(!ReturnFieldLearning.shouldIngest(before: "", after: nil))
     }
 
-    @Test func readsTheWholeUTF16FieldAndRejectsPartialOrStaleReads() {
+    @Test func readsTheFixedUTF16RangeWithoutASecondClientCheck() {
         let field = "前面🙂后面"
-        let length = field.utf16.count
-        let cursor = NSRange(location: 2, length: 0)
         let unmarked = NSRange(location: NSNotFound, length: NSNotFound)
         var current = true
+        var queriedCaret = false
         func read(text: (NSRange) -> String?) -> String? {
-            ReturnFieldLearning.read(isCurrent: { current }, selection: { cursor }, markedRange: { unmarked },
-                                     length: { length }, text: text)
+            ReturnFieldLearning.read(isCurrent: { current }, selection: {
+                queriedCaret = true
+                return unmarked
+            }, markedRange: { unmarked }, text: text, textWithActualRange: { _ in nil })
         }
         let captured = read { range in
-            #expect(range == NSRange(location: 0, length: length))
-            return field
-        }
-        #expect(captured == field)
-        #expect(read { _ in "前面" } == nil)
-        let stale = read { _ in
+            #expect(range == NSRange(location: 0, length: 1_024))
             current = false
             return field
         }
-        #expect(stale == nil)
+        #expect(captured == field)
+        #expect(!queriedCaret)
+        current = true
+        #expect(read { _ in String(repeating: "a", count: 1_025) } == nil)
+        current = false
+        let unread = read { _ in
+            Issue.record("Text should only be requested from the active client")
+            return field
+        }
+        #expect(unread == nil)
+    }
+
+    @MainActor
+    @Test func readsBothSidesOfTheCaretWithAFixedNativeRange() {
+        let view = NSTextView(frame: .zero)
+        view.string = "我来就错了🙂"
+        view.setSelectedRange(NSRange(location: 2, length: 0))
+        let before = ReturnFieldLearning.read(isCurrent: { true }, selection: { view.selectedRange() },
+                                             markedRange: { view.markedRange() },
+                                             text: { _ in nil }, textWithActualRange: { requested in
+            #expect(requested == NSRange(location: 0, length: 1_024))
+            var actual = NSRange(location: NSNotFound, length: 0)
+            guard let text = view.attributedSubstring(forProposedRange: requested, actualRange: &actual) else {
+                return nil
+            }
+            return (text.string, actual)
+        })
+        #expect(before == view.string)
+    }
+
+    @Test func clampedFieldReadRejectsNonzeroOffsetsAndInvalidLengths() {
+        let unmarked = NSRange(location: NSNotFound, length: 0)
+        func read(at location: Int, reportedLength: Int = 2) -> String? {
+            ReturnFieldLearning.read(isCurrent: { true }, selection: { unmarked }, markedRange: { unmarked },
+                                     text: { _ in nil }, textWithActualRange: { _ in
+                ("测试", NSRange(location: location, length: reportedLength))
+            })
+        }
+        #expect(read(at: 0) == "测试")
+        #expect(read(at: 1) == nil)
+        #expect(read(at: 0, reportedLength: 3) == nil)
+    }
+
+    @Test func checksForMarkedTextOnlyBeforeReading() {
+        func read(markedBefore: NSRange) -> String? {
+            var marked = markedBefore
+            return ReturnFieldLearning.read(isCurrent: { true }, selection: { NSRange() },
+                                            markedRange: { marked },
+                                            text: { _ in
+                marked = NSRange(location: 1, length: 1)
+                return "测试"
+            }, textWithActualRange: { _ in nil })
+        }
+        #expect(read(markedBefore: NSRange(location: NSNotFound, length: 0)) == "测试")
+        #expect(read(markedBefore: NSRange(location: 1, length: 1)) == nil)
+    }
+
+    @Test func usesTheAvailablePrefixWhenTheHostRejectsTheFixedRange() {
+        let text = "我来就错了"
+        let caret = NSRange(location: text.utf16.count, length: 0)
+        for response in [nil, (text: "", range: NSRange())] {
+            let captured = ReturnFieldLearning.read(isCurrent: { true }, selection: { caret },
+                                                   markedRange: { NSRange(location: NSNotFound, length: 0) },
+                                                   text: { range in
+                if range.length == 1_024 { return nil }
+                #expect(range == NSRange(location: 0, length: caret.location))
+                return text
+            }, textWithActualRange: { _ in response })
+            #expect(captured == text)
+        }
     }
 }

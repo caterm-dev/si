@@ -234,9 +234,11 @@ second host such as Safari. Repeat in an eligible field with preceding text,
 then verify direct and secure input suppress model use. Check VoiceOver's
 setting label and value. The automated integration test covers the two
 correction modes and the separation between model and statistical scores.
-The Rust regression `small_reranker_scores_within_two_bits_and_caps_the_bonus_at_two`
-uses `yuanshipinxie` to verify the two-bit scoring range, the two-bit bonus
-cap, and preservation of the original statistical score.
+The Rust regression `small_reranker_scores_beyond_two_bits_and_caps_the_bonus_at_two`
+uses `yuanshipinxie` to verify scoring across statistical gaps above two bits,
+the two-bit bonus cap, and preservation of the original statistical score.
+`small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth` verifies
+the 12-candidate pool limit and preservation of the exact original spelling.
 
 ### Pinyin correction in a host
 
@@ -250,6 +252,9 @@ then type a comma or Tab and verify it does not accept the suggestion or
 convert the delimiter. Check that the first displayed candidate is initially
 highlighted, including when a statistical correction ranks first. Space
 confirms the highlighted candidate. Return preserves the original spelling.
+With the paired resources and a blank field, type `yehsi` and verify that
+`也是` is highlighted in slot 1. Check that the leading corrections share
+the four-choice shortlist rule with constructed results and completions.
 Use VoiceOver to identify the suggestion in both candidate layouts. Change the setting
 during composition and verify obsolete results cannot restore suggestions.
 With the switch on, type `nihaoo` and `nihaox`.
@@ -264,25 +269,28 @@ highlighted for each edited composition.
 
 ## Candidate positioning
 
-`CandidatePlacementTests` covers the probe order, missing ranges, invalid line
-rectangles, last-valid and mouse fallbacks, below/above placement, resizing,
-visible-frame clamping, and displays to the left and above the primary display.
+`CandidatePlacementTests` covers the start probes, anchor reuse during typing,
+deletion and caret movement, anchor reset, invalid line rectangles, last-valid
+and mouse fallbacks, below/above placement, resizing, visible-frame clamping,
+and displays to the left and above the primary display.
 `CandidatePanelOwnershipTests` covers a focus switch between rendering and display.
 
 On an intentionally installed Debug build, type synthetic Pinyin such as
 `dangqian` in a new Claude Desktop composer, the Chrome address bar, a Chrome
 web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Check
-that the panel first appears beside the composition. In Codex, also check a long
-draft with existing text, type until the marked spelling wraps, and move the
-caret within it. Compare the chosen inline offset and rectangle before and
-after the wrap. In each host, try rapid typing, a new line, the end of existing
-text, and starting another composition
-after moving the window. Repeat on a connected external display. Check that
-expand/collapse and paging keep the resized panel beside the composition and
-within the visible frame near the bottom and right edges. Press Escape, commit,
-switch focus and enable a direct-input rule during composition. A queued update
-must not restore a dismissed panel or position it for another client. Exercise
-a shortcut during composition to check that focus and host routing are preserved.
+that the panel first appears beside the start of the composition. In Codex,
+place the caret within a long line of synthetic text. Type until the marked
+spelling wraps, delete back across the wrap, and move the caret with Home and
+End. Confirm the panel stays anchored to the start of the spelling. In each
+host, try rapid typing, a new line, the end of existing text, and starting
+another composition after moving the window. Confirm a prefix and check that
+the panel anchors at the start of the editable remainder. Repeat on a connected
+external display. Check that expand/collapse and paging keep the resized panel
+beside the composition and within the visible frame near the bottom and right
+edges. Delete the entire spelling, press Escape, commit, switch focus and enable
+a direct-input rule in separate compositions. A queued update must not restore
+a dismissed panel or position it for another client. Exercise a shortcut during
+composition to check that focus and host routing are preserved.
 
 Enable geometry logging in the Debug build with the following preference. If
 needed, restart the Debug input method to pick up the preference. Type in a
@@ -296,7 +304,8 @@ tail -f "$HOME/Library/Logs/SI/CandidateGeometry.log"
 Each placement uses one line in this order: UTC timestamp with milliseconds,
 frontmost bundle ID, marked range, selected range, all attempted indices and raw
 rectangles, selected index, display geometry, and final window frame. A selected
-index of `none` indicates that no host rectangle was chosen. Save the relevant
+index of `none` indicates that the placement reused the retained anchor or
+fell back when a host start rectangle was unavailable. Save the relevant
 log lines and screenshots from synthetic fields per host. Logs exclude secure
 input and typed content. The writer clears the file before an append that would
 exceed 2 MB. Disable logging before deleting the file:
@@ -417,6 +426,10 @@ Use a dedicated synthetic profile and an intentionally installed build; never re
 `InputHistoryStoreTests` covers 5,005 old/repeated records, exact Unicode/NUL bytes, retry identity, sequence pagination under newer/backdated inserts, parameterized substring search, permissions, independent deletion/clear, invalid batches and corrupt/unsupported preservation. `InputHistorySettingsTests` covers independent consent, old-flag isolation, consumed-prefix/source/output boundaries, secure-input suppression, consent-generation rejection, queued-clear ordering, deletion and failed-write retry. These synthetic checks do not exercise native host reentry, secure fields, Settings keyboard/VoiceOver or actual appearance; those remain manual.
 
 ### Sentence learning
+
+`ReturnFieldLearningTests` covers the fixed 1,024-unit request, a native text
+view clamping the range on both sides of the caret, and the former Sentence
+History path when the client only answers a request ending at the caret.
 
 - Use an isolated synthetic profile with Personal Learning and Input History off. Enter a sentence via separate Space, number or mouse selections, edit a word in the host, and use a Return or Command–Return that clears or leaves the field. Verify the edited sentence feeds cross-word grams once, the edited-out word is absent and the derived model survives restart.
 - With an active composition, press Return and verify it inserts only the exact remaining spelling, once. Check the spelling is eligible for Sentence Learning on a subsequent Return that is passed to the host and ends the field. Verify that individual candidate confirmations, shortcuts other than Command–Return, Escape and switching fields without a pending Return leave the model untouched.

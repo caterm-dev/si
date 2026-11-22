@@ -62,7 +62,7 @@ New writes use vocabulary-only schema 4. The archive has a 64 MiB limit, owner-o
 
 ### Sentence learning
 
-Sentence Learning uses the full text exposed by the active InputMethodKit text client around a passed-through Return or Command–Return. That range may include existing, edited or pasted text. The original snapshot becomes one learning observation if the later text no longer contains it, the field loses focus or the client is no longer readable. Secure and direct-input contexts are excluded. The first read must be complete and fit in 128 KiB of UTF-8. Snapshots are local and transient.
+Sentence Learning uses up to the first 1,024 UTF-16 units exposed by the active InputMethodKit text client around a passed-through Return or Command–Return. It can fall back to available text before the caret within that limit. That range may include existing, edited or pasted text. The original snapshot becomes one learning observation if the later text no longer contains it, the field loses focus or the client is no longer readable. Secure and direct-input contexts are excluded. Snapshots are local and transient.
 
 The engine segments the queued text and updates the owner-only, unencrypted `SI/Personalization/model.si-user` profile under Application Support. It saves derived words, word frequencies, word grams and opaque batch IDs. For recognized web addresses, the learned word is the host and any explicit HTTP(S) scheme. Captured text is held in memory until processed and discarded after the batch succeeds. Failed batches can be retried while SI is running. Normal termination flushes pending work when storage is available. Opening a valid profile removes the retired recent-samples files without decoding them. Existing derived statistics are retained.
 

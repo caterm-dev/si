@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use super::reranking::{MAX_CANDIDATE_BYTES, MAX_CANDIDATES, SCORE_WINDOW_BITS};
+use super::reranking::{MAX_CANDIDATE_BYTES, MAX_CANDIDATES};
 use super::{Candidate, CandidateLanguage, ConversionBoundary, Correction, SmallReranker};
 
 const MAX_CORRECTIONS: usize = 4;
@@ -140,7 +140,6 @@ fn compare(left: &Row, right: &Row) -> Ordering {
         .preferred
         .cmp(&left.preferred)
         .then_with(|| right_end.cmp(left_end))
-        .then_with(|| left.correction.is_some().cmp(&right.correction.is_some()))
         .then_with(|| {
             (right.effective_score + right.reranking_bonus)
                 .total_cmp(&(left.effective_score + left.reranking_bonus))
@@ -155,14 +154,9 @@ fn rerank(rows: &mut [Row], model: &SmallReranker, context: &str, full_span: usi
         .enumerate()
         .take_while(|(_, ((end, ..), _))| *end == full_span)
         .filter(|(_, (_, row))| !row.personal && !row.verbatim && row.correction.is_none());
-    let Some((_, (_, leader))) = whole.clone().next() else {
-        return;
-    };
-    let minimum_score = leader.effective_score - SCORE_WINDOW_BITS;
     let mut pool = Vec::with_capacity(MAX_CANDIDATES);
     let mut texts = Vec::with_capacity(MAX_CANDIDATES);
     for (index, ((_, _, text), _)) in whole
-        .take_while(|(_, (_, row))| row.effective_score >= minimum_score)
         .filter(|(_, ((_, _, text), row))| !row.completion && text.len() <= MAX_CANDIDATE_BYTES)
     {
         let text = text.as_str();

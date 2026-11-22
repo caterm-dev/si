@@ -55,6 +55,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         panel.onLosePresentation = { [weak self] in
             guard let self else { return }
             self.presentationRevision &+= 1
+            self.markedTextState.candidateStartRect = nil
             self.session.setPrecedingText("")
             self.invalidateAICompletion()
         }
@@ -232,16 +233,17 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         guard learning.canRecord, let app = applicationID, !languages.usesPassthrough(in: app) else { return }
         let learningGeneration = learning.generation
         let languageGeneration = languages.configurationGeneration
+        let revision = presentationRevision
         guard let text = readReturnField(from: client, isCurrent: {
-            self.isCurrentReturnField(client, application: app)
+            self.ownsReturnField(client, application: app) && self.presentationRevision == revision
                 && self.keyEventGeneration == keyGeneration && learning.canRecord
                 && learning.generation == learningGeneration && languages.configurationGeneration == languageGeneration
-        }), !text.isEmpty else { return }
+        }), keyGeneration == keyEventGeneration, !text.isEmpty else { return }
         returnFieldCapture = ReturnFieldCapture(client: client, application: app, keyGeneration: keyGeneration,
                                                 learningGeneration: learningGeneration,
                                                 languageGeneration: languageGeneration, text: text)
         // IMK has no host-completion callback for a passed-through key.
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(100)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
             guard self.returnFieldCapture?.keyGeneration == keyGeneration else { return }
             self.finishReturnFieldLearning()
         }
@@ -260,24 +262,29 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         guard canRecord() else { return }
         let keyGeneration = keyEventGeneration
         let after = readBack ? readReturnField(from: capture.client, isCurrent: {
-            self.isCurrentReturnField(capture.client, application: capture.application)
+            let activeClient = self.client()
+            return (activeClient as AnyObject?) === (capture.client as AnyObject)
+                && self.ownsReturnField(capture.client, application: capture.application)
                 && self.keyEventGeneration == keyGeneration && canRecord()
         }) : nil
         guard canRecord(), ReturnFieldLearning.shouldIngest(before: capture.text, after: after) else { return }
         learning.recordReturnField(capture.text, expectedGeneration: capture.learningGeneration)
     }
 
-    private func isCurrentReturnField(_ client: any IMKTextInput, application: String) -> Bool {
-        let activeClient = self.client()
-        return applicationID == application && candidatePanel.ownsPresentation
+    private func ownsReturnField(_ client: any IMKTextInput, application: String) -> Bool {
+        applicationID == application && candidatePanel.ownsPresentation
             && (memoryClient as AnyObject?) === (client as AnyObject)
-            && (activeClient as AnyObject?) === (client as AnyObject)
     }
 
     private func readReturnField(from client: any IMKTextInput, isCurrent: () -> Bool) -> String? {
         ReturnFieldLearning.read(isCurrent: isCurrent, selection: { client.selectedRange() },
-                                 markedRange: { client.markedRange() }, length: { client.length() },
-                                 text: { client.attributedSubstring(from: $0)?.string })
+                                 markedRange: { client.markedRange() },
+                                 text: { client.attributedSubstring(from: $0)?.string },
+                                 textWithActualRange: { range in
+            var actual = NSRange(location: NSNotFound, length: 0)
+            guard let text = client.string(from: range, actualRange: &actual) else { return nil }
+            return (text, actual)
+        })
     }
 
     /// The host owns the field. A nested input or focus callback invalidates this capture.
@@ -415,7 +422,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         candidatePanel.render(selection: selection,
                               prediction: aiPrediction.map { $0.candidate.text + $0.suffix },
                               predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil)
-        // Let the host lay out marked text before asking for its geometry. The
+        // Let the host lay out marked text before resolving the composition start. The
         // preferred panel size will also reflect the rows just rendered above.
         DispatchQueue.main.async { [weak self, weak client] in
             guard let self, let client else { return }
@@ -434,48 +441,51 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // A host call can synchronously service another IMK event. Recheck after each
         // call before using its result or making another request against the old client.
         guard isCurrent(), let activeClient = self.client(), (activeClient as AnyObject) === clientObject,
-              isCurrent(), let inlineText = markedTextState.text,
-              let caretUTF16Offset = markedTextState.caretUTF16Offset else { return }
-        let marked = client.markedRange()
-        guard isCurrent() else { return }
-        let selected = client.selectedRange()
-        guard isCurrent() else { return }
+              isCurrent() else { return }
         let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
 
-        var hostAnchor: CandidateAnchor?
         // TEMP-GEOMETRY-LOG
         #if DEBUG
         let tracesCandidateGeometry = SettingsDefaults.shared.bool(forKey: CandidateGeometryLog.preferenceKey)
             && !IsSecureEventInputEnabled()
+        var probedRange: NSRange?
         var samples: [(index: Int, rect: NSRect)] = []
         var acceptedIndex: Int?
         #endif
-        for index in CandidateAnchor.queryIndices(inlineText: inlineText, caretUTF16Offset: caretUTF16Offset,
-                                                  marked: marked, selected: selected) {
-            var rect = NSRect.zero
-            _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
-            guard isCurrent() else { return }
-            // TEMP-GEOMETRY-LOG
+        let hostAnchor = markedTextState.candidateAnchor(screens: screens) {
+            let marked = client.markedRange()
+            guard isCurrent() else { return nil }
             #if DEBUG
-            if tracesCandidateGeometry { samples.append((index, rect)) }
+            probedRange = marked
             #endif
-            if let anchor = CandidateAnchor(rect, screens: screens) {
-                hostAnchor = anchor
-                // TEMP-GEOMETRY-LOG
+            for index in CandidateAnchor.startIndices(marked: marked) {
+                var rect = NSRect.zero
+                _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
+                guard isCurrent() else { return nil }
                 #if DEBUG
-                acceptedIndex = index
+                if tracesCandidateGeometry { samples.append((index, rect)) }
                 #endif
-                break
+                if let anchor = CandidateAnchor(rect, screens: screens) {
+                    #if DEBUG
+                    acceptedIndex = index
+                    #endif
+                    return anchor
+                }
             }
+            return nil
         }
+        guard isCurrent() else { return }
 
-        let previous = lastCandidateRects.object(forKey: clientObject)?.rectValue
-        let anchor = hostAnchor ?? CandidateAnchor.fallback(lastValid: previous, mouseLocation: NSEvent.mouseLocation,
-                                                            screens: screens)
+        let anchor = hostAnchor ?? CandidateAnchor.fallback(
+            lastValid: lastCandidateRects.object(forKey: clientObject)?.rectValue,
+            mouseLocation: NSEvent.mouseLocation, screens: screens)
         if let anchor {
             let clientLevel = Int(client.windowLevel())
             guard isCurrent() else { return }
-            if hostAnchor != nil { lastCandidateRects.setObject(NSValue(rect: anchor.rect), forKey: clientObject) }
+            if let hostAnchor, markedTextState.candidateStartRect != hostAnchor.rect {
+                markedTextState.candidateStartRect = hostAnchor.rect
+                lastCandidateRects.setObject(NSValue(rect: hostAnchor.rect), forKey: clientObject)
+            }
             candidatePanel.show(at: anchor, clientLevel: clientLevel)
         } else {
             candidatePanel.orderOut(nil)
@@ -483,6 +493,10 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // TEMP-GEOMETRY-LOG
         #if DEBUG
         if tracesCandidateGeometry, isCurrent(), !IsSecureEventInputEnabled() {
+            let marked = probedRange ?? client.markedRange()
+            guard isCurrent() else { return }
+            let selected = client.selectedRange()
+            guard isCurrent(), !IsSecureEventInputEnabled() else { return }
             CandidateGeometryLog.shared.append(.init(
                 time: Date(), bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown",
                 markedRange: marked, selectedRange: selected, samples: samples, selectedIndex: acceptedIndex,

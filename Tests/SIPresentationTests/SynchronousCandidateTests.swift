@@ -64,26 +64,31 @@ struct SynchronousCandidateTests {
         #expect(session.candidates.first?.text == "on-main")
     }
 
-    @Test func synchronousCorrectionRemainsSelectableAndTracksSettingChanges() throws {
-        let languages: Set<InputLanguage> = [.simplifiedChinese]
-        var session = InputSession(engine: CandidateEngine(usesCoverageAdjustedOrder: false))
+    @Test(arguments: [false, true])
+    func leadingCorrectionIsSelectableAndTracksSettingChanges(usesCoverageAdjustedOrder: Bool) throws {
+        let input = "yehsi"
+        let languages = Set(InputLanguage.allCases)
+        var session = InputSession(engine: CandidateEngine(usesCoverageAdjustedOrder: usesCoverageAdjustedOrder))
         session.configure(languages: languages, pinyinCorrectionMode: .conservative)
-        session.append("nihoa")
+        session.append(input)
         #expect(session.pendingCandidateRequest == nil)
         var selection = CandidateSelection()
         selection.update(session.candidates)
-        let correction = try #require(selection.candidates.first { $0.text == "你好" && $0.isPinyinCorrection })
+        let correction = try #require(selection.candidate(number: 1))
+        #expect(correction.text == "也是" && correction.isPinyinCorrection)
+        #expect(selection.selected == correction)
+        #expect(selection.candidates.dropFirst(4).allSatisfy { !$0.isPinyinCorrection })
         #expect(!correction.canLearn)
         var literal = session
-        #expect(literal.commitResult(reason: .literal).text == "nihoa")
+        #expect(literal.commitResult(reason: .literal).text == input)
         var disabled = session
         disabled.configure(languages: languages)
         #expect(disabled.pendingCandidateRequest == nil)
         #expect(disabled.candidates.allSatisfy { !$0.isPinyinCorrection })
-        #expect(disabled.candidates.last?.text == "nihoa")
+        #expect(disabled.candidates.last?.text == input)
 
         let commit = session.commitResult(correction, reason: selection.confirmationReason(for: correction))
-        #expect(commit.text == "你好" && commit.input == "nihoa" && commit.remainingInput.isEmpty)
+        #expect(commit.text == "也是" && commit.input == input && commit.remainingInput.isEmpty)
         #expect(commit.reason == .explicitSelection)
     }
 
