@@ -49,6 +49,14 @@ after its spelling-edit cost. Whole spelling suggestions, completions and
 ordinary whole candidates then compete by score. Resource-local caches reuse
 dictionary transitions and prepared word-gram contexts across edits.
 
+A correction in an earlier completed word can continue into a bounded final-word
+completion. For example, `wobuzhdaonishibushiyige` can suggest
+`我不知道你是不是一个`; appending `x` keeps that correction available while
+completing the last word, such as `我不知道你是不是一个新`. Corrected
+completions must also beat ordinary whole-input completions by the correction
+confidence margin. They keep exact typed source spans and require explicit
+acceptance; Return still submits the original spelling.
+
 **Local model ranking** is on by default and can be turned off under Typing.
 The bundled small character model scores up to 12 eligible whole-input
 candidates in statistical order, without a score-gap cutoff. The setting is independent
@@ -63,7 +71,26 @@ sentence to help rank the first word of each candidate. This context stays in
 memory. If the host cannot provide the text, conversion uses the composition
 and local resources as usual.
 
-The Rust engine owns final candidate merging, ordering and window shortlisting; Swift owns window layout and client-local selection. The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character. The window retains the first two statistical choices in their ranked positions. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Candidates are shortlisted without checking system font coverage; rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices consume only their exact source spelling. For example, choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
+The Rust engine owns final candidate merging, ordering and window shortlisting; Swift owns window layout and client-local selection. The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the original first four ranked choices, subject to the length-based sentence budget below; statistical leaders have no reserved slots. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Candidates are shortlisted without checking system font coverage; rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices consume only their exact source spelling. For example, choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
+
+The leading constructed candidate's output length determines one shared window
+budget for sentences, multiword prefixes, spelling corrections and completions.
+Length counts nonwhitespace graphemes, so combining marks and emoji sequences
+count as displayed characters.
+
+| Leading constructed output length | Maximum constructed candidates |
+| --- | --- |
+| Fewer than 6 characters | 4 |
+| 6 characters | 3 |
+| 7–8 characters | 2 |
+| 9 or more characters | 1 |
+
+The window keeps candidates in ranked order within the original four-choice head.
+It does not fill removed sentence slots with lower-ranked constructed results.
+Exact words and Chinese dictionary characters retain their existing budgets;
+original literal input stays available. Full engine and Settings previews retain
+all conversion results. No score-gap, relative-word-frequency or completion-stem
+filter is applied by this window policy.
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 

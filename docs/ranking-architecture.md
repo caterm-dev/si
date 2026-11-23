@@ -64,15 +64,19 @@ Explicit pins and remembered whole-input choices have policy priority.
 Complete results precede partial results, and partial results use the
 consumed span when comparing their scores.
 
-The Rust presentation policy shortlists candidates without checking system font coverage
-and retains the two highest S candidates in their incoming positions. Both remain
-selectable and their incoming ranks determine placement. Spelling corrections, constructed
-results and completions normally qualify through the first four ranked choices.
-There are up to 27 ordinary slots and nine ordinary word slots.
-Displayable exact Chinese dictionary characters also remain pageable.
-Language-aware identity and the exact literal are preserved. The first
-displayed candidate gets the initial highlight. Space confirms the
-highlighted candidate.
+The Rust presentation policy shortlists candidates without checking system font
+coverage or reserving statistical leaders. Constructed results qualify only in
+the original first four ranked positions. The leading constructed output length
+then sets their shared limit: fewer than six nonwhitespace graphemes allows four
+choices, six allows three, seven/eight allows two, and nine or more allows one.
+Whole sentences, multiword prefixes, corrections and dictionary completions use
+the same budget, including completions from one dictionary entry. No score-gap,
+relative-frequency or completion-stem display filter applies.
+
+There are up to 27 ordinary slots and nine ordinary exact word slots. Generated
+exact Chinese dictionary characters also remain pageable. Language-aware identity
+and the exact literal are preserved. The first displayed candidate gets the
+initial highlight. Space confirms the highlighted candidate.
 
 ## Exact terminal-completion pruning
 

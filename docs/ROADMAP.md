@@ -20,6 +20,7 @@ and [bridge checks](TESTING.md#automated-checks).
 - [x] Persistent English and Simplified Chinese language preferences.
 - [x] Unified candidate engine with ambiguity preservation and literal fallback.
 - [x] Platform-independent Rust final ordering and shortlist policy shared by the macOS adapter and CLI.
+- [x] Length-based constructed-result window budget: 6 output characters allow 3 choices, 7–8 allow 2, and 9 or more allow 1, shared by sentences, prefixes and completions; no statistical-leader reservations.
 - [x] Maintained Chinese and English category CSVs derived from pinned upstream data and SI additions.
 - [x] Shared Rust lexicon compiler with explicit integer counts and an optional paired word-gram model.
 - [x] Conservatively group existing Chinese vocabulary into base plus geography, organizations, technology, science, medicine, culture/sports, movie and game without changing effective rows or weights.

@@ -93,13 +93,19 @@ impl Results {
     pub(super) fn ranked(
         self,
         correction_floor: f64,
+        completion_correction_floor: f64,
         reranking: Option<(&SmallReranker, &str, usize)>,
     ) -> Vec<Candidate> {
         let mut rows: Vec<_> = self
             .rows
             .into_iter()
             .filter(|(_, evidence)| {
-                evidence.correction.is_none() || evidence.effective_score > correction_floor
+                let floor = if evidence.completion {
+                    correction_floor.max(completion_correction_floor)
+                } else {
+                    correction_floor
+                };
+                evidence.correction.is_none() || evidence.effective_score > floor
             })
             .collect();
         rows.sort_unstable_by(compare);

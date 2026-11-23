@@ -50,7 +50,8 @@ its exact spelling as the final literal candidate.
 
 The window uses a 27-result ordinary budget that includes the literal,
 without checking system font coverage. Generated exact Chinese
-dictionary characters remain pageable beyond that budget. Only the first
+dictionary characters remain pageable beyond that budget. Statistical leaders
+have no reserved slots. Only the original first
 four ranked positions can retain ordinary constructed multiword results or
 dictionary completions, including single-entry completions. At most nine
 exact word choices (including prefixes and personal phrases) remain, in
@@ -61,6 +62,25 @@ The engine and Settings preview have access to the full result set.
 results; `--list full` retains the complete results. Platform adapters retain
 window layout, paging, selected indices, labels and event routing.
 See [candidate presentation](ARCHITECTURE.md#candidate-presentation).
+
+## Length-based sentence budget
+
+The first constructed candidate in the original four-choice head determines a
+single display budget from its nonwhitespace output grapheme count:
+
+| Output characters | Constructed candidate limit |
+| --- | --- |
+| Below 6 | 4 |
+| 6 | 3 |
+| 7–8 | 2 |
+| 9 or more | 1 |
+
+Whole sentences, multiword prefixes, spelling corrections and completions share
+this budget across enabled languages. Candidates keep their incoming order;
+removed slots do not promote lower constructed results. Exact word choices and
+Chinese dictionary characters retain their existing budgets, and literal input
+remains selectable. Full conversion and Settings previews keep all results.
+There is no window score-gap, relative-frequency or completion-stem rule.
 
 ## Verification
 

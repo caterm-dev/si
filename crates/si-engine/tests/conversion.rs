@@ -1500,11 +1500,23 @@ fn pinyin_correction_preserves_exact_results_and_original_spans() -> io::Result<
             .iter()
             .all(|row| { !row.is_corrected() || row.text != "你好" })
     );
-    for input in ["nihoa'shij", "nihoa'shi'j'e"] {
-        let rows = engine.candidates(input, CHINESE);
-        assert!(rows.iter().all(|row| !row.is_corrected()), "{input}");
-        assert_eq!(rows, baseline.candidates(input, CHINESE));
-    }
+    let completed = engine.candidates("nihoa'shij", CHINESE);
+    let suggestion = find(
+        &completed,
+        "你好世界",
+        CandidateLanguage::Chinese,
+        "nihoa'shij".len(),
+    );
+    assert!(suggestion.is_corrected() && suggestion.completion);
+    assert!(suggestion.confirmation_boundaries.is_empty());
+    assert_eq!(
+        suggestion.source_boundaries.last(),
+        Some(&"nihoa'shij".len())
+    );
+    let invalid_separators = "nihoa'shi'j'e";
+    let rows = engine.candidates(invalid_separators, CHINESE);
+    assert!(rows.iter().all(|row| !row.is_corrected()));
+    assert_eq!(rows, baseline.candidates(invalid_separators, CHINESE));
     let competing = engine.candidates("syibian", CHINESE);
     let strongest = competing.iter().find(|row| row.is_corrected()).unwrap();
     assert_eq!(strongest.text, "随便");
@@ -1881,9 +1893,27 @@ fn opt_in_pinyin_correction_keeps_ordinary_candidates_for_generated_edits() -> i
             for row in suggestions {
                 assert_eq!(row.consumed_bytes, input.len(), "{input}");
                 assert!(row.confirmation_boundaries.is_empty(), "{input}");
-                let (_, reading) = readings.iter().find(|(text, _)| *text == row.text).unwrap();
+                let mut surface = row.text.as_str();
+                let mut reading = String::new();
+                while !surface.is_empty() {
+                    let (word, spelling) = readings
+                        .iter()
+                        .find(|(word, _)| surface.starts_with(word))
+                        .unwrap_or_else(|| {
+                            panic!("unknown corrected output for {input}: {}", row.text)
+                        });
+                    reading.push_str(spelling);
+                    surface = &surface[word.len()..];
+                }
+                let target_lengths = if row.completion {
+                    input.len().saturating_sub(1)..=(input.len() + 1).min(reading.len())
+                } else {
+                    reading.len()..=reading.len()
+                };
                 assert!(
-                    one_key_edit(input.as_bytes(), reading.as_bytes()),
+                    target_lengths
+                        .into_iter()
+                        .any(|end| one_key_edit(input.as_bytes(), &reading.as_bytes()[..end])),
                     "{input} → {reading}"
                 );
             }
@@ -2385,6 +2415,221 @@ fn higher_recall_backs_off_negative_context_for_corrections() -> io::Result<()> 
                 .iter()
                 .filter(|row| !row.is_corrected())
                 .eq(recall.iter().filter(|row| !row.is_corrected()))
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn earlier_pinyin_correction_survives_an_unfinished_final_word() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "wo'bu'zhi'dao", "我不知道", 10_000);
+    add(&mut lexicon, ZH, "wo", "我", 1_000);
+    add(&mut lexicon, ZH, "bu", "不", 1_000);
+    add(&mut lexicon, ZH, "zhi'hui", "只会", 1_000);
+    add(&mut lexicon, ZH, "dao", "到", 1_000);
+    add(
+        &mut lexicon,
+        ZH,
+        "ni'shi'bu'shi'yi'ge",
+        "你是不是一个",
+        1_000,
+    );
+    add(&mut lexicon, ZH, "xin", "新", 1_000);
+    add(&mut lexicon, ZH, "xiao", "小", 900);
+    let base = directory.resources(&mut lexicon, None)?;
+    let ordinary = CandidateEngine::new(&base, None);
+    let engine = CandidateEngine::new(&base, None).with_pinyin_correction(true);
+    let stem = "wobuzhdaonishibushiyige";
+    for preview in [false, true] {
+        for (tail, expected, completion) in [
+            ("", "我不知道你是不是一个", false),
+            ("x", "我不知道你是不是一个新", true),
+            ("xi", "我不知道你是不是一个新", true),
+            ("xin", "我不知道你是不是一个新", false),
+        ] {
+            let input = format!("{stem}{tail}");
+            let rows = engine.convert(
+                &input,
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+            );
+            let best = &rows[0];
+            assert_eq!(best.text, expected, "{input}");
+            assert!(best.is_corrected());
+            assert_eq!(best.completion, completion, "{input}");
+            assert_eq!(best.consumed_bytes, input.len());
+            assert_eq!(best.source_boundaries.last(), Some(&input.len()));
+            let edit = best.correction.unwrap();
+            assert_eq!(edit.word_start_bytes, 0);
+            assert_eq!(edit.word_end_bytes, "wobuzhdao".len());
+            assert_eq!(edit.kind, si_engine::CorrectionKind::MissingKey);
+            assert!(best.confirmation_boundaries.is_empty());
+            assert_eq!(best.token_bonus, 0.0);
+            let regular = ordinary.convert(
+                &input,
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+            );
+            assert!(
+                regular
+                    .iter()
+                    .eq(rows.iter().filter(|row| !row.is_corrected())),
+                "{input}"
+            );
+            assert_literal(rows.last().unwrap(), &input);
+            let window = si_engine::presentation::conversion_window(&input, CHINESE, &rows);
+            assert_eq!(rows[window[0]].text, expected);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn corrected_completion_uses_its_own_history_and_preserves_bounded_alternatives() -> io::Result<()>
+{
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let first = add(&mut lexicon, ZH, "wo'bu'zhi'dao", "我不知道", 10_000);
+    add(&mut lexicon, ZH, "wo", "我", 1_000);
+    add(&mut lexicon, ZH, "bu", "不", 1_000);
+    add(&mut lexicon, ZH, "zhi'hui", "只会", 1_000);
+    add(&mut lexicon, ZH, "dao", "到", 1_000);
+    let previous = add(
+        &mut lexicon,
+        ZH,
+        "ni'shi'bu'shi'yi'ge",
+        "你是不是一个",
+        1_000,
+    );
+    for i in 0..40 {
+        let output = char::from_u32(0x4e00 + i).unwrap().to_string();
+        add(&mut lexicon, ZH, "xin", &output, 1_000);
+    }
+    let rare = add(&mut lexicon, ZH, "xin", "新", 1);
+    let mut grams = GramBuilder::new();
+    grams.add(&[first, previous, rare], 10_000).unwrap();
+    let base = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&base, None).with_pinyin_correction(true);
+    let ordinary = CandidateEngine::new(&base, None);
+    let input = "wobuzhdaonishibushiyigex";
+    for preview in [false, true] {
+        let rows = engine.convert(
+            input,
+            CHINESE,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+        );
+        assert_eq!(rows[0].text, "我不知道你是不是一个新");
+        assert!(rows[0].is_corrected() && rows[0].completion);
+        assert!(rows.iter().filter(|row| row.is_corrected()).count() <= 4);
+        assert!(
+            ordinary
+                .convert(
+                    input,
+                    CHINESE,
+                    preview,
+                    &[],
+                    ConversionPreferences::default()
+                )
+                .iter()
+                .eq(rows.iter().filter(|row| !row.is_corrected()))
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn corrected_completion_requires_a_lead_over_ordinary_completions() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "wo'bu'zhi'dao", "我不知道", 1);
+    add(&mut lexicon, ZH, "wo", "我", 10_000);
+    add(&mut lexicon, ZH, "bu", "不", 10_000);
+    add(&mut lexicon, ZH, "zhi'hui", "只会", 10_000);
+    add(&mut lexicon, ZH, "dao", "到", 10_000);
+    add(
+        &mut lexicon,
+        ZH,
+        "ni'shi'bu'shi'yi'ge",
+        "你是不是一个",
+        10_000,
+    );
+    add(&mut lexicon, ZH, "xin", "新", 10_000);
+    let base = directory.resources(&mut lexicon, None)?;
+    let input = "wobuzhdaonishibushiyigex";
+    for mode in [
+        si_engine::CorrectionSensitivity::Conservative,
+        si_engine::CorrectionSensitivity::HigherRecall,
+    ] {
+        let engine = CandidateEngine::new(&base, None).with_correction_sensitivity(Some(mode));
+        for preview in [false, true] {
+            let rows = engine.convert(
+                input,
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+            );
+            assert!(rows.iter().all(|row| !row.is_corrected()));
+            assert!(
+                rows.iter()
+                    .any(|row| row.completion && row.consumed_bytes == input.len())
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn corrected_completion_preserves_atomic_alias_spans_and_literal_acceptance() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "lv'se", "绿色", 100);
+    add(&mut lexicon, ZH, "xin", "新", 100);
+    let base = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&base, None).with_pinyin_correction(true);
+    for alias in ["lv", "lü", "lu:", "lu\u{308}"] {
+        let stem = format!("{alias}'es");
+        let input = format!("{stem}x");
+        let rows = engine.candidates(&input, CHINESE);
+        let corrected = find(&rows, "绿色新", CandidateLanguage::Chinese, input.len());
+        assert!(corrected.is_corrected() && corrected.completion);
+        let edit = corrected.correction.unwrap();
+        assert_eq!(edit.kind, si_engine::CorrectionKind::AdjacentSwap);
+        assert_eq!(edit.word_start_bytes, 0);
+        assert_eq!(edit.word_end_bytes, stem.len());
+        assert_eq!(corrected.source_boundaries.last(), Some(&input.len()));
+        assert!(
+            corrected
+                .source_boundaries
+                .iter()
+                .all(|&offset| input.is_char_boundary(offset))
+        );
+        assert!(corrected.confirmation_boundaries.is_empty());
+        assert!(
+            !Candidate::default_for_whole_input(&rows, input.len())
+                .unwrap()
+                .is_corrected()
+        );
+        assert_literal(rows.last().unwrap(), &input);
+        assert!(
+            !engine
+                .candidates(&format!("{stem}x'"), CHINESE)
+                .iter()
+                .any(|r| r.is_corrected())
+        );
+        assert!(
+            !engine
+                .candidates(&format!("{stem}x_"), CHINESE)
+                .iter()
+                .any(|r| r.is_corrected())
         );
     }
     Ok(())

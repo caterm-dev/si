@@ -341,49 +341,45 @@ pub fn shortlist(candidates: &[PresentationCandidate<'_>]) -> Vec<usize> {
     let ordinary: Vec<_> = (0..candidates.len())
         .filter(|&i| !candidates[i].literal())
         .collect();
-    let mut retained: HashSet<&str> = ordinary
+    // The leading constructed result estimates output length for this composition.
+    // A shared budget covers exact sentences, prefixes, corrections and completions.
+    let sentence_limit = ordinary
         .iter()
         .take(LEADING_CHOICES)
-        .filter(|&&i| !candidates[i].word())
-        .map(|&i| keys[i].as_ref())
-        .collect();
+        .map(|&i| &candidates[i])
+        .find(|candidate| !candidate.word())
+        .map_or(LEADING_CHOICES, |candidate| {
+            match candidate
+                .text
+                .graphemes(true)
+                .filter(|g| !g.chars().all(char::is_whitespace))
+                .take(9)
+                .count()
+            {
+                0..=5 => 4,
+                6 => 3,
+                7..=8 => 2,
+                _ => 1,
+            }
+        });
+    let mut retained: HashSet<&str> = HashSet::new();
+    let mut sentence_count = 0;
+    for &i in ordinary.iter().take(LEADING_CHOICES) {
+        if candidates[i].word() || retained.contains(keys[i].as_ref()) {
+            continue;
+        }
+        if sentence_count >= sentence_limit {
+            continue;
+        }
+        retained.insert(&keys[i]);
+        sentence_count += 1;
+    }
     for (i, candidate) in candidates.iter().enumerate() {
         if candidate.literal() {
             retained.insert(&keys[i]);
         }
     }
-    let mut statistical: Vec<_> = ordinary
-        .iter()
-        .copied()
-        .filter(|&i| candidates[i].statistical_score.is_some())
-        .collect();
-    statistical.sort_by(|&left, &right| {
-        compare(
-            &candidates[left],
-            &keys[left],
-            &candidates[right],
-            &keys[right],
-            "",
-            Order::Statistical,
-            false,
-        )
-    });
-    let mut leaders = HashSet::new();
     let mut word_count = 0;
-    for i in statistical {
-        if !leaders.insert(keys[i].as_ref()) {
-            continue;
-        }
-        if !candidates[i].character() {
-            retained.insert(&keys[i]);
-            if candidates[i].word() && !candidates[i].punctuation {
-                word_count += 1;
-            }
-        }
-        if leaders.len() == 2 {
-            break;
-        }
-    }
     for &i in &ordinary {
         let candidate = &candidates[i];
         if !candidate.word() || candidate.character() || retained.contains(keys[i].as_ref()) {

@@ -108,7 +108,10 @@ probe budgets and a 48-letter dictionary match window, reserving work for
 edits late in the input. It keeps a
 separate four-path correction beam per position in both search modes.
 A backward reachability pass skips edits
-whose remaining input cannot be decoded with exact dictionary words.
+whose remaining input cannot be decoded with exact dictionary words and at most
+one bounded final-word completion. The edited word itself must still finish
+matching its dictionary reading. A correction earlier in a sentence therefore
+stays available when a newly typed suffix is not yet a complete syllable.
 The first opt-in prepares a bounded shortlist for unusually dense
 spellings using the same unigram prior as the decoder, including a paired user
 lexicon when available. Toggling correction on the same engine reuses this
@@ -145,7 +148,14 @@ threshold.
 Higher-recall mode also lets a corrected path fall back to its score without
 preceding-text evidence minus a two-bit cost when that is stronger. The same score
 governs correction pruning and ranking.
-Abbreviations and completions are excluded from this threshold. The
+Abbreviations and completions are excluded from the exact-path threshold.
+A corrected terminal completion additionally clears a separate threshold from
+ordinary whole-input completions, including ordinary abbreviated-prefix paths.
+It pays the existing completion spelling cost and the single-edit cost and uses
+the same confidence margin and stronger with/without-field baseline. Exact
+corrected outputs keep their existing admission rule. Completion upper bounds
+include corrected histories; ordinary-prefix masks do not prune the separate
+four-path correction beam. The
 `Candidate::correction` metadata identifies suggestions that require explicit
 acceptance by the caller. Callers can use `Candidate::default_for_whole_input`
 to choose an ordinary whole candidate or fall back to the original text.
@@ -687,7 +697,8 @@ After updating marked text and rendering candidate rows, `SIInputController` que
 
 The public `si_engine::presentation` module owns final merging, canonical identity
 comparison, exact/prefix ordering, pins and remembered-choice precedence, model
-reward combination, coverage rewards, statistical-leader selection and shortlist
+reward combination, coverage rewards, model-independent leader comparison for
+automatic confirmation and shortlist
 budgets. Its borrowed `PresentationCandidate` metadata is independent of conversion
 resources and platform UI. Calls return input indices and retained lexical evidence;
 output text and confirmation/source boundaries remain in the original candidate.
@@ -718,7 +729,25 @@ never normalized, including when combining marks join across token boundaries.
 
 `InputCandidate.lexicalTokenCount` carries transient lexical evidence independently of identity, score and commit text. Deduplication preserves single-lexical-unit evidence when a stronger composed derivation shares an identity. `rankingScore`/`inputScore` retain base lexical scores; Swift resolves eligible learning/context records into transient statistical scores; Rust combines them with model and consumed-input coverage rewards. `InputSession.presentationScore` exposes the returned score or delegates its coverage calculation to Rust. Keeping coverage outside the decoders leaves same-span terminal/prefix beam selection and automatic-confirmation evidence unchanged. Prefix preferences retain their full capped bonus and never use pending spelling. Punctuation variants embed only the prefix's lexical/preferences score, so coverage is added once during their own merge. Exact personal pins retain their explicit override.
 
-The Rust presentation policy supplies a 27-choice ordinary budget including exact literal input, plus independently pageable generated exact Chinese dictionary characters. The first two statistical choices remain selectable at their incoming positions within the ordinary budget. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices across Chinese, English and mixed candidates. A completion counts as constructed even with one lexical unit. At most nine exact word choices, including exact prefixes and explicit personal phrases, are retained in engine order. Chinese dictionary characters and punctuation do not consume this nine-word budget; mixed/verbatim spans do not qualify as ordinary word choices. Words already ranked in the leading four keep their own positions rather than causing lower sentences to be promoted. Every retained nonliteral candidate keeps engine order, with no language reservation; the literal remains last. Both layouts, number shortcuts and mouse actions use the same client-local shortlist. Base lexical scores, coverage rewards, search bounds, committed bytes and candidate identities are unchanged by this presentation restriction.
+The Rust presentation policy supplies a 27-choice ordinary budget including exact literal input, plus independently pageable generated exact Chinese dictionary characters. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify only through the original first four ranked choices across Chinese, English and mixed candidates, subject to the shared output-length budget below and without statistical-leader reservations. A completion counts as constructed even with one lexical unit. At most nine exact word choices, including exact prefixes and explicit personal phrases, are retained in engine order. Chinese dictionary characters and punctuation do not consume this nine-word budget; mixed/verbatim spans do not qualify as ordinary word choices. Words already ranked in the leading four keep their own positions rather than causing lower sentences to be promoted. Every retained nonliteral candidate keeps engine order, with no language reservation; the literal remains last. Both layouts, number shortcuts and mouse actions use the same client-local shortlist. Base lexical scores, coverage rewards, search bounds, committed bytes and candidate identities are unchanged by this presentation restriction.
+
+The window uses one length-based constructed-result budget. Within the original
+four-choice head, the first non-word candidate determines the output length using
+nonwhitespace Unicode graphemes. Outputs below six characters allow four
+constructed choices, six allow three, seven/eight allow two, and nine or more
+allow one. Whole sentences, multiword prefixes, corrections and dictionary
+completions share that budget in incoming rank order, including single-entry
+completions. Exact words, explicit personal phrases and Chinese dictionary
+characters keep their existing rules. A word occupying a ranked-head position
+does not promote a lower constructed candidate. Original literal input remains
+last, and the full engine/Settings result set remains independently available.
+
+This policy inspects existing candidate metadata only. It adds no score-gap,
+word-frequency eligibility, contextual-support or completion-stem filters, and
+needs no additional decoder/bridge evidence. Lexical scoring, field-context
+adjustments, enabled-language identity and source/output bytes keep their existing
+contracts. Local model ranking continues to affect incoming order, while the
+window adds only a display-count restriction. UI state remains per client.
 
 The controller consumes navigation and number-selection events while composing. `CandidateSelection.action` maps the first Down Arrow while collapsed to expansion without advancing selection, and otherwise maps event key codes/characters to moves or numbered choices; digit lookup reads the active six-column row. Left/Right selects in the collapsed strip and changes columns when expanded. Expanded Up/Down moves by one row across the entire list and scrolls just enough to keep the active row visible. Page Up/Down moves one row when collapsed or up to five rows when expanded, preserving the column where possible. There is no `IMKCandidates` instance or dependency on its selection-key display, identifiers, or callbacks. Out-of-range row numbers do not commit another candidate. Shortcuts retain literal passthrough, and outside composition these keys pass through. Candidate edits/reset invalidate the previous selection. Mouse buttons return candidate identities and use the same current-candidate validation/learning path as digit keys.
 

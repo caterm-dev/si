@@ -212,7 +212,7 @@ fn shortlist_preserves_ranked_head_nine_words_all_characters_and_literal() {
         .collect();
     let mut rows: Vec<_> = (0..4)
         .map(|i| {
-            let mut row = row(&identities[i], "constructed", 100.0 - i as f64);
+            let mut row = row(&identities[i], "短句", 100.0 - i as f64);
             row.lexical_tokens = 3;
             row
         })
@@ -238,19 +238,19 @@ fn shortlist_preserves_ranked_head_nine_words_all_characters_and_literal() {
 }
 
 #[test]
-fn statistical_leaders_survive_a_model_promoted_head_without_reordering() {
+fn statistical_leaders_do_not_bypass_the_ranked_head() {
     let ids: Vec<_> = (0..8).map(|i| format!("id:{i}")).collect();
     let rows: Vec<_> = ids
         .iter()
         .enumerate()
         .map(|(i, id)| {
-            let mut row = row(id, "sentence", i as f64);
+            let mut row = row(id, "短句", i as f64);
             row.lexical_tokens = 2;
             row.statistical_score = Some(i as f64);
             row
         })
         .collect();
-    assert_eq!(presentation::shortlist(&rows), [0, 1, 2, 3, 6, 7]);
+    assert_eq!(presentation::shortlist(&rows), [0, 1, 2, 3]);
 }
 
 #[test]
@@ -260,7 +260,7 @@ fn punctuation_does_not_use_word_slots_and_completions_share_the_head() {
         .iter()
         .enumerate()
         .map(|(i, id)| {
-            let mut row = row(id, "punctuation", 0.0);
+            let mut row = row(id, "符号", 0.0);
             if i < 4 {
                 row.completion = true;
             } else if i < 14 {
@@ -278,7 +278,7 @@ fn shortlisting_retains_equivalent_derivations_of_a_pageable_character() {
     let mut rows: Vec<_> = ids
         .iter()
         .map(|id| {
-            let mut row = row(id, "sentence", 0.0);
+            let mut row = row(id, "短句", 0.0);
             row.lexical_tokens = 2;
             row
         })
@@ -290,4 +290,103 @@ fn shortlisting_retains_equivalent_derivations_of_a_pageable_character() {
     character.language = CandidateLanguage::Chinese;
     rows.extend([completion, character]);
     assert_eq!(presentation::shortlist(&rows), [0, 1, 2, 3, 4, 5]);
+}
+
+#[test]
+fn constructed_candidate_budget_follows_leading_output_length() {
+    for (length, limit) in [(5, 4), (6, 3), (7, 2), (8, 2), (9, 1), (13, 1)] {
+        let identities: Vec<_> = (0..6).map(|i| format!("sentence:{i}")).collect();
+        let texts: Vec<_> = (0..6)
+            .map(|i| {
+                format!(
+                    "{}{}",
+                    "字".repeat(length - 1),
+                    char::from_u32(0x4e00 + i).unwrap()
+                )
+            })
+            .collect();
+        let rows: Vec<_> = identities
+            .iter()
+            .zip(&texts)
+            .enumerate()
+            .map(|(i, (id, text))| {
+                let mut candidate = row(id, text, -(i as f64) * 100.0);
+                candidate.lexical_tokens = 2;
+                candidate.language = match i % 3 {
+                    0 => CandidateLanguage::Chinese,
+                    1 => CandidateLanguage::English,
+                    _ => CandidateLanguage::Mixed,
+                };
+                candidate.completion = i % 2 == 1;
+                if i == 2 {
+                    candidate.consumed_bytes = Some(3);
+                }
+                candidate
+            })
+            .collect();
+        assert_eq!(
+            presentation::shortlist(&rows),
+            (0..limit).collect::<Vec<_>>(),
+            "length {length}"
+        );
+        assert_eq!(rows.len(), 6);
+    }
+}
+
+#[test]
+fn length_budget_counts_graphemes_and_ignores_whitespace() {
+    for (text, limit) in [
+        ("一 二 三 四 五 e\u{301}", 3),
+        ("一二三四五六👩‍💻", 2),
+        ("一二三四五六七八九", 1),
+    ] {
+        let ids: Vec<_> = (0..4).map(|i| format!("id:{i}")).collect();
+        let rows: Vec<_> = ids
+            .iter()
+            .map(|id| {
+                let mut candidate = row(id, text, 0.0);
+                candidate.lexical_tokens = 2;
+                candidate
+            })
+            .collect();
+        assert_eq!(
+            presentation::shortlist(&rows),
+            (0..limit).collect::<Vec<_>>()
+        );
+        assert_eq!(rows[0].text.as_bytes(), text.as_bytes());
+    }
+}
+
+#[test]
+fn words_and_literal_do_not_use_sentence_slots_or_promote_lower_sentences() {
+    let ids: Vec<_> = (0..8).map(|i| format!("id:{i}")).collect();
+    let mut rows = vec![row(&ids[0], "word", 100.0)];
+    for id in &ids[1..5] {
+        let mut candidate = row(id, "一二三四五六七", 0.0);
+        candidate.lexical_tokens = 2;
+        rows.push(candidate);
+    }
+    rows.push(row(&ids[5], "prefix", -100.0));
+    rows[5].consumed_bytes = Some(2);
+    let mut literal = row(&ids[6], "original\0Text", 0.0);
+    literal.language = CandidateLanguage::Literal;
+    rows.push(literal);
+    assert_eq!(presentation::shortlist(&rows), [0, 1, 2, 5, 6]);
+}
+
+#[test]
+fn appended_incomplete_word_uses_the_same_long_sentence_budget() {
+    let ids: Vec<_> = (0..4).map(|i| format!("id:{i}")).collect();
+    for completion in [false, true] {
+        let rows: Vec<_> = ids
+            .iter()
+            .map(|id| {
+                let mut candidate = row(id, "我不知道你是不是一个小的谢", -60.0);
+                candidate.lexical_tokens = 6;
+                candidate.completion = completion;
+                candidate
+            })
+            .collect();
+        assert_eq!(presentation::shortlist(&rows), [0]);
+    }
 }

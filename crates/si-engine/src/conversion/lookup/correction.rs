@@ -2,7 +2,10 @@ use std::collections::{HashMap, HashSet};
 
 use crate::conversion::{CorrectionKind, MAX_OUTPUT_BYTES};
 
-use super::{Entry, Input, Language, Lexeme, Lookup, Match, lookup_syllable, matches_separators};
+use super::{
+    Entry, Input, Language, Lexeme, Lookup, MAX_UNTYPED_LETTERS, Match, lookup_syllable,
+    matches_separators,
+};
 
 pub(in crate::conversion) const MIN_CORRECTION_BITS: f64 = 8.0;
 
@@ -124,7 +127,7 @@ impl<'a> Lookup<'a> {
         self.correction_order = Some(correction_order);
     }
 
-    pub(in crate::conversion) fn exact_suffixes(&self, input: &Input<'_>) -> Vec<bool> {
+    pub(in crate::conversion) fn correction_suffixes(&self, input: &Input<'_>) -> Vec<bool> {
         let limit = input.len();
         let spelling = input.spelling(Language::Chinese);
         let dictionary = self.entries[Language::Chinese as usize].as_slice();
@@ -140,13 +143,20 @@ impl<'a> Lookup<'a> {
                 }
                 let length = depth + 1;
                 let end = start + length;
-                if reachable[end] && rows[0].spelling.len() == length {
-                    let mut separators = input.separators(start, end).peekable();
-                    if separators.peek().is_none()
-                        || rows
-                            .iter()
-                            .take_while(|row| row.spelling.len() == length)
-                            .any(|row| matches_separators(row.reading, separators.clone()))
+                let terminal = end == limit;
+                if reachable[end] && rows[0].spelling.len() == length || terminal {
+                    let separators = input.separators(start, end);
+                    // Earlier words must be exact. Only the final dictionary word
+                    // may use the ordinary bounded completion channel.
+                    if rows
+                        .iter()
+                        .take_while(|row| terminal || row.spelling.len() == length)
+                        .any(|row| {
+                            let missing = row.spelling.len() - length;
+                            (missing == 0 && reachable[end]
+                                || terminal && missing <= MAX_UNTYPED_LETTERS)
+                                && matches_separators(row.reading, separators.clone())
+                        })
                     {
                         reachable[start] = true;
                         break;
@@ -163,14 +173,14 @@ impl<'a> Lookup<'a> {
         start: usize,
         limit: usize,
         budget: &mut CorrectionBudget,
-        exact_suffixes: &[bool],
+        correction_suffixes: &[bool],
         mut emit: impl FnMut(Match<'a>),
     ) {
         let window_end = limit.min(start + MAX_WORD_UNITS);
         if window_end - start < 2 {
             return;
         }
-        let Some(last_end) = exact_suffixes[start + 2..=window_end]
+        let Some(last_end) = correction_suffixes[start + 2..=window_end]
             .iter()
             .rposition(|&reachable| reachable)
             .map(|offset| offset + 2)
@@ -220,7 +230,7 @@ impl<'a> Lookup<'a> {
                 while consumed <= last_end && !rows.is_empty() && probes > 0 && terminals > 0 {
                     probes -= 1;
                     let terminal = rows.partition_point(|row| row.spelling.len() == depth);
-                    if consumed >= 2 && depth >= 2 && exact_suffixes[start + consumed] {
+                    if consumed >= 2 && depth >= 2 && correction_suffixes[start + consumed] {
                         let offsets = if terminal > MAX_ROWS_PER_SPELLING {
                             self.correction_order
                                 .as_ref()

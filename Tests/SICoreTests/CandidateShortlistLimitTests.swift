@@ -2,9 +2,9 @@ import Testing
 @testable import SICore
 
 struct CandidateShortlistLimitTests {
-    @Test func statisticalLeadersStaySelectableInPresentationOrder() {
+    @Test func statisticalLeadersDoNotBypassTheRankedHead() {
         let head = (0..<4).map {
-            InputCandidate(text: "Completion \($0)", language: .english, score: -40 - $0,
+            InputCandidate(text: "C\($0)", language: .english, score: -40 - $0,
                            hasCompletion: true, lexicalTokenCount: 2)
                 .withPresentationScore(10 - Double($0), remembered: false, statisticalScore: -40 - Double($0))
         }
@@ -19,17 +19,17 @@ struct CandidateShortlistLimitTests {
             .withPresentationScore(25, remembered: false, statisticalScore: -25)
         let literal = InputCandidate(text: "xiandingge", language: nil, score: 0)
         #expect(CandidateShortlist.candidates(from: head + [lower, second, first, literal])
-            == head + [second, first, literal])
+            == head + [literal])
     }
 
-    @Test func protectedWordsCountTowardTheOrdinaryWordBudget() {
+    @Test func wordBudgetUsesIncomingOrderWithoutStatisticalReservations() {
         let words = (0..<12).map {
             InputCandidate(text: "Word \($0)", language: .english, score: $0,
                            lexicalTokenCount: 1)
                 .withPresentationScore(Double($0), remembered: false, statisticalScore: Double($0))
         }
         let literal = InputCandidate(text: "source", language: nil, score: 0)
-        let expected = Array(words.prefix(7)) + Array(words.suffix(2)) + [literal]
+        let expected = Array(words.prefix(9)) + [literal]
         #expect(CandidateShortlist.candidates(from: words + [literal]) == expected)
     }
 
@@ -53,7 +53,7 @@ struct CandidateShortlistLimitTests {
     @Test(arguments: InputLanguage.allCases)
     func singleEntryCompletionsShareTheConstructedHead(language: InputLanguage) {
         let completions = (0..<7).map {
-            InputCandidate(text: "Completion \($0)", language: language, score: 100 - $0,
+            InputCandidate(text: "C\($0)", language: language, score: 100 - $0,
                            hasCompletion: true, lexicalTokenCount: 1)
         }
         let word = InputCandidate(text: "Exact", language: language, score: 110, lexicalTokenCount: 1)
@@ -79,9 +79,23 @@ struct CandidateShortlistLimitTests {
         #expect(CandidateShortlist.candidates(from: expected) == expected)
     }
 
+    @Test(arguments: [5, 6, 7, 8, 9, 13])
+    func sentenceBudgetUsesOutputLengthForWholePrefixAndCompletion(length: Int) {
+        let candidates = (0..<6).map { index in
+            InputCandidate(text: String(repeating: "字", count: length - 1) + String(index),
+                           language: .simplifiedChinese, score: 100 - index * 100,
+                           consumedInputCount: index == 2 ? 3 : nil,
+                           hasCompletion: index == 1, lexicalTokenCount: 2)
+        }
+        let literal = InputCandidate(text: "original", language: nil, score: 0)
+        let limit = length < 6 ? 4 : length == 6 ? 3 : length < 9 ? 2 : 1
+        #expect(CandidateShortlist.candidates(from: candidates + [literal]) == Array(candidates.prefix(limit)) + [literal])
+        #expect(candidates.count == 6)
+    }
+
     @Test func singleCharacterCompletionCannotBypassTheConstructedLimit() {
         let head = (0..<4).map {
-            InputCandidate(text: "Sentence \($0)", language: .english, score: 100 - $0, lexicalTokenCount: 2)
+            InputCandidate(text: "S\($0)", language: .english, score: 100 - $0, lexicalTokenCount: 2)
         }
         let completion = InputCandidate(text: "字", language: .simplifiedChinese, score: 90,
                                         hasCompletion: true, lexicalTokenCount: 1)

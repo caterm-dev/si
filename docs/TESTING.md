@@ -106,6 +106,25 @@ The bundled dictionary has `找` (`zhao`), `几处` (`ji'chu`) and `句子`
 
 ### Pinyin correction evaluation
 
+`cargo test --locked -p si-engine --test conversion` includes earlier-word
+correction followed by an incomplete final word, full/preview continuation,
+ordinary-result preservation, dense context-conditioned completion pools,
+completion confidence rejection, and atomic umlaut/explicit-separator spans.
+Corrected completions must preserve the single-edit marker and raw consumption,
+have no automatic-confirmation evidence or spelling-preference reward, and leave
+literal/default acceptance available. Malformed separators and non-Pinyin input
+must not admit the new continuation.
+
+With the paired production resources, compare
+`wobuzhdaonishibushiyige`, `wobuzhdaonishibushiyigex`,
+`wobuzhdaonishibushiyigexi` and `wobuzhdaonishibushiyigexin` through
+`si-cli candidates --pinyin-correction on --list window`. The earlier
+`我不知道你是不是一个` stem should remain available through the incomplete
+tail; `xi` can still favor another valid final word. On an intentionally installed
+build, verify incremental typing/deletion, correction badges, Space/number/mouse
+acceptance, Return preserving the raw misspelling, Escape, focus changes and
+disabled correction. A CLI reproduction does not establish live-host behavior.
+
 Run the CLI with the same lexicon and paired grams that will be evaluated.
 
 ```sh
@@ -517,11 +536,23 @@ Run `cargo test --locked -p si-engine --test presentation`,
 merge/shortlist API, malformed ABI input and CLI `--list window` behavior.
 Run `./scripts/test.sh --filter 'RustCandidatePresentationTests|CandidateEngineTests|CandidateShortlistLimitTests|AutomaticConfirmationTests|CandidateSelectionTests|CandidateViewTests|WindowRankingRegressionTests'`
 for Swift translation, exact Unicode/NUL bytes, original source spans, model-independent
-statistical leaders, pins, prefixes, shortlisting and existing event/view regressions.
+statistical leader comparison for automatic confirmation, pins, prefixes, shortlisting and existing event/view regressions.
 The full engine result remains available before window shortlisting.
+
+Presentation tests cover the 5/6/7/8/9-character output boundaries, grapheme and
+whitespace handling, a shared whole/prefix/completion/correction budget, removal
+of statistical-leader reservations, preserved word/character/literal choices,
+unchanged full results and absence of promotion from below the original ranked
+head. No word-frequency or contextual-support eligibility metadata is used.
 
 On an intentionally installed build, compare compact/expanded candidates in TextEdit
 and a browser using `wobuzhidaonishibushi`, `heihe`, `lü'se'`, English and mixed input.
+With empty personal state and no preceding text, `wobuzhidaonishibushi` should
+retain at most two constructed candidates. Continue with
+`yigexiaodex`, then type and delete `i` and `e`: the leading long sentence or
+completion should keep the constructed budget at one. Repeat with local model
+ranking on/off. Full conversion retains the additional results for inspection.
+
 Exercise Space, digits, mouse selection, paging, exact prefix remainders, Return,
 Escape, focus changes and language/learning settings. Check VoiceOver and both
 appearances. Rust and bridge tests do not establish native host compatibility or

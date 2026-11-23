@@ -76,9 +76,10 @@ pub(super) fn run(
         lattice: (0..=limit).map(|_| Frontier::default()).collect(),
         results: Results::default(),
         correction_floor: f64::NEG_INFINITY,
+        completion_correction_floor: f64::NEG_INFINITY,
         correction_margin,
         correction_context_backoff,
-        exact_suffixes: &[],
+        correction_suffixes: &[],
         preferences: TokenBonuses::new(preferences.tokens),
         path_preferences: PathBonuses::new(preferences.paths, input, limit),
         english_ends,
@@ -125,12 +126,12 @@ pub(super) fn run(
         }
     }
     correction &= -MIN_CORRECTION_BITS > search.correction_floor;
-    let exact_suffixes = if correction {
-        lookup.exact_suffixes(input)
+    let correction_suffixes = if correction {
+        lookup.correction_suffixes(input)
     } else {
         Vec::new()
     };
-    search.exact_suffixes = &exact_suffixes;
+    search.correction_suffixes = &correction_suffixes;
     let mut correction_budget = CorrectionBudget::default();
     if correction {
         lookup.visit_corrections(
@@ -138,7 +139,7 @@ pub(super) fn run(
             0,
             limit,
             &mut correction_budget,
-            &exact_suffixes,
+            &correction_suffixes,
             |edge| {
                 search.seed(edge, &mut Completions::default(), false, true);
             },
@@ -175,7 +176,7 @@ pub(super) fn run(
                 start,
                 limit,
                 &mut correction_budget,
-                &exact_suffixes,
+                &correction_suffixes,
                 |edge| {
                     search.extend(start, &frontier, edge, None);
                 },
@@ -194,7 +195,11 @@ pub(super) fn run(
             }
         }
     }
-    search.results.ranked(search.correction_floor, reranking)
+    search.results.ranked(
+        search.correction_floor,
+        search.completion_correction_floor,
+        reranking,
+    )
 }
 
 fn correction_context(adjustment: Scores, backoff: bool) -> Scores {
@@ -265,9 +270,10 @@ struct Search<'input, 'model, 'data, 'preferences> {
     lattice: Vec<Frontier>,
     results: Results,
     correction_floor: f64,
+    completion_correction_floor: f64,
     correction_margin: Option<f64>,
     correction_context_backoff: bool,
-    exact_suffixes: &'input [bool],
+    correction_suffixes: &'input [bool],
     preferences: TokenBonuses<'preferences>,
     path_preferences: PathBonuses<'preferences>,
     english_ends: Vec<usize>,
@@ -475,6 +481,16 @@ impl Search<'_, '_, '_, '_> {
             return;
         }
         let effective_score = score.personalized + direct_adjustment;
+        if let Some(margin) = self.correction_margin
+            && !corrected
+            && !personal
+            && edge.end == self.input.len()
+            && edge.missing > 0
+        {
+            let unconditioned = effective_score - context_adjustment.personalized.min(0.0);
+            self.completion_correction_floor =
+                self.completion_correction_floor.max(unconditioned + margin);
+        }
         if corrected && effective_score <= self.correction_floor {
             return;
         }
@@ -663,11 +679,13 @@ impl Search<'_, '_, '_, '_> {
         if completions.is_empty() {
             return;
         }
+        // A corrected prefix may have different gram history from every ordinary
+        // path. Its completion probabilities must be covered by the upper bound.
         let bounds = self.scoring.completion_bounds(
             frontier
                 .beams()
                 .flat_map(|(_, beam)| beam.paths.iter())
-                .filter(|path| !path.corrected)
+                .filter(|path| !path.corrected || language == Language::Chinese)
                 .map(|path| path.history),
         );
         let mut bounded: Vec<_> = completions
@@ -712,7 +730,11 @@ impl Search<'_, '_, '_, '_> {
         frontier: &Frontier,
         language: Language,
     ) -> Option<CompletionPrefixes> {
-        if !self.preferences.0.is_empty() || self.path_preferences.could_adjust(self.limit) {
+        // Ordinary-prefix masks/floors do not describe the separate correction beam.
+        if (language == Language::Chinese && !frontier.corrected.paths.is_empty())
+            || !self.preferences.0.is_empty()
+            || self.path_preferences.could_adjust(self.limit)
+        {
             return None;
         }
         let terminal = &self.lattice[self.limit];
@@ -804,14 +826,14 @@ impl Search<'_, '_, '_, '_> {
         } else {
             self.preferences.get(edge, self.input, start, &surface) * (edge.end - start) as f64
         };
-        let exact_chinese_continuation = language == Language::Chinese
+        let correction_continuation = language == Language::Chinese
             && !personal
             && !edge.word.verbatim
             && !edge.is_abbreviated()
-            && edge.missing == 0
-            && self.exact_suffixes.get(edge.end) == Some(&true);
+            && (edge.missing == 0 && self.correction_suffixes.get(edge.end) == Some(&true)
+                || terminal && edge.missing > 0);
         for (source, (lane, beam)) in frontier.beams().enumerate() {
-            if std::ptr::eq(beam, &frontier.corrected) && !exact_chinese_continuation {
+            if std::ptr::eq(beam, &frontier.corrected) && !correction_continuation {
                 continue;
             }
             if edge_is_corrected
@@ -844,7 +866,7 @@ impl Search<'_, '_, '_, '_> {
                         || path.personal
                         || path.verbatim
                         || path.abbreviated
-                        || !exact_chinese_continuation)
+                        || !correction_continuation)
                 {
                     continue;
                 }
@@ -887,7 +909,8 @@ impl Search<'_, '_, '_, '_> {
                     && !corrected
                     && lane == Lane::Personalized
                     && self.path_preferences.could_adjust(edge.end);
-                if let Some(upper) = pruning.as_ref().map(|pruning| pruning.upper)
+                if !corrected
+                    && let Some(upper) = pruning.as_ref().map(|pruning| pruning.upper)
                     && !has_path_preferences
                     && !self.lattice[edge.end]
                         .target(lane, mask, private)
@@ -984,7 +1007,19 @@ impl Search<'_, '_, '_, '_> {
                 let abbreviated = path.abbreviated || edge.is_abbreviated();
                 if let Some(margin) = self.correction_margin
                     && terminal
-                    && !self.exact_suffixes.is_empty()
+                    && !corrected
+                    && !private
+                    && edge.missing > 0
+                {
+                    let effective_score =
+                        score.personalized + context_adjustment.personalized + adjustment;
+                    let unconditioned = effective_score - context_adjustment.personalized.min(0.0);
+                    self.completion_correction_floor =
+                        self.completion_correction_floor.max(unconditioned + margin);
+                }
+                if let Some(margin) = self.correction_margin
+                    && terminal
+                    && !self.correction_suffixes.is_empty()
                     && mask != 3
                     && !corrected
                     && !private

@@ -5,7 +5,7 @@ import SICore
 
 struct UnifiedRankingPresentationTests {
     @MainActor
-    @Test func longCompositionKeepsOnlyFourHypothesesThenSelectableWordsInBothLayouts() throws {
+    @Test func sevenCharacterCompositionKeepsTwoHypothesesThenSelectableWordsInBothLayouts() throws {
         for preview in [true, false] {
             for expanded in [false, true] {
                 var session = InputSession(candidateGeneration: .deferred)
@@ -16,14 +16,14 @@ struct UnifiedRankingPresentationTests {
                 var selection = CandidateSelection()
                 selection.update(session.candidates)
                 selection.setExpanded(expanded)
-                #expect(selection.candidates.prefix(4).map(\.id) == session.candidates.prefix(4).map(\.id))
-                #expect(selection.candidates.prefix(4).allSatisfy { !$0.isPartial && !$0.isMixed && $0.lexicalTokenCount != 1 })
-                let later = selection.candidates.dropFirst(4).filter { !$0.isLiteral }
+                #expect(selection.candidates.prefix(2).map(\.id) == session.candidates.prefix(2).map(\.id))
+                #expect(selection.candidates.prefix(2).allSatisfy { !$0.isPartial && !$0.isMixed && $0.lexicalTokenCount != 1 })
+                let later = selection.candidates.dropFirst(2).filter { !$0.isLiteral }
                 #expect(!later.isEmpty)
                 #expect(later.allSatisfy { $0.lexicalTokenCount == 1 && !$0.isMixed && !$0.hasLiteralSegments })
                 #expect(selection.candidates.last?.isLiteral == true)
                 let wordIndex = try #require(selection.candidates.firstIndex { $0.text == "明天" && $0.isPartial })
-                #expect(wordIndex >= 4)
+                #expect(wordIndex >= 2)
                 selection.move(by: wordIndex)
                 let word = try #require(selection.candidate(number: wordIndex % selection.visiblePageSize + 1))
                 let view = CandidateListView()
@@ -94,9 +94,11 @@ struct UnifiedRankingPresentationTests {
                 selection.update(session.candidates)
                 for expanded in [false, true] {
                     selection.setExpanded(expanded)
-                    let head = session.candidates.filter { !$0.isLiteral }.prefix(4)
+                    // "部分 city" has six nonwhitespace output characters.
+                    let count = input == "bufencity" ? 3 : 4
+                    let head = session.candidates.filter { !$0.isLiteral }.prefix(count)
                     #expect(selection.candidates.contains(mixed) == head.contains(mixed))
-                    #expect(selection.candidates.prefix(4).map(\.id) == head.map(\.id))
+                    #expect(selection.candidates.prefix(count).map(\.id) == head.map(\.id))
                     #expect(selection.candidates.last?.text == input && selection.candidates.last?.isLiteral == true)
                     #expect(result.candidates.contains { $0.language == .english && !$0.isMixed })
                 }
