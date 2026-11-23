@@ -26,7 +26,6 @@ struct EnglishSentenceTests {
         #expect(session.candidates.first { !$0.isPartial }?.text == "I want to build")
         session.resolveCandidates()
         let candidate = try #require(session.candidates.first { $0.text == "I want to build" })
-        #expect(candidate.appendsSpaceOnAcceptance)
         #expect(session.commit(candidate) == "I want to build")
         #expect(session.buffer.isEmpty)
     }

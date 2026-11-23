@@ -38,14 +38,16 @@ struct ReturnFieldLearningTests {
             }, markedRange: { unmarked }, text: text, textWithActualRange: { _ in nil })
         }
         let captured = read { range in
-            #expect(range == NSRange(location: 0, length: 1_024))
+            #expect(range == NSRange(location: 0, length: 2_048))
             current = false
             return field
         }
         #expect(captured == field)
         #expect(!queriedCaret)
         current = true
-        #expect(read { _ in String(repeating: "a", count: 1_025) } == nil)
+        let atLimit = String(repeating: "a", count: 2_048)
+        #expect(read { _ in atLimit } == atLimit)
+        #expect(read { _ in atLimit + "a" } == nil)
         current = false
         let unread = read { _ in
             Issue.record("Text should only be requested from the active client")
@@ -62,7 +64,7 @@ struct ReturnFieldLearningTests {
         let before = ReturnFieldLearning.read(isCurrent: { true }, selection: { view.selectedRange() },
                                              markedRange: { view.markedRange() },
                                              text: { _ in nil }, textWithActualRange: { requested in
-            #expect(requested == NSRange(location: 0, length: 1_024))
+            #expect(requested == NSRange(location: 0, length: 2_048))
             var actual = NSRange(location: NSNotFound, length: 0)
             guard let text = view.attributedSubstring(forProposedRange: requested, actualRange: &actual) else {
                 return nil
@@ -106,7 +108,7 @@ struct ReturnFieldLearningTests {
             let captured = ReturnFieldLearning.read(isCurrent: { true }, selection: { caret },
                                                    markedRange: { NSRange(location: NSNotFound, length: 0) },
                                                    text: { range in
-                if range.length == 1_024 { return nil }
+                if range.length == 2_048 { return nil }
                 #expect(range == NSRange(location: 0, length: caret.location))
                 return text
             }, textWithActualRange: { _ in response })

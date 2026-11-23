@@ -21,8 +21,8 @@ public struct InputHistoryEntry: Equatable, Identifiable, Sendable {
         self.reason = reason
     }
 
-    public init(commit: InputCommit, suffix: String = "", now: Date = .now) {
-        self.init(createdAt: now, input: commit.input, text: commit.text + suffix,
+    public init(commit: InputCommit, prefix: String = "", suffix: String = "", now: Date = .now) {
+        self.init(createdAt: now, input: commit.input, text: prefix + commit.text + suffix,
                   language: commit.candidate?.language, isMixed: commit.candidate?.isMixed == true,
                   reason: commit.reason)
     }

@@ -163,7 +163,7 @@ The former App History completion/draft feature and previous-word pair learning 
 
 ### Sentence learning
 
-Sentence Learning reads up to the first 1,024 UTF-16 units of the active field before a passed-through Return or Command–Return. If the client rejects that range, SI can use the available text from the start of the field to a caret within the same limit. If the readback still contains the original snapshot, SI skips ingestion. If the field is cleared, replaced, loses focus or becomes unreadable, SI learns from the earlier snapshot. This can learn a sentence assembled from individual selections and subsequently edited. Secure and direct input are excluded. Return consumed by an active SI composition submits the remaining spelling to the field. Personal Learning independently uses confirmed candidate selections.
+Sentence Learning reads up to the first 2,048 UTF-16 units of the active field before a passed-through Return or Command–Return. If the client rejects that range, SI can use the available text from the start of the field to a caret within the same limit. If the readback still contains the original snapshot, SI skips ingestion. If the field is cleared, replaced, loses focus or becomes unreadable, SI learns from the earlier snapshot. This can learn a sentence assembled from individual selections and subsequently edited. Secure and direct input are excluded. Return consumed by an active SI composition submits the remaining spelling to the field. Personal Learning independently uses confirmed candidate selections.
 
 SI batches learning text in memory and reuses the Rust ingestion and word discovery behind `si-cli user ingest` and `si-cli user learn`. Only derived words, counts and batch IDs are saved. On upgrade, SI removes the old recent-samples files and keeps the existing derived model. Use **Personal Phrases → Delete All…** to clear the local vocabulary and word grams. See [sentence learning privacy and retention](docs/PRIVACY.md#sentence-learning) and [native checks](docs/TESTING.md#sentence-learning).
 
@@ -306,7 +306,7 @@ keeps its original spelling.
 | --- | --- |
 | Letters | Insert into the English/Pinyin composition at its caret |
 | Apostrophe | Separate Pinyin syllables, e.g. `ni'hao` |
-| Space | Commit the selected candidate; append a space for English, English-ending mixed candidates, or literal input |
+| Space | Commit the selected candidate without adding a trailing space |
 | Return / Enter | Commit the original text without adding a newline |
 | Left / Right | Select the previous/next candidate when collapsed; move columns when expanded |
 | Home / End | Move to the start/end of the composition |
@@ -318,6 +318,15 @@ keeps its original spelling.
 | Punctuation / symbols | Stay editable in the composition by default; optional punctuation confirmation is configurable |
 | Tab | Apply the configured composition-boundary behavior |
 | A shortcut | Commit original spelling and pass the event through |
+
+Space, number and mouse confirmation insert one leading space only at a Chinese–English
+boundary: English after Chinese, or Chinese after English. SI checks the actual
+first character of the submitted text and the adjacent preceding host character,
+including mixed, prefix and explicitly confirmed literal choices. Existing spaces,
+same-language boundaries, punctuation, digits and the beginning of a field are left
+alone. Confirmation never adds a trailing space. Return and shortcuts still submit
+the exact original spelling. Boundary reads are transient and skipped for secure/direct
+input; unsupported hosts submit without guessing a separator.
 
 Outside composition, control keys and punctuation pass through by default. Enable Show punctuation candidates in Settings → Typing to start common punctuation compositions with language-labeled alternatives for enabled languages. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to six numbered choices. Short candidates such as `a` remain visible beside their numbers. Press Down Arrow or click the chevron to expand to five rows of six candidates, showing up to 30 choices at once. The expanded grid is a continuous list. Numbers 1–6 act on the highlighted row, and every visible candidate can be clicked. Each expanded column is sized for its widest visible candidate, including its number and source symbol; the window grows to show complete text within the available screen width. All rows align their numbers and text with those shared columns. The compact strip also sizes cells to their full text. Narrow screens shrink the columns to fit, with full text retained in tooltips and accessibility labels. Click the top-right chevron to collapse again. The first Down Arrow expands and preserves the selected candidate. The list stays expanded until you collapse it or end the composition. Both layouts use the same shortlist, including matching language identities and the exact original input. All generated Chinese dictionary characters supported by the candidate font remain pageable. Complete-syllable character lookup and character prefixes are exempt from the bounded word and composed-prefix search; other word, initial/completion and sentence search remains bounded.
 

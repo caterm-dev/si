@@ -31,7 +31,7 @@ struct InputHistorySettingsTests {
         settings.enabled = true
         settings.record(prefix)
         let english = InputCommit(input: "Hello", candidate: nil, reason: .literal)
-        settings.record(english, suffix: " ")
+        settings.record(english, prefix: " ")
         settings.record(InputCommit(input: "", candidate: nil, reason: .literal))
         secure = true
         settings.record(InputCommit(input: "private", candidate: nil, reason: .literal))
@@ -43,7 +43,7 @@ struct InputHistorySettingsTests {
         await settings.flush()
         let page = try await store.page()
         #expect(page.entries.count == 2)
-        #expect(page.entries[0].input == "Hello" && page.entries[0].text == "Hello ")
+        #expect(page.entries[0].input == "Hello" && page.entries[0].text == " Hello")
         #expect(page.entries[1].input == "lu:se'" && page.entries[1].text == "绿色")
         #expect(!page.entries.contains { $0.input.contains("hao") })
         let restarted = InputHistorySettings(defaults: defaults, store: store, allowsRecording: { true })

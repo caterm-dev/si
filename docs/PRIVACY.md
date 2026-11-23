@@ -15,6 +15,13 @@ memory for conversion and are never logged, saved, sent to a service or used as
 training data by this path. AI Completion has separate
 triggers and data flows described below.
 
+On Space, number or mouse confirmation, SI may also inspect at most four UTF-16
+units before the marked spelling to separate Chinese and English at the insertion
+boundary. It validates the current marked spelling and selection and skips
+secure/direct input. These boundary snippets stay transient and are not logged,
+recorded, used for learning or sent to a service. Independently enabled Input
+History records only the actual submission, including a leading space SI adds.
+
 The optional Local model ranking switch also uses a short suffix of the
 already available preceding text and a bounded pool of current candidates.
 Its on-device scores and inputs stay transient. Secure and direct input skip
@@ -62,7 +69,7 @@ New writes use vocabulary-only schema 4. The archive has a 64 MiB limit, owner-o
 
 ### Sentence learning
 
-Sentence Learning uses up to the first 1,024 UTF-16 units exposed by the active InputMethodKit text client around a passed-through Return or Command–Return. It can fall back to available text before the caret within that limit. That range may include existing, edited or pasted text. The original snapshot becomes one learning observation if the later text no longer contains it, the field loses focus or the client is no longer readable. Secure and direct-input contexts are excluded. Snapshots are local and transient.
+Sentence Learning uses up to the first 2,048 UTF-16 units exposed by the active InputMethodKit text client around a passed-through Return or Command–Return. It can fall back to available text before the caret within that limit. That range may include existing, edited or pasted text. The original snapshot becomes one learning observation if the later text no longer contains it, the field loses focus or the client is no longer readable. Secure and direct-input contexts are excluded. Snapshots are local and transient.
 
 The engine segments the queued text and updates the owner-only, unencrypted `SI/Personalization/model.si-user` profile under Application Support. It saves derived words, word frequencies, word grams and opaque batch IDs. For recognized web addresses, the learned word is the host and any explicit HTTP(S) scheme. Captured text is held in memory until processed and discarded after the batch succeeds. Failed batches can be retried while SI is running. Normal termination flushes pending work when storage is available. Opening a valid profile removes the retired recent-samples files without decoding them. Existing derived statistics are retained.
 

@@ -14,7 +14,6 @@ struct PunctuationCandidateTests {
             #expect(full.count == 1 && full.first?.text == input && full.first?.isLiteral == true)
             #expect(full.allSatisfy { !$0.isPunctuation && $0.punctuationLanguage == nil })
             #expect(preview == full)
-            #expect(full.first?.appendsSpaceOnAcceptance == true)
         }
     }
 
@@ -51,7 +50,6 @@ struct PunctuationCandidateTests {
             #expect(Set(result.map(\.id)).count == result.count)
             #expect(result == engine.candidates(for: input, languages: languages))
             for candidate in result {
-                #expect(!candidate.appendsSpaceOnAcceptance)
                 #expect(!candidate.canLearn)
                 #expect(CandidateContext(candidate: candidate) == nil)
             }
@@ -77,7 +75,7 @@ struct PunctuationCandidateTests {
         let engine = CandidateEngine(providers: [PunctuationWordFixture()], punctuationCandidatesEnabled: true)
         let result = engine.candidates(for: "nihao,", languages: languages)
         #expect(result.map(\.text) == ["你好,", "你好，", "你好、", "nihao,"])
-        #expect(result.dropLast().allSatisfy { !$0.isPartial && !$0.canLearn && !$0.appendsSpaceOnAcceptance })
+        #expect(result.dropLast().allSatisfy { !$0.isPartial && !$0.canLearn && $0.isPunctuation })
         #expect(result[0].language == .simplifiedChinese && result[0].punctuationLanguage == .english)
         #expect(result[1].language == .simplifiedChinese && result[1].punctuationLanguage == .simplifiedChinese)
         #expect(result[0].id != result[1].id)

@@ -81,10 +81,10 @@ final class InputHistorySettings {
         await start()
     }
 
-    func record(_ commit: InputCommit, suffix: String = "", expectedGeneration: UInt64? = nil, now: Date = .now) {
+    func record(_ commit: InputCommit, prefix: String = "", suffix: String = "", expectedGeneration: UInt64? = nil, now: Date = .now) {
         guard canRecord, expectedGeneration == nil || expectedGeneration == generation,
-              !commit.input.isEmpty, !(commit.text + suffix).isEmpty else { return }
-        enqueueEntry(InputHistoryEntry(commit: commit, suffix: suffix, now: now))
+              !commit.input.isEmpty, !(prefix + commit.text + suffix).isEmpty else { return }
+        enqueueEntry(InputHistoryEntry(commit: commit, prefix: prefix, suffix: suffix, now: now))
     }
 
     private func enqueueEntry(_ entry: InputHistoryEntry) {

@@ -33,14 +33,13 @@ struct MixedInputTests {
         #expect(candidates.first { !$0.isPartial }?.isMixed == false)
     }
 
-    @Test func spacesFollowTheFinalPartOfTheCandidate() throws {
+    @Test func mixedLabelsKeepBothLanguagesInEitherDirection() throws {
         let mixedEndingEnglish = try #require(engine.candidates(for: "nihaoworld", languages: languages)
             .first { $0.text == "你好 world" })
         let mixedEndingChinese = try #require(engine.candidates(for: "hellozhongwen", languages: languages)
             .first { $0.text == "hello 中文" })
-        #expect(mixedEndingEnglish.appendsSpaceOnAcceptance)
-        #expect(!mixedEndingChinese.appendsSpaceOnAcceptance)
         #expect(mixedEndingEnglish.label == "Chinese + English")
+        #expect(mixedEndingChinese.label == "Chinese + English")
     }
 
     @Test func candidateIdentitiesRemainUniqueAndRepeatable() {

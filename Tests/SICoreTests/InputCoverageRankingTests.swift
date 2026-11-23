@@ -95,7 +95,7 @@ struct InputCoverageRankingTests {
             #expect(session.presentationScore(for: punctuated) == word.rankingScore + 25)
             let commit = session.commitResult(punctuated, reason: .explicitSelection)
             #expect(commit.text == "你好，" && commit.input == "nihao," && session.buffer.isEmpty)
-            #expect(commit.candidate?.canLearn == false && commit.candidate?.appendsSpaceOnAcceptance == false)
+            #expect(commit.candidate?.canLearn == false)
         }
     }
 }

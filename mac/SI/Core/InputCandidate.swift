@@ -60,11 +60,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
             : isUserPhrase ? "Personal · \(languageLabel)" : languageLabel
         return consumedInputCount.map { "First \($0) characters · \(source)" } ?? source
     }
-    public var appendsSpaceOnAcceptance: Bool {
-        !isPunctuation
-            && (isLiteral || language == .english || (isMixed && text.last?.isASCII == true))
-    }
-
     public init(text: String, language: InputLanguage?, score: Int, isMixed: Bool = false, isUserPhrase: Bool = false,
                 hasLiteralSegments: Bool = false, consumedInputCount: Int? = nil, rankingScore: Double? = nil,
                 hasCompletion: Bool = false, tokenLearningBonus: Double = 0, isPreferred: Bool = false,

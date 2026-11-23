@@ -181,6 +181,21 @@ office app. Include ordinary and secure fields, using dummy input.
 - Type `iwanttobuild`, `IWANTTOBUILD`, `woxiangyaodeploy` and `MySwiftType`.
   Inspect English word spacing, case and mixed output. Return and shortcuts
   must preserve the exact pending spelling. Escape clears the composition.
+- After synthetic `中文`, confirm English `hello` using Space, a number and a
+  mouse click; expect `中文 hello` without a trailing space in all three cases.
+  After `hello`, confirm Chinese `中文`; expect `hello 中文`. Repeat after an
+  existing space, full-width space, tab/newline, emoji, punctuation, digit and a
+  supplementary Han character. Only adjacent Chinese/English boundaries should
+  gain a separator. Check same-language boundaries and field starts remain
+  unchanged. Repeat with the composition caret in the middle, mixed candidates,
+  prefix remainders and explicit literal choices. Return/shortcuts must keep exact
+  spelling, and punctuation candidates receive no decoration. Recheck focus
+  changes, secure/direct input and hosts without surrounding-text support. With
+  Input History independently enabled, only SI-inserted spaces belong to submitted
+  output; existing host text is not recorded. Automated `CandidateSpacingTests`,
+  `CandidateBoundaryReaderTests` and `InputHistorySettingsTests` cover policy,
+  bounded UTF-16 reads, stale state rejection and submitted bytes; they do not
+  establish native host compatibility.
 - Type `youshihou` and verify dictionary completions such as `有时候是`
   appear only if ranked in the leading four choices. Check that at most nine
   exact word choices remain, while Chinese dictionary characters and exact
@@ -427,7 +442,7 @@ Use a dedicated synthetic profile and an intentionally installed build; never re
 
 ### Sentence learning
 
-`ReturnFieldLearningTests` covers the fixed 1,024-unit request, a native text
+`ReturnFieldLearningTests` covers the fixed 2,048-unit request, a native text
 view clamping the range on both sides of the caret, and the former Sentence
 History path when the client only answers a request ending at the caret.
 

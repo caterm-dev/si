@@ -168,11 +168,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             return true
         case 49: // Space
             guard !session.buffer.isEmpty else { return false }
-            let selected = currentCandidate
-            let commit = session.commitResult(selected, reason: selection.confirmationReason(for: selected))
-            let spacingCandidate = selected?.requiresExplicitSelection == true ? commit.candidate : selected
-            let suffix = commit.remainingInput.isEmpty && spacingCandidate?.appendsSpaceOnAcceptance != false ? " " : ""
-            apply(commit, suffix: suffix, to: client)
+            acceptCandidate(currentCandidate, to: client)
             return true
         case 115, 119: // Home / End
             guard !session.buffer.isEmpty else { session.breakContext(); return false }
@@ -320,8 +316,35 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             $0.id == candidate.id && $0.isPinyinCorrection == candidate.isPinyinCorrection
                 && $0.text.utf8.elementsEqual(candidate.text.utf8)
         }) else { update(client); return }
-        let commit = session.commitResult(current, reason: selection.confirmationReason(for: current))
-        apply(commit, to: client)
+        acceptCandidate(current, to: client)
+    }
+
+    private func acceptCandidate(_ candidate: InputCandidate?, to client: any IMKTextInput) {
+        let revision = presentationRevision
+        let keyGeneration = keyEventGeneration
+        let contextGeneration = sessionContextGeneration
+        let languages = LanguageSettings.shared
+        let languageGeneration = languages.configurationGeneration
+        let secure = IsSecureEventInputEnabled()
+        func unchanged() -> Bool {
+            revision == presentationRevision && keyGeneration == keyEventGeneration
+                && contextGeneration == sessionContextGeneration && candidatePanel.ownsPresentation
+                && (memoryClient as AnyObject?) === (client as AnyObject)
+                && languageGeneration == languages.configurationGeneration
+                && !languages.usesPassthrough(in: applicationID) && secure == IsSecureEventInputEnabled()
+        }
+        func isCurrent() -> Bool {
+            unchanged() && (self.client() as AnyObject?) === (client as AnyObject) && unchanged()
+        }
+        let presentation = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
+        let boundary = secure ? nil : CandidateBoundaryReader.read(
+            markedText: presentation.text, cursorUTF16Offset: presentation.cursorUTF16Offset,
+            isCurrent: isCurrent, selection: { client.selectedRange() }, markedRange: { client.markedRange() },
+            text: { client.attributedSubstring(from: $0)?.string })
+        guard isCurrent() else { return }
+        let commit = session.commitResult(candidate, reason: selection.confirmationReason(for: candidate))
+        let spacing = CandidateSpacing(commit: commit, before: boundary)
+        apply(commit, prefix: spacing.prefix, to: client)
     }
 
     /// False means this client uses direct input. Check at every delayed commit boundary too.
@@ -857,7 +880,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         return true
     }
 
-    private func apply(_ commit: InputCommit, suffix: String = "", to client: any IMKTextInput) {
+    private func apply(_ commit: InputCommit, prefix: String = "", suffix: String = "", to client: any IMKTextInput) {
         let app = applicationID
         let memory = ApplicationMemorySettings.shared
         let generation = memory.generation
@@ -869,13 +892,13 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let history = InputHistorySettings.shared
         let historyGeneration = history.generation
         let recordsHistory = history.canRecord
-        guard insert(commit.text + suffix, into: client) else { return }
+        guard insert(prefix + commit.text + suffix, into: client) else { return }
         guard app == applicationID else { return }
         guard !LanguageSettings.shared.usesPassthrough(in: app) else {
             configureSession(for: client)
             return
         }
-        if recordsHistory { history.record(commit, suffix: suffix, expectedGeneration: historyGeneration) }
+        if recordsHistory { history.record(commit, prefix: prefix, suffix: suffix, expectedGeneration: historyGeneration) }
         if recordsVocabulary,
            (memoryClient as AnyObject?) === (client as AnyObject),
            (self.client() as AnyObject?) === (client as AnyObject), contextGeneration == sessionContextGeneration,

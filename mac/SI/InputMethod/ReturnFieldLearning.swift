@@ -1,7 +1,7 @@
 import AppKit
 
 enum ReturnFieldLearning {
-    private static let fieldLimit = 1_024
+    private static let fieldLimit = 2_048
 
     static func matches(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isRepeat: Bool) -> Bool {
         guard !isRepeat, keyCode == 36 || keyCode == 76 else { return false }
