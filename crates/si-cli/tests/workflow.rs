@@ -191,6 +191,33 @@ fn candidates_stream_queries_with_optional_base_grams_and_user_profile() -> io::
 }
 
 #[test]
+fn window_candidates_use_the_shared_policy_without_truncating_full_results() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    let mut csv = String::from("text,reading,weight\n");
+    for i in 0..15 {
+        csv.push_str(&format!("Word{i},sample,{}\n", 100 - i));
+    }
+    scratch.write("words.csv", &csv)?;
+    scratch.run(&["lexicon", "build", "base.silex", "1", "words.csv"])?;
+    for (list, expected) in [("full", 16), ("window", 10)] {
+        let mut child = scratch
+            .command(&["candidates", "base.silex", "--list", list])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?;
+        child.stdin.take().unwrap().write_all(b"sample\n")?;
+        let output = child.wait_with_output()?;
+        assert!(output.status.success());
+        let stdout = String::from_utf8(output.stdout).map_err(io::Error::other)?;
+        let rows: Vec<_> = stdout.lines().filter(|line| !line.is_empty()).collect();
+        assert_eq!(rows.len(), expected);
+        assert!(rows[0].ends_with("\tWord0"));
+        assert_eq!(*rows.last().unwrap(), "literal\t6\tliteral\t\tsample");
+    }
+    Ok(())
+}
+
+#[test]
 fn candidates_accept_preceding_text_for_pinyin_correction() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(

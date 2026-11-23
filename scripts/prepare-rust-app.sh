@@ -74,3 +74,7 @@ for language in Chinese English; do
         if [[ -f "$notice" ]]; then install -m 644 "$notice" "$resource_dir/Notices/$language/"; fi
     done
 done
+mkdir -p "$resource_dir/Notices/Engine"
+for notice in crates/si-engine/licenses/*.txt; do
+    install -m 644 "$notice" "$resource_dir/Notices/Engine/"
+done

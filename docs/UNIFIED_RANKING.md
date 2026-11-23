@@ -31,8 +31,8 @@ Apostrophes and ü/v/u: spellings keep their original source boundaries.
 
 Rust accepts eligible length-weighted token and exact consumed-spelling
 preferences before pruning. Their maximum contributes up to 32 frequency
-points, and the base search retains alternatives independently. Swift
-applies eligible preferences. The macOS input window uses the contextual
+points, and the base search retains alternatives independently. Swift resolves consented preference records into transient statistical inputs.
+Rust applies final merging, ordering, coverage rewards and shortlisting. The macOS input window uses the contextual
 statistical score. In coverage-adjusted order, the shared core also adds
 five presentation points for each matched ASCII letter, ASCII digit or ü in
 the consumed source. The literal and paths containing unrecognized verbatim
@@ -41,15 +41,15 @@ receive their placement described in [Personal Learning](ARCHITECTURE.md#persona
 
 ## Merge and candidate window
 
-Swift merges by candidate identity, including language, exact output and
-consumed span. Pins have priority, followed by a remembered exact
+`si_engine::presentation` merges by candidate identity, including language,
+canonically equivalent output and consumed span, preserving the winning exact bytes. Pins have priority, followed by a remembered exact
 whole-spelling choice. Ordinary complete results precede prefixes, and
 longer consumed prefix spans precede shorter spans. Within the same span,
 score and then identity determine the order. Nonempty input always retains
 its exact spelling as the final literal candidate.
 
-The window filters unsupported glyphs, then uses a 27-result ordinary
-budget that includes the literal. Generated displayable exact Chinese
+The window uses a 27-result ordinary budget that includes the literal,
+without checking system font coverage. Generated exact Chinese
 dictionary characters remain pageable beyond that budget. Only the first
 four ranked positions can retain ordinary constructed multiword results or
 dictionary completions, including single-entry completions. At most nine
@@ -57,6 +57,9 @@ exact word choices (including prefixes and personal phrases) remain, in
 engine order. Chinese dictionary characters and punctuation do not consume
 the nine-word budget.
 The engine and Settings preview have access to the full result set.
+`si-cli candidates --list window` uses the same Rust policy on its conversion
+results; `--list full` retains the complete results. Platform adapters retain
+window layout, paging, selected indices, labels and event routing.
 See [candidate presentation](ARCHITECTURE.md#candidate-presentation).
 
 ## Verification

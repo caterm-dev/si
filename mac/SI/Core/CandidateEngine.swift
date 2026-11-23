@@ -76,49 +76,18 @@ public struct CandidateEngine: Sendable {
             .filter { !known.contains($0.id) }
         let preferredID = applicationMemory.preferredCandidateID(for: input, languages: languages)
         let inputCount = input.count
-        var best: [String: InputCandidate] = [:]
-        for candidate in entries {
-            guard let language = candidate.language, languages.contains(language), !candidate.text.isEmpty,
-                  !candidate.isMixed || (language == .simplifiedChinese && languages.contains(.english)) else { continue }
-            if let consumed = candidate.consumedInputCount, consumed <= 0 || consumed >= inputCount { continue }
+        let scored = entries.compactMap { candidate -> InputCandidate? in
+            // Session spans count Characters; validate before slicing personal-preference input.
+            if let consumed = candidate.consumedInputCount, consumed <= 0 || consumed >= inputCount { return nil }
+            guard !candidate.isMixed || candidate.language == .simplifiedChinese else { return nil }
             let spelling = candidate.consumedInputCount.map { String(input.prefix($0)) } ?? input
             let statisticalScore = learning.rankingScore(for: candidate, input: spelling, now: now, context: context)
                 + candidate.fieldContextAdjustment
-            let score = statisticalScore + CandidateScoring.inputCoverageBonus(for: candidate, spelling: spelling)
-                + candidate.rerankingBonus
-            let remembered = candidate.canLearn && !candidate.isPartial && candidate.id == preferredID
-            var ranked = candidate.withPresentationScore(score, remembered: remembered,
-                                                         statisticalScore: statisticalScore)
-            if let previous = best[ranked.id] {
-                // Keep the original spelling evidence when both paths give the same output.
-                if previous.isPinyinCorrection != ranked.isPinyinCorrection {
-                    if !ranked.isPinyinCorrection { best[ranked.id] = ranked }
-                    continue
-                }
-                if precedes(previous, ranked, inputCount: inputCount) {
-                    best[ranked.id]?.retainLexicalEvidence(from: ranked)
-                    continue
-                }
-                ranked.retainLexicalEvidence(from: previous)
-            }
-            best[ranked.id] = ranked
+            return candidate.withPresentationScore(0, remembered: candidate.id == preferredID,
+                                                     statisticalScore: statisticalScore)
         }
-        let ordered = usesCoverageAdjustedOrder
-            ? best.values.sorted { precedes($0, $1, inputCount: inputCount) }
-            : best.values.sorted(by: InputCandidate.precedesInRanking)
-        return ordered + [literalCandidate(for: input)]
-    }
-
-    private func precedes(_ left: InputCandidate, _ right: InputCandidate, inputCount: Int) -> Bool {
-        if left.isPreferred != right.isPreferred { return left.isPreferred }
-        if left.isRememberedChoice != right.isRememberedChoice { return left.isRememberedChoice }
-        let leftConsumed = left.consumedInputCount ?? inputCount
-        let rightConsumed = right.consumedInputCount ?? inputCount
-        if leftConsumed != rightConsumed { return leftConsumed > rightConsumed }
-        let leftScore = left.presentationScore ?? left.rankingScore
-        let rightScore = right.presentationScore ?? right.rankingScore
-        if leftScore != rightScore { return leftScore > rightScore }
-        return left.id < right.id
+        return RustCandidatePresentation.merge(scored + [literalCandidate(for: input)], input: input,
+                                               languages: languages, coverageOrder: usesCoverageAdjustedOrder)
     }
 
     func literalCandidate(for input: String) -> InputCandidate {

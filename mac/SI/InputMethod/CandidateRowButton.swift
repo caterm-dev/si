@@ -26,7 +26,7 @@ final class CandidateRowButton: NSButton {
         isBordered = false
         setButtonType(.momentaryChange)
         numberLabel.font = .monospacedDigitSystemFont(ofSize: 10, weight: .medium)
-        candidateLabel.font = CandidateTextSupport.font
+        candidateLabel.font = .systemFont(ofSize: 15)
         detailLabel.font = .systemFont(ofSize: 9)
         for label in [numberLabel, candidateLabel, detailLabel] {
             label.lineBreakMode = .byTruncatingTail

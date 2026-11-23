@@ -30,7 +30,6 @@ struct CandidateSelection {
     private(set) var candidates: [InputCandidate] = []
     private(set) var selectedIndex = 0
     private var firstVisibleRow = 0
-    private var textSupport = CandidateTextSupport()
 
     var selected: InputCandidate? { candidates.indices.contains(selectedIndex) ? candidates[selectedIndex] : nil }
     var row: Int { selectedIndex / Self.pageSize }
@@ -64,18 +63,10 @@ struct CandidateSelection {
     }
 
     mutating func update(_ candidates: [InputCandidate]) {
-        if candidates.isEmpty { textSupport = CandidateTextSupport() }
-        self.candidates = shortlist(candidates)
+        self.candidates = CandidateShortlist.candidates(from: candidates)
         selectedIndex = 0
         firstVisibleRow = 0
         if self.candidates.isEmpty { isExpanded = false }
-    }
-
-    private mutating func shortlist(_ candidates: [InputCandidate]) -> [InputCandidate] {
-        // Filter before allocating shortlist slots and protecting language identities.
-        // Exact original input remains selectable regardless of font coverage.
-        let displayable = candidates.filter { $0.isLiteral || textSupport.canDisplay($0.text) }
-        return CandidateShortlist.candidates(from: displayable)
     }
 
     mutating func setExpanded(_ expanded: Bool) {

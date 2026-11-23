@@ -22,8 +22,8 @@ tokens from the current field. Empty context works at the start of a field.
 The character model's mean log probability per output scalar is converted
 to bits, measured relative to the least likely scored output, weighted by
 0.8, and capped at two bits. Rust adds that reward after statistical
-search and preserves deterministic ties. Swift carries the reward into its
-final ordering and retains the original statistical scores for the shortlist.
+search and preserves deterministic ties. The shared Rust presentation policy carries the reward into final ordering
+and retains the original statistical scores for the shortlist.
 An exact remembered choice retains priority. If the model changes the
 leading whole candidate, that result cannot trigger prefix auto-confirmation.
 
@@ -64,9 +64,9 @@ Explicit pins and remembered whole-input choices have policy priority.
 Complete results precede partial results, and partial results use the
 consumed span when comparing their scores.
 
-The Swift window filters undisplayable glyphs and retains the two highest
-displayable S candidates in their incoming positions. Both remain selectable
-and their incoming ranks determine placement. Spelling corrections, constructed
+The Rust presentation policy shortlists candidates without checking system font coverage
+and retains the two highest S candidates in their incoming positions. Both remain
+selectable and their incoming ranks determine placement. Spelling corrections, constructed
 results and completions normally qualify through the first four ranked choices.
 There are up to 27 ordinary slots and nine ordinary word slots.
 Displayable exact Chinese dictionary characters also remain pageable.

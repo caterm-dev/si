@@ -1,6 +1,6 @@
 //! Frequency-scored segmentation of written text against immutable lexicons.
 
-mod web_url;
+mod addresses;
 
 use std::ops::Range;
 
@@ -153,7 +153,8 @@ impl<'a> Segmenter<'a> {
         self.segment_text(text, true)
     }
 
-    fn segment_text(&self, text: &str, recognize_urls: bool) -> std::vec::IntoIter<Segment> {
+    fn segment_text(&self, text: &str, recognize_addresses: bool) -> std::vec::IntoIter<Segment> {
+        let recognize_email = recognize_addresses && text.as_bytes().contains(&b'@');
         let mut steps = vec![None; text.len() + 1];
         steps[0] = Some(Step {
             score: 0.0,
@@ -181,11 +182,16 @@ impl<'a> Segmenter<'a> {
                 }
             };
             let remaining = &text[start..];
+            let preceding = text.as_bytes()[..start].last().copied();
+            if recognize_email
+                && let Some(length) = addresses::email_prefix_len(remaining, preceding)
+            {
+                offer(length, SegmentKind::NewEnglishWord, self.unknown_score);
+                continue;
+            }
             if first.is_ascii_alphanumeric() {
-                let url = if recognize_urls
-                    && (start == 0 || !matches!(text.as_bytes()[start - 1], b'@' | b'.'))
-                {
-                    web_url::prefix(remaining)
+                let url = if recognize_addresses && !matches!(preceding, Some(b'@' | b'.')) {
+                    addresses::web_prefix(remaining)
                 } else {
                     None
                 };
@@ -198,7 +204,7 @@ impl<'a> Segmenter<'a> {
                         },
                         self.unknown_score,
                     ),
-                    None => self.ascii(remaining, first, recognize_urls),
+                    None => self.ascii(remaining, first, recognize_addresses),
                 };
                 offer(length, kind, score);
             } else if first.is_alphanumeric() {
@@ -260,13 +266,20 @@ impl<'a> Segmenter<'a> {
         matches.next().is_none().then_some(kind)
     }
 
-    fn ascii(&self, text: &str, first: char, recognize_urls: bool) -> (usize, SegmentKind, f64) {
+    fn ascii(
+        &self,
+        text: &str,
+        first: char,
+        recognize_addresses: bool,
+    ) -> (usize, SegmentKind, f64) {
         let mut longest = None;
         self.matches(text, |length, entry| {
-            // A learned domain still needs the URL boundary rules, including inside email text.
-            if recognize_urls
-                && entry.text.contains(['.', ':'])
-                && web_url::prefix(entry.text).is_some()
+            // Previously learned addresses still need the address boundary rules.
+            if recognize_addresses
+                && ((entry.text.contains(['.', ':'])
+                    && addresses::web_prefix(entry.text).is_some())
+                    || (entry.text.contains('@')
+                        && addresses::email_prefix_len(entry.text, None).is_some()))
             {
                 return;
             }

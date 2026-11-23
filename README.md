@@ -63,7 +63,7 @@ sentence to help rank the first word of each candidate. This context stays in
 memory. If the host cannot provide the text, conversion uses the composition
 and local resources as usual.
 
-The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character that the system font can display. The window retains the first two displayable statistical choices in their ranked positions. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Before shortlisting, the window excludes nonliteral candidates containing missing glyphs, including system LastResort placeholders; supported rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices consume only their exact source spelling. For example, choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
+The Rust engine owns final candidate merging, ordering and window shortlisting; Swift owns window layout and client-local selection. The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character. The window retains the first two statistical choices in their ranked positions. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Candidates are shortlisted without checking system font coverage; rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices consume only their exact source spelling. For example, choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
 
 For `cichuxiande`, the single-character prefix `词` has the same lexical score as standalone `ci`, regardless of how `chuxiande` could convert. Choosing `词` leaves that exact remainder editable; the intended full sentence is not guaranteed as the first choice.
 
@@ -77,6 +77,8 @@ from the maintained CSVs. See [engine resources](Data/Engine/README.md)
 for validation, source notices and maintenance.
 
 Candidate positioning queries the host for the start of the marked spelling after the host lays it out. The first usable start position anchors the panel while you type, delete or move the caret within that spelling. A prefix commit anchors the remaining spelling at its new start. The panel stays within the display's visible area and can flip above the anchor when it needs more room. If the host returns no usable geometry, SI uses the last valid location for that text client or the mouse position while awaiting a usable start. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
+
+Inline spelling uses InputMethodKit's thin, unselected underline style, with display-only spaces between decoded syllables or words. The spelling remains a composition until confirmation, so candidates, caret editing and cancellation remain available. Hosts control the final appearance and any suggestions or autocomplete during composition; live behavior in ChatGPT and browser address bars requires verification. See [inline composition checks](docs/TESTING.md#inline-composition-presentation).
 
 ## Input languages
 
@@ -484,6 +486,13 @@ snapshot and `--user .build/si-data/profile.si-user` to include a local user
 model. Both languages are enabled by default. Use `--languages zh-Hans`,
 `--languages en` or `--languages none` to select a different set.
 
+Use `--list window` to apply the same Rust final statistical ordering and
+candidate shortlist policy used by the app. The default `--list full` retains
+the complete conversion results. This selects candidates only; window layout,
+paging and session state remain with each platform. The CLI does not load the
+app's Personal Learning preferences, personal phrases, punctuation options or
+local character reranker.
+
 To inspect full-Pinyin suggestions for missing letters, neighboring-key
 substitutions, and adjacent transpositions, pass `--pinyin-correction on`.
 Use `--pinyin-correction higher-recall` to lower the confidence margin.
@@ -522,8 +531,10 @@ from that profile. The base lexicon helps segment sentences. Its counts and
 the base gram file stay independent.
 
 User ingestion automatically adds English words with lowercase lookup keys
-and preserves their output casing. A web address supplies its domain and
-any explicit HTTP(S) scheme as one user word and one token in word grams.
+and preserves their output casing. It saves a common unquoted ASCII email
+address such as `Reader89+work@example.com` as one word and gram token.
+A web address supplies its domain and any explicit HTTP(S) scheme as one user
+word and one token in word grams.
 For example, `https://example.com/Docs?q=KeepCase#Section` supplies
 `https://example.com`, and `example.com/Docs` supplies `example.com`.
 User info, ports, paths, query strings and fragments are discarded. Isolated

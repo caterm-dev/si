@@ -64,6 +64,9 @@ one-bit cost applies to each additional segment and still allows stronger splits
 User ingestion tests also check that URLs with different paths or query
 strings share a scheme-and-host word ID in grams with the surrounding words.
 The full URL and its discarded pieces must be absent from the learned vocabulary.
+An email address should retain its entire original text under one word ID,
+including when a plus tag is present. An email inside a URL query remains
+part of the discarded query.
 After rebuilding the app, verify these boundaries with synthetic Sentence
 Learning captures and preceding-field context in a representative host.
 Existing saved statistics are retained; use a fresh synthetic profile when
@@ -332,6 +335,24 @@ rm -f "$HOME/Library/Logs/SI/CandidateGeometry.log"
 
 Live host behavior requires login-session verification.
 
+## Inline composition presentation
+
+On an intentionally installed build, compare SI with macOS Pinyin in ChatGPT,
+TextEdit and a browser address bar using synthetic `nikankanzheshi` and `bi`.
+SI should show inline spelling with a thin, unselected underline while its
+candidate panel stays available. Decoded source boundaries may insert
+display-only spaces; Return must submit exact source spelling without those
+spaces. Verify typing, deletion, Left/Right, Home/End, Escape, Space, number and
+mouse confirmation, including a prefix that leaves the remainder marked.
+Repeated candidate updates must not select all spelling or reset the caret.
+Check light/dark appearance, VoiceOver and the host's own font/text color.
+
+Separately record whether each host updates suggestions or autocomplete during
+composition. Underline styling does not guarantee that behavior. Compare the
+same host/version and input against macOS Pinyin; do not infer committed text
+from either an underline or an autocomplete result. Package tests and builds do
+not establish live ChatGPT, browser or other host compatibility.
+
 ## Settings navigation
 
 1. Open **SI Settings…** from the input menu. Confirm **Typing** opens first and shows the language switches and composition controls.
@@ -488,11 +509,29 @@ Use an isolated synthetic `.si-user` profile. Verify Personal Phrases lists the 
 
 Check edited vocabulary in conversion, language filtering and secure/direct-input suppression. Verify **Delete All…** clears entries and word grams after confirmation, while cancel preserves them. Check keyboard focus, VoiceOver and both appearances. Verify unrelated Personal Learning and Input History data separately. Automated storage and bridge tests do not establish native behavior.
 
-## Candidate font coverage
+## Shared Rust presentation policy
 
-Run `./scripts/test.sh --filter 'CandidateTextSupportTests|CandidateSelectionTests|CandidateViewTests'`. Coverage checks system fallback for ordinary/extension Han, combining marks and emoji, rejects a guaranteed-missing noncharacter alone or inside a word, preserves exact literal bytes and language identities, and verifies that missing candidates do not consume shortlist slots. The synthetic `heihe` regression checks provisional/full results, compact/expanded numbering, mouse identities and exact prefix commits against the filtered list. Engine results and public dictionary entries remain unchanged.
+Run `cargo test --locked -p si-engine --test presentation`,
+`cargo test --locked -p si-macos-bridge` and
+`cargo test --locked -p si-cli --test workflow` for the platform-independent
+merge/shortlist API, malformed ABI input and CLI `--list window` behavior.
+Run `./scripts/test.sh --filter 'RustCandidatePresentationTests|CandidateEngineTests|CandidateShortlistLimitTests|AutomaticConfirmationTests|CandidateSelectionTests|CandidateViewTests|WindowRankingRegressionTests'`
+for Swift translation, exact Unicode/NUL bytes, original source spans, model-independent
+statistical leaders, pins, prefixes, shortlisting and existing event/view regressions.
+The full engine result remains available before window shortlisting.
 
-On an intentionally installed build, type `heihe` in TextEdit and a browser field, expand and scroll through candidates with Down and Up, and confirm that missing-glyph boxes are absent while supported rare characters remain selectable. Check Space, numbers, mouse selection, prefix remainders, Return, cancellation and focus changes in light/dark appearances and with VoiceOver. Coverage depends on installed system fallback fonts; no extension block is excluded wholesale. Original literal input remains available even if it contains an unsupported character. Automated Core Text and offscreen view checks do not establish live host or VoiceOver behavior.
+On an intentionally installed build, compare compact/expanded candidates in TextEdit
+and a browser using `wobuzhidaonishibushi`, `heihe`, `lü'se'`, English and mixed input.
+Exercise Space, digits, mouse selection, paging, exact prefix remainders, Return,
+Escape, focus changes and language/learning settings. Check VoiceOver and both
+appearances. Rust and bridge tests do not establish native host compatibility or
+support for an iOS, iPadOS or Linux input-method frontend.
+
+## Candidate content preservation
+
+Run `./scripts/test.sh --filter 'CandidateSelectionContentTests|CandidateSelectionTests|CandidateViewTests'`. Synthetic cases verify that candidate availability does not depend on system font coverage, including a noncharacter alone or inside a candidate, exact literal bytes and distinct language identities. The synthetic `heihe` regression checks provisional/full results, compact/expanded numbering, mouse identities and exact prefix commits against the shared shortlist. The presentation layer does not probe fonts or remove candidates based on glyph support.
+
+On an intentionally installed build, type `heihe` in TextEdit and a browser field, expand and scroll through candidates with Down and Up, and confirm that generated exact Chinese dictionary characters remain selectable. Check Space, numbers, mouse selection, prefix remainders, Return, cancellation and focus changes in light/dark appearances and with VoiceOver. Labels use normal system font fallback. Automated selection and offscreen view checks do not establish live host or VoiceOver behavior.
 
 ## Software update verification
 

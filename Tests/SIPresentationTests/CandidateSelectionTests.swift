@@ -48,11 +48,10 @@ struct CandidateSelectionTests {
         let split = try #require(values.first { $0.text == "里 NG" && $0.isMixed })
         #expect(selection.candidates[zero].inputScore > split.inputScore)
         #expect(!selection.candidates.contains(split))
-        var support = CandidateTextSupport()
-        let displayableCharacters = values.filter {
-            $0.language == .simplifiedChinese && $0.text.count == 1 && support.canDisplay($0.text)
+        let characters = values.filter {
+            $0.language == .simplifiedChinese && $0.text.count == 1
         }
-        #expect(displayableCharacters.allSatisfy { selection.candidates.contains($0) })
+        #expect(characters.allSatisfy { selection.candidates.contains($0) })
         // English completions remain in full results; no language reserves a window slot.
         #expect(values.contains { $0.language == .english })
         #expect(selection.candidates.contains { $0.isLiteral && $0.text == "ling" })

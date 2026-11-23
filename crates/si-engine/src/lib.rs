@@ -3,6 +3,7 @@
 mod conversion;
 mod han;
 mod pinyin;
+pub mod presentation;
 pub mod resources;
 pub mod segmentation;
 

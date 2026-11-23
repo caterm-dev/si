@@ -92,10 +92,11 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         id = identity
     }
 
-    /// A stronger composed derivation must not erase evidence that the same output is one lexical unit.
-    mutating func retainLexicalEvidence(from other: InputCandidate) {
-        if other.lexicalTokenCount == 1 { lexicalTokenCount = 1 }
-        isChineseSentence = isChineseSentence && other.isChineseSentence
+    func withPresentationEvidence(lexicalTokenCount: Int?, chineseSentence: Bool) -> Self {
+        var result = self
+        result.lexicalTokenCount = lexicalTokenCount
+        result.isChineseSentence = chineseSentence
+        return result
     }
 
     func withChineseSentenceOrigin() -> Self {
@@ -112,27 +113,6 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
         result.isRememberedChoice = remembered
         return result
     }
-
-    static func precedesInStatistics(_ left: Self, _ right: Self) -> Bool {
-        precedes(left, right, includesReranking: false)
-    }
-
-    static func precedesInRanking(_ left: Self, _ right: Self) -> Bool {
-        precedes(left, right, includesReranking: true)
-    }
-
-    private static func precedes(_ left: Self, _ right: Self, includesReranking: Bool) -> Bool {
-        if left.isPreferred != right.isPreferred { return left.isPreferred }
-        if left.isRememberedChoice != right.isRememberedChoice { return left.isRememberedChoice }
-        let leftSpan = left.consumedInputCount ?? Int.max
-        let rightSpan = right.consumedInputCount ?? Int.max
-        if leftSpan != rightSpan { return leftSpan > rightSpan }
-        let leftScore = (left.statisticalScore ?? left.rankingScore) + (includesReranking ? left.rerankingBonus : 0)
-        let rightScore = (right.statisticalScore ?? right.rankingScore) + (includesReranking ? right.rerankingBonus : 0)
-        if leftScore != rightScore { return leftScore > rightScore }
-        return left.id < right.id
-    }
-
 
     func withDisplaySourceBoundaries(_ boundaries: [Int]) -> Self {
         var result = self

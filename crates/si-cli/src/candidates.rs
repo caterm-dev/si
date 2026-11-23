@@ -20,6 +20,7 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
     let mut pinyin_correction = None;
     let mut preview = None;
     let mut preceding = None;
+    let mut window = None;
     for [flag, value] in options {
         match flag.to_str()? {
             "--grams" if grams.is_none() => grams = Some(Path::new(value)),
@@ -28,6 +29,13 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
                 languages = Some(parse_languages(value.to_str()?)?)
             }
             "--preceding" if preceding.is_none() => preceding = Some(value.to_str()?),
+            "--list" if window.is_none() => {
+                window = Some(match value.to_str()? {
+                    "full" => false,
+                    "window" => true,
+                    _ => return None,
+                });
+            }
             "--search" if preview.is_none() => {
                 preview = Some(match value.to_str()? {
                     "preview" => true,
@@ -67,8 +75,14 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
                 ConversionPreferences::default(),
                 preceding.unwrap_or_default(),
             );
-            for candidate in rows {
-                write_candidate(&mut output, &candidate, line.len())?;
+            if window.unwrap_or_default() {
+                for index in si_engine::presentation::conversion_window(&line, languages, &rows) {
+                    write_candidate(&mut output, &rows[index], line.len())?;
+                }
+            } else {
+                for candidate in rows {
+                    write_candidate(&mut output, &candidate, line.len())?;
+                }
             }
             writeln!(output)?;
             output.flush()?;

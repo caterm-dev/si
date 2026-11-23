@@ -821,7 +821,7 @@ fn constructed_output_bounds_leave_long_direct_words_and_literal_available() -> 
 }
 
 #[test]
-fn user_ingestion_counts_web_domains_and_discards_url_suffixes() -> io::Result<()> {
+fn user_ingestion_counts_whole_mailboxes_and_only_the_hosts_of_web_urls() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
     add(&mut lexicon, EN, "alpha", "alpha", 20);
@@ -830,9 +830,10 @@ fn user_ingestion_counts_web_domains_and_discards_url_suffixes() -> io::Result<(
     let store = UserModelStore::new(directory.path("addresses.si-user"));
     let domain = "https://Example.test";
     let url = "https://Example.test:8443/Case%20Sensitive?q=KeepCase&lang=zh#Section";
-    let other_url = "https://Example.test/Second?Token=Private";
+    let other_url = "https://Example.test/Second?Token=Hidden@example.test";
     let authenticated_url = "https://AccountOnly:Password@Example.test/Docs";
     let bare = "example.test/路径?q=Value#章节";
+    let mailbox = "_Reader89.Name+work@sub.example.test";
     for batch in ["first", "second"] {
         store.ingest(
             base.lexicon(),
@@ -842,7 +843,7 @@ fn user_ingestion_counts_web_domains_and_discards_url_suffixes() -> io::Result<(
                 Ok(format!("alpha {other_url} 云")),
                 Ok(format!("alpha {authenticated_url} 云")),
                 Ok(format!("({bare}).")),
-                Ok("reader.name@sub.example.test".to_owned()),
+                Ok(format!("alpha {mailbox} 云")),
             ],
         )?;
     }
@@ -852,6 +853,10 @@ fn user_ingestion_counts_web_domains_and_discards_url_suffixes() -> io::Result<(
         .find_reading(EN, b"https://example.test", domain)
         .unwrap();
     assert_eq!(lexicon.word(id).unwrap().count, 6);
+    let mailbox_id = lexicon
+        .find_reading(EN, b"_reader89.name+work@sub.example.test", mailbox)
+        .unwrap();
+    assert_eq!(lexicon.word(mailbox_id).unwrap().count, 2);
     assert_eq!(
         lexicon
             .word(lexicon.find_word("example.test").unwrap())
@@ -871,13 +876,18 @@ fn user_ingestion_counts_web_domains_and_discards_url_suffixes() -> io::Result<(
         "Section",
         "Second",
         "Token",
-        "Private",
+        "Hidden",
+        "Hidden@example.test",
         "AccountOnly",
         "Password",
         "Docs",
         "路径",
         "Value",
         "章节",
+        "_Reader89.Name+work",
+        "Reader",
+        "Name",
+        "work",
         "sub.example.test",
     ] {
         assert_eq!(lexicon.find_word(fragment), None, "{fragment}");
@@ -888,6 +898,9 @@ fn user_ingestion_counts_web_domains_and_discards_url_suffixes() -> io::Result<(
     assert_eq!(grams.count(&[alpha, id]), Some(6));
     assert_eq!(grams.count(&[id, cloud]), Some(6));
     assert_eq!(grams.count(&[alpha, id, cloud]), Some(6));
+    assert_eq!(grams.count(&[alpha, mailbox_id]), Some(2));
+    assert_eq!(grams.count(&[mailbox_id, cloud]), Some(2));
+    assert_eq!(grams.count(&[alpha, mailbox_id, cloud]), Some(2));
     assert_eq!(grams.count(&[alpha, cloud]), None);
     Ok(())
 }

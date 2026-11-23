@@ -646,7 +646,12 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
         let markedSelection = NSRange(location: marked.cursorUTF16Offset, length: 0)
         if markedTextState.shouldSend(marked.text, selection: markedSelection) {
-            client.setMarkedText(marked.text, selectionRange: markedSelection,
+            // Use the system's thin, unselected underline, like native Pinyin.
+            // This is a presentation style; the spelling remains uncommitted.
+            let range = NSRange(location: 0, length: marked.text.utf16.count)
+            let attributes = mark(forStyle: kTSMHiliteConvertedText, at: range) as? [NSAttributedString.Key: Any]
+            let text = NSAttributedString(string: marked.text, attributes: attributes)
+            client.setMarkedText(text, selectionRange: markedSelection,
                                  replacementRange: NSRange(location: NSNotFound, length: 0))
         }
         // A nested key, commit or focus callback supersedes this host update.

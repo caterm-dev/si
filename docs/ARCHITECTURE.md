@@ -16,7 +16,7 @@ uses UTF-16 offsets for AppKit ranges.
 Host key event → SIInputController → client-local InputSession
   → immutable CandidateRequest → synchronous full conversion
   → Rust decoder → ranked lexical candidates and source evidence
-  → local preference and presentation policies
+  → consented preference lookup → Rust final merge and presentation policy
   → revision-checked CandidateResult → AppKit candidate window or commit
 ```
 
@@ -414,13 +414,15 @@ resolve to one lexeme. The same token-based Pinyin lookup disambiguates known
 Han readings.
 The profile allocates its own word IDs and increments only its own counts,
 including for matches found in the base. New English runs preserve case and
-use lowercase lookup keys in index 1. User ingestion recognizes HTTP(S)
-addresses and bare ASCII domains or IPv4 addresses before ordinary ASCII
-segmentation. It consumes the entire address and uses only the host and any
-explicit HTTP(S) scheme as the learned word, with a lowercase ASCII lookup
-key. User info, ports, paths, queries and fragments contribute no vocabulary
-or gram tokens. It uses surrounding text to delimit addresses in prose. Isolated ASCII
-letters are skipped even when present in either lexicon. They end the
+use lowercase lookup keys in index 1. Before ordinary ASCII segmentation, user
+ingestion recognizes common unquoted ASCII mailboxes and uses the full address
+as one token, including digits, dots and plus tags in the local part.
+For HTTP(S) addresses and bare ASCII domains or IPv4 addresses, it consumes
+the entire address and uses only the host and any explicit HTTP(S) scheme as
+the learned word, with a lowercase ASCII lookup key. User info, ports, paths,
+queries and fragments contribute no vocabulary or gram tokens. It uses
+surrounding text to delimit addresses in prose. Isolated ASCII letters are
+skipped even when present in either lexicon. They end the
 word-gram sequence without adding or incrementing user vocabulary. Existing
 entries and counts remain intact. Base paragraph imports retain their English
 review and letter-placeholder handling. A Han character outside both lexicons
@@ -623,7 +625,7 @@ Personal Phrases now displays `SentenceLearningSettings.entries`, copied from th
 
 A bounded spelling-to-record index maintains one latest deliberate choice per normalized spelling. A new correction clears the former choice's selection marker, even when wall-clock timestamps tie, without deleting its aggregate counts or frequency strength. `ApplicationMemorySnapshot.preferredCandidateID` resolves the whole normalized input against enabled languages. The shared engine places this ordinary whole candidate after explicit personal pins and before score-ranked alternatives, leaving all other candidates in their deterministic score order. Prefixes, shorter spellings and longer inputs never gain forced placement. A prefix confirmation can supply the remembered choice only when its consumed spelling is subsequently typed alone. Exact literal input remains explicit and language-aware identity is unchanged. Forgetting a selected entry restores ordinary ranking, without reviving an older selection marker.
 
-`ApplicationMemorySettings` owns default-off global learning consent and one cached immutable snapshot. Learning settings/snapshot/record APIs have no app parameter or exclusion list. The retired `applicationMemory.vocabularyExclusions` key is removed without changing existing learning consent. The controller still reads the actual IMK client's bundle identifier for the independent direct-input rule and focus/reentrancy checks; learned records do not retain it. Disabled, direct-input and secure clients neither record nor use the global profile. Client/settings revisions continue to reject stale candidates, clicks and automatic-confirmation tasks. `CandidateSelection.confirmationReason` compares against the displayed first candidate after font filtering/shortlisting; Space, number, mouse and navigation back to the first candidate stay neutral. First cells on later pages remain nonfirst. Punctuation's safeguards remain separate.
+`ApplicationMemorySettings` owns default-off global learning consent and one cached immutable snapshot. Learning settings/snapshot/record APIs have no app parameter or exclusion list. The retired `applicationMemory.vocabularyExclusions` key is removed without changing existing learning consent. The controller still reads the actual IMK client's bundle identifier for the independent direct-input rule and focus/reentrancy checks; learned records do not retain it. Disabled, direct-input and secure clients neither record nor use the global profile. Client/settings revisions continue to reject stale candidates, clicks and automatic-confirmation tasks. `CandidateSelection.confirmationReason` compares against the displayed first candidate after shortlisting; Space, number, mouse and navigation back to the first candidate stay neutral. First cells on later pages remain nonfirst. Punctuation's safeguards remain separate.
 
 `ApplicationMemoryStore` performs actor-isolated I/O at the existing `SI/Personalization/application-memory-v1.json` path, with vocabulary-only schema 4, a 64 MiB file limit, owner-only permissions, atomic replacement and revision-ordered saves/deletion. Schemas 1–3 migrate atomically, stripping app identifiers/history and merging equal record identities: counts are summed with existing one-million caps, latest usage/base metadata is retained, and strength uses the maximum rather than stacking app bonuses. Schema-1/2 mixed default/correction evidence resets to neutral; schema-3 strength/corrections survive. No old schema supplies an exact-choice marker because it lacks a deliberate-selection timestamp. Age alone no longer invalidates retained records. Malformed/unsupported archives remain untouched; migration write failures propagate and pause loading. The retired `preferences-v1.json` archive is never decoded or imported and keeps its explicit deletion control.
 
@@ -675,15 +677,48 @@ The local installer builds Release by default (`./scripts/install.sh Debug` expl
 
 `MarkedTextState` suppresses repeated host updates when the exact composition bytes and UTF-16 selection have not changed. Full candidate deliveries update the panel without restarting identical host marked text. Edits, caret movement and cancellation still send the required update; commit, deactivation and client changes clear the cache. Identical visible candidate identities retain their row views; unchanged row configurations avoid label/accessibility writes. Changed identities still replace rows so removed controls cannot confirm replacement text. Panel resizing finishes layout before display. These remove redundant refresh paths; automated state/view checks do not prove that a reported transient system window is eliminated.
 
+Inline spelling is sent as an `NSAttributedString` using `IMKInputController.mark(forStyle:at:)` with `kTSMHiliteConvertedText` over the full displayed UTF-16 range. This requests the system's thin, unselected underline instead of relying on a host's default attributes for a plain string. The style name does not confirm or convert the spelling: the existing `setMarkedText` selection, source buffer, display-only segmentation and `insertText` confirmation boundary remain unchanged. SI does not override the host's font, text color or background. Host autocomplete and exact native appearance still require integration checks.
+
 Candidate panels additionally share one weak main-actor visibility owner. Activation or a current key event claims that owner and hides the previous panel; result delivery, timers, mouse callbacks and panel rendering cannot reclaim it. A late old-client deactivation cannot release a new client's owner. This shares only presentation ownership, never composition buffers or selection. The `activateServer:` override uses the existing main-thread IMK callback assumption, checked against the SDK declaration; actual callback ordering remains a native integration check. Per-controller presentation revisions reject work superseded by synchronous reentry during host marked-text, insertion and geometry calls.
 
 After updating marked text and rendering candidate rows, `SIInputController` queues placement with `DispatchQueue.main.async`. It revalidates the client, ownership and presentation revisions at delivery and after host calls. SI probes inline offset zero, as defined by InputMethodKit, and uses the document-relative marked start as a compatibility probe. The first usable line rectangle intersecting a connected display supplies the anchor. `MarkedTextState` retains that rectangle across typing, deletion and caret movement. Commit, including prefix commit, cancellation, and client or focus changes clear the retained start. If the start is unavailable, a weak client-keyed cache supplies the last usable host rectangle, with the mouse location as the next fallback. Later placement can retry the start query until it receives usable geometry. The panel measures the latest rows against the selected display, tries below the anchor, flips above if needed and clamps to its visible frame. The same placement path runs when scrolling, expansion or prediction content changes the panel size.
 
-`CandidateSelection` applies `CandidateTextSupport` before shortlisting results. Core Text shapes each grapheme with the same system font as `CandidateRowButton`, including system fallback; a LastResort run or glyph zero excludes the entire nonliteral candidate. Exact literal input bypasses the filter. A bounded, client-local cache keys coverage by exact UTF-8 grapheme bytes and clears when composition ends; no text is saved or logged. Filtering before shortlist allocation lets supported replacements compete for the same ranked head and ordinary budget. Numbers, Space, keyboard navigation and mouse selection all use the filtered list. The shared engine, dictionary, scores and automatic-confirmation evidence are unchanged; offline quality shortlists do not model machine-specific font coverage.
+`CandidateSelection` passes the complete ranked list through the thin Swift `CandidateShortlist` adapter to `si_engine::presentation::shortlist` without inspecting system font coverage. Candidate availability and shortlist allocation do not depend on installed fonts. Numbers, Space, keyboard navigation and mouse selection use that same shortlist. Labels use the system font and normal platform fallback; rendering does not filter candidate identities or change their exact committed bytes.
 
-`InputCandidate.lexicalTokenCount` carries transient lexical evidence independently of identity, score and commit text. Deduplication preserves single-lexical-unit evidence when a stronger composed derivation shares an identity. `rankingScore`/`inputScore` retain base lexical scores; `InputSession.presentationScore` adds learning/context and the consumed-input coverage reward used by `CandidateEngine.merge`. Keeping coverage outside the decoders leaves same-span terminal/prefix beam selection and automatic-confirmation evidence unchanged. Prefix preferences retain their full capped bonus and never use pending spelling. Punctuation variants embed only the prefix's lexical/preferences score, so coverage is added once during their own merge. Exact personal pins retain their explicit override.
+The public `si_engine::presentation` module owns final merging, canonical identity
+comparison, exact/prefix ordering, pins and remembered-choice precedence, model
+reward combination, coverage rewards, statistical-leader selection and shortlist
+budgets. Its borrowed `PresentationCandidate` metadata is independent of conversion
+resources and platform UI. Calls return input indices and retained lexical evidence;
+output text and confirmation/source boundaries remain in the original candidate.
+No font queries, disk reads or session state are involved. The CLI's `--list window`
+adapts conversion results through the same policy; full results remain available.
 
-`CandidateShortlist` supplies a 27-choice ordinary budget including exact literal input, plus independently pageable generated exact Chinese dictionary characters. The first two displayable statistical choices remain selectable at their incoming positions within the ordinary budget. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices across Chinese, English and mixed candidates. A completion counts as constructed even with one lexical unit. At most nine exact word choices, including exact prefixes and explicit personal phrases, are retained in engine order. Chinese dictionary characters and punctuation do not consume this nine-word budget; mixed/verbatim spans do not qualify as ordinary word choices. Words already ranked in the leading four keep their own positions rather than causing lower sentences to be promoted. Every retained nonliteral candidate keeps engine order, with no language reservation; the literal remains last. Font filtering precedes the budget. Both layouts, number shortcuts and mouse actions use the same client-local shortlist. Base lexical scores, coverage rewards, search bounds, committed bytes and candidate identities are unchanged by this presentation restriction.
+`RustCandidatePresentation` translates Swift candidates through the stateless C ABI.
+Swift still owns consent, stored preference lookup, supplemental personal-vocabulary
+and punctuation generation, exact source text, localization and UI state. The bridge
+converts Swift Character spans to UTF-8 offsets before merging. Shortlist/leader
+comparisons need only consistently ordered source spans. Borrowed strings include
+explicit byte lengths, including embedded NUL; result handles own only indices and
+metadata and are freed after copying. Invalid metadata falls back to supplied literal
+rows in Swift. The app uses statistical ordering plus model rewards; the shared core's
+coverage-adjusted mode remains available. Both modes retain the existing coverage
+comparison when choosing among duplicate derivations.
+
+Identity normalization uses `unicode-normalization` 0.1.25 from
+[unicode-rs](https://github.com/unicode-rs/unicode-normalization), with its locked
+`tinyvec` 1.13.3 dependency from [Lokathor](https://github.com/Lokathor/tinyvec).
+These are small in-process Unicode utilities, distributed here under their
+GPLv3-compatible MIT options. Their upstream MIT notices are preserved under
+`crates/si-engine/licenses/` and packaged in `SIEngine/Notices/Engine/`.
+Cargo builds the published sources directly; there is no generated vocabulary
+or model data. Only complete identity comparison keys are normalized to NFC;
+ASCII/basic CJK keys use the guarded borrowed path. Exact output bytes are
+never normalized, including when combining marks join across token boundaries.
+
+`InputCandidate.lexicalTokenCount` carries transient lexical evidence independently of identity, score and commit text. Deduplication preserves single-lexical-unit evidence when a stronger composed derivation shares an identity. `rankingScore`/`inputScore` retain base lexical scores; Swift resolves eligible learning/context records into transient statistical scores; Rust combines them with model and consumed-input coverage rewards. `InputSession.presentationScore` exposes the returned score or delegates its coverage calculation to Rust. Keeping coverage outside the decoders leaves same-span terminal/prefix beam selection and automatic-confirmation evidence unchanged. Prefix preferences retain their full capped bonus and never use pending spelling. Punctuation variants embed only the prefix's lexical/preferences score, so coverage is added once during their own merge. Exact personal pins retain their explicit override.
+
+The Rust presentation policy supplies a 27-choice ordinary budget including exact literal input, plus independently pageable generated exact Chinese dictionary characters. The first two statistical choices remain selectable at their incoming positions within the ordinary budget. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the first four ranked choices across Chinese, English and mixed candidates. A completion counts as constructed even with one lexical unit. At most nine exact word choices, including exact prefixes and explicit personal phrases, are retained in engine order. Chinese dictionary characters and punctuation do not consume this nine-word budget; mixed/verbatim spans do not qualify as ordinary word choices. Words already ranked in the leading four keep their own positions rather than causing lower sentences to be promoted. Every retained nonliteral candidate keeps engine order, with no language reservation; the literal remains last. Both layouts, number shortcuts and mouse actions use the same client-local shortlist. Base lexical scores, coverage rewards, search bounds, committed bytes and candidate identities are unchanged by this presentation restriction.
 
 The controller consumes navigation and number-selection events while composing. `CandidateSelection.action` maps the first Down Arrow while collapsed to expansion without advancing selection, and otherwise maps event key codes/characters to moves or numbered choices; digit lookup reads the active six-column row. Left/Right selects in the collapsed strip and changes columns when expanded. Expanded Up/Down moves by one row across the entire list and scrolls just enough to keep the active row visible. Page Up/Down moves one row when collapsed or up to five rows when expanded, preserving the column where possible. There is no `IMKCandidates` instance or dependency on its selection-key display, identifiers, or callbacks. Out-of-range row numbers do not commit another candidate. Shortcuts retain literal passthrough, and outside composition these keys pass through. Candidate edits/reset invalidate the previous selection. Mouse buttons return candidate identities and use the same current-candidate validation/learning path as digit keys.
 

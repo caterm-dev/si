@@ -1,5 +1,7 @@
 //! C ABI for the macOS Swift client. Engines are shared immutably during decoding.
 
+mod presentation;
+
 use std::ffi::{CStr, c_char};
 use std::path::Path;
 use std::ptr::{self, NonNull};

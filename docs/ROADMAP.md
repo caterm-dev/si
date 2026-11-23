@@ -6,7 +6,10 @@ SI is currently a development preview. Checked items have implementations; unche
 
 The macOS app uses the Rust decoder and bundles `main.silex` with its
 paired `words.sigram` model. The app uses Rust for
-lexical search and Swift for InputMethodKit and candidate presentation.
+lexical search, final candidate merging, ordering and window shortlisting.
+Swift owns InputMethodKit, client-local session state and candidate-window UI.
+The presentation policy is reusable by future platforms; iOS, iPadOS and Linux
+input-method frontends are not implemented.
 Native host behavior and parity with the earlier Chinese ranking still
 require verification. See [architecture](ARCHITECTURE.md#rust-conversion)
 and [bridge checks](TESTING.md#automated-checks).
@@ -16,6 +19,7 @@ and [bridge checks](TESTING.md#automated-checks).
 - [x] One InputMethodKit input source without internal language modes.
 - [x] Persistent English and Simplified Chinese language preferences.
 - [x] Unified candidate engine with ambiguity preservation and literal fallback.
+- [x] Platform-independent Rust final ordering and shortlist policy shared by the macOS adapter and CLI.
 - [x] Maintained Chinese and English category CSVs derived from pinned upstream data and SI additions.
 - [x] Shared Rust lexicon compiler with explicit integer counts and an optional paired word-gram model.
 - [x] Conservatively group existing Chinese vocabulary into base plus geography, organizations, technology, science, medicine, culture/sports, movie and game without changing effective rows or weights.

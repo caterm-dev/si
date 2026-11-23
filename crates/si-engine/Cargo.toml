@@ -13,3 +13,4 @@ si-gram = { path = "../si-gram" }
 si-lexicon = { path = "../si-lexicon" }
 si-neural = { path = "../si-neural", default-features = false }
 unicode-segmentation = "=1.13.3"
+unicode-normalization = "=0.1.25"
