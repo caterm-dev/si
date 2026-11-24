@@ -69,7 +69,7 @@ def _select(connection, source, archive, config, converter, train_counts, tokeni
                 origin, raw, (dataset, group, upstream_split) = record
                 subcounts = subsources.setdefault(dataset, Counter())
                 subquota = subquotas.get(dataset, 0)
-                if upstream_split not in ('validation', 'test') and subcounts['train_targets'] >= subquota:
+                if quota and upstream_split not in ('validation', 'test') and subcounts['train_targets'] >= subquota:
                     continue
                 split = upstream_split or split_for(source['id'], group, config)
             else:
@@ -129,7 +129,7 @@ def _select(connection, source, archive, config, converter, train_counts, tokeni
                 break
     finally:
         stream.close()
-    if prepared:
+    if subquotas:
         for dataset, limit in subquotas.items():
             kept = subsources.get(dataset, {}).get('train_targets', 0)
             if kept < limit:
@@ -191,7 +191,7 @@ def _load_parent_data(path, config):
 
 
 def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw', parent_data=None,
-            prepared_root=CHINESE / 'prepared/si-corpus'):
+            prepared_root=CHINESE / 'prepared/si-corpus', ancestor_data=()):
     config = load_config(config_path)
     if config['data'].get('train_target_quotas') and parent_data is None:
         raise ValueError('Training target quotas require --parent-data')
@@ -202,12 +202,21 @@ def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw', par
         raise ValueError("Configured corpus source is absent from the source lock")
     quotas = config['data'].get('train_target_quotas', {})
     for name in source_ids:
-        if (name in COLLECTIONS) != isinstance(quotas.get(name), dict):
+        if quotas and (name in COLLECTIONS) != isinstance(quotas.get(name), dict):
             raise ValueError('Prepared dialogue sources require per-subcorpus training quotas: ' + name)
     from opencc import OpenCC
     converter = OpenCC('t2s')
     with new_directory(output) as staged:
         parent_id, tokenizer, parent_splits = (None, None, {}) if parent_data is None else _load_parent_data(parent_data, config)
+        ancestor_ids = []
+        for ancestor in ancestor_data:
+            ancestor_id, ancestor_tokenizer, ancestor_splits = _load_parent_data(ancestor, config)
+            if tokenizer is None or ancestor_tokenizer.digest != tokenizer.digest:
+                raise ValueError('Ancestor data requires the same frozen parent tokenizer')
+            ancestor_ids.append(ancestor_id)
+            for identity, split in ancestor_splits.items():
+                previous = parent_splits.get(identity, split)
+                parent_splits[identity] = split if previous == split else 'conflicting-ancestor-splits'
         sources = [prepared_source(prepared_root, name) if name in COLLECTIONS else
                    (selected[name], verified_archive(selected[name], raw_root)) for name in source_ids]
         connection = sqlite3.connect(staged / 'selection.sqlite')
@@ -262,6 +271,7 @@ def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw', par
             'sources': used, 'source_counts': source_counts, 'splits': split_counts,
             'tokenizer_origin': tokenizer_origin,
             'parent_dataset_id': parent_id,
+            'ancestor_dataset_ids': ancestor_ids,
             'tokenizer_digest': tokenizer.digest,
             'code': {str(path.relative_to(REPO)): file_hash(path) for path in
                      [ROOT / 'prepare.py', ROOT / 'tokenizer.py', ROOT / 'settings.py', ROOT / 'dialogue_data.py',
@@ -284,8 +294,11 @@ if __name__ == '__main__':
     parser.add_argument('--source-lock', type=Path, default=LOCK)
     parser.add_argument('--raw-root', type=Path, default=CHINESE / 'raw')
     parser.add_argument('--parent-data', type=Path, help='Reuse the parent tokenizer and keep exact documents in their original splits')
+    parser.add_argument('--ancestor-data', type=Path, action='append', default=[],
+                        help='Also preserve exact split boundaries from an earlier training dataset')
     parser.add_argument('--prepared-root', type=Path, default=CHINESE / 'prepared/si-corpus',
                         help='Directory containing the verified dialogue and chinese-corpus extracts')
     args = parser.parse_args()
-    result = prepare(args.config, args.output, args.source_lock, args.raw_root, args.parent_data, args.prepared_root)
+    result = prepare(args.config, args.output, args.source_lock, args.raw_root, args.parent_data, args.prepared_root,
+                     args.ancestor_data)
     print(json.dumps({'dataset_id': result['dataset_id'], 'splits': result['splits']}, indent=2))

@@ -19,7 +19,8 @@ const USAGE: &str = "\
 Usage:
   si-cli [--config <si.conf>] <command> ...
   si-cli lexicon build <output.silex> <index> <csv-or-dir> [<index> <csv-or-dir> ...]
-  si-cli lexicon add   <output.silex> <index> <csv-or-dir> [<index> <csv-or-dir> ...]
+  si-cli lexicon add <lexicon.silex> <index> <reading> <text> <count>
+  si-cli lexicon update <lexicon.silex> <index> <reading> <text> <count>
   si-cli lexicon export [--language <zh-Hans|en>] <lexicon.silex> <output.csv>
   si-cli lexicon restore <source.csv> <output.silex>
   si-cli lexicon learn <lexicon.silex> <grams.sigram> [<si.conf>]
@@ -69,16 +70,39 @@ fn run(args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
         [scope, base, options @ ..] if scope == "candidates" => {
             candidates::run(Path::new(base), options)
         }
-        [scope, action, output, inputs @ ..]
-            if scope == "lexicon" && (action == "build" || action == "add") =>
-        {
+        [scope, action, output, inputs @ ..] if scope == "lexicon" && action == "build" => {
             let sources = lexicon_sources(inputs)?;
-            let import = if action == "build" {
-                resources::build_lexicon
-            } else {
-                resources::add_lexicon
-            };
-            Some(import(Path::new(output), &sources).map(print_lexicon))
+            Some(resources::build_lexicon(Path::new(output), &sources).map(print_lexicon))
+        }
+        [scope, action, lexicon, index, reading, text, count]
+            if scope == "lexicon" && (action == "update" || action == "add") =>
+        {
+            let index = IndexId(number(index)?);
+            let reading = reading.to_str()?;
+            let text = text.to_str()?;
+            let count: u64 = number(count)?;
+            if action == "add" {
+                return Some(
+                    resources::add_lexicon_word(
+                        Path::new(lexicon),
+                        index,
+                        reading.as_bytes(),
+                        text,
+                        count,
+                    )
+                    .map(|_| println!("Added word.")),
+                );
+            }
+            Some(
+                resources::update_lexicon_count(
+                    Path::new(lexicon),
+                    index,
+                    reading.as_bytes(),
+                    text,
+                    count,
+                )
+                .map(|()| println!("Updated word frequency to {count}.")),
+            )
         }
         [scope, action, inputs @ ..] if scope == "lexicon" && action == "export" => {
             export_lexicon(inputs)

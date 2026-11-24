@@ -275,7 +275,7 @@ repeated rows with the same text, reading, and lookup index. Different
 readings of the same text receive separate IDs and counts. A zero-weight row
 can add an entry with a count of zero. An empty or whitespace-only reading
 fails the entire import and reports the source file and line.
-Incremental imports append new word IDs and retain every existing ID.
+Single-word additions append new word IDs and retain every existing ID.
 
 Corpus imports stream explicitly selected pre-tokenized UTF-8 files.
 Each nonempty line is a sentence, and whitespace separates tokens.
@@ -285,18 +285,40 @@ an unresolved reading fails the import. Unknown unannotated tokens are
 counted in the summary and break the sequence. No gram crosses an unknown
 token or a line boundary. The pre-tokenized import increments gram counts.
 
-Builds require a new destination. `lexicon add` sums each incoming identity
-across the supplied sources and sets the matching word's count to that
-total. New words are appended and entries absent from those sources stay
-in the dictionary. Corpus add continues to accumulate gram counts. Keep
-source CSVs and tokenized corpora separately for reproducibility. A sidecar lock serializes import
-writes to each destination, and the binary snapshot is replaced only
-after the entire import succeeds. Each dictionary has its own file, such
+Builds require a new destination and sum repeated identities across the
+supplied CSV sources. There is no bulk CSV merge into an existing snapshot.
+Bulk vocabulary and reviewed-reading changes require a fresh build and
+regeneration of paired grams. Corpus add continues to accumulate gram counts. Keep source
+CSVs and tokenized corpora separately for reproducibility. A sidecar lock
+serializes writes to each destination, and binary snapshots are atomically
+replaced after successful processing. Each dictionary has its own file, such
 as `main.silex` or `user.silex`. Pair a gram snapshot with the lexicon that
-assigned its word IDs. Incremental imports preserve existing IDs, so gram
-snapshots remain compatible when words are appended. To remove entries,
-build a fresh lexicon and regenerate its word grams. The new build assigns
-its own word IDs.
+assigned its word IDs. A fresh build assigns its own IDs; existing grams
+must not be reused with that new ID allocation. Full snapshot export/restore
+is the separate lossless workflow for retaining IDs and lookup aliases.
+
+`lexicon update <lexicon.silex> <index> <reading> <text> <count>` uses
+`resources::update_lexicon_count` to set one existing primary identity's
+absolute u64 count, including zero. It resolves the exact text, primary index
+and reading under the snapshot's sidecar write lock. Lookup aliases do not
+identify a different primary entry. A missing identity, invalid CLI arguments
+or pending paragraph publication fails without changing the snapshot. The
+update preserves every word ID, reading, alias and other count, and leaves the
+paired gram file unchanged. Repeating the current count is a no-op. Saving
+uses the existing atomic snapshot replacement; loaded immutable engines need
+to be recreated to observe changes. Source CSVs are not edited, and later
+builds take counts from their source CSVs. The former CSV form of `lexicon add`,
+the `lexicon import` command and the unused batch-update resource API are removed.
+
+`lexicon add <lexicon.silex> <index> <reading> <text> <count>` uses
+`resources::add_lexicon_word` to append one new primary identity to an existing
+snapshot with its exact nonnegative u64 count. The duplicate check runs under
+the same sidecar write lock as insertion; an existing index/reading/text
+identity fails without incrementing or replacing it. Invalid text or reading,
+a missing snapshot or pending paragraph publication also fails without changing
+the snapshot. The new identity receives the next word ID, preserving existing
+entries, aliases and paired grams. Publication is atomic. Source CSVs remain
+unchanged, and loaded engines must be recreated to observe the addition.
 
 [SI configuration](../config/si.conf) selects independent maximum counting
 orders and vocabulary thresholds for base and user resources. Base corpus
@@ -338,8 +360,9 @@ at the boundary of a consecutive ASCII letter run. Unlisted runs of at
 least two letters end the gram sequence. The importer groups them by
 exact capitalization and exports `text,reading,weight` to
 `<grams.sigram>.english.csv`. The reading is a lowercase lookup key and the
-weight is the count from the latest batch. The file can be edited and imported
-explicitly with `lexicon add` in English lookup index `1`. Single ASCII letter tokens and independent runs of
+weight is the count from the latest batch. Reviewed entries can be merged
+into the English source CSVs for a fresh lexicon build at index `1` and
+regeneration of paired grams. Single ASCII letter tokens and independent runs of
 ASCII digits contribute `<char>` and `<num>` to the n-gram stream,
 respectively. Each run of digits contributes one token. Exact compound
 dictionary matches can include letters or digits. Placeholder IDs are
@@ -398,9 +421,10 @@ The review CSV at `<grams.sigram>.review.csv` groups unmatched and unresolved
 segments from the latest batch by exact text and reason. It includes counts,
 readable candidate keys from the lexicon, and each entry's first source path
 and 1-based line number. The final `reading` column is blank on export.
-`lexicon add` imports completed rows from this format and uses their
-aggregate `count` as the reading's absolute weight. It skips blank readings and leaves previously
-counted grams intact. The review contains only the header when there are
+`lexicon build` accepts completed rows from this format as sources for a fresh
+snapshot and uses their aggregate `count` as the reading's initial weight.
+Blank readings are skipped. Existing snapshots stay untouched; the new
+lexicon requires newly generated paired grams. The review contains only the header when there are
 no review items. Unix output permissions are owner-only. Import summaries
 contain aggregate counts.
 
@@ -471,7 +495,8 @@ removes tones and applies SI's umlaut aliases. The learner joins a
 complete reading with apostrophes and adds it to the selected index.
 An incomplete or invalid reading goes to the review CSV with an empty
 `reading` and the original count. The caller can supply the reading and
-import the edited CSV with `lexicon add`.
+incorporate the reviewed entries into the source CSVs for a fresh build and
+newly generated paired grams.
 
 The qualifying raw count from the gram table becomes the new entry's initial
 count. An existing output in the selected index retains its IDs, counts,
@@ -922,7 +947,7 @@ audits remain open. [Dataset and commands](../eval/README.md)
 
 `llm/reranker_small/` implements an independent 7,419,392-parameter causal character-LM baseline: four width-256 pre-norm blocks, four heads, 1,024-wide FFNs, tied embeddings and 256-token context. Its explicit preparation imports verified raw public sources through package-compatible corpus readers, retaining articles/paragraphs, punctuation and English word spaces. Source/group hashes keep Wikipedia pages and conversation turns together; normalized document deduplication and exclusion of cross-split long-paragraph copies reduce exact leakage. Training-only vocabulary, byte fallback and immutable token/window arrays preserve text without joining documents. FP32 training supports strict CPU/MPS resume with RNG/cursor state; CPU is tested bitwise and MPS weights within measured numerical tolerances. Token-loss evaluation, supplied-candidate scoring/benchmarking and inference-only export are separate commands. Bounded validation uses a fixed permutation across source windows. The local 30,000-step checkpoint supports explicit offline Core ML export; the Rust runtime uses the separate FP32 export. Pinyin generation remains an offline experiment. Hard-negative ranking fine-tuning and quantization remain separate work.
 
-The [small reranker chat preset](../llm/reranker_small/README.md#chat-continued-pretraining) sets per-source and per-subcorpus training token quotas, reuses the parent tokenizer and keeps exact parent documents in their original splits. It verifies the local `dialogue` and Chinese Chatbot Corpus extracts, preserves their upstream splits and carries their attribution into the bundle. A new AdamW run starts from compatible model weights and records the parent checkpoint identity. Strict resume still restores optimizer, RNG and cursor within the same run.
+The [small reranker chat preset](../llm/reranker_small/README.md#chat-continued-pretraining) sets per-source and per-subcorpus training token quotas, reuses the parent tokenizer and keeps exact parent documents in their original splits. It verifies the local `dialogue` and Chinese Chatbot Corpus extracts, preserves their upstream splits and carries their attribution into the bundle. A new AdamW run starts from compatible model weights and records the parent checkpoint identity. Strict resume still restores optimizer, RNG and cursor within the same run. The local SI continuation also accepts verified SI conversation extracts, applies full-source selection without token quotas, and checks exact split boundaries against the parent and explicit ancestor datasets.
 
 `llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. The small reranker's FP32 export supports offline character scoring. Representative ranking quality remains unverified.
 

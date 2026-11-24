@@ -18,7 +18,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use si_gram::{BigramModel, GramBuilder, GramModel};
-use si_lexicon::{IndexId, Lexicon};
+use si_lexicon::{IndexId, Lexicon, WordId};
 
 pub use si_gram::{GramOrder, GramSizes};
 
@@ -111,37 +111,62 @@ pub fn build_lexicon(output: &Path, sources: &[LexiconSource]) -> io::Result<Lex
     })
 }
 
-/// Import absolute CSV totals, replacing counts for matching words and appending new IDs.
-pub fn add_lexicon(output: &Path, sources: &[LexiconSource]) -> io::Result<LexiconImport> {
-    require_sources(sources)?;
-    with_destination(output, true, || {
-        let mut lexicon = Lexicon::open(output)?;
-        let mut input = Lexicon::new();
-        let rows = read_lexicon_sources(sources, &mut input)?;
-        let mut changed = false;
-        for word in input.words() {
-            let reading = word.reading.expect("CSV words have primary lookup keys");
-            if let Some(id) = lexicon.find_reading(reading.index, reading.key, word.text) {
-                if lexicon.word(id).expect("valid word ID").count != word.count {
-                    lexicon
-                        .set_count(id, word.count)
-                        .map_err(io::Error::other)?;
-                    changed = true;
-                }
-            } else {
-                lexicon
-                    .add_reading(reading.index, reading.key, word.text, word.count)
-                    .map_err(io::Error::other)?;
-                changed = true;
-            }
+/// Append one new primary word identity. An existing identity is never incremented.
+pub fn add_lexicon_word(
+    path: &Path,
+    index: IndexId,
+    reading: &[u8],
+    text: &str,
+    count: u64,
+) -> io::Result<WordId> {
+    if text.trim().is_empty()
+        || text.chars().any(char::is_control)
+        || reading.is_empty()
+        || !std::str::from_utf8(reading)
+            .is_ok_and(|key| !key.trim().is_empty() && !key.chars().any(char::is_control))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid word text or reading",
+        ));
+    }
+    with_destination(path, true, || {
+        let mut lexicon = Lexicon::open(path)?;
+        if lexicon.find_reading(index, reading, text).is_some() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "word identity already exists in the lexicon",
+            ));
         }
-        if changed {
-            lexicon.save(output)?;
+        let id = lexicon
+            .add_reading(index, reading, text, count)
+            .map_err(io::Error::other)?;
+        lexicon.save(path)?;
+        Ok(id)
+    })
+}
+
+/// Set an existing primary word identity's absolute count, preserving IDs and aliases.
+pub fn update_lexicon_count(
+    path: &Path,
+    index: IndexId,
+    reading: &[u8],
+    text: &str,
+    count: u64,
+) -> io::Result<()> {
+    with_destination(path, true, || {
+        let mut lexicon = Lexicon::open(path)?;
+        let id = lexicon.find_reading(index, reading, text).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "word identity is absent from the lexicon",
+            )
+        })?;
+        if lexicon.word(id).expect("resolved word ID").count != count {
+            lexicon.set_count(id, count).map_err(io::Error::other)?;
+            lexicon.save(path)?;
         }
-        Ok(LexiconImport {
-            rows,
-            words: lexicon.len(),
-        })
+        Ok(())
     })
 }
 

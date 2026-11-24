@@ -46,8 +46,15 @@ before claiming host compatibility.
 
 Run `cargo test --locked -p si-engine --test conversion` for the bounded search
 and `cargo test --locked -p si-cli --test workflow` for snapshot/resource
-commands. The CLI fixtures exercise absolute weight updates, same-source
-reimports, language-filtered CSV snapshots, stable word IDs, paired grams,
+commands. The CLI fixtures exercise single-word `lexicon update` by exact
+primary identity, zero/u64 counts, unchanged other entries/aliases/gram bytes,
+idempotence, missing-identity and invalid-argument rejection, pending-ingest
+protection and concurrent edits. Single-word `lexicon add` fixtures verify
+appended IDs, preserved entries/aliases/gram bytes, duplicate rejection without
+count changes, invalid arguments, missing snapshots, pending-ingest protection
+and concurrent duplicate/distinct additions. The retired CSV `lexicon add`
+syntax and `lexicon import` command are rejected. Fresh-build fixtures exercise
+summed CSV counts, reviewed readings, language-filtered CSV snapshots, stable export/restore IDs, paired grams,
 atomic publication and retries, polyphonic readings, corpus review exports,
 base-only `<s>`/`</s>` fragment grams across line and punctuation boundaries,
 single-token fragments, empty/repeated boundaries and unknown-span gaps,
@@ -634,7 +641,7 @@ publication. Chinese Chatbot Corpus fixtures exercise all eight layouts,
 source splits, attribution and rejection of mismatched Weibo pairs. With the
 local files present, run `corpus/.venv/bin/python corpus/prepare_raw_text.py
 --source chinese-chatbot-corpus` to prepare or verify the bundle. Use the
-separate model guides for training or scoring tests.
+separate model guides for training or scoring tests. The local SI continuation uses `llm/reranker_small/scripts/si.sh` with verified TXT conversation extracts and explicit parent/ancestor split checks. Run `./llm/reranker_small/scripts/check.sh` for its synthetic preparation and resume regressions, then compare checkpoints on the same frozen conversion ranking pools. Keep corpus loss, candidate ranking accuracy and host latency measurements separate.
 
 Run `python3 scripts/evaluate_conversion.py check` to verify the separate
 [decoder recall and fixed-pool ranking datasets](../eval/README.md).

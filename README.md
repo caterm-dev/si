@@ -143,10 +143,23 @@ The Rust resource tools compile and update the snapshots that Xcode packages.
 The packaged source notices and licenses are under
 `mac/SI/Core/Resources/`. Use `./scripts/si-lexicon-build.sh` to build
 a standalone Rust dictionary, or pass a new output path as its argument.
-After editing either language's CSVs, run `./scripts/si-lexicon-import.sh`
-to update the existing `Data/Engine/main.silex`. Matching entries take
-their current CSV totals, new entries receive new IDs, and existing entries
-absent from the CSVs stay in the lexicon.
+For a targeted frequency change in an existing snapshot, use
+`si-cli lexicon update <lexicon.silex> <index> <reading> <text> <count>`.
+For example, `lexicon update Data/Engine/main.silex 0 ba 把 120000000` sets
+only that primary word identity's count. It does not modify the source CSVs,
+other entries, word IDs, lookup aliases or paired word grams. A missing identity
+fails instead of adding a word. The count is absolute, including zero; it is
+not an increment. To append one new primary identity, use
+`si-cli lexicon add <lexicon.silex> <index> <reading> <text> <count>`.
+It assigns a new word ID while preserving existing entries and paired grams.
+An existing index/reading/text identity fails without changing its count.
+Both commands require an existing snapshot and leave source CSVs unchanged.
+The former CSV form of `lexicon add` and `lexicon import` are no longer
+accepted. To incorporate changed CSVs in bulk, build
+a fresh dictionary and regenerate its paired grams. A fresh build takes its
+counts from the supplied sources; it does not retain offline frequency edits
+unless they are reflected in those sources. Rebuild/reinstall the app
+to package an offline snapshot change; already loaded engines do not reload it.
 To remove entries, build a fresh lexicon at a new path and regenerate its
 paired word grams from the selected corpus before using them in the app.
 
@@ -429,18 +442,19 @@ Build and extend local Rust resources with `si-cli` on Rust 1.89 or later.
 The main and user dictionaries each use a separate `.silex` file. The
 example uses lookup index `0` for Pinyin and index `1` for English.
 
-Run these scripts in order for the local base model:
+For an existing paired base model, prepare and ingest new corpus observations,
+then run word discovery:
 
 ```sh
-./scripts/si-lexicon-import.sh
 corpus/.venv/bin/python corpus/prepare_si_raw_text.py
 ./scripts/si-corpus-ingest.sh
 ./scripts/si-lexicon-learn.sh
 ```
 
-The import reads `Data/Chinese` and `Data/English` and updates the existing
-dictionary's weights. For a fresh rebuild, pass a temporary output path to
-`si-lexicon-build.sh`, regenerate matching word grams, then replace both
+The CSV import wrapper has been removed. A targeted `lexicon add` or
+`lexicon update` does not require re-ingesting the corpus. For a fresh rebuild from `Data/Chinese` and
+`Data/English`, pass a temporary output path to `si-lexicon-build.sh`,
+regenerate matching word grams, then replace both
 resource files in `Data/Engine/`. The preparation command extracts
 the three local collections documented in the [corpus guide](corpus/README.md).
 The ingest reads `corpus/chinese/prepared/si-corpus/*/text.txt`, charges one bit
@@ -454,7 +468,8 @@ characters. Ingest and learn both read `config/si.conf`.
 ```sh
 cargo run --release --locked -p si-cli -- lexicon build .build/si-data/fresh.silex 0 Data/Chinese 1 Data/English
 cargo run --release --locked -p si-cli -- lexicon build .build/si-data/user.silex 0 /path/to/user-words.csv
-cargo run --release --locked -p si-cli -- lexicon add Data/Engine/main.silex 0 /path/to/new-words.csv
+cargo run --release --locked -p si-cli -- lexicon update Data/Engine/main.silex 0 ba 把 120000000
+cargo run --release --locked -p si-cli -- lexicon add Data/Engine/main.silex 0 "shi'li'ci" 示例词 1000
 cargo run --release --locked -p si-cli -- corpus build Data/Engine/main.silex Data/Engine/words.sigram /path/to/tokenized.txt
 cargo run --release --locked -p si-cli -- corpus add Data/Engine/main.silex Data/Engine/words.sigram /path/to/new-tokenized.txt
 ```
@@ -464,11 +479,13 @@ has its own word ID and raw count. A blank reading rejects that import.
 Corpus imports take one pre-tokenized UTF-8 sentence per line, with
 whitespace between tokens. An ambiguous token requires an explicit
 reading in `text|index|reading` form, such as `重|0|chong`.
-`build` creates a new snapshot. `add` updates an existing lexicon with
-absolute import totals. Repeated rows for the same index, exact text and
-primary reading are summed within one invocation. Importing the same
-sources again leaves those weights unchanged. Use the whole language
-directory when you want the total across its category CSVs. See the
+`lexicon build` creates a new snapshot from the supplied CSV totals.
+Repeated rows for the same index, exact text and primary reading are summed
+within one invocation. Use the whole language directory when you want the
+total across its category CSVs. `lexicon update` sets one existing identity's
+count and `lexicon add` appends one new identity without rebuilding. Both
+accept nonnegative u64 counts, including zero. CSV imports into an existing
+snapshot are not supported. See the
 [resource workflow](docs/ARCHITECTURE.md#rust-resource-workflow) for ID and
 count semantics.
 
@@ -706,32 +723,21 @@ The importer refreshes `words.sigram.english.csv` with the latest batch's
 unknown English spellings. The CSV uses `text,reading,weight`, preserving
 original capitalization in `text`, using lowercase lookup keys in
 `reading`, and storing occurrence counts in `weight`. Keep the rows you
-want to add and import the edited file into index `1`:
-
-```sh
-cargo run --release --locked -p si-cli -- lexicon add Data/Engine/main.silex 1 Data/Engine/words.sigram.english.csv
-```
-
-Later corpus imports can count the new entries. If an imported reading
-already exists, set `weight` to the intended final count before importing.
+want to add, merge them into your English source CSVs, and build a fresh
+lexicon with matching grams. The English entries use lookup index `1`.
 
 The importer refreshes `words.sigram.review.csv` beside `words.sigram`
 with unmatched characters and unresolved readings from the latest batch.
 It includes occurrence counts, available readings, and the first source
 file and line. Fill the final `reading` column with lowercase, toneless
 Pinyin, using apostrophes between syllables. For an older review CSV, add
-that column after `first_line`. Leave unconfirmed readings blank. Import
-the edited CSV directly into the Pinyin index:
-
-```sh
-cargo run --release --locked -p si-cli -- lexicon add Data/Engine/main.silex 0 Data/Engine/words.sigram.review.csv
-```
-
-Only completed rows are imported. Their counts become the selected
-readings' weights, and matching entries keep their IDs. The import
-updates the lexicon only, so gram counts
-from earlier batches stay as recorded. A batch with no review items
-produces only the header.
+that column after `first_line`. Leave unconfirmed readings blank. Incorporate
+reviewed readings into your Pinyin source CSVs, then build a fresh lexicon and
+regenerate its word grams. `lexicon build` also accepts the seven-column
+review format at index `0`: only completed rows contribute, repeated identities
+sum, and no existing snapshot is modified. Old gram files must remain paired
+with their original lexicon. A batch with no review items produces only the
+header.
 
 Every completed import adds its counts, even if the source was imported
 previously. If an import is interrupted while publishing, rerun the same
@@ -766,7 +772,7 @@ English entries by primary reading index. Both use the same snapshot
 columns and preserve original IDs and aliases of the selected words.
 Use a full export for restoration because filtering can leave gaps in the
 word IDs. Continue editing the three-column source CSVs under `Data/` for
-`lexicon add`.
+fresh `lexicon build` snapshots.
 
 #### Learn Chinese words from a corpus
 
@@ -808,12 +814,10 @@ candidate in a numbered review CSV beside the lexicon. The first
 export for `learned.silex` is `learned.silex.review-1.csv`. Each row
 keeps the original gram count and has an empty `reading` field. Fill the
 correct full Pinyin reading using apostrophes between syllables, and remove
-any rows you do not want to add. Import the reviewed CSV after supplying
-a reading for every remaining row.
-
-```sh
-cargo run --release --locked -p si-cli -- lexicon add .build/si-data/learned.silex 0 .build/si-data/learned.silex.review-1.csv
-```
+any rows you do not want to add. Incorporate the reviewed entries into your
+source CSVs and build a fresh dictionary with matching grams. There is no
+CSV merge command for an existing snapshot. Already stored readings and word
+IDs remain available through full snapshot export/restore.
 
 Later exports use a fresh number so you can keep earlier edits. These
 count and share thresholds can still admit common fragments, so corpus
@@ -832,7 +836,7 @@ The [model workspace](llm/README.md) contains offline Pinyin-to-text
 training, small-model training, supplied-candidate scoring and inference
 export. The [small reranker's chat preset](llm/reranker_small/README.md#chat-continued-pretraining)
 prepares a dialogue-heavy dataset and initializes a new training run from the
-existing character LM. A larger reranker is planned.
+existing character LM. The [local SI continuation](llm/reranker_small/README.md#continue-from-chat-v2-on-the-local-si-collection) prepares the selected SI TXT collection and initializes from the chat-v2 checkpoint. A larger reranker is planned.
 
 The independent [corpus workspace](corpus/README.md) prepares pinned public Chinese conversation, web, Wikipedia and technical-documentation text, with per-source licenses, line origins and integrity reports. The complete-text extractor also accepts explicit local SI TXT and dialogue collections, including the eight-format Chinese Chatbot Corpus importer, converts extracted text with OpenCC t2s, and preserves repeated occurrences; its new outputs use `prepared/raw-text-v2`. Chinese Wikipedia acquisition resolves the latest complete official article dump and verifies its official checksum before recording the pin. It also exports explicit character/word readings from the maintained vocabulary. The separate [English conversation collection](corpus/english/README.md) acquires PersonaChat/ConvAI2, BST, Topical-Chat, Taskmaster 1/2/3, ABCD, SGD and English OASST1 messages, preserving dialogue/turn identity, data terms and upstream splits. Raw and prepared data stay local and outside Git. These preparation stages do not label sentence Pinyin, change existing training defaults or integrate a model into SI.
 

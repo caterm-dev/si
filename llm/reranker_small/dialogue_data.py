@@ -7,7 +7,7 @@ import shutil
 
 from .settings import file_hash, read_json
 
-COLLECTIONS = {'dialogue': 'dialogue', 'chinese-chatbot-corpus': 'chinese-corpus'}
+COLLECTIONS = {'dialogue': 'dialogue', 'chinese-chatbot-corpus': 'chinese-corpus', 'si': 'si'}
 UPSTREAM_SPLITS = {'train': 'train', 'dev': 'validation', 'val': 'validation',
                    'validation': 'validation', 'test': 'test', None: None}
 
@@ -35,6 +35,7 @@ def prepared_source(root, name):
 
 
 def prepared_documents(path, counts):
+    local_si = read_json(path / 'manifest.json')['source']['id'] == 'si'
     with (path / 'text.txt').open(encoding='utf-8') as text, \
             (path / 'documents.jsonl').open(encoding='utf-8') as metadata:
         next_line = 1
@@ -48,6 +49,9 @@ def prepared_documents(path, counts):
             if len(lines) != length:
                 raise ValueError('Truncated prepared dialogue text range')
             next_line += length
+            if local_si:
+                yield row['origin'], ''.join(lines), ('si', row['origin'], None)
+                continue
             dataset = row['dataset']
             if dataset == 'lccc-base':
                 counts['excluded_separate_lccc'] += 1

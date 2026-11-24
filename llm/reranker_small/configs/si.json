@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "model": {
+    "vocab_size": 16384,
+    "layers": 4,
+    "width": 256,
+    "heads": 4,
+    "feedforward": 1024,
+    "context": 256,
+    "dropout": 0.1
+  },
+  "data": {
+    "sources": [
+      "si"
+    ],
+    "validation_fraction": 0.02,
+    "test_fraction": 0.01,
+    "max_characters_per_source": 0,
+    "max_document_characters": 2000000,
+    "minimum_han_characters": 2
+  },
+  "training": {
+    "batch_size": 8,
+    "gradient_accumulation": 16,
+    "max_steps": 21354,
+    "schedule_steps": 21354,
+    "max_tokens": 302190663,
+    "warmup_steps": 100,
+    "learning_rate": 2e-05,
+    "weight_decay": 0.1,
+    "gradient_clip": 1.0,
+    "validate_every": 500,
+    "save_every": 500,
+    "validation_tokens": 65536
+  },
+  "scoring": {
+    "batch_size": 4,
+    "max_candidates": 32,
+    "length_penalty": 0.0
+  }
+}

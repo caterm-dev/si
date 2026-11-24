@@ -18,8 +18,14 @@ Use synthetic data for the performance benchmark.
 For dictionary changes, edit `Data/Chinese/*.csv` and `Data/English/*.csv`.
 Keep the `text,reading,weight` header and explicit nonnegative integer counts;
 repeated exact identities sum across all files in the import. Use
-`./scripts/si-lexicon-import.sh` to replace the matching weights in an existing
-local snapshot or `si-cli lexicon build` to validate a fresh dictionary. See
+`si-cli lexicon build` to validate a fresh dictionary. For a targeted offline
+frequency edit, use `si-cli lexicon update <lexicon.silex> <index> <reading> <text> <count>`;
+it sets one existing primary identity's absolute count and preserves other
+entries and gram compatibility. To append one new primary identity, use
+`si-cli lexicon add <lexicon.silex> <index> <reading> <text> <count>`;
+an existing identity is an error. It preserves existing IDs and paired grams.
+For bulk vocabulary or reviewed-reading changes, use a fresh `lexicon build`
+followed by regeneration of the paired grams. See
 [vocabulary maintenance](README.md#vocabulary-maintenance).
 Retain source attribution/licenses with the dictionary resources. New external
 sources still require the review below. Private phrases, learning and history

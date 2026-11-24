@@ -15,6 +15,44 @@ from llm.reranker_small.settings import file_hash, load_config, read_json, write
 
 
 class DataTests(unittest.TestCase):
+    def test_si_extract_without_quota_preserves_complete_conversations(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config_path, lock, raw = fixture(root / 'fixture')
+            parent = root / 'parent'
+            prepare(config_path, parent, lock, raw)
+            source = root / 'prepared/si'
+            source.mkdir(parents=True)
+            next_line = 1
+            with (source / 'text.txt').open('w', encoding='utf-8') as text, \
+                    (source / 'documents.jsonl').open('w', encoding='utf-8') as metadata:
+                for index in range(80):
+                    value = f'今天安排第{index}次聚餐。\n好呀，第{index}次我们一起去。\n\n'
+                    text.write(value)
+                    metadata.write(json.dumps({
+                        'origin': f'chat.txt/conversation:{index}', 'first_line': next_line,
+                        'lines': 3, 'path': 'chat.txt', 'conversation': index,
+                    }) + '\n')
+                    next_line += 3
+            files = {p.name: {'sha256': file_hash(p), 'bytes': p.stat().st_size}
+                     for p in source.iterdir()}
+            write_json(source / 'manifest.json', {
+                'schema_version': 2, 'extraction_contract': 'complete-simplified-text-lines-v2',
+                'source': {'id': 'si'}, 'files': files,
+            })
+            config = read_json(config_path)
+            config['data']['sources'] = ['si']
+            write_json(config_path, config)
+            manifest = prepare(config_path, root / 'adapted', lock, raw, parent_data=parent,
+                               prepared_root=root / 'prepared', ancestor_data=[parent])
+            self.assertEqual(manifest['ancestor_dataset_ids'], [manifest['parent_dataset_id']])
+            self.assertEqual(sum(s['documents'] for s in manifest['splits'].values()), 80)
+            for split in ('train', 'validation', 'test'):
+                for row in read_jsonl(root / 'adapted' / f'{split}.documents.jsonl'):
+                    self.assertEqual(split_for('si', row['group'], config), split)
+                    self.assertIn('\n好呀', row['text'])
+            self.assertTrue((root / 'adapted/metadata/si/manifest.json').is_file())
+
     def test_prepared_dialogue_joins_text_and_retains_upstream_splits(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
