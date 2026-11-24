@@ -29,7 +29,7 @@ pub(super) fn run(
     input: &Input<'_>,
     languages: EnabledLanguages,
     lookup: &Lookup<'_>,
-    scoring: ScoreSession<'_, '_>,
+    mut scoring: ScoreSession<'_, '_>,
     preview: bool,
     personal: &Lookup<'_>,
     preferences: ConversionPreferences<'_>,
@@ -63,6 +63,16 @@ pub(super) fn run(
     } else {
         Vec::new()
     };
+    let start_maxima = super::start_competition::prepare(
+        input,
+        limit,
+        languages,
+        lookup,
+        personal,
+        &mut scoring,
+        correction,
+    );
+    scoring.set_start_maxima(start_maxima);
     let has_user = scoring.has_user();
     let mut search = Search {
         input,
@@ -399,9 +409,13 @@ impl<'a> TokenBonuses<'a> {
 
 impl Search<'_, '_, '_, '_> {
     fn seed_verbatim(&mut self, edge: Match<'_>) {
-        let (history, score) = self
-            .scoring
-            .step(History::default(), &WordScore::new(edge.word), 0);
+        let (history, score) = self.scoring.step(
+            History::default(),
+            &WordScore::new(edge.word),
+            0,
+            edge.end,
+            false,
+        );
         let mask = Language::English.mask();
         let path = Path {
             output: edge.word.text.to_owned(),
@@ -444,7 +458,9 @@ impl Search<'_, '_, '_, '_> {
     ) {
         let corrected = edge.correction_cost > 0.0;
         let mask = edge.word.language.mask();
-        let (history, mut score, context_adjustment) = self.scoring.start(edge.word, edge.missing);
+        let (history, mut score, context_adjustment) =
+            self.scoring
+                .start(edge.word, edge.missing, edge.end, corrected);
         let context_adjustment = correction_context(
             context_adjustment,
             corrected && self.correction_context_backoff,
@@ -762,7 +778,7 @@ impl Search<'_, '_, '_, '_> {
                 let context = if private {
                     Scores::default()
                 } else {
-                    path.context_adjustment
+                    path.history.context_upper(path.context_adjustment)
                 };
                 max_context[destination] = max_context[destination].max(lane.score(context, 0.0));
                 prefixes.push((
@@ -886,11 +902,11 @@ impl Search<'_, '_, '_, '_> {
                 if output_start + surface.len() > MAX_OUTPUT_BYTES {
                     continue;
                 }
-                let context_adjustment = if private {
+                let mut context_adjustment = if private {
                     Scores::default()
                 } else {
                     correction_context(
-                        path.context_adjustment,
+                        path.history.context_upper(path.context_adjustment),
                         corrected && self.correction_context_backoff,
                     )
                 };
@@ -948,7 +964,18 @@ impl Search<'_, '_, '_, '_> {
                     }
                 }
                 let (history, mut delta) =
-                    self.scoring.step(path.history, &word_score, edge.missing);
+                    self.scoring
+                        .step(path.history, &word_score, edge.missing, edge.end, corrected);
+                context_adjustment = if private {
+                    Scores::default()
+                } else {
+                    correction_context(
+                        history
+                            .start_adjustment()
+                            .unwrap_or(path.context_adjustment),
+                        corrected && self.correction_context_backoff,
+                    )
+                };
                 if edge.is_abbreviated() {
                     delta.base -= ABBREVIATION_BITS;
                     delta.personalized -= ABBREVIATION_BITS;
@@ -1189,7 +1216,11 @@ impl Frontier {
             .any(|path| {
                 !path.abbreviated
                     && path.score.personalized
-                        + correction_context(path.context_adjustment, context_backoff).personalized
+                        + correction_context(
+                            path.history.context_upper(path.context_adjustment),
+                            context_backoff,
+                        )
+                        .personalized
                         - MIN_CORRECTION_BITS
                         > floor
             })
@@ -1361,7 +1392,7 @@ impl Beam {
     fn could_enter(&self, score: f64, lane: Lane, width: usize, corrected: bool) -> bool {
         self.paths.len() < width
             || self.paths.last().is_some_and(|last| {
-                let last_score = if corrected {
+                let last_score = if corrected || last.history.has_start() {
                     last.score + last.context_adjustment
                 } else {
                     last.score

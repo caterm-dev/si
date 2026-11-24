@@ -98,7 +98,8 @@ typedef struct SICorrectionView {
 /* Returns false for ordinary candidates and leaves the view untouched. */
 bool si_candidates_get_correction(const SICandidates *results, size_t index, SICorrectionView *view);
 
-/* Language bits are 1 for Chinese and 2 for English. Offsets count UTF-8 bytes. */
+/* Language bits are 1 for Chinese and 2 for English. Offsets count UTF-8 bytes.
+   A null preceding_text means unavailable. A nonnull zero-length prefix confirms field start. */
 SICandidates *si_engine_candidates(const SIEngine *engine, const uint8_t *text,
                                    size_t length, const uint8_t *preceding_text,
                                    size_t preceding_length, uint8_t languages, bool preview,

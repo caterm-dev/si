@@ -143,7 +143,7 @@ struct RustConversionIntegrationTests {
         #expect(contextualCandidate.fieldContextAdjustment > 0)
         #expect(previewCandidate.fieldContextAdjustment == contextualCandidate.fieldContextAdjustment)
 
-        session.setPrecedingText("")
+        session.setPrecedingText(nil)
         let acceptedObsoleteResult = session.accept(contextual.generate())
         #expect(!acceptedObsoleteResult)
         let baseline = try #require(session.pendingCandidateRequest)
@@ -151,6 +151,11 @@ struct RustConversionIntegrationTests {
         #expect(baselineCandidate.rankingScore == contextualCandidate.rankingScore)
         #expect(baselineCandidate.fieldContextAdjustment == 0)
         #expect((contextualCandidate.presentationScore ?? 0) > (baselineCandidate.presentationScore ?? 0))
+        session.setPrecedingText("")
+        let confirmedStart = try #require(session.pendingCandidateRequest)
+        session.setPrecedingText(nil)
+        let acceptedKnownStart = session.accept(confirmedStart.generate())
+        #expect(!acceptedKnownStart)
     }
 
     @Test func sharedEngineReturnsBothLanguagesAndLiteral() throws {

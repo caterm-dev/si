@@ -9,41 +9,104 @@ struct CandidatePlacementTests {
 
     @Test func onlyInlineAndDocumentStartsAreProbed() {
         for length in [1, 9, 10] {
-            #expect(CandidateAnchor.startIndices(marked: NSRange(location: 2373, length: length)) == [0, 2373])
+            #expect(CandidateAnchor.startIndices(marked: NSRange(location: 2553, length: length)) == [0, 2553])
         }
     }
 
     @Test(arguments: [NSRange(location: 0, length: 9), NSRange(location: NSNotFound, length: 0),
                       NSRange(location: 20, length: 0), NSRange(location: Int.max - 1, length: 7)])
-    func onlyTheInlineStartIsProbedWithoutADistinctValidMarkedRange(marked: NSRange) {
+    func invalidDocumentRangesDoNotBlockInlineGeometry(marked: NSRange) {
         #expect(CandidateAnchor.startIndices(marked: marked) == [0])
     }
 
-    @Test func typingDeletionAndMovingTheCaretReuseTheCompositionStart() throws {
-        var marked = MarkedTextState()
-        let start = CGRect(x: 370, y: 420, width: 1, height: 20)
-        let endOfLine = CGRect(x: 960, y: 400, width: 1, height: 20)
-        _ = marked.shouldSend("dang qian", selection: NSRange(location: 9, length: 0))
-        let initial = try #require(marked.candidateAnchor(screens: [primary]) {
+    @Test func typingAcrossAWrapDeletionAndCaretMovementKeepTheCompositionStart() throws {
+        var state = MarkedTextState()
+        let start = CGRect(x: 1076, y: 84, width: 1, height: 16)
+        let wrapped = CGRect(x: 480, y: 68, width: 1, height: 16)
+        _ = state.shouldSend("d", selection: NSRange(location: 1, length: 0))
+        let initial = try #require(state.candidateAnchor(screens: [primary]) {
             CandidateAnchor(start, screens: [primary])
         })
-        marked.candidateStartRect = initial.rect
+        state.candidateStartRect = initial.rect
 
-        for (spelling, caret) in [("dang qianx", 10), ("dang qian", 9), ("dang qian", 5)] {
-            _ = marked.shouldSend(spelling, selection: NSRange(location: caret, length: 0))
-            let anchor = try #require(marked.candidateAnchor(screens: [primary]) {
-                Issue.record("Placement should reuse the composition start without querying the host.")
-                return CandidateAnchor(endOfLine, screens: [primary])
+        for (spelling, caret) in [("dang qian", 9), ("dang", 4), ("dang", 2), ("dang", 0)] {
+            _ = state.shouldSend(spelling, selection: NSRange(location: caret, length: 0))
+            let anchor = try #require(state.candidateAnchor(screens: [primary]) {
+                Issue.record("An ongoing composition must retain its start instead of following host caret geometry.")
+                return CandidateAnchor(wrapped, screens: [primary])
             })
             #expect(anchor.rect == start)
             #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
                     == CandidatePlacement.frame(preferredSize: size, anchor: initial))
         }
 
-        marked.reset()
-        _ = marked.shouldSend("ni", selection: NSRange(location: 2, length: 0))
-        let next = marked.candidateAnchor(screens: [primary]) { CandidateAnchor(endOfLine, screens: [primary]) }
-        #expect(next?.rect == endOfLine)
+        // Full commits, cancellation and client changes reset this state.
+        state.reset()
+        _ = state.shouldSend("qian", selection: NSRange(location: 4, length: 0))
+        let remainder = state.candidateAnchor(screens: [primary]) { CandidateAnchor(wrapped, screens: [primary]) }
+        #expect(remainder?.rect == wrapped)
+    }
+
+    @Test func successivePrefixCommitsKeepTheOriginalStartUntilCompositionEnds() throws {
+        var state = MarkedTextState()
+        let start = CGRect(x: 370, y: 420, width: 1, height: 20)
+        let nextStart = CGRect(x: 600, y: 400, width: 1, height: 20)
+        _ = state.shouldSend("ni hao shi jie", selection: NSRange(location: 14, length: 0))
+        state.candidateStartRect = start
+
+        for remainder in ["hao shi jie", "shi jie", "jie"] {
+            state.reset(preservingCandidateStart: true)
+            #expect(state.text == nil)
+            #expect(state.caretUTF16Offset == nil)
+            let sendsRemainder = state.shouldSend(remainder, selection: NSRange(location: remainder.utf16.count, length: 0))
+            #expect(sendsRemainder)
+            let anchor = try #require(state.candidateAnchor(screens: [primary]) {
+                Issue.record("Prefix confirmation must not query a new panel start.")
+                return CandidateAnchor(nextStart, screens: [primary])
+            })
+            #expect(anchor.rect == start)
+            #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
+                    == CGRect(x: 370, y: 384, width: 300, height: 36))
+        }
+
+        // Finishing or cancelling the remainder must release the original anchor.
+        state.reset()
+        #expect(state.candidateStartRect == nil)
+        _ = state.shouldSend("xin", selection: NSRange(location: 3, length: 0))
+        let next = state.candidateAnchor(screens: [primary]) { CandidateAnchor(nextStart, screens: [primary]) }
+        #expect(next?.rect == nextStart)
+    }
+
+    @Test func anUnavailableInlineStartUsesOnlyTheDocumentStart() throws {
+        var attempts: [Int] = []
+        let start = CGRect(x: 370, y: 420, width: 1, height: 20)
+        let result = try #require(CandidateAnchor.query(
+            indices: CandidateAnchor.startIndices(marked: NSRange(location: 2553, length: 9)), screens: [primary]
+        ) { index in
+            attempts.append(index)
+            return index == 2553 ? start : .zero
+        })
+        #expect(result.index == 2553)
+        #expect(result.anchor.rect == start)
+        #expect(attempts == [0, 2553])
+    }
+
+    @Test func aCachedStartOnADisconnectedDisplayIsQueriedAgain() throws {
+        var state = MarkedTextState()
+        state.candidateStartRect = CGRect(x: 2000, y: 700, width: 1, height: 20)
+        let start = CGRect(x: 400, y: 650, width: 1, height: 20)
+        let anchor = try #require(state.candidateAnchor(screens: [primary]) { CandidateAnchor(start, screens: [primary]) })
+        #expect(anchor.rect == start)
+    }
+
+    @Test func aSupersededProbeStopsBeforeQueryingAnotherIndex() {
+        var attempts: [Int] = []
+        let result = CandidateAnchor.query(indices: [0, 2553], screens: [primary]) { index in
+            attempts.append(index)
+            return nil
+        }
+        #expect(result == nil)
+        #expect(attempts == [0])
     }
 
     @Test func enoughSpacePlacesTheWindowDirectlyBelowTheCaret() throws {

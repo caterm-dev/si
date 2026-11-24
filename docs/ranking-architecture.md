@@ -17,7 +17,9 @@ Rust evaluates the first 12 eligible ordinary whole-input candidates in statisti
 order, without a score-gap cutoff. Completions, literal segments,
 personal phrases and spelling corrections receive no model reward. Each
 candidate can use up to 12 model tokens, sharing up to 16 trailing context
-tokens from the current field. Empty context works at the start of a field.
+tokens from the current punctuation-delimited fragment. A terminal boundary
+clears the previous fragment for model ranking too. Empty context works at
+the start of a field.
 
 The character model's mean log probability per output scalar is converted
 to bits, measured relative to the least likely scored output, weighted by
@@ -55,6 +57,34 @@ First-choice hits went from 211 to 210 on the contextual queries and remained
 in-process p95 went from 32.3 to 32.2 ms.
 
 ## Statistical score and presentation
+
+Confirmed fragment starts use the base `<s>` grams. Fragment boundaries match
+offline ingestion: explicit delimiters and line endings start a new fragment;
+book-title marks, quotes and brackets preserve adjacency and cannot establish
+a sentence start on their own. Wrappers after a delimiter preserve the new
+start. Other symbols break adjacency without establishing sentence start.
+Periods inside ASCII words/numbers, including domains and decimals, are not
+sentence delimiters. Missing
+host text is distinct from a confirmed empty prefix. The longest countable
+candidate prefix beginning with `<s>` supplies its raw observation count `c`.
+The comparison uses `r = c/max(c_competitors)` for enabled dictionary paths
+consuming the same source span. This equals the ratio of their start
+probabilities because the global denominator cancels. The reward is
+`2*r*r*(3-2*r)` bits: the highest observed opening receives two bits, equal
+maxima tie, and unseen openings receive zero. Corpus-wide count scaling and
+unrelated input spellings do not affect rewards. Exact, completion and
+corrected spelling paths compare separately; personal/verbatim paths are
+excluded. Maxima are prepared before lexical beam pruning by a request-local
+traversal bounded to 8,192 states and 65,536 transitions; exhaustion disables
+start rewards only for later unfinished spans, preserving completed-prefix
+maxima. This stage neither changes ordinary
+word frequencies nor introduces a penalty. A longer supported boundary gram
+replaces the shorter one's count rather than stacking rewards. Beyond the
+highest stored order, the opening-prefix count stays fixed; its reward uses
+the competitors at the current consumed span. Personal/verbatim
+paths receive no field adjustment. Prefixes use their consumed words only;
+no sentence end is inferred from candidate completion. User ingestion remains
+unmarked.
 
 S is the lexical score in bits plus the preceding-field adjustment and
 eligible personal preference. The preference combines the larger of the

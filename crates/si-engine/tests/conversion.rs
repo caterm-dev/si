@@ -47,7 +47,7 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
         false,
         &[],
         ConversionPreferences::default(),
-        "",
+        None,
         ConversionOptions {
             correction: None,
             reranker: Some(&reranker),
@@ -105,7 +105,7 @@ fn small_reranker_scores_beyond_two_bits_and_caps_the_bonus_at_two() -> io::Resu
             false,
             &[],
             ConversionPreferences::default(),
-            "",
+            None,
             ConversionOptions {
                 correction: None,
                 reranker: Some(&reranker),
@@ -387,7 +387,7 @@ fn gram_history_and_continuation_mass_span_languages() -> io::Result<()> {
 }
 
 #[test]
-fn preceding_field_uses_only_the_last_sentence_for_gram_scoring() -> io::Result<()> {
+fn preceding_field_uses_only_the_last_fragment_and_resets_at_punctuation() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
     let previous = add(&mut lexicon, ZH, "he'shui", "喝水", 20);
@@ -415,10 +415,12 @@ fn preceding_field_uses_only_the_last_sentence_for_gram_scoring() -> io::Result<
     };
     for preview in [false, true] {
         let baseline = convert("he", "", preview);
-        let latest = convert("he", "过。", preview);
-        assert_eq!(latest, convert("he", "喝水！过。 ” ", preview));
+        let latest = convert("he", "过", preview);
+        assert_eq!(latest, convert("he", "喝水！过", preview));
         assert_eq!(latest, convert("he", "喝水\n过", preview));
-        assert_eq!(latest, convert("he", "喝水。过，", preview));
+        for context in ["过。", "喝水！过。 ” ", "喝水。过，", "喝水\n"] {
+            assert_eq!(baseline, convert("he", context, preview));
+        }
         assert_eq!(convert("he", "喝水。🦉", preview), baseline);
         assert_ne!(latest, baseline);
         let first_chinese = |rows: &[Candidate]| {
@@ -449,7 +451,7 @@ fn preceding_field_uses_only_the_last_sentence_for_gram_scoring() -> io::Result<
         assert_eq!(
             river.context_adjustment,
             find(
-                &convert("he'guo", "过。", preview),
+                &convert("he'guo", "过", preview),
                 "河",
                 CandidateLanguage::Chinese,
                 3
@@ -902,6 +904,82 @@ fn user_ingestion_counts_whole_mailboxes_and_only_the_hosts_of_web_urls() -> io:
     assert_eq!(grams.count(&[mailbox_id, cloud]), Some(2));
     assert_eq!(grams.count(&[alpha, mailbox_id, cloud]), Some(2));
     assert_eq!(grams.count(&[alpha, cloud]), None);
+    Ok(())
+}
+
+#[test]
+fn user_ingestion_keeps_known_english_and_filters_new_complete_pinyin_runs() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for text in ["alpha", "cloud", "an", "he", "woman", "banana"] {
+        add(&mut lexicon, EN, text, text, 20);
+    }
+    // A lookup alias alone is not evidence that its spelling is an English word.
+    let greeting = add(&mut lexicon, EN, "hello", "hello", 20);
+    lexicon.add_key(EN, b"nihao", greeting).unwrap();
+    add(&mut lexicon, ZH, "wo", "我", 20);
+    add(&mut lexicon, ZH, "bu", "不", 20);
+    add(&mut lexicon, ZH, "zhi'dao", "知道", 20);
+    let base = directory.resources(&mut lexicon, None)?;
+    let store = UserModelStore::new(directory.path("pinyin.si-user"));
+    let existing = si_engine::resources::user::UserEntry {
+        text: "zaijian".into(),
+        reading: Some((1, b"zaijian".to_vec())),
+        count: 7,
+    };
+    store.edit_entry(None, Some(&existing))?;
+    for batch in ["first", "second"] {
+        store.ingest(
+            base.lexicon(),
+            batch,
+            [
+                Ok("alpha wobuzhidao cloud"),
+                Ok("alpha WOBUZHIDAO cloud"),
+                Ok("alpha langui cloud"),
+                Ok("alpha nihao cloud"),
+                Ok("an he woman banana"),
+                Ok("AN HE WOMAN BANANA"),
+                Ok("alpha frobnitz cloud"),
+                Ok("alpha wobuzhidaox cloud"),
+                Ok("我不知道"),
+            ],
+        )?;
+    }
+    let user = store.load()?.unwrap();
+    for text in ["wobuzhidao", "WOBUZHIDAO", "langui", "nihao"] {
+        assert!(user.lexicon().find_word(text).is_none(), "{text}");
+    }
+    for text in [
+        "an",
+        "he",
+        "woman",
+        "banana",
+        "AN",
+        "HE",
+        "WOMAN",
+        "BANANA",
+        "frobnitz",
+        "wobuzhidaox",
+        "我",
+        "不",
+        "知道",
+    ] {
+        let id = user.lexicon().find_word(text).unwrap();
+        assert_eq!(user.lexicon().word(id).unwrap().count, 2, "{text}");
+    }
+    let existing_id = user.lexicon().find_word("zaijian").unwrap();
+    assert_eq!(user.lexicon().word(existing_id).unwrap().count, 7);
+    let alpha = user.lexicon().find_word("alpha").unwrap();
+    let cloud = user.lexicon().find_word("cloud").unwrap();
+    let unknown = user.lexicon().find_word("frobnitz").unwrap();
+    let grams = user.grams().unwrap();
+    assert_eq!(grams.count(&[alpha, cloud]), None);
+    assert_eq!(grams.count(&[alpha, unknown, cloud]), Some(2));
+    let engine = CandidateEngine::new(&base, Some(&user));
+    let rows = engine.candidates("wobuzhidao", BILINGUAL);
+    assert!(has(&rows, "我不知道", CandidateLanguage::Chinese, 10));
+    assert!(!has(&rows, "wobuzhidao", CandidateLanguage::English, 10));
+    assert_literal(rows.last().unwrap(), "wobuzhidao");
     Ok(())
 }
 
@@ -2631,6 +2709,776 @@ fn corrected_completion_preserves_atomic_alias_spans_and_literal_acceptance() ->
                 .iter()
                 .any(|r| r.is_corrected())
         );
+    }
+    Ok(())
+}
+
+#[test]
+fn sentence_start_rewards_the_longest_countable_prefix_without_penalizing_unseen_paths()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let resources = sentence_start_resources(&directory)?;
+    let engine = CandidateEngine::new(&resources, None);
+    for preview in [false, true] {
+        let baseline = engine.convert(
+            "bawomen",
+            CHINESE,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+        );
+        let start = engine.convert_with_context(
+            "bawomen",
+            CHINESE,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+            "",
+        );
+        assert_eq!(start[0].text, "把我们");
+        for (text, first, whole_count, first_count) in
+            [("把我们", "把", 24.0, 96.0), ("吧我们", "吧", 0.0, 4.0)]
+        {
+            let plain = find(&baseline, text, CandidateLanguage::Chinese, 7);
+            let candidate = find(&start, text, CandidateLanguage::Chinese, 7);
+            let x = (whole_count / 24.0_f64).min(1.0);
+            let expected = 2.0 * x * x * (3.0 - 2.0 * x);
+            assert!((candidate.context_adjustment - expected).abs() < 1e-12);
+            assert_eq!(candidate.score_bits, plain.score_bits);
+            assert!((0.0..=2.0).contains(&candidate.context_adjustment));
+            assert_eq!(candidate.context_adjustment > 0.0, text == "把我们");
+            let short = engine.convert_with_context(
+                "ba",
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                "",
+            );
+            let prefix = find(&start, first, CandidateLanguage::Chinese, 2);
+            assert_eq!(
+                prefix.context_adjustment,
+                find(&short, first, CandidateLanguage::Chinese, 2).context_adjustment
+            );
+            let x = (first_count / 96.0_f64).min(1.0);
+            let first_reward = 2.0 * x * x * (3.0 - 2.0 * x);
+            assert!((prefix.context_adjustment - first_reward).abs() < 1e-12);
+        }
+        let longer = engine.convert_with_context(
+            "bawomenbawomen",
+            CHINESE,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+            "",
+        );
+        assert_eq!(
+            find(&longer, "把我们把我们", CandidateLanguage::Chinese, 14).context_adjustment,
+            find(&start, "把我们", CandidateLanguage::Chinese, 7).context_adjustment
+        );
+        assert_literal(start.last().unwrap(), "bawomen");
+    }
+    Ok(())
+}
+
+#[test]
+fn sentence_start_requires_a_known_boundary_and_never_reuses_text_before_it() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let resources = sentence_start_resources(&directory)?;
+    let engine = CandidateEngine::new(&resources, None);
+    for preview in [false, true] {
+        let convert = |context| {
+            engine.convert_with_context(
+                "ba",
+                BILINGUAL,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                context,
+            )
+        };
+        let unknown = engine.convert(
+            "ba",
+            BILINGUAL,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+        );
+        let start = convert("");
+        assert_ne!(start, unknown);
+        for context in [
+            " ",
+            "我今天?",
+            "我今天?  ",
+            "我们，",
+            "我们。”, ",
+            "我们\n ",
+            "我们\u{2028}",
+            "他说：“",
+            "你好。”",
+            "“",
+            "（ [《 ",
+            "我们!!!",
+        ] {
+            assert_eq!(convert(context), start, "{context:?}");
+        }
+        for context in [
+            "Mystery",
+            "我今天",
+            "我们?Mystery",
+            "我们。陌",
+            "我们/",
+            "（/）",
+            "/。$",
+        ] {
+            assert_eq!(convert(context), unknown, "{context:?}");
+        }
+        let continued = convert("我们 ");
+        assert_ne!(continued, start);
+        assert_ne!(continued, unknown);
+        assert_eq!(continued, convert("我今天?我们 "));
+        assert_eq!(continued, convert("我们,我们 "));
+        // Empty output from disabled languages remains the exact literal.
+        let disabled = engine.convert_with_context(
+            "ba",
+            EnabledLanguages {
+                chinese: false,
+                english: false,
+            },
+            preview,
+            &[],
+            ConversionPreferences::default(),
+            "",
+        );
+        assert_eq!(disabled.len(), 1);
+        assert_literal(&disabled[0], "ba");
+    }
+    Ok(())
+}
+
+#[test]
+fn sentence_start_applies_to_direct_words_but_excludes_personal_and_verbatim_paths()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let good = add(&mut lexicon, ZH, "ba'wo'men", "把我们", 100);
+    add(&mut lexicon, ZH, "ba'wo'men", "吧我们", 100);
+    let marker = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    grams.add(&[marker, good], 100).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    let direct = engine.convert_with_context(
+        "bawomen",
+        CHINESE,
+        false,
+        &[],
+        ConversionPreferences::default(),
+        "",
+    );
+    assert_eq!(direct[0].text, "把我们");
+    assert_eq!(direct[0].lexical_tokens, 1);
+    assert_eq!(
+        find(&direct, "吧我们", CandidateLanguage::Chinese, 7).context_adjustment,
+        0.0
+    );
+    let phrases = [PersonalPhrase {
+        spelling: "bawomen",
+        text: "吧我们",
+        language: CandidateLanguage::Chinese,
+        pinned: true,
+    }];
+    let personal = engine.convert_with_context(
+        "bawomen",
+        CHINESE,
+        false,
+        &phrases,
+        ConversionPreferences::default(),
+        "",
+    );
+    let pinned = find(&personal, "吧我们", CandidateLanguage::Chinese, 7);
+    assert!(pinned.preferred && pinned.personal);
+    assert_eq!(pinned.context_adjustment, 0.0);
+
+    let directory = Scratch::new()?;
+    let resources = sentence_start_resources(&directory)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let spelling = "baXYZwomen";
+    let mixed = engine.convert_with_context(
+        spelling,
+        BILINGUAL,
+        false,
+        &[],
+        ConversionPreferences::default(),
+        "",
+    );
+    let candidate = find(
+        &mixed,
+        "把XYZ我们",
+        CandidateLanguage::Mixed,
+        spelling.len(),
+    );
+    assert!(candidate.verbatim);
+    assert_eq!(candidate.context_adjustment, 0.0);
+    Ok(())
+}
+
+#[test]
+fn sentence_start_without_marker_or_observations_uses_the_existing_score() -> io::Result<()> {
+    for marker_present in [false, true] {
+        let directory = Scratch::new()?;
+        let mut lexicon = Lexicon::new();
+        let ba = add(&mut lexicon, ZH, "ba", "把", 100);
+        let women = add(&mut lexicon, ZH, "wo'men", "我们", 100);
+        if marker_present {
+            lexicon.add_word("<s>", 0).unwrap();
+        }
+        let mut grams = GramBuilder::new();
+        grams.add(&[ba, women], 100).unwrap();
+        let resources = directory.resources(&mut lexicon, Some(grams))?;
+        let engine = CandidateEngine::new(&resources, None);
+        assert_eq!(
+            engine.candidates("bawomen", CHINESE),
+            engine.convert_with_context(
+                "bawomen",
+                CHINESE,
+                false,
+                &[],
+                ConversionPreferences::default(),
+                ""
+            )
+        );
+    }
+    Ok(())
+}
+
+fn sentence_start_resources(directory: &Scratch) -> io::Result<EngineResources> {
+    let mut lexicon = Lexicon::new();
+    let good = add(&mut lexicon, ZH, "ba", "把", 100);
+    let bad = add(&mut lexicon, ZH, "ba", "吧", 100);
+    let women = add(&mut lexicon, ZH, "wo'men", "我们", 100);
+    let marker = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    for (words, count) in [
+        (vec![marker, good], 96),
+        (vec![marker, bad], 4),
+        (vec![marker, women], 900),
+        (vec![good, women], 100),
+        (vec![bad, women], 100),
+        (vec![women, bad], 100),
+        (vec![marker, good, women], 24),
+    ] {
+        grams.add(&words, count).unwrap();
+    }
+    directory.resources(&mut lexicon, Some(grams))
+}
+
+#[test]
+fn sentence_start_high_order_winner_survives_dense_terminal_completion_pruning() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let good = add(&mut lexicon, ZH, "ba", "把", 100);
+    let bad = add(&mut lexicon, ZH, "ba", "吧", 100);
+    let tails: Vec<_> = (0..40)
+        .map(|offset| {
+            let text = char::from_u32(0x4e00 + offset).unwrap().to_string();
+            let count = if offset == 39 { 99 } else { 100 };
+            (add(&mut lexicon, ZH, "wen", &text, count), text, count)
+        })
+        .collect();
+    let marker = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    grams.add(&[marker, good], 50).unwrap();
+    grams.add(&[marker, bad], 50).unwrap();
+    for (tail, _, count) in &tails {
+        grams.add(&[good, *tail], *count).unwrap();
+        grams.add(&[bad, *tail], *count).unwrap();
+    }
+    grams
+        .add(&[marker, good, tails.last().unwrap().0], 50)
+        .unwrap();
+    let expected = format!("把{}", tails.last().unwrap().1);
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    for preview in [false, true] {
+        let convert = |input| {
+            engine.convert_with_context(
+                input,
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                "",
+            )
+        };
+        let exact = convert("bawen");
+        let completion = convert("bawe");
+        assert_eq!(exact[0].text, expected);
+        assert_eq!(completion[0].text, expected);
+        assert!(completion[0].completion);
+        assert_eq!(
+            exact[0].context_adjustment,
+            completion[0].context_adjustment
+        );
+        assert_eq!(exact[0].context_adjustment, 2.0);
+    }
+    Ok(())
+}
+
+#[test]
+fn sentence_start_uses_base_boundaries_with_an_unmarked_user_model() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let resources = sentence_start_resources(&directory)?;
+    let store = UserModelStore::new(directory.path("profile.si-user"));
+    store.ingest(
+        resources.lexicon(),
+        "synthetic",
+        (0..20).map(|_| Ok("吧我们")),
+    )?;
+    let user = store.load()?.unwrap();
+    assert!(user.lexicon().find_word("<s>").is_none());
+    assert!(user.lexicon().find_word("</s>").is_none());
+    let base = CandidateEngine::new(&resources, None);
+    let personalized = CandidateEngine::new(&resources, Some(&user));
+    let convert = |engine: &CandidateEngine<'_>| {
+        engine.convert_with_context(
+            "bawomen",
+            CHINESE,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            "",
+        )
+    };
+    let base = convert(&base);
+    let with_user = convert(&personalized);
+    for text in ["把我们", "吧我们"] {
+        let base = find(&base, text, CandidateLanguage::Chinese, 7);
+        let candidate = find(&with_user, text, CandidateLanguage::Chinese, 7);
+        assert!(candidate.context_adjustment.abs() <= 2.0);
+        assert!(
+            candidate.score_bits.unwrap() + candidate.context_adjustment
+                >= base.score_bits.unwrap() + base.context_adjustment - 1e-12
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn sentence_start_reward_uses_competing_probability_and_is_invariant_to_corpus_scaling()
+-> io::Result<()> {
+    for frequency in [1, 100, 1_000_000_000] {
+        for scale in [1, 7] {
+            for (count, expected) in [
+                (0, 0.0),
+                (1, 0.000596),
+                (25, 0.3125),
+                (50, 1.0),
+                (75, 1.6875),
+                (100, 2.0),
+                (200, 2.0),
+            ] {
+                let directory = Scratch::new()?;
+                let mut lexicon = Lexicon::new();
+                let target = add(&mut lexicon, ZH, "ba", "把", frequency);
+                let other = add(&mut lexicon, ZH, "ba", "吧", 100);
+                let unrelated = add(&mut lexicon, ZH, "wo", "我", 100);
+                let marker = lexicon.add_word("<s>", 0).unwrap();
+                let mut grams = GramBuilder::new();
+                grams.add(&[marker, unrelated], 1_000_000).unwrap();
+                grams.add(&[marker, other], 100 * scale).unwrap();
+                grams.add(&[marker, target], count * scale).unwrap();
+                let resources = directory.resources(&mut lexicon, Some(grams))?;
+                let engine = CandidateEngine::new(&resources, None);
+                let rows = engine.convert_with_context(
+                    "ba",
+                    CHINESE,
+                    false,
+                    &[],
+                    ConversionPreferences::default(),
+                    "",
+                );
+                let candidate = find(&rows, "把", CandidateLanguage::Chinese, 2);
+                assert!((candidate.context_adjustment - expected).abs() < 1e-12);
+                if count == 100 {
+                    assert_eq!(
+                        find(&rows, "吧", CandidateLanguage::Chinese, 2).context_adjustment,
+                        2.0
+                    );
+                }
+                let baseline = engine.candidates("ba", CHINESE);
+                assert_eq!(
+                    candidate.score_bits,
+                    find(&baseline, "把", CandidateLanguage::Chinese, 2).score_bits
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn quoted_titles_and_parentheses_keep_previous_words_without_creating_sentence_starts()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let ba = add(&mut lexicon, ZH, "ba", "吧", 100);
+    let good = add(&mut lexicon, ZH, "ba", "把", 100);
+    let seen = add(&mut lexicon, ZH, "kan'guo", "看过", 100);
+    let snake = add(&mut lexicon, ZH, "qing'she", "青蛇", 100);
+    let war = add(&mut lexicon, ZH, "zhan'zheng'zhi'wang", "战争之王", 100);
+    let movie = add(
+        &mut lexicon,
+        ZH,
+        "tang'bo'hu'dian'qiu'xiang",
+        "唐伯虎点秋香",
+        100,
+    );
+    let nomination = add(&mut lexicon, ZH, "ti'ming", "提名", 100);
+    add(&mut lexicon, ZH, "kan'guo'qing'she", "看过青蛇", 1_000_000);
+    let decimal = add(&mut lexicon, EN, "decimal", "3.14", 100);
+    let domain = add(&mut lexicon, EN, "example", "example.com", 100);
+    let node = add(&mut lexicon, EN, "node", "Node.js", 100);
+    let marker = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    grams.add(&[marker, good], 100).unwrap();
+    for previous in [snake, war, movie, nomination, decimal, domain, node] {
+        grams.add(&[previous, ba], 1_000).unwrap();
+    }
+    grams.add(&[seen, snake, ba], 1_000).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    for preview in [false, true] {
+        let convert = |context| {
+            engine.convert_with_context(
+                "ba",
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                context,
+            )
+        };
+        let start = convert("");
+        assert_eq!(start[0].text, "把");
+        for context in [
+            "看过《青蛇》",
+            "你看过《战争之王》",
+            "看过《唐伯虎点秋香》",
+            "第78届奥斯卡金像奖最佳动画长片(提名)",
+            "3.14",
+            "example.com",
+            "Node.js",
+        ] {
+            let rows = convert(context);
+            assert_eq!(rows[0].text, "吧", "{context:?}");
+            assert!(rows[0].context_adjustment > 0.0);
+            assert_ne!(rows, start, "{context:?}");
+        }
+        assert_eq!(convert("看过《青蛇》"), convert("看过 青蛇"));
+        let previous = convert("青蛇");
+        for context in [
+            "《青蛇》",
+            "〈青蛇〉",
+            "“青蛇”",
+            "‘青蛇’",
+            "「青蛇」",
+            "『青蛇』",
+            "（青蛇）",
+            "(青蛇)",
+            "【青蛇】",
+            "[青蛇]",
+            "\"青蛇\"",
+            "'青蛇'",
+        ] {
+            assert_eq!(convert(context), previous, "{context:?}");
+        }
+        for context in [
+            "他说：“",
+            "你好。”",
+            "看过《青蛇》？",
+            "(提名)。",
+            "(提名).",
+            "“",
+            "（ [《 ",
+        ] {
+            assert_eq!(convert(context), start, "{context:?}");
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn relative_sentence_start_probabilities_compare_enabled_languages_and_matching_spans()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let good = add(&mut lexicon, ZH, "ba", "把", 40);
+    let bad = add(&mut lexicon, ZH, "ba", "吧", 100);
+    let english = add(&mut lexicon, EN, "ba", "ba", 40);
+    let unrelated = add(&mut lexicon, ZH, "wo", "我", 1_000_000);
+    let completion = add(&mut lexicon, ZH, "bao", "包", 1);
+    let women = add(&mut lexicon, ZH, "wo'men", "我们", 100);
+    let english_women = add(&mut lexicon, EN, "women", "women", 100);
+    let corrected_opening = add(&mut lexicon, ZH, "da", "打", 100);
+    let direct = add(&mut lexicon, ZH, "ba'wo'men", "巴沃门", 1);
+    let start = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    for (ids, count) in [
+        (vec![start, good], 100),
+        (vec![start, bad], 1),
+        (vec![start, english], 50),
+        (vec![start, unrelated], 1_000_000),
+        (vec![start, completion], 1_000_000),
+        (vec![start, good, women], 100),
+        (vec![start, good, english_women], 50),
+        (vec![start, corrected_opening], 1_000_000),
+        (vec![start, direct], 50),
+    ] {
+        grams.add(&ids, count).unwrap();
+    }
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    for preview in [false, true] {
+        let convert = |input, languages| {
+            engine.convert_with_context(
+                input,
+                languages,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                "",
+            )
+        };
+        let rows = convert("ba", BILINGUAL);
+        assert_eq!(rows[0].text, "把");
+        assert_eq!(
+            find(&rows, "把", CandidateLanguage::Chinese, 2).context_adjustment,
+            2.0
+        );
+        assert!(
+            (find(&rows, "吧", CandidateLanguage::Chinese, 2).context_adjustment - 0.000596).abs()
+                < 1e-12
+        );
+        assert_eq!(
+            find(&rows, "ba", CandidateLanguage::English, 2).context_adjustment,
+            1.0
+        );
+        assert_eq!(
+            find(&convert("ba", ENGLISH), "ba", CandidateLanguage::English, 2).context_adjustment,
+            2.0
+        );
+        // High-count completions and unrelated spellings cannot dilute exact openings.
+        assert_eq!(
+            find(&rows, "包", CandidateLanguage::Chinese, 2).context_adjustment,
+            2.0
+        );
+        let longer = convert("bawomen", BILINGUAL);
+        assert_eq!(
+            find(&longer, "把", CandidateLanguage::Chinese, 2).context_adjustment,
+            2.0
+        );
+        assert_eq!(
+            find(&longer, "把我们", CandidateLanguage::Chinese, 7).context_adjustment,
+            2.0
+        );
+        assert_eq!(
+            find(&longer, "巴沃门", CandidateLanguage::Chinese, 7).context_adjustment,
+            1.0
+        );
+        assert_eq!(
+            find(&longer, "把 women", CandidateLanguage::Mixed, 7).context_adjustment,
+            1.0
+        );
+        assert_eq!(
+            find(&longer, "吧我们", CandidateLanguage::Chinese, 7).context_adjustment,
+            0.0
+        );
+        assert_literal(rows.last().unwrap(), "ba");
+        assert_eq!(rows, convert("ba", BILINGUAL));
+        let corrected = CandidateEngine::new(&resources, None)
+            .with_pinyin_correction(true)
+            .convert_with_context(
+                "bawomen",
+                BILINGUAL,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                "",
+            );
+        assert_eq!(
+            find(&corrected, "把", CandidateLanguage::Chinese, 2).context_adjustment,
+            2.0
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn relative_sentence_start_winner_is_found_before_dense_lexical_beam_pruning() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let words: Vec<_> = (0..80)
+        .map(|offset| {
+            let text = char::from_u32(0x4e00 + offset).unwrap().to_string();
+            let count = if offset == 79 { 50 } else { 100 };
+            (add(&mut lexicon, ZH, "ba", &text, count), text)
+        })
+        .collect();
+    let women = add(&mut lexicon, ZH, "wo'men", "我们", 100);
+    let start = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    for (i, (word, _)) in words.iter().enumerate() {
+        let count = if i == 79 { 10_000 } else { 1 };
+        grams.add(&[start, *word], count).unwrap();
+        grams.add(&[start, *word, women], count).unwrap();
+        grams.add(&[*word, women], 100).unwrap();
+    }
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    let expected = format!("{}我们", words.last().unwrap().1);
+    for preview in [false, true] {
+        let rows = engine.convert_with_context(
+            "bawomen",
+            CHINESE,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+            "",
+        );
+        assert_eq!(rows[0].text, expected);
+        assert_eq!(rows[0].context_adjustment, 2.0);
+        assert!(
+            rows.iter()
+                .filter(|row| row.score_bits.is_some())
+                .all(|row| (0.0..=2.0).contains(&row.context_adjustment))
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn relative_sentence_start_budget_exhaustion_keeps_completed_prefixes_and_neutralizes_later_spans()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let mut ids = Vec::new();
+    for offset in 0..8_200 {
+        let text = char::from_u32(0x4e00 + offset).unwrap().to_string();
+        ids.push(add(&mut lexicon, ZH, "ba", &text, 100));
+    }
+    let start = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    for (i, id) in ids.into_iter().enumerate() {
+        grams.add(&[start, id], i as u64 + 1).unwrap();
+    }
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    let rows = engine.convert_with_context(
+        "baba",
+        CHINESE,
+        true,
+        &[],
+        ConversionPreferences::default(),
+        "",
+    );
+    let short = engine.convert_with_context(
+        "ba",
+        CHINESE,
+        true,
+        &[],
+        ConversionPreferences::default(),
+        "",
+    );
+    for row in rows.iter().filter(|row| row.consumed_bytes == 2) {
+        let original = find(&short, &row.text, row.language, 2);
+        assert_eq!(row.context_adjustment, original.context_adjustment);
+    }
+    assert!(
+        rows.iter()
+            .filter(|row| row.consumed_bytes == 4)
+            .all(|row| row.context_adjustment == 0.0)
+    );
+    assert!(rows.iter().any(|row| row.context_adjustment == 2.0));
+    assert_literal(rows.last().unwrap(), "baba");
+    Ok(())
+}
+
+#[test]
+fn relative_sentence_start_uses_current_span_competitors_after_the_opening_count_freezes()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let ba = add(&mut lexicon, ZH, "ba", "把", 100);
+    add(&mut lexicon, ZH, "wo", "我", 100);
+    let direct = add(&mut lexicon, ZH, "ba'wo", "巴沃", 1);
+    let start = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    grams.add(&[start, ba], 100).unwrap();
+    grams.add(&[start, direct], 200).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    for preview in [false, true] {
+        let rows = engine.convert_with_context(
+            "bawo",
+            CHINESE,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+            "",
+        );
+        assert_eq!(
+            find(&rows, "把", CandidateLanguage::Chinese, 2).context_adjustment,
+            2.0
+        );
+        assert_eq!(
+            find(&rows, "巴沃", CandidateLanguage::Chinese, 4).context_adjustment,
+            2.0
+        );
+        assert_eq!(
+            find(&rows, "把我", CandidateLanguage::Chinese, 4).context_adjustment,
+            1.0
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn relative_sentence_start_preserves_umlaut_aliases_and_explicit_source_separators()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let good = add(&mut lexicon, ZH, "lv", "绿", 100);
+    let other = add(&mut lexicon, ZH, "lv", "旅", 100);
+    let women = add(&mut lexicon, ZH, "wo'men", "我们", 100);
+    let start = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    grams.add(&[start, good], 100).unwrap();
+    grams.add(&[start, other], 50).unwrap();
+    grams.add(&[start, good, women], 100).unwrap();
+    grams.add(&[start, other, women], 50).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    for input in ["lvwomen", "lüwomen", "lu:women", "lv'wo'men"] {
+        for preview in [false, true] {
+            let rows = engine.convert_with_context(
+                input,
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                "",
+            );
+            assert_eq!(
+                find(&rows, "绿我们", CandidateLanguage::Chinese, input.len()).context_adjustment,
+                2.0
+            );
+            assert_eq!(
+                find(&rows, "旅我们", CandidateLanguage::Chinese, input.len()).context_adjustment,
+                1.0
+            );
+            assert_literal(rows.last().unwrap(), input);
+        }
     }
     Ok(())
 }

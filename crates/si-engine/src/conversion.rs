@@ -6,6 +6,7 @@ mod ranking;
 mod reranking;
 mod scoring;
 mod search;
+mod start_competition;
 
 use si_lexicon::{IndexId, WordId};
 
@@ -13,6 +14,7 @@ use self::input::Input;
 use self::lookup::Lookup;
 use self::scoring::Scoring;
 use crate::resources::EngineResources;
+use crate::text_boundaries::last_fragment;
 pub use reranking::SmallReranker;
 
 const MAX_OUTPUT_BYTES: usize = 4_096;
@@ -252,10 +254,22 @@ impl<'a> CandidateEngine<'a> {
         phrases: &[PersonalPhrase<'_>],
         preferences: ConversionPreferences<'_>,
     ) -> Vec<Candidate> {
-        self.convert_with_context(text, languages, preview, phrases, preferences, "")
+        self.convert_with_options(
+            text,
+            languages,
+            preview,
+            phrases,
+            preferences,
+            None,
+            ConversionOptions {
+                correction: self.pinyin_correction,
+                reranker: None,
+            },
+        )
     }
 
     /// Convert `text` with transient committed field text preceding the composition.
+    /// An empty string confirms fragment start; use `convert` for unavailable context.
     pub fn convert_with_context(
         &self,
         text: &str,
@@ -294,7 +308,7 @@ impl<'a> CandidateEngine<'a> {
             preview,
             phrases,
             preferences,
-            preceding_text,
+            Some(preceding_text),
             ConversionOptions {
                 correction,
                 reranker: None,
@@ -302,6 +316,7 @@ impl<'a> CandidateEngine<'a> {
         )
     }
 
+    /// `None` means unavailable context; `Some("")` confirms an empty committed prefix.
     #[allow(clippy::too_many_arguments)]
     pub fn convert_with_options(
         &self,
@@ -310,7 +325,7 @@ impl<'a> CandidateEngine<'a> {
         preview: bool,
         phrases: &[PersonalPhrase<'_>],
         preferences: ConversionPreferences<'_>,
-        preceding_text: &str,
+        preceding_text: Option<&str>,
         options: ConversionOptions<'_>,
     ) -> Vec<Candidate> {
         if text.is_empty() {
@@ -333,10 +348,13 @@ impl<'a> CandidateEngine<'a> {
                 &personal,
                 preferences,
                 options.correction,
-                options
-                    .reranker
-                    .filter(|_| !preview)
-                    .map(|model| (model, preceding_text, text.len())),
+                options.reranker.filter(|_| !preview).map(|model| {
+                    (
+                        model,
+                        preceding_text.map(last_fragment).unwrap_or_default(),
+                        text.len(),
+                    )
+                }),
             )
         } else {
             Vec::new()

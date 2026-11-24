@@ -3,6 +3,7 @@ use si_lexicon::{IndexId, Lexicon, Word};
 use super::scoring::{History, Scoring};
 use super::{Language, WordIds};
 use crate::segmentation::{SegmentKind, Segmenter};
+use crate::text_boundaries::{Part, is_fragment_start, last_fragment, parts};
 
 pub(super) struct Context<'a> {
     base_segmenter: Segmenter<'a>,
@@ -21,8 +22,14 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub(super) fn history(&self, preceding_text: &str, scoring: &Scoring<'_>) -> History {
-        let sentence = last_sentence(preceding_text);
+    pub(super) fn history(&self, preceding_text: Option<&str>, scoring: &Scoring<'_>) -> History {
+        let Some(preceding_text) = preceding_text else {
+            return History::default();
+        };
+        let sentence = last_fragment(preceding_text);
+        if is_fragment_start(sentence) {
+            return scoring.sentence_start();
+        }
         let base = self.segment_history(sentence, &self.base_segmenter, None, scoring);
         let user = self
             .user_segmenter
@@ -41,37 +48,47 @@ impl<'a> Context<'a> {
         scoring: &Scoring<'_>,
     ) -> History {
         let mut history = History::default();
-        for segment in segmenter.segment(sentence) {
-            let (word, from_user) = match segment.kind {
-                SegmentKind::Word(id) => (self.base.word(id), false),
-                SegmentKind::UserWord(id) => (user.and_then(|user| user.word(id)), true),
-                SegmentKind::Letter | SegmentKind::NewEnglishWord => {
-                    self.english_word(&sentence[segment.range], user)
+        for part in parts(sentence) {
+            let text = match part {
+                Part::Text(text) => text,
+                Part::Wrapper => continue,
+                Part::SentenceBoundary | Part::Gap => {
+                    history = History::default();
+                    continue;
                 }
-                SegmentKind::Space => continue,
-                _ => (None, false),
             };
-            history = word
-                .and_then(|word| {
-                    let reading = word.reading?;
-                    let language = Language::from_index(reading.index)?;
-                    let paired = |lexicon: &Lexicon| {
-                        lexicon.find_reading(reading.index, reading.key, word.text)
-                    };
-                    let ids = if from_user {
-                        WordIds {
-                            base: paired(self.base),
-                            user: Some(word.id),
-                        }
-                    } else {
-                        WordIds {
-                            base: Some(word.id),
-                            user: user.and_then(paired),
-                        }
-                    };
-                    Some(scoring.extend_history(history, language, ids))
-                })
-                .unwrap_or_default();
+            for segment in segmenter.segment(text) {
+                let (word, from_user) = match segment.kind {
+                    SegmentKind::Word(id) => (self.base.word(id), false),
+                    SegmentKind::UserWord(id) => (user.and_then(|user| user.word(id)), true),
+                    SegmentKind::Letter | SegmentKind::NewEnglishWord => {
+                        self.english_word(&text[segment.range], user)
+                    }
+                    SegmentKind::Space => continue,
+                    _ => (None, false),
+                };
+                history = word
+                    .and_then(|word| {
+                        let reading = word.reading?;
+                        let language = Language::from_index(reading.index)?;
+                        let paired = |lexicon: &Lexicon| {
+                            lexicon.find_reading(reading.index, reading.key, word.text)
+                        };
+                        let ids = if from_user {
+                            WordIds {
+                                base: paired(self.base),
+                                user: Some(word.id),
+                            }
+                        } else {
+                            WordIds {
+                                base: Some(word.id),
+                                user: user.and_then(paired),
+                            }
+                        };
+                        Some(scoring.extend_history(history, language, ids))
+                    })
+                    .unwrap_or_default();
+            }
         }
         history
     }
@@ -88,54 +105,4 @@ impl<'a> Context<'a> {
             None => (user.and_then(find), true),
         }
     }
-}
-
-fn last_sentence(text: &str) -> &str {
-    fn terminates(character: char) -> bool {
-        matches!(
-            character,
-            '.' | '?' | '!' | '。' | '？' | '！' | '…' | '\r' | '\n' | '\u{2028}' | '\u{2029}'
-        )
-    }
-    let text = text.trim_end_matches(|character: char| {
-        character.is_whitespace()
-            || terminates(character)
-            || matches!(
-                character,
-                '"' | '\''
-                    | '”'
-                    | '’'
-                    | '」'
-                    | '』'
-                    | ')'
-                    | '）'
-                    | '】'
-                    | '》'
-                    | ','
-                    | '，'
-                    | '、'
-                    | ':'
-                    | '：'
-                    | ';'
-                    | '；'
-            )
-    });
-    for (index, character) in text.char_indices().rev() {
-        if !terminates(character) {
-            continue;
-        }
-        // Keep a period inside a word or decimal, such as `Node.js` or `3.14`.
-        if character == '.'
-            && index > 0
-            && text.as_bytes()[index - 1].is_ascii_alphanumeric()
-            && text
-                .as_bytes()
-                .get(index + 1)
-                .is_some_and(u8::is_ascii_alphanumeric)
-        {
-            continue;
-        }
-        return &text[index + character.len_utf8()..];
-    }
-    text
 }

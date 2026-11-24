@@ -56,7 +56,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             guard let self else { return }
             self.presentationRevision &+= 1
             self.markedTextState.candidateStartRect = nil
-            self.session.setPrecedingText("")
+            self.session.setPrecedingText(nil)
             self.invalidateAICompletion()
         }
         panel.list.onSelect = { [weak self] id in
@@ -304,7 +304,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                                              markedRange: { client.markedRange() },
                                              text: { client.attributedSubstring(from: $0)?.string })
         guard unchanged() else { return false }
-        session.setPrecedingText(isCurrent() ? prefix ?? "" : "")
+        session.setPrecedingText(isCurrent() ? prefix : nil)
         return true
     }
 
@@ -338,8 +338,14 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         }
         let presentation = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
         let boundary = secure ? nil : CandidateBoundaryReader.read(
-            markedText: presentation.text, cursorUTF16Offset: presentation.cursorUTF16Offset,
+            markedText: markedTextState.text ?? presentation.text,
+            cursorUTF16Offset: markedTextState.caretUTF16Offset ?? presentation.cursorUTF16Offset,
             isCurrent: isCurrent, selection: { client.selectedRange() }, markedRange: { client.markedRange() },
+            textWithActualRange: { range in
+                var actual = NSRange(location: NSNotFound, length: 0)
+                guard let text = client.string(from: range, actualRange: &actual) else { return nil }
+                return (text, actual)
+            },
             text: { client.attributedSubstring(from: $0)?.string })
         guard isCurrent() else { return }
         let commit = session.commitResult(candidate, reason: selection.confirmationReason(for: candidate))
@@ -361,7 +367,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let memory = appSettings.snapshot(sentenceModel: SentenceLearningSettings.shared.modelForInput)
         let languages = LanguageSettings.shared
         let secureInput = IsSecureEventInputEnabled()
-        if secureInput { session.setPrecedingText("") }
+        if secureInput { session.setPrecedingText(nil) }
         session.configure(languages: languages.enabledLanguages,
                           learning: memory.learning,
                           dictionary: UserDictionary(),
@@ -394,7 +400,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private func prepareApplicationMemory(for client: any IMKTextInput) {
         let sameClient = memoryClient.map { ($0 as AnyObject) === (client as AnyObject) } ?? false
         if !sameClient {
-            session.setPrecedingText("")
+            session.setPrecedingText(nil)
             let identifier = client.bundleIdentifier()
             memoryClient = client
             applicationID = identifier.flatMap { $0.isEmpty ? nil : $0 }
@@ -465,37 +471,32 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // call before using its result or making another request against the old client.
         guard isCurrent(), let activeClient = self.client(), (activeClient as AnyObject) === clientObject,
               isCurrent() else { return }
+        let marked = client.markedRange()
+        guard isCurrent() else { return }
+        let selected = client.selectedRange()
+        guard isCurrent() else { return }
         let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
 
         // TEMP-GEOMETRY-LOG
         #if DEBUG
         let tracesCandidateGeometry = SettingsDefaults.shared.bool(forKey: CandidateGeometryLog.preferenceKey)
             && !IsSecureEventInputEnabled()
-        var probedRange: NSRange?
         var samples: [(index: Int, rect: NSRect)] = []
-        var acceptedIndex: Int?
         #endif
+        var acceptedIndex: Int?
         let hostAnchor = markedTextState.candidateAnchor(screens: screens) {
-            let marked = client.markedRange()
-            guard isCurrent() else { return nil }
-            #if DEBUG
-            probedRange = marked
-            #endif
-            for index in CandidateAnchor.startIndices(marked: marked) {
+            let probe = CandidateAnchor.query(indices: CandidateAnchor.startIndices(marked: marked), screens: screens) { index in
                 var rect = NSRect.zero
                 _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
                 guard isCurrent() else { return nil }
+                // TEMP-GEOMETRY-LOG
                 #if DEBUG
                 if tracesCandidateGeometry { samples.append((index, rect)) }
                 #endif
-                if let anchor = CandidateAnchor(rect, screens: screens) {
-                    #if DEBUG
-                    acceptedIndex = index
-                    #endif
-                    return anchor
-                }
+                return rect
             }
-            return nil
+            acceptedIndex = probe?.index
+            return probe?.anchor
         }
         guard isCurrent() else { return }
 
@@ -505,7 +506,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         if let anchor {
             let clientLevel = Int(client.windowLevel())
             guard isCurrent() else { return }
-            if let hostAnchor, markedTextState.candidateStartRect != hostAnchor.rect {
+            if let hostAnchor {
                 markedTextState.candidateStartRect = hostAnchor.rect
                 lastCandidateRects.setObject(NSValue(rect: hostAnchor.rect), forKey: clientObject)
             }
@@ -516,10 +517,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // TEMP-GEOMETRY-LOG
         #if DEBUG
         if tracesCandidateGeometry, isCurrent(), !IsSecureEventInputEnabled() {
-            let marked = probedRange ?? client.markedRange()
-            guard isCurrent() else { return }
-            let selected = client.selectedRange()
-            guard isCurrent(), !IsSecureEventInputEnabled() else { return }
             CandidateGeometryLog.shared.append(.init(
                 time: Date(), bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown",
                 markedRange: marked, selectedRange: selected, samples: samples, selectedIndex: acceptedIndex,
@@ -546,7 +543,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             invalidateAICompletion()
 
             markedTextState.reset()
-            session.setPrecedingText("")
+            session.setPrecedingText(nil)
             memoryClient = nil
             applicationID = nil
             candidatePanel.claimPresentation()
@@ -870,13 +867,16 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     }
 
     @discardableResult
-    private func insert(_ text: String, into client: any IMKTextInput) -> Bool {
+    private func insert(_ text: String, into client: any IMKTextInput, continuingComposition: Bool = false) -> Bool {
         presentationRevision &+= 1
         let revision = presentationRevision
         invalidateAICompletion()
         automaticConfirmationTask?.cancel()
-        candidateClient = nil
-        markedTextState.reset()
+        let keepsStart = continuingComposition && (candidateClient as AnyObject?) === (client as AnyObject)
+        if !keepsStart { candidateClient = nil }
+        // Clear the host-text cache so the remainder is marked again, but keep
+        // its client and original panel anchor across every prefix confirmation.
+        markedTextState.reset(preservingCandidateStart: keepsStart)
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         guard revision == presentationRevision else { return false }
         selection.update([])
@@ -897,7 +897,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let history = InputHistorySettings.shared
         let historyGeneration = history.generation
         let recordsHistory = history.canRecord
-        guard insert(prefix + commit.text + suffix, into: client) else { return }
+        guard insert(prefix + commit.text + suffix, into: client,
+                     continuingComposition: !commit.remainingInput.isEmpty) else { return }
         guard app == applicationID else { return }
         guard !LanguageSettings.shared.usesPassthrough(in: app) else {
             configureSession(for: client)

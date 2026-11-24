@@ -5,7 +5,9 @@ import Foundation
 struct MarkedTextState {
     private(set) var text: String?
     private var selection: NSRange?
-    // Store the host rectangle in screen coordinates and resolve the current display on use.
+    var caretUTF16Offset: Int? { selection?.location }
+    // Keep the original start through edits and prefix commits, even if later
+    // host geometry follows the caret. Resolve its display again on use.
     var candidateStartRect: CGRect?
 
     func candidateAnchor(screens: [CandidatePlacement.Screen], queryStart: () -> CandidateAnchor?) -> CandidateAnchor? {
@@ -19,9 +21,9 @@ struct MarkedTextState {
         return true
     }
 
-    mutating func reset() {
+    mutating func reset(preservingCandidateStart: Bool = false) {
         text = nil
         selection = nil
-        candidateStartRect = nil
+        if !preservingCandidateStart { candidateStartRect = nil }
     }
 }

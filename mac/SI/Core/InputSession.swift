@@ -10,7 +10,7 @@ public struct CandidateRequest: Sendable {
     fileprivate let dictionary: UserDictionary
     fileprivate let now: Date
     fileprivate let context: CandidateContext?
-    fileprivate let precedingText: String
+    fileprivate let precedingText: String?
     fileprivate let automaticConfirmationEnabled: Bool
     fileprivate let applicationMemory: ApplicationMemorySnapshot
 
@@ -70,7 +70,7 @@ public struct InputSession: Sendable {
     private var applicationMemory: ApplicationMemorySnapshot = .empty
     private var usesContext = false
     private var recentContext: RecentContext?
-    private var precedingText = ""
+    private var precedingText: String?
     private var contextGeneration: UInt64 = 0
     private var automaticConfirmationEnabled = false
     private var configurationGeneration: UInt64 = 0
@@ -147,8 +147,9 @@ public struct InputSession: Sendable {
         refresh(now: now)
     }
 
-    mutating func setPrecedingText(_ text: String) {
-        guard !precedingText.utf8.elementsEqual(text.utf8) else { return }
+    mutating func setPrecedingText(_ text: String?) {
+        if let previous = precedingText, let text, previous.utf8.elementsEqual(text.utf8) { return }
+        if precedingText == nil && text == nil { return }
         precedingText = text
         automaticConfirmation = AutomaticConfirmation()
         if !buffer.isEmpty { refresh() }
@@ -243,7 +244,7 @@ public struct InputSession: Sendable {
         pendingCandidateRequest = nil
         hasCandidatePreview = false
         recentContext = nil
-        precedingText = ""
+        precedingText = nil
     }
 
     public mutating func breakContext() {
@@ -287,7 +288,7 @@ public struct InputSession: Sendable {
     private mutating func refresh(now: Date = .now) {
         automaticConfirmationRevision &+= 1
         guard !buffer.isEmpty else {
-            precedingText = ""
+            precedingText = nil
             candidates = []
             pendingCandidateRequest = nil
             hasCandidatePreview = false

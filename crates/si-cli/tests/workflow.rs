@@ -894,6 +894,164 @@ fn learning_checks_both_directions_on_bigrams() -> io::Result<()> {
 }
 
 #[test]
+fn paragraph_ingest_marks_nonempty_line_and_punctuation_fragments() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "si.conf",
+        &TEST_CONFIG.replace("max_order = 4", "max_order = 5"),
+    )?;
+    scratch.write(
+        "seed.csv",
+        "text,reading,weight\n我,wo,1\n先,xian,1\n自己,zi'ji,1\n试,shi,1\n了,le,1\n一下,yi'xia,1\n没,mei,1\n搞定,gao'ding,1\n\"我先自己试了一下，没搞定\",wo'xian'zi'ji'shi'le'yi'xia'mei'gao'ding,1000000\n",
+    )?;
+    scratch.run(&["lexicon", "build", "main.silex", "0", "seed.csv"])?;
+    scratch.write(
+        "paragraphs.txt",
+        "\u{feff}我先自己试了一下，没搞定。\r\n，？！...\r\n \r\n 我 \r\n",
+    )?;
+    let ingest = [
+        "--config",
+        "si.conf",
+        "corpus",
+        "ingest",
+        "main.silex",
+        "words.sigram",
+        "paragraphs.txt",
+    ];
+    scratch.run(&ingest)?;
+    let first = EngineResources::open(
+        &scratch.0.join("main.silex"),
+        Some(&scratch.0.join("words.sigram")),
+    )?;
+    let lexicon = first.lexicon();
+    let joined = lexicon.find_word("我先自己试了一下，没搞定").unwrap();
+    assert_eq!(lexicon.word(joined).unwrap().count, 1_000_000);
+    let [
+        start,
+        end,
+        me,
+        first_word,
+        myself,
+        try_word,
+        le,
+        once,
+        not,
+        done,
+    ] = [
+        "<s>", "</s>", "我", "先", "自己", "试", "了", "一下", "没", "搞定",
+    ]
+    .map(|text| lexicon.find_word(text).unwrap());
+    for id in [start, end] {
+        let word = lexicon.word(id).unwrap();
+        assert_eq!(word.count, 0);
+        assert!(word.reading.is_none());
+        assert!(!lexicon.lookup_keys().any(|(_, indexed)| indexed == id));
+    }
+    let grams = first.grams().unwrap();
+    let expected_bigrams = std::collections::HashMap::from([
+        ([start, me], 2),
+        ([me, first_word], 1),
+        ([first_word, myself], 1),
+        ([myself, try_word], 1),
+        ([try_word, le], 1),
+        ([le, once], 1),
+        ([once, end], 1),
+        ([start, not], 1),
+        ([not, done], 1),
+        ([done, end], 1),
+        ([me, end], 1),
+    ]);
+    assert_eq!(
+        grams.bigrams().collect::<std::collections::HashMap<_, _>>(),
+        expected_bigrams
+    );
+    assert_eq!(grams.count(&[start, me, end]), Some(1));
+    assert_eq!(grams.count(&[start, not, done, end]), Some(1));
+    assert_eq!(
+        grams.count(&[start, me, first_word, myself, try_word]),
+        Some(1)
+    );
+    assert_eq!(grams.count(&[myself, try_word, le, once, end]), Some(1));
+    assert_eq!(grams.count(&[once, not]), None);
+    assert_eq!(grams.count(&[end, start]), None);
+    assert_eq!(grams.count(&[start, end]), None);
+
+    scratch.run(&ingest)?;
+    let second = EngineResources::open(
+        &scratch.0.join("main.silex"),
+        Some(&scratch.0.join("words.sigram")),
+    )?;
+    assert_eq!(second.lexicon().len(), lexicon.len());
+    assert_eq!(second.lexicon().find_word("<s>"), Some(start));
+    assert_eq!(second.lexicon().find_word("</s>"), Some(end));
+    for (words, count) in expected_bigrams {
+        assert_eq!(second.grams().unwrap().count(&words), Some(count * 2));
+    }
+    Ok(())
+}
+
+#[test]
+fn paragraph_ingest_unknown_spans_do_not_create_fragment_boundaries() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "seed.csv",
+        "text,reading,weight\n甲,jia,1\n乙,yi,1\n丙,bing,1\n丁,ding,1\n重,chong,1\n重,tong,1\n",
+    )?;
+    scratch.run(&["lexicon", "build", "main.silex", "0", "seed.csv"])?;
+    scratch.write("paragraphs.txt", "甲陌乙，陌丙丁陌。甲Mystery乙；重丙。\n")?;
+    scratch.run(&[
+        "corpus",
+        "ingest",
+        "main.silex",
+        "words.sigram",
+        "paragraphs.txt",
+    ])?;
+    let model = EngineResources::open(
+        &scratch.0.join("main.silex"),
+        Some(&scratch.0.join("words.sigram")),
+    )?;
+    let [start, end, a, b, c, d] = ["<s>", "</s>", "甲", "乙", "丙", "丁"]
+        .map(|text| model.lexicon().find_word(text).unwrap());
+    assert_eq!(
+        model
+            .grams()
+            .unwrap()
+            .bigrams()
+            .collect::<std::collections::HashMap<_, _>>(),
+        std::collections::HashMap::from([
+            ([start, a], 2),
+            ([b, end], 2),
+            ([c, d], 1),
+            ([c, end], 1),
+        ]),
+    );
+    assert_eq!(model.grams().unwrap().sizes(), [4, 0, 0, 0]);
+    Ok(())
+}
+
+#[test]
+fn paragraph_ingest_empty_and_unknown_only_fragments_have_no_markers() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write("seed.csv", "text,reading,weight\n甲,jia,1\n")?;
+    scratch.run(&["lexicon", "build", "main.silex", "0", "seed.csv"])?;
+    scratch.write("paragraphs.txt", " \n，。。!!\n陌Mystery\n")?;
+    scratch.run(&[
+        "corpus",
+        "ingest",
+        "main.silex",
+        "words.sigram",
+        "paragraphs.txt",
+    ])?;
+    let model = EngineResources::open(
+        &scratch.0.join("main.silex"),
+        Some(&scratch.0.join("words.sigram")),
+    )?;
+    assert_eq!(model.lexicon().len(), 1);
+    assert_eq!(model.grams().unwrap().sizes(), [0; 4]);
+    Ok(())
+}
+
+#[test]
 fn paragraph_ingest_counts_longest_words_and_grams_together() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(
@@ -1303,7 +1461,7 @@ fn paragraph_ingest_creates_missing_snapshots_and_protects_existing_gram_ids() -
 
     scratch.run(&ingest)?;
     let repeated = EngineResources::open(&lexicon_path, Some(&grams_path))?;
-    assert_eq!(repeated.lexicon().len(), 2);
+    assert_eq!(repeated.lexicon().len(), 4);
     assert_eq!(repeated.grams().unwrap().count(&[letter, number]), Some(2));
     Ok(())
 }
@@ -2256,6 +2414,8 @@ fn paragraph_and_user_ingestion_choose_the_complete_frequency_path() -> io::Resu
         "sentences.txt",
     ])?;
     let user = store.load()?.unwrap();
+    assert!(user.lexicon().find_word("<s>").is_none());
+    assert!(user.lexicon().find_word("</s>").is_none());
     let no = user.lexicon().find_word("没有").unwrap();
     let ime = user.lexicon().find_word("输入法").unwrap();
     assert_eq!(user.lexicon().word(no).unwrap().count, 2);
@@ -2283,5 +2443,139 @@ fn paragraph_and_user_ingestion_choose_the_complete_frequency_path() -> io::Resu
     assert_eq!(base.lexicon().word(ime).unwrap().count, 472_648);
     assert_eq!(base.lexicon().word(wrong).unwrap().count, 155);
     assert_eq!(base.grams().unwrap().count(&[no, ime]), Some(2));
+    Ok(())
+}
+
+#[test]
+fn paragraph_ingest_wrappers_preserve_adjacency_without_inventing_sentence_starts() -> io::Result<()>
+{
+    let scratch = ScratchDirectory::new()?;
+    scratch.write("seed.csv", "text,reading,weight\n看过,kan'guo,1\n青蛇,qing'she,1\n你,ni,1\n战争之王,zhan'zheng'zhi'wang,1\n唐伯虎点秋香,tang'bo'hu'dian'qiu'xiang,1\n第,di,1\n届,jie,1\n奥斯卡金像奖,ao'si'ka'jin'xiang'jiang,1\n最佳动画长片,zui'jia'dong'hua'chang'pian,1\n提名,ti'ming,1\n吧,ba,1\n看过青蛇,kan'guo'qing'she,1000000\n")?;
+    scratch.run(&["lexicon", "build", "main.silex", "0", "seed.csv"])?;
+    scratch.write(
+        "paragraphs.txt",
+        concat!(
+            "看过《青蛇》吧？\n",
+            "你看过《战争之王》吧?\n",
+            "看过《唐伯虎点秋香》吧？\n",
+            "第78届奥斯卡金像奖最佳动画长片(提名)吧。\n",
+        ),
+    )?;
+    scratch.run(&[
+        "corpus",
+        "ingest",
+        "main.silex",
+        "words.sigram",
+        "paragraphs.txt",
+    ])?;
+    let model = EngineResources::open(
+        &scratch.0.join("main.silex"),
+        Some(&scratch.0.join("words.sigram")),
+    )?;
+    let ids = |text| model.lexicon().find_word(text).unwrap();
+    let start = ids("<s>");
+    let end = ids("</s>");
+    let ba = ids("吧");
+    let grams = model.grams().unwrap();
+    assert_eq!(grams.count(&[start, ba]), None);
+    assert_eq!(grams.count(&[ba, end]), Some(4));
+    for title in ["青蛇", "战争之王", "唐伯虎点秋香", "提名"] {
+        assert_eq!(grams.count(&[ids(title), ba, end]), Some(1));
+        assert_eq!(grams.count(&[start, ids(title)]), None);
+    }
+    assert_eq!(grams.count(&[ids("看过"), ids("青蛇"), ba]), Some(1));
+    assert_eq!(
+        model.lexicon().word(ids("看过青蛇")).unwrap().count,
+        1_000_000
+    );
+    Ok(())
+}
+
+#[test]
+fn paragraph_ingest_ignores_wrappers_but_only_explicit_delimiters_restart_fragments()
+-> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "seed.csv",
+        "text,reading,weight\n甲,jia,1\n乙,yi,1\n丙,bing,1\n",
+    )?;
+    scratch.run(&["lexicon", "build", "main.silex", "0", "seed.csv"])?;
+    scratch.write(
+        "paragraphs.txt",
+        concat!(
+            "甲《乙》丙\n甲〈乙〉丙\n甲“乙”丙\n甲‘乙’丙\n",
+            "甲「乙」丙\n甲『乙』丙\n甲（乙）丙\n甲(乙)丙\n",
+            "甲【乙】丙\n甲[乙]丙\n甲\"乙\"丙\n甲'乙'丙\n",
+            "甲：“乙。”\n甲!（乙）\n《乙》\n",
+            "甲/乙\n甲$乙\n甲🙂乙\n",
+            "甲，\n甲,\n甲。\n甲！\n甲!\n甲？\n甲?\n甲；\n甲;\n甲：\n甲:\n甲…\n甲.\n",
+            "《》“”()[]\n",
+        ),
+    )?;
+    scratch.run(&[
+        "corpus",
+        "ingest",
+        "main.silex",
+        "words.sigram",
+        "paragraphs.txt",
+    ])?;
+    let model = EngineResources::open(
+        &scratch.0.join("main.silex"),
+        Some(&scratch.0.join("words.sigram")),
+    )?;
+    let [start, end, a, b, c] =
+        ["<s>", "</s>", "甲", "乙", "丙"].map(|text| model.lexicon().find_word(text).unwrap());
+    let grams = model.grams().unwrap();
+    assert_eq!(grams.count(&[a, b, c]), Some(12));
+    assert_eq!(grams.count(&[start, b]), Some(3));
+    assert_eq!(grams.count(&[a, end]), Some(15));
+    assert_eq!(grams.count(&[b, end]), Some(6));
+    assert_eq!(grams.count(&[start, end]), None);
+    Ok(())
+}
+
+#[test]
+fn paragraph_ingest_internal_periods_do_not_create_boundary_markers() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write("seed.csv", "text,reading,weight\n甲,jia,1\n乙,yi,1\n")?;
+    scratch.write(
+        "english.csv",
+        "text,reading,weight\nNode.js,nodejs,1\nexample.com,example.com,1\n3.14,decimal,1\n",
+    )?;
+    scratch.run(&[
+        "lexicon",
+        "build",
+        "main.silex",
+        "0",
+        "seed.csv",
+        "1",
+        "english.csv",
+    ])?;
+    scratch.write(
+        "paragraphs.txt",
+        "甲 Node.js 乙\n甲 example.com 乙\n甲 3.14 乙\n",
+    )?;
+    scratch.run(&[
+        "corpus",
+        "ingest",
+        "main.silex",
+        "words.sigram",
+        "paragraphs.txt",
+    ])?;
+    let model = EngineResources::open(
+        &scratch.0.join("main.silex"),
+        Some(&scratch.0.join("words.sigram")),
+    )?;
+    let id = |text| model.lexicon().find_word(text).unwrap();
+    for word in ["Node.js", "example.com", "3.14"] {
+        assert_eq!(
+            model
+                .grams()
+                .unwrap()
+                .count(&[id("甲"), id(word), id("乙")]),
+            Some(1)
+        );
+    }
+    assert_eq!(model.grams().unwrap().count(&[id("<s>"), id("乙")]), None);
     Ok(())
 }

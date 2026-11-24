@@ -11,9 +11,11 @@ use super::progress::{ProgressCounts, ProgressReporter};
 use super::source::read_corpus_lines;
 use super::{CorpusProgress, ParagraphImport, open_compatible_grams};
 use crate::segmentation::{SegmentKind, Segmenter};
+use crate::text_boundaries::{Part, START_TOKEN, parts};
 
 const LETTER_TOKEN: &str = "<char>";
 const NUMBER_TOKEN: &str = "<num>";
+const END_TOKEN: &str = "</s>";
 
 pub(super) fn ingest(
     paths: &Paths,
@@ -79,7 +81,7 @@ struct Observations {
 
 impl Observations {
     fn new(lexicon: &Lexicon) -> Self {
-        let placeholders = [LETTER_TOKEN, NUMBER_TOKEN]
+        let placeholders = [LETTER_TOKEN, NUMBER_TOKEN, START_TOKEN, END_TOKEN]
             .into_iter()
             .filter_map(|token| {
                 lexicon
@@ -102,61 +104,75 @@ impl Observations {
         builder: &mut GramBuilder,
         progress: &mut ProgressReporter<'_>,
     ) -> io::Result<()> {
-        let mut run = Vec::new();
         read_corpus_lines(path, progress, self.progress_counts(), |line, text| {
             self.report.paragraphs += 1;
-            for segment in segmenter.segment(text) {
-                let id = match segment.kind {
-                    SegmentKind::Word(id) => id,
-                    SegmentKind::UserWord(_) | SegmentKind::WebAddress { .. } => {
-                        unreachable!("base-only segmenter")
-                    }
-                    SegmentKind::NewEnglishWord => {
-                        self.review.record_english(&text[segment.range])?;
-                        Self::finish_run(&mut run, builder).map_err(io::Error::other)?;
+            let mut fragment = Fragment::new();
+            for part in parts(text) {
+                let text = match part {
+                    Part::Text(text) => text,
+                    Part::Wrapper => continue,
+                    Part::SentenceBoundary => {
+                        self.finish_fragment(&mut fragment, builder)?;
                         continue;
                     }
-                    SegmentKind::Letter | SegmentKind::Number => {
-                        let token = if segment.kind == SegmentKind::Letter {
-                            self.report.letter_placeholders += 1;
-                            LETTER_TOKEN
-                        } else {
-                            self.report.number_placeholders += 1;
-                            NUMBER_TOKEN
-                        };
-                        let id = match self.placeholders.get(token) {
-                            Some(&id) => id,
-                            None => self.pending_id(token)?,
-                        };
-                        run.push(id);
+                    Part::Gap => {
+                        fragment.break_run(builder)?;
                         continue;
                     }
-                    SegmentKind::Space => continue,
-                    SegmentKind::Ambiguous | SegmentKind::Unknown | SegmentKind::Boundary => {
-                        if segment.kind != SegmentKind::Boundary {
+                };
+                for segment in segmenter.segment(text) {
+                    let id = match segment.kind {
+                        SegmentKind::Word(id) => id,
+                        SegmentKind::UserWord(_) | SegmentKind::WebAddress { .. } => {
+                            unreachable!("base-only segmenter")
+                        }
+                        SegmentKind::NewEnglishWord => {
+                            self.review.record_english(&text[segment.range])?;
+                            fragment.break_run(builder)?;
+                            continue;
+                        }
+                        SegmentKind::Letter | SegmentKind::Number => {
+                            let token = if segment.kind == SegmentKind::Letter {
+                                self.report.letter_placeholders += 1;
+                                LETTER_TOKEN
+                            } else {
+                                self.report.number_placeholders += 1;
+                                NUMBER_TOKEN
+                            };
+                            let id = self.placeholder_id(token)?;
+                            self.push_token(&mut fragment, id)?;
+                            continue;
+                        }
+                        SegmentKind::Space => continue,
+                        SegmentKind::Boundary => {
+                            // An internal dot rejected by lexical matching is a gap, not a sentence.
+                            fragment.break_run(builder)?;
+                            continue;
+                        }
+                        SegmentKind::Ambiguous | SegmentKind::Unknown => {
                             self.review.record(
                                 &text[segment.range],
                                 segment.kind == SegmentKind::Ambiguous,
                                 path,
                                 line,
                             );
+                            self.report.ambiguous_words +=
+                                usize::from(segment.kind == SegmentKind::Ambiguous);
+                            self.report.unknown_characters +=
+                                usize::from(segment.kind == SegmentKind::Unknown);
+                            fragment.break_run(builder)?;
+                            continue;
                         }
-                        self.report.ambiguous_words +=
-                            usize::from(segment.kind == SegmentKind::Ambiguous);
-                        self.report.unknown_characters +=
-                            usize::from(segment.kind == SegmentKind::Unknown);
-                        Self::finish_run(&mut run, builder).map_err(io::Error::other)?;
-                        continue;
-                    }
-                };
-                let count = self.words.entry(id).or_default();
-                *count = count
-                    .checked_add(1)
-                    .ok_or_else(|| io::Error::other("word occurrence count exceeds u64"))?;
-                self.report.matched_words += 1;
-                run.push(id);
+                    };
+                    let count = self.words.entry(id).or_default();
+                    *count = count
+                        .checked_add(1)
+                        .ok_or_else(|| io::Error::other("word occurrence count exceeds u64"))?;
+                    self.report.matched_words += 1;
+                    self.push_token(&mut fragment, id)?;
+                }
             }
-            Self::finish_run(&mut run, builder).map_err(io::Error::other)?;
+            self.finish_fragment(&mut fragment, builder)?;
             Ok(self.progress_counts())
         })
     }
@@ -170,7 +186,10 @@ impl Observations {
         }
     }
 
-    fn pending_id(&mut self, text: &'static str) -> io::Result<WordId> {
+    fn placeholder_id(&mut self, text: &'static str) -> io::Result<WordId> {
+        if let Some(&id) = self.placeholders.get(text) {
+            return Ok(id);
+        }
         if let Some(&id) = self.new_placeholders.get(text) {
             return Ok(id);
         }
@@ -184,14 +203,49 @@ impl Observations {
         Ok(id)
     }
 
-    fn finish_run(
-        run: &mut Vec<WordId>,
-        builder: &mut GramBuilder,
-    ) -> Result<(), si_gram::BuildError> {
-        if run.len() >= 2 {
-            builder.observe(run)?;
+    fn push_token(&mut self, fragment: &mut Fragment, id: WordId) -> io::Result<()> {
+        if fragment.at_start {
+            fragment.run.push(self.placeholder_id(START_TOKEN)?);
+            fragment.at_start = false;
         }
-        run.clear();
+        fragment.run.push(id);
+        Ok(())
+    }
+
+    fn finish_fragment(
+        &mut self,
+        fragment: &mut Fragment,
+        builder: &mut GramBuilder,
+    ) -> io::Result<()> {
+        if !fragment.run.is_empty() {
+            fragment.run.push(self.placeholder_id(END_TOKEN)?);
+        }
+        fragment.break_run(builder)?;
+        fragment.at_start = true;
+        Ok(())
+    }
+}
+
+/// Unknown spans break adjacency, but only punctuation and line edges mark fragments.
+struct Fragment {
+    run: Vec<WordId>,
+    at_start: bool,
+}
+
+impl Fragment {
+    fn new() -> Self {
+        Self {
+            run: Vec::new(),
+            at_start: true,
+        }
+    }
+
+    fn break_run(&mut self, builder: &mut GramBuilder) -> io::Result<()> {
+        if self.run.len() >= 2 {
+            builder.observe(&self.run).map_err(io::Error::other)?;
+        }
+        self.run.clear();
+        self.at_start = false;
         Ok(())
     }
 }

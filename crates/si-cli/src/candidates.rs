@@ -5,8 +5,8 @@ use std::path::Path;
 use si_engine::resources::EngineResources;
 use si_engine::resources::user::UserModelStore;
 use si_engine::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionPreferences, CorrectionSensitivity,
-    EnabledLanguages,
+    Candidate, CandidateEngine, CandidateLanguage, ConversionOptions, ConversionPreferences,
+    CorrectionSensitivity, EnabledLanguages,
 };
 
 pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
@@ -67,13 +67,17 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
         for line in io::stdin().lock().lines() {
             let line = line?;
             let languages = languages.unwrap_or_default();
-            let rows = engine.convert_with_context(
+            let rows = engine.convert_with_options(
                 &line,
                 languages,
                 preview.unwrap_or_default(),
                 &[],
                 ConversionPreferences::default(),
-                preceding.unwrap_or_default(),
+                preceding,
+                ConversionOptions {
+                    correction: pinyin_correction.flatten(),
+                    reranker: None,
+                },
             );
             if window.unwrap_or_default() {
                 for index in si_engine::presentation::conversion_window(&line, languages, &rows) {

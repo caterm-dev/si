@@ -126,7 +126,7 @@ final class RustConversion: @unchecked Sendable {
     func candidates(for input: String, languages: Set<InputLanguage>, preview: Bool = false,
                     dictionary: UserDictionary = UserDictionary(), includesConfirmation: Bool = false,
                     learning: LearningProfile = LearningProfile(), now: Date = .now,
-                    context: CandidateContext? = nil, precedingText: String = "",
+                    context: CandidateContext? = nil, precedingText: String? = nil,
                     correctionMode: PinyinCorrectionMode? = nil, rerankingEnabled: Bool = false) -> [InputCandidate] {
         let mode = correctionMode ?? self.correctionMode
         var mask: UInt8 = 0
@@ -138,14 +138,19 @@ final class RustConversion: @unchecked Sendable {
         let bytes = Array(input.utf8)
         let learned = learning.tokenPreferences(for: input, now: now)
         let paths = learning.pathPreferences(for: input, now: now, context: context)
-        var precedingText = precedingText
+        let hasPrecedingText = precedingText != nil
+        var precedingText = precedingText ?? ""
+        var emptyPrefix: UInt8 = 0
         guard let result = withRows(dictionary.entries, learned, paths, { phrases, tokens, paths in
             bytes.withUnsafeBufferPointer { input in
                 precedingText.withUTF8 { preceding in
-                    si_engine_candidates_for_mode(engine, input.baseAddress, input.count, preceding.baseAddress, preceding.count,
-                                                  mask, preview, phrases.baseAddress, phrases.count,
-                                                  tokens.baseAddress, tokens.count, paths.baseAddress, paths.count,
-                                                  mode.rawValue, rerankingEnabled)
+                    withUnsafePointer(to: &emptyPrefix) { empty in
+                        si_engine_candidates_for_mode(engine, input.baseAddress, input.count,
+                                                      hasPrecedingText ? preceding.baseAddress ?? empty : nil, preceding.count,
+                                                      mask, preview, phrases.baseAddress, phrases.count,
+                                                      tokens.baseAddress, tokens.count, paths.baseAddress, paths.count,
+                                                      mode.rawValue, rerankingEnabled)
+                    }
                 }
             }
         }) else { return [] }

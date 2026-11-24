@@ -49,12 +49,44 @@ and `cargo test --locked -p si-cli --test workflow` for snapshot/resource
 commands. The CLI fixtures exercise absolute weight updates, same-source
 reimports, language-filtered CSV snapshots, stable word IDs, paired grams,
 atomic publication and retries, polyphonic readings, corpus review exports,
+base-only `<s>`/`</s>` fragment grams across line and punctuation boundaries,
+single-token fragments, empty/repeated boundaries and unknown-span gaps,
+quoted titles and parenthetical suffixes without false `<s>` counts,
+wrapper-preserved adjacency without joining spellings, and decimal/domain
+periods without new sentence markers,
 user compound discovery from word grams, removal of retired user character
 files, and concurrent imports.
 
 Scoring fixtures verify shared Chinese and English unigram totals, equal
 unigram scores at equal counts, cross-language word histories and continuation
-totals, lower-order fallback, and ranking with preceding text.
+totals, lower-order fallback, and ranking with preceding text. Sentence-start
+fixtures verify the nonnegative relative reward `2*r*r*(3-2*r)`, where
+`r = c/max(c_competitors)` within the same consumed source span. Cases cover
+zero and full rewards, ties, probability ratios, corpus-scale invariance,
+unrelated high-count words, enabled-language competition, separate completion
+and correction groups, maxima before dense beam pruning, neutral later-span
+fallback preserving completed prefixes on traversal-budget exhaustion, longest supported boundary-gram
+replacement, retained opening counts beyond the model order, exact-prefix
+independence, direct-word scoring, literal/personal/verbatim exclusions and
+neutral behavior without marker data. `PrecedingTextReaderTests` checks a
+revalidated empty prefix; bridge fixtures distinguish it from unavailable or
+invalid UTF-8 context. Changing between known-empty and unavailable context
+invalidates deferred candidate requests. Context regressions also compare
+`看过《青蛇》`, `你看过《战争之王》`, `看过《唐伯虎点秋香》` and `(提名)`
+with ordinary preceding words, while `他说：“` and `你好。”` retain confirmed
+sentence-start behavior. Symbols and unknown text never establish a new start.
+
+After an intentionally requested install with rebuilt boundary statistics,
+check empty fields and text following `?`, `，`, `。`, repeated punctuation and
+newlines in representative hosts. For example, compare `bawomen` at field start,
+after `我今天? ` and after ordinary committed text. Verify that punctuation
+does not reuse the preceding fragment's grams. Also check quoted titles and
+parenthetical suffixes, opening quotes after `：`, closing quotes after `。`,
+`3.14`, `example.com` and `Node.js`. Verify that prefix confirmation refreshes
+the context, and that secure/direct input and unreadable fields do not infer
+sentence start. Fixture results and a build do not establish live host behavior
+or production ranking quality. Existing packaged resources are not automatically
+re-ingested by the code change.
 
 Segmentation regressions cover `没有输入法` → `没有 / 输入法` in base
 paragraph ingestion, user ingestion and preceding-field ranking, bounded
@@ -71,6 +103,15 @@ After rebuilding the app, verify these boundaries with synthetic Sentence
 Learning captures and preceding-field context in a representative host.
 Existing saved statistics are retained; use a fresh synthetic profile when
 checking newly counted grams.
+
+User ingestion fixtures also verify that base English words such as `an`, `he`,
+`woman` and `banana` remain learnable in either ASCII case, while unknown complete
+Pinyin runs such as `wobuzhidao` are excluded and break word-gram adjacency.
+Unknown non-Pinyin words, Chinese words, email and URL handling, existing user
+entries and exact literal conversion fallback retain their existing behavior.
+The check uses complete syllable coverage rather than a greedy longest match,
+abbreviations, completion or typo correction. Run
+`cargo test --locked -p si-engine user_ingestion` for the ingestion regressions.
 
 Run `python3 -m unittest discover -s Tests/ScriptTests` for synthetic packaging
 and installer checks. For vocabulary-only changes, use the
@@ -216,8 +257,14 @@ office app. Include ordinary and secure fields, using dummy input.
   Input History independently enabled, only SI-inserted spaces belong to submitted
   output; existing host text is not recorded. Automated `CandidateSpacingTests`,
   `CandidateBoundaryReaderTests` and `InputHistorySettingsTests` cover policy,
-  bounded UTF-16 reads, stale state rejection and submitted bytes; they do not
-  establish native host compatibility.
+  bounded UTF-16 reads, native-text fallback and covering-range slicing, hosts
+  exposing only committed prefix text, exact spelling validation with an
+  unavailable marked range, stale state rejection and submitted bytes. The
+  committed-prefix-only and covering-native-range regressions fail before the
+  spacing fix. A native NSTextView fixture also checks derived-range readback. These checks do not
+  establish ChatGPT or other live host compatibility; repeat both script
+  directions in ChatGPT using Space, numbers and mouse after installing a build
+  intentionally, and check that existing spaces and focus changes remain safe.
 - Type `youshihou` and verify dictionary completions such as `有时候是`
   appear only if ranked in the leading four choices. Check that at most nine
   exact word choices remain, while Chinese dictionary characters and exact
@@ -306,10 +353,11 @@ highlighted for each edited composition.
 
 ## Candidate positioning
 
-`CandidatePlacementTests` covers the start probes, anchor reuse during typing,
-deletion and caret movement, anchor reset, invalid line rectangles, last-valid
-and mouse fallbacks, below/above placement, resizing, visible-frame clamping,
-and displays to the left and above the primary display.
+`CandidatePlacementTests` covers start-only inline and compatibility probes,
+anchor reuse while typing and deleting across a wrap or moving the caret,
+successive prefix confirmations, anchor reset, superseded queries, invalid
+rectangles, last-valid and mouse fallbacks, resizing, and disconnected or
+multiple displays.
 `CandidatePanelOwnershipTests` covers a focus switch between rendering and display.
 
 On an intentionally installed Debug build, type synthetic Pinyin such as
@@ -318,11 +366,12 @@ web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Check
 that the panel first appears beside the start of the composition. In Codex,
 place the caret within a long line of synthetic text. Type until the marked
 spelling wraps, delete back across the wrap, and move the caret with Home and
-End. Confirm the panel stays anchored to the start of the spelling. In each
-host, try rapid typing, a new line, the end of existing text, and starting
-another composition after moving the window. Confirm a prefix and check that
-the panel anchors at the start of the editable remainder. Repeat on a connected
-external display. Check that expand/collapse and paging keep the resized panel
+End. Verify that the panel stays at the start of the spelling. In each host, try rapid
+typing, a new line, the end of existing text, and starting another composition
+after moving the window. Confirm several prefixes with Space, numbers and mouse;
+the panel must keep the original start while each remainder stays editable. Repeat
+with automatic prefix confirmation enabled. Finish or cancel the remainder, then
+start a new composition and verify its new anchor. Repeat on a connected external display. Check that expand/collapse and paging keep the resized panel
 beside the composition and within the visible frame near the bottom and right
 edges. Delete the entire spelling, press Escape, commit, switch focus and enable
 a direct-input rule in separate compositions. A queued update must not restore
@@ -341,8 +390,8 @@ tail -f "$HOME/Library/Logs/SI/CandidateGeometry.log"
 Each placement uses one line in this order: UTC timestamp with milliseconds,
 frontmost bundle ID, marked range, selected range, all attempted indices and raw
 rectangles, selected index, display geometry, and final window frame. A selected
-index of `none` indicates that the placement reused the retained anchor or
-fell back when a host start rectangle was unavailable. Save the relevant
+index of `none` indicates that placement reused the retained start or used
+fallback geometry (or hid the panel) when no host start was available. Save the relevant
 log lines and screenshots from synthetic fields per host. Logs exclude secure
 input and typed content. The writer clears the file before an append that would
 exceed 2 MB. Disable logging before deleting the file:

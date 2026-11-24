@@ -196,11 +196,25 @@ At composition start and after a prefix commit, `SIInputController` asks the
 active InputMethodKit client for the full UTF-16 range before the insertion point.
 It revalidates the client and ranges across the read. The Swift request carries
 that text separately from composition spelling.
-It uses an empty context in secure input or when the host cannot supply the full
-range. Direct input bypasses conversion. The snapshot is transient and local.
+The request distinguishes unavailable text from a confirmed empty prefix.
+Selection offset zero can confirm an empty prefix without a host text read,
+after revalidating the selection and absence of marked text. Secure input or an
+unsupported/stale range supplies unavailable context. Direct input bypasses
+conversion. The C ABI represents unavailable context with a null pointer and
+a confirmed empty prefix with a nonnull pointer and zero UTF-8 bytes. Rust's
+`convert_with_options` uses `Option<&str>`; `convert_with_context` treats its
+string as available, including an empty string. The snapshot is transient and local.
 
-Rust selects the last sentence or unfinished sentence fragment from the supplied
-text, including the last completed sentence after terminal punctuation. The base
+Rust selects the fragment after the last explicit sentence/fragment delimiter,
+using the same source-aware classification as base ingestion before lexical
+matching. Delimiters are `，,。！？!?；;：:…`, line endings and ASCII periods
+outside ASCII alphanumeric interiors. Decimals and domains such as `3.14` and
+`example.com` do not introduce sentence boundaries. Book-title marks, quotes
+and brackets separate lexical matching but preserve word history across them;
+the source slices are not concatenated into a new spelling. It preserves
+horizontal whitespace, and never trims a terminal delimiter to recover words
+from the previous fragment. Unrecognized symbols break adjacency without
+seeding a sentence start. The base
 gram history uses base-lexicon segmentation. When user grams are available, the
 user gram history uses the user vocabulary as an overlay on the base lexicon.
 Each history keeps the final consecutive recognized words up to its gram
@@ -208,6 +222,43 @@ order. The difference between the first word's conditioned and
 unconditioned log probabilities adjusts ranking before pruning. Later words
 use the history from the composition. Candidates containing personal or verbatim segments receive no field
 adjustment. The adjustment is separate from the lexical score saved by Personal Learning.
+
+An available final fragment containing only whitespace and wrappers seeds a separate base `<s>`
+history when the paired lexicon contains its unindexed zero-count symbol.
+Unavailable context and gaps caused by unknown or unresolved words never seed
+that history. Boundary scoring compares the longest countable opening of each
+candidate with competing enabled dictionary paths consuming the same source
+span. Since all start probabilities have the same global denominator, their
+ratio is `r = c/max(c_competitors)`. The reward is `2*r*r*(3-2*r)` bits:
+zero when there is no observation, two bits for the highest observed start
+probability, with a smooth transition and no negative adjustment. Equal maxima
+receive equal full rewards; unrelated spellings and disabled languages cannot
+affect the denominator. Exact, completion and corrected spelling paths form
+separate groups, preserving exact-prefix independence from pending suffixes.
+A bounded request-local lexical traversal establishes maxima before the main
+search prunes candidates. It considers direct and composed words together,
+including mixed paths, spelling aliases and eligible bounded correction
+matches, without personal/verbatim paths or preference bonuses. It stores at
+most 8,192 states and evaluates at most 65,536 transitions within the existing
+128-unit construction window and 4,096-byte output bound; direct words retain
+their independent full-input lookup. If it cannot finish, later unfinished
+spans use no sentence-start reward instead of a partial denominator. Earlier
+completed prefix spans retain their independently established maxima. These
+maxima and paths are transient; immutable gram caches still hold only resource IDs.
+A single word uses `<s>, word`; a second word replaces
+that evidence with `<s>, word1, word2` when the model supports trigrams, even
+when the longer sequence has zero observations. Once the highest stored gram
+order is reached, later words retain that opening-prefix count and compare it
+with the competitors at their current consumed span. Missing
+counts contribute zero. Ordinary word frequencies do not change this reward;
+overlapping boundary grams are not added together. The same reward
+applies to base and personalized paths. Search, completion bounds, prefix
+collection and final ranking carry the reward before presentation limits.
+The reward stays separate from lexical scores and uses only consumed spelling
+for prefixes. Direct words and composed paths share the scorer;
+personal/verbatim paths remain excluded. User ingestion does not add boundary
+tokens, and old or missing base boundary data remains neutral.
+The engine does not score `</s>` at candidate completion.
 
 ## Rust resource workflow
 
@@ -300,8 +351,33 @@ characters and removes tone marks. The segmenter compares the full reading
 with the lexicon, including SI's umlaut aliases.
 It counts the match when the reading identifies exactly one existing entry.
 An unresolved spelling consumes its full match and ends the gram sequence.
-Unknown characters, unmatched punctuation, and paragraph boundaries also
-end a sequence. Horizontal whitespace between tokens preserves adjacency.
+Unknown characters and unresolved symbols end a gram run without inventing
+sentence boundaries. Horizontal whitespace between tokens preserves adjacency.
+
+Base paragraph ingestion uses the shared delimiter/wrapper/gap classification
+before lexical matching. Delimiters end fragments; wrappers split lexical
+matching while preserving gram adjacency, and other symbols break the gram
+run without ending the fragment or creating a new start. This prevents a
+known word from spanning a wrapper or delimiter without joining text around
+it into a new word. `看过《青蛇》吧？` therefore counts `青蛇 → 吧`, without
+counting `<s> → 吧`; a closing bracket after `提名` behaves the same way.
+Opening wrappers at field start or wrappers after a delimiter do not erase
+confirmed sentence start, as in `他说：“` and `你好。”`.
+It marks each nonempty fragment
+with internal `<s>` and `</s>` word IDs. Line edges also delimit fragments;
+repeated punctuation, empty fragments and a final punctuation followed by a
+line ending produce no extra markers. Each marked sequence is observed
+separately at orders two through the configured maximum, including boundary
+grams for a single-token fragment. Like `<char>` and `<num>`, the marker IDs
+are unindexed zero-count symbols in the paired lexicon and are reused across
+batches. Unknown or unresolved spans flush the current gram run without
+inventing a fragment end or a new start: only a run touching an actual
+fragment edge receives the corresponding marker. A fragment with no counted
+tokens produces no boundary grams. User ingestion and pre-tokenized corpus
+imports do not insert these markers. Conversion seeds `<s>` history for confirmed
+fragment starts, without scoring `</s>` at candidate completion. Existing gram rows are
+not retroactively marked; rebuilding boundary statistics requires the source
+corpus.
 
 The importer opens the specified lexicon and compatible word gram model,
 or initializes missing snapshots. An existing model referencing word IDs
@@ -424,7 +500,17 @@ resolve to one lexeme. The same token-based Pinyin lookup disambiguates known
 Han readings.
 The profile allocates its own word IDs and increments only its own counts,
 including for matches found in the base. New English runs preserve case and
-use lowercase lookup keys in index 1. Before ordinary ASCII segmentation, user
+use lowercase lookup keys in index 1. Before adding a new ASCII letter run,
+ingestion checks for an exact base English word by lowercase lookup key and
+case-insensitive output spelling; lookup aliases alone do not establish a match.
+If none exists, dynamic programming checks whether complete Pinyin syllables
+cover the entire run. The syllable set is initialized once from the pinned
+`pinyin_pro` single-character readings, with tone removal and the engine's
+canonical syllable aliases. This check does not use abbreviation, completion,
+correction or candidate ranking. Complete Pinyin runs are skipped and break gram
+adjacency; other new runs retain ordinary ingestion. Existing user lexemes keep
+their observation behavior and are not removed or recounted by a migration.
+Before ordinary ASCII segmentation, user
 ingestion recognizes common unquoted ASCII mailboxes and uses the full address
 as one token, including digits, dots and plus tags in the local part.
 For HTTP(S) addresses and bare ASCII domains or IPv4 addresses, it consumes
@@ -683,7 +769,7 @@ The local installer builds Release by default (`./scripts/install.sh Debug` expl
 
 `SIInputController` adapts key events to the core and maintains marked text in the client. It owns one `CandidateSelection` and one nonactivating AppKit `CandidatePanel` per client. Number labels, highlighted rows, keyboard navigation, Space confirmation, and mouse clicks use the same selection state. A composition starts collapsed with six choices per horizontal page. Expanding shows up to five rows of the same list. Switching layout preserves the selected candidate and digit. Ending the composition resets expansion and scroll position. Row labels remain presentation data; only validated candidate text is committed. Objective-C callbacks lack Swift actor annotations. The UI callback boundary uses `MainActor.assumeIsolated` explicitly; this relies on InputMethodKit delivering those callbacks on the main thread. Non-Sendable Objective-C callback arguments are captured using narrowly scoped `nonisolated(unsafe)` locals, and the controller explicitly declares `@unchecked Sendable` while its mutable state stays main-actor isolated. This boundary must be exercised during manual integration checks.
 
-`CandidateBoundaryReader` reads at most four UTF-16 units before the current marked range on Space/number/mouse acceptance, validating the marked spelling, caret, client, presentation/key revisions, configuration and secure/direct-input state before committing. `CandidateSpacing` adds one leading ASCII space only when the actual submitted text changes between Han and English letters at that preceding boundary, in either direction. This applies to mixed, prefix and explicitly confirmed literal choices; punctuation candidates remain undecorated. Same-script boundaries, existing whitespace, digits, symbols and field starts receive no space. Confirmation never adds a trailing space. Unsupported boundary reads submit without guessing a separator; secure input skips reads and direct input bypasses confirmation. The decoration is inserted once with the candidate and included in independently consented Input History, while learning receives only the original candidate bytes. Boundary text stays transient and is never logged, stored or sent.
+`CandidateBoundaryReader` requests at most four UTF-16 units before the current marked range on Space/number/mouse acceptance. The controller uses the last spelling and caret actually sent through `setMarkedText`, rather than recomputing decoration from potentially refreshed candidates. When the host reports a valid marked range, the reader checks its length, any available caret, client, presentation/key revisions, configuration and secure/direct-input state, then reads only the committed prefix. It does not require a readback of the underlined composition. Attributed substring reads fall back to `string(from:actualRange:)`; a well-formed actual range covering the request is sliced in UTF-16 units, and extra returned text is discarded. If the host omits its marked range but exposes a document caret, the reader derives a possible range from the last sent spelling and caret offset, then requires an exact spelling readback and unchanged host ranges. A known marked range works without a reported selection; when both positions are unavailable the read is skipped. Unsupported ranges or stale state never authorize a guessed separator. `CandidateSpacing` adds one leading ASCII space only when the actual submitted text changes between Han and English letters at that preceding boundary, in either direction. This applies to mixed, prefix and explicitly confirmed literal choices; punctuation candidates remain undecorated. Same-script boundaries, existing whitespace, digits, symbols and field starts receive no space. Confirmation never adds a trailing space. Unsupported boundary reads submit without guessing a separator; secure input skips reads and direct input bypasses confirmation. The decoration is inserted once with the candidate and included in independently consented Input History, while learning receives only the original candidate bytes. Boundary text stays transient and is never logged, stored or sent.
 
 `MarkedTextState` suppresses repeated host updates when the exact composition bytes and UTF-16 selection have not changed. Full candidate deliveries update the panel without restarting identical host marked text. Edits, caret movement and cancellation still send the required update; commit, deactivation and client changes clear the cache. Identical visible candidate identities retain their row views; unchanged row configurations avoid label/accessibility writes. Changed identities still replace rows so removed controls cannot confirm replacement text. Panel resizing finishes layout before display. These remove redundant refresh paths; automated state/view checks do not prove that a reported transient system window is eliminated.
 
@@ -691,7 +777,7 @@ Inline spelling is sent as an `NSAttributedString` using `IMKInputController.mar
 
 Candidate panels additionally share one weak main-actor visibility owner. Activation or a current key event claims that owner and hides the previous panel; result delivery, timers, mouse callbacks and panel rendering cannot reclaim it. A late old-client deactivation cannot release a new client's owner. This shares only presentation ownership, never composition buffers or selection. The `activateServer:` override uses the existing main-thread IMK callback assumption, checked against the SDK declaration; actual callback ordering remains a native integration check. Per-controller presentation revisions reject work superseded by synchronous reentry during host marked-text, insertion and geometry calls.
 
-After updating marked text and rendering candidate rows, `SIInputController` queues placement with `DispatchQueue.main.async`. It revalidates the client, ownership and presentation revisions at delivery and after host calls. SI probes inline offset zero, as defined by InputMethodKit, and uses the document-relative marked start as a compatibility probe. The first usable line rectangle intersecting a connected display supplies the anchor. `MarkedTextState` retains that rectangle across typing, deletion and caret movement. Commit, including prefix commit, cancellation, and client or focus changes clear the retained start. If the start is unavailable, a weak client-keyed cache supplies the last usable host rectangle, with the mouse location as the next fallback. Later placement can retry the start query until it receives usable geometry. The panel measures the latest rows against the selected display, tries below the anchor, flips above if needed and clamps to its visible frame. The same placement path runs when scrolling, expansion or prediction content changes the panel size.
+After updating marked text and rendering candidate rows, `SIInputController` queues placement with `DispatchQueue.main.async`. It revalidates the client, ownership and presentation revisions at delivery and after host calls. SI probes inline offset zero, as defined by InputMethodKit, with only the document-relative marked start as a compatibility probe. Caret and end offsets are excluded. A superseded probe stops without querying another index. The first usable line rectangle intersecting a connected display supplies the anchor. `MarkedTextState` retains that rectangle across typing, wrapping, deletion, caret movement and successive prefix confirmations. Prefix insertion clears only the host-text cache and retains the same candidate client so marking the remainder does not reset the anchor. Full commit, cancellation, and client or focus changes clear the retained start. Host-call reentry still invalidates the insertion; no saved anchor is restored after a stale callback. A retained rectangle on a disconnected display is queried again. If the start is unavailable, a weak client-keyed cache supplies the last usable host rectangle, with the mouse location as the next fallback. Fallbacks do not become the retained composition start; later placement retries the start query until it receives usable geometry. The panel measures the latest rows against the selected display, tries below the anchor, flips above if needed and clamps to its visible frame. The same placement path runs when expansion or prediction content changes the panel size.
 
 `CandidateSelection` passes the complete ranked list through the thin Swift `CandidateShortlist` adapter to `si_engine::presentation::shortlist` without inspecting system font coverage. Candidate availability and shortlist allocation do not depend on installed fonts. Numbers, Space, keyboard navigation and mouse selection use that same shortlist. Labels use the system font and normal platform fallback; rendering does not filter candidate identities or change their exact committed bytes.
 

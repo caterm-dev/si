@@ -8,7 +8,7 @@ use si_lexicon::{Lexicon, Reading, WordId};
 use super::snapshot::State;
 use super::{ENGLISH_INDEX, PINYIN_INDEX, UserImport};
 use crate::han;
-use crate::pinyin::word_reading;
+use crate::pinyin::{is_full_spelling, word_reading};
 use crate::segmentation::{SegmentKind, Segmenter};
 
 pub(super) fn observe<S: AsRef<str>>(
@@ -54,6 +54,16 @@ pub(super) fn observe<S: AsRef<str>>(
                 }
                 SegmentKind::Word(id) => base.word(id).and_then(|word| word.reading),
                 SegmentKind::NewEnglishWord | SegmentKind::WebAddress { .. } => {
+                    if segment.kind == SegmentKind::NewEnglishWord
+                        && !base
+                            .exact(ENGLISH_INDEX, surface.to_ascii_lowercase().as_bytes())
+                            .any(|word| word.text.eq_ignore_ascii_case(surface))
+                        && is_full_spelling(surface)
+                    {
+                        report.skipped_spans += 1;
+                        finish_run(&mut run, &mut words)?;
+                        continue;
+                    }
                     let surface = match segment.kind {
                         SegmentKind::WebAddress {
                             host_end,

@@ -5,6 +5,23 @@ import Testing
 struct PrecedingTextReaderTests {
     private let noMark = NSRange(location: NSNotFound, length: 0)
 
+    @Test func confirmsFieldStartWithoutRequestingHostText() {
+        for selection in [NSRange(location: 0, length: 0), NSRange(location: 0, length: 3)] {
+            let result = PrecedingTextReader.read(isCurrent: { true }, selection: { selection }, markedRange: { noMark }) { _ in
+                Issue.record("An empty committed prefix does not need a host text read.")
+                return nil
+            }
+            #expect(result == "")
+        }
+        var reads = 0
+        #expect(PrecedingTextReader.read(isCurrent: { true }, selection: {
+            reads += 1
+            return NSRange(location: reads == 1 ? 0 : 1, length: 0)
+        }, markedRange: { noMark }) { _ in nil } == nil)
+        #expect(PrecedingTextReader.read(isCurrent: { false }, selection: { NSRange(location: 0, length: 0) },
+                                       markedRange: { noMark }) { _ in nil } == nil)
+    }
+
     @Test func readsTheEntirePrefixInUTF16ExcludingTheSelection() {
         let prefix = String(repeating: "第一句。👩‍💻\n", count: 256) + "最后一句。"
         let selection = NSRange(location: prefix.utf16.count, length: 2)

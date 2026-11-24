@@ -66,10 +66,20 @@ model scoring is unavailable.
 [Scoring and bounds](docs/ranking-architecture.md#local-model-ranking)
 
 In compatible macOS text fields, SI passes the full text before the composition
-to the local Rust engine. The engine uses word grams from the last preceding
-sentence to help rank the first word of each candidate. This context stays in
-memory. If the host cannot provide the text, conversion uses the composition
-and local resources as usual.
+to the local Rust engine. The engine uses word grams from the fragment after
+the last explicit sentence/fragment delimiter to help rank candidates. A
+confirmed empty prefix or a boundary followed only by whitespace starts a new
+fragment and uses base `<s>` statistics. Openings compete with enabled
+language candidates consuming the same source span. Let `r` be the opening's
+probability divided by the highest probability among its competitors; the
+shared global denominator cancels, so counts can be compared directly.
+The reward is `2*r*r*(3-2*r)` bits: two bits for the strongest observed
+opening, smoothly decreasing to zero for an unseen opening, without subtracting
+from the ordinary score. Exact matches, completions and corrected spellings
+use separate comparison groups so unfinished suffixes cannot change an exact
+prefix's reward. This context stays in memory. Unavailable host text does not
+imply sentence start; conversion uses the composition and local resources as
+usual. Boundary statistics must be present in the paired base resources.
 
 The Rust engine owns final candidate merging, ordering and window shortlisting; Swift owns window layout and client-local selection. The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the original first four ranked choices, subject to the length-based sentence budget below; statistical leaders have no reserved slots. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Candidates are shortlisted without checking system font coverage; rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices consume only their exact source spelling. For example, choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
 
@@ -103,7 +113,7 @@ The word-gram snapshot is tracked in Git, and `main.silex` is generated locally
 from the maintained CSVs. See [engine resources](Data/Engine/README.md)
 for validation, source notices and maintenance.
 
-Candidate positioning queries the host for the start of the marked spelling after the host lays it out. The first usable start position anchors the panel while you type, delete or move the caret within that spelling. A prefix commit anchors the remaining spelling at its new start. The panel stays within the display's visible area and can flip above the anchor when it needs more room. If the host returns no usable geometry, SI uses the last valid location for that text client or the mouse position while awaiting a usable start. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
+Candidate positioning queries the host for the start of the marked spelling after layout. The first usable start position anchors the panel while you type, delete, wrap lines or move the composition caret. Prefix confirmations keep that original anchor until the remaining spelling is fully committed or cancelled. The panel stays within the display's visible area and can flip above the anchor when it needs more room. If the host returns no usable geometry, SI uses the last valid location for that text client or the mouse position while awaiting a usable start. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
 
 Inline spelling uses InputMethodKit's thin, unselected underline style, with display-only spaces between decoded syllables or words. The spelling remains a composition until confirmation, so candidates, caret editing and cancellation remain available. Hosts control the final appearance and any suggestions or autocomplete during composition; live behavior in ChatGPT and browser address bars requires verification. See [inline composition checks](docs/TESTING.md#inline-composition-presentation).
 
@@ -355,7 +365,11 @@ including mixed, prefix and explicitly confirmed literal choices. Existing space
 same-language boundaries, punctuation, digits and the beginning of a field are left
 alone. Confirmation never adds a trailing space. Return and shortcuts still submit
 the exact original spelling. Boundary reads are transient and skipped for secure/direct
-input; unsupported hosts submit without guessing a separator.
+input. Hosts that expose native text and a document caret can use a validated
+readback even when the marked range is unavailable. With a known marked range,
+SI reads only the preceding boundary and does not require the host to expose the
+underlined spelling. Native responses covering a larger range are sliced to the
+requested boundary. Unsupported hosts submit without guessing a separator.
 
 Outside composition, control keys and punctuation pass through by default. Enable Show punctuation candidates in Settings → Typing to start common punctuation compositions with language-labeled alternatives for enabled languages. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to six numbered choices. Short candidates such as `a` remain visible beside their numbers. Press Down Arrow or click the chevron to expand to five rows of six candidates, showing up to 30 choices at once. The expanded grid is a continuous list. Numbers 1–6 act on the highlighted row, and every visible candidate can be clicked. Each expanded column is sized for its widest visible candidate, including its number and source symbol; the window grows to show complete text within the available screen width. All rows align their numbers and text with those shared columns. The compact strip also sizes cells to their full text. Narrow screens shrink the columns to fit, with full text retained in tooltips and accessibility labels. Click the top-right chevron to collapse again. The first Down Arrow expands and preserves the selected candidate. The list stays expanded until you collapse it or end the composition. Both layouts use the same shortlist, including matching language identities and the exact original input. All generated Chinese dictionary characters supported by the candidate font remain pageable. Complete-syllable character lookup and character prefixes are exempt from the bounded word and composed-prefix search; other word, initial/completion and sentence search remains bounded.
 
@@ -558,8 +572,16 @@ from that profile. The base lexicon helps segment sentences. Its counts and
 the base gram file stay independent.
 
 User ingestion automatically adds English words with lowercase lookup keys
-and preserves their output casing. It saves a common unquoted ASCII email
-address such as `Reader89+work@example.com` as one word and gram token.
+and preserves their output casing. For new ASCII letter runs, an exact English
+word in the base lexicon takes priority, ignoring ASCII case. Otherwise, a run
+that can be fully segmented into Pinyin syllables is skipped, without adding
+word counts or joining word grams across it. Unknown runs that are not complete
+Pinyin remain eligible. This spelling check uses the pinned `pinyin_pro` reading
+data, without abbreviations, completion or typo correction. Existing user entries
+are retained and keep their observation behavior.
+
+User ingestion saves a common unquoted ASCII email address such as
+`Reader89+work@example.com` as one word and gram token.
 A web address supplies its domain and any explicit HTTP(S) scheme as one user
 word and one token in word grams.
 For example, `https://example.com/Docs?q=KeepCase#Section` supplies
@@ -640,8 +662,33 @@ one `<num>`. The paired lexicon records their IDs as unindexed, zero-count
 symbols. For ambiguous Han spellings, `pinyin_pro` reads the matched word
 in isolation. The importer counts the existing dictionary entry whose
 reading uniquely matches the result. Spaces preserve word adjacency.
-Unmatched punctuation, unknown text, and still-unresolved spellings
-break the n-gram sequence.
+Unknown symbols/text and still-unresolved spellings break the n-gram sequence
+without creating a sentence boundary. Book-title marks, quotes and brackets
+separate lexical matching while preserving word adjacency.
+
+Base `corpus ingest` adds internal `<s>` and `</s>` tokens at the start and
+end of each nonempty fragment delimited by `，,。！？!?；;：:…`, a sentence-final
+ASCII period or a line ending. A period between ASCII letters/digits stays
+inside the text, as in `3.14`, `example.com` and `Node.js`. Book-title marks,
+quotes and brackets do not end a fragment: `看过《青蛇》吧？` supplies
+`<s> 看过 / 青蛇 / 吧 </s>`, never `<s> 吧 </s>`. These wrappers separate
+lexical matching without concatenating text or breaking word adjacency.
+Other symbols break gram adjacency without creating a new start/end marker.
+Splitting happens before word segmentation, even when a dictionary entry
+contains wrappers or delimiters. For example, `我先自己试了一下，没搞定。` supplies two
+separate sequences:
+`<s> 我先自己试了一下 </s>` and `<s> 没搞定 </s>`, with the text between
+markers segmented into words as usual. Spaces preserve adjacency; consecutive
+punctuation and line endings do not create empty or duplicate boundaries.
+Unknown English, unknown characters and unresolved readings still break
+adjacency, but do not create artificial start/end markers beside the skipped
+text. Boundary IDs are unindexed, zero-count symbols in the paired lexicon.
+They contribute grams through the configured maximum order without adding
+ordinary word counts. `user ingest` and pre-tokenized `corpus build`/`add`
+do not add these markers. Conversion uses `<s>` for confirmed fragment starts;
+`</s>` is not scored at candidate completion. Existing gram rows stay unchanged;
+boundary counts require new
+imports or a rebuild from the original corpus.
 
 ```sh
 cargo run --release --locked -p si-cli -- corpus ingest Data/Engine/main.silex Data/Engine/words.sigram /path/to/paragraphs.txt

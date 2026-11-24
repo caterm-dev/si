@@ -6,6 +6,7 @@ mod pinyin;
 pub mod presentation;
 pub mod resources;
 pub mod segmentation;
+mod text_boundaries;
 
 pub use conversion::{
     Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionOptions,

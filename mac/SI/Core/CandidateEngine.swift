@@ -22,7 +22,7 @@ public struct CandidateEngine: Sendable {
                            now: Date = .now, context: CandidateContext? = nil,
                            includesConfirmationEvidence: Bool = false,
                            applicationMemory: ApplicationMemorySnapshot = .empty,
-                           precedingText: String = "") -> [InputCandidate] {
+                           precedingText: String? = nil) -> [InputCandidate] {
         converted(input, languages: languages, learning: learning, dictionary: dictionary,
                   now: now, context: context, applicationMemory: applicationMemory, preview: false,
                   includesConfirmation: includesConfirmationEvidence, precedingText: precedingText,
@@ -33,7 +33,7 @@ public struct CandidateEngine: Sendable {
     func previewCandidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot = .empty,
-                           precedingText: String = "") -> [InputCandidate] {
+                           precedingText: String? = nil) -> [InputCandidate] {
         return converted(input, languages: languages, learning: learning, dictionary: dictionary,
                          now: now, context: context, applicationMemory: applicationMemory, preview: true,
                          precedingText: precedingText)
@@ -42,7 +42,7 @@ public struct CandidateEngine: Sendable {
     private func converted(_ input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot, preview: Bool,
-                           includesConfirmation: Bool = false, precedingText: String,
+                           includesConfirmation: Bool = false, precedingText: String?,
                            rerankingEnabled: Bool = false) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let generated: [InputCandidate]

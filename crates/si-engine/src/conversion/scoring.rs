@@ -10,12 +10,14 @@ use super::cache::IdHasher;
 use super::lookup::Lexeme;
 use super::{Language, WordIds};
 use crate::resources::EngineResources;
+use crate::text_boundaries::START_TOKEN;
 
 const USER_UNIGRAM_PRIOR: f64 = 32.0;
 const USER_UNIGRAM_LIMIT: f64 = 0.8;
 const BASE_GRAM_PRIOR: f64 = 32.0;
 const USER_GRAM_PRIOR: f64 = 8.0;
 const GRAM_WEIGHT_LIMIT: f64 = 0.8;
+const START_REWARD_LIMIT: f64 = 2.0;
 const HISTORY_WORDS: usize = MAX_ORDER - 1;
 const CONTEXT_CACHE_CAPACITY: usize = 8_192;
 
@@ -59,6 +61,7 @@ impl<'a> Corpus<'a> {
 
 pub(super) struct Scoring<'a> {
     base: Corpus<'a>,
+    start_token: Option<WordId>,
     user: Option<Corpus<'a>>,
     contexts: Mutex<Option<ContextCaches<'a>>>,
 }
@@ -69,8 +72,17 @@ impl<'a> Scoring<'a> {
         let user = user
             .map(Corpus::new)
             .filter(|corpus| !corpus.lexicon.is_empty());
+        let start_token = base
+            .lexicon
+            .words_for_text(START_TOKEN)
+            .find(|word| word.reading.is_none() && word.count == 0)
+            .map(|word| word.id);
+        let has_starts = start_token
+            .zip(base.grams)
+            .is_some_and(|(id, grams)| grams.context(&[id]).continuations().next().is_some());
         Self {
             base,
+            start_token: start_token.filter(|_| has_starts),
             user,
             contexts: Mutex::new(Some(ContextCaches::default())),
         }
@@ -78,6 +90,23 @@ impl<'a> Scoring<'a> {
 
     pub(super) fn has_user(&self) -> bool {
         self.user.is_some()
+    }
+
+    pub(super) fn sentence_start(&self) -> History {
+        let start = self.start_token.map(|id| StartHistory {
+            history: HistoryIds::default().with_word(Some(id), self.base.history_limit),
+            remaining: self
+                .base
+                .grams
+                .and_then(|grams| grams.sizes().iter().rposition(|&size| size != 0))
+                .map_or(0, |order| order + 1),
+            count: 0,
+            maximum: 0,
+        });
+        History {
+            start,
+            ..History::default()
+        }
     }
 
     pub(super) fn unigram(&self, word: Lexeme<'_>) -> Scores {
@@ -102,6 +131,7 @@ impl<'a> Scoring<'a> {
                 .user
                 .with_word(ids.user, self.user.map_or(3, |user| user.history_limit)),
             last: Some(language),
+            start: previous.start,
         }
     }
 
@@ -109,6 +139,7 @@ impl<'a> Scoring<'a> {
         ScoreSession {
             model: self,
             initial_history,
+            start_maxima: HashMap::new(),
             // Lease the cached dictionary contexts for this request. Concurrent
             // conversions compute locally, without waiting for the lease.
             contexts: self
@@ -180,11 +211,29 @@ impl HistoryIds {
     }
 }
 
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+pub(super) struct StartHistory {
+    history: HistoryIds,
+    pub(super) remaining: usize,
+    pub(super) count: u64,
+    maximum: u64,
+}
+
+/// Complete spelling matches compete independently of unfinished completions
+/// and edited spellings, so pending suffixes cannot change an exact prefix reward.
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+pub(super) struct StartSpan {
+    pub(super) end: usize,
+    pub(super) completion: bool,
+    pub(super) corrected: bool,
+}
+
 #[derive(Clone, Copy, Default, Eq, PartialEq)]
 pub(super) struct History {
     base: HistoryIds,
     user: HistoryIds,
     last: Option<Language>,
+    start: Option<StartHistory>,
 }
 
 impl History {
@@ -193,11 +242,35 @@ impl History {
             base: base.base,
             user: user.user,
             last: base.last.or(user.last),
+            start: None,
         }
     }
 
     pub(super) fn last(self) -> Option<Language> {
         self.last
+    }
+
+    pub(super) fn has_start(self) -> bool {
+        self.start.is_some()
+    }
+
+    pub(super) fn start_adjustment(self) -> Option<Scores> {
+        self.start.map(|start| Scores {
+            base: start_reward(start.count, start.maximum),
+            personalized: start_reward(start.count, start.maximum),
+        })
+    }
+
+    /// A longer observed prefix may change the reward while the boundary remains in range.
+    pub(super) fn context_upper(self, current: Scores) -> Scores {
+        if self.start.is_some() {
+            Scores {
+                base: START_REWARD_LIMIT,
+                personalized: START_REWARD_LIMIT,
+            }
+        } else {
+            current
+        }
     }
 }
 
@@ -230,10 +303,70 @@ pub(super) struct CompletionBounds {
 pub(super) struct ScoreSession<'model, 'data> {
     model: &'model Scoring<'data>,
     initial_history: History,
+    start_maxima: HashMap<StartSpan, u64>,
     contexts: ContextCaches<'data>,
 }
 
 impl ScoreSession<'_, '_> {
+    pub(super) fn initial_start(&self) -> Option<StartHistory> {
+        self.initial_history.start
+    }
+
+    pub(super) fn set_start_maxima(&mut self, maxima: HashMap<StartSpan, u64>) {
+        self.start_maxima = maxima;
+    }
+
+    pub(super) fn advance_start(
+        &mut self,
+        mut start: StartHistory,
+        word: Option<WordId>,
+    ) -> StartHistory {
+        start.maximum = 0;
+        if start.remaining > 0 {
+            let key = context_keys(start.history)
+                .last()
+                .expect("start marker history");
+            start.count = self
+                .model
+                .base
+                .grams
+                .and_then(|grams| {
+                    let row = prepare_context(&mut self.contexts.base, grams, key);
+                    word.and_then(|id| row.context.count(id))
+                })
+                .unwrap_or(0);
+            start.remaining = if word.is_some() {
+                start.remaining - 1
+            } else {
+                0
+            };
+            start.history = if start.remaining > 0 {
+                start.history.with_word(word, self.model.base.history_limit)
+            } else {
+                HistoryIds::default()
+            };
+        }
+        start
+    }
+
+    /// At the highest order, an unobserved continuation stays neutral forever.
+    /// Intersect the sparse gram row with lexical matches instead of multiplying
+    /// every homophone by every possible next word.
+    pub(super) fn final_start_words(
+        &mut self,
+        start: StartHistory,
+    ) -> Option<impl Iterator<Item = WordId> + '_> {
+        if start.remaining != 1 {
+            return None;
+        }
+        let grams = self.model.base.grams?;
+        let key = context_keys(start.history)
+            .last()
+            .expect("start marker history");
+        let row = prepare_context(&mut self.contexts.base, grams, key);
+        Some(row.context.continuations().map(|(id, _)| id))
+    }
+
     pub(super) fn completion_bounds(
         &mut self,
         histories: impl Iterator<Item = History>,
@@ -278,17 +411,32 @@ impl ScoreSession<'_, '_> {
         self.model.has_user()
     }
 
-    pub(super) fn start(&mut self, word: Lexeme<'_>, missing: usize) -> (History, Scores, Scores) {
+    pub(super) fn start(
+        &mut self,
+        word: Lexeme<'_>,
+        missing: usize,
+        end: usize,
+        corrected: bool,
+    ) -> (History, Scores, Scores) {
         let word_score = WordScore::new(word);
-        let (history, scores) = self.step(History::default(), &word_score, missing);
-        let mut adjustment = Scores::default();
+        let (history, scores) = self.step(
+            History {
+                start: self.initial_history.start,
+                ..History::default()
+            },
+            &word_score,
+            missing,
+            end,
+            corrected,
+        );
+        let mut adjustment = history.start_adjustment().unwrap_or_default();
         let preceding = self.initial_history;
         if (preceding.base.len > 0 || preceding.user.len > 0)
             && word.personal.is_none()
             && !word.verbatim
         {
             // Compare the same first word with and without preceding grams, using the same costs.
-            let (_, conditioned) = self.step(preceding, &word_score, missing);
+            let (_, conditioned) = self.step(preceding, &word_score, missing, end, corrected);
             adjustment.base = conditioned.base - scores.base;
             adjustment.personalized = conditioned.personalized - scores.personalized;
         }
@@ -300,6 +448,8 @@ impl ScoreSession<'_, '_> {
         previous: History,
         word_score: &WordScore<'_>,
         missing: usize,
+        end: usize,
+        corrected: bool,
     ) -> (History, Scores) {
         let word = word_score.word;
         let language = word.language;
@@ -355,7 +505,19 @@ impl ScoreSession<'_, '_> {
         } else {
             0.0
         };
-        let next = self.model.extend_history(previous, language, word.ids);
+        let mut next = self.model.extend_history(previous, language, word.ids);
+        if let Some(start) = next.start.as_mut() {
+            *start = self.advance_start(*start, word.ids.base);
+            start.maximum = self
+                .start_maxima
+                .get(&StartSpan {
+                    end,
+                    completion: missing > 0,
+                    corrected,
+                })
+                .copied()
+                .unwrap_or(0);
+        }
         (
             next,
             Scores {
@@ -385,6 +547,15 @@ fn smooth_base_gram(prior: f64, count: f64, mass: f64) -> f64 {
     let weight = gram_weight(mass, BASE_GRAM_PRIOR);
     // Missing continuations still retain lower-order evidence, even for frequent histories.
     (1.0 - weight) * prior + weight * (count / mass)
+}
+
+fn start_reward(count: u64, maximum: u64) -> f64 {
+    if maximum == 0 {
+        return 0.0;
+    }
+    let x = (count as f64 / maximum as f64).min(1.0);
+    // Smoothstep joins the zero and full-reward plateaus with zero slope.
+    START_REWARD_LIMIT * x * x * (3.0 - 2.0 * x)
 }
 
 fn boost(prior: f64, probability: f64, weight: f64) -> f64 {
@@ -475,4 +646,32 @@ fn prepare_context<'cache, 'data>(
         let mass = context.continuations().map(|(_, count)| count as f64).sum();
         Prepared { context, mass }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::start_reward;
+
+    #[test]
+    fn sentence_start_reward_uses_relative_probability_and_scales_with_the_pool() {
+        assert_eq!(start_reward(0, 0), 0.0);
+        assert_eq!(start_reward(0, 100), 0.0);
+        let mut previous = -1.0;
+        for (count, expected) in [
+            (0, 0.0),
+            (1, 0.000596),
+            (25, 0.3125),
+            (50, 1.0),
+            (75, 1.6875),
+            (100, 2.0),
+        ] {
+            let reward = start_reward(count, 100);
+            assert!((reward - expected).abs() < 1e-12);
+            assert!(reward > previous && reward <= 2.0);
+            assert_eq!(reward, start_reward(count * 7, 700));
+            previous = reward;
+        }
+        assert_eq!(start_reward(u64::MAX, u64::MAX), 2.0);
+        assert_eq!(start_reward(101, 100), 2.0);
+    }
 }

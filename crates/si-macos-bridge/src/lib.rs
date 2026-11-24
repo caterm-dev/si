@@ -479,11 +479,14 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
     let Ok(text) = std::str::from_utf8(bytes) else {
         return ptr::null_mut();
     };
-    let preceding_text = if preceding_len == 0 || preceding_text.is_null() {
-        ""
+    // A null pointer means unavailable; a nonnull empty slice confirms field start.
+    let preceding_text = if preceding_text.is_null() {
+        None
+    } else if preceding_len == 0 {
+        Some("")
     } else {
         std::str::from_utf8(unsafe { std::slice::from_raw_parts(preceding_text, preceding_len) })
-            .unwrap_or_default()
+            .ok()
     };
     let languages = EnabledLanguages {
         chinese: languages & 1 != 0,
@@ -727,5 +730,90 @@ pub unsafe extern "C" fn si_candidates_get_correction(
 pub unsafe extern "C" fn si_candidates_free(results: *mut SICandidates) {
     if !results.is_null() {
         unsafe { drop(Box::from_raw(results)) };
+    }
+}
+
+#[cfg(test)]
+mod context_tests {
+    use super::*;
+    use si_engine::resources::{LexiconSource, build_lexicon, ingest_corpus};
+    use std::io;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[test]
+    fn bridge_distinguishes_unavailable_and_confirmed_empty_prefixes() -> io::Result<()> {
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let directory = std::env::temp_dir().join(format!(
+            "si-bridge-start-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir(&directory)?;
+        let lexicon = directory.join("main.silex");
+        let grams = directory.join("words.sigram");
+        let seed = directory.join("seed.csv");
+        std::fs::write(
+            &seed,
+            "text,reading,weight\n把,ba,100\n吧,ba,100\n我们,wo'men,100\n",
+        )?;
+        build_lexicon(
+            &lexicon,
+            &[LexiconSource {
+                index: si_engine::IndexId(0),
+                path: seed,
+            }],
+        )?;
+        let corpus = directory.join("corpus.txt");
+        std::fs::write(
+            &corpus,
+            ["把我们\n".repeat(96), "吧我们\n".repeat(4)].concat(),
+        )?;
+        ingest_corpus(&lexicon, &grams, &[corpus])?;
+        let engine = SIEngine::new(
+            Arc::new(EngineResources::open(&lexicon, Some(&grams))?),
+            None,
+            None,
+            None,
+        );
+        let candidates = |prefix: Option<&[u8]>| {
+            let spelling = b"bawomen";
+            // SAFETY: all borrowed buffers and the engine remain live for the complete call.
+            let result = unsafe {
+                si_engine_candidates(
+                    &engine,
+                    spelling.as_ptr(),
+                    spelling.len(),
+                    prefix.map_or(ptr::null(), |text| text.as_ptr()),
+                    prefix.map_or(0, |text| text.len()),
+                    1,
+                    false,
+                    ptr::null(),
+                    0,
+                    ptr::null(),
+                    0,
+                    ptr::null(),
+                    0,
+                )
+            };
+            assert!(!result.is_null());
+            // SAFETY: the returned handle is uniquely owned; copy rows before freeing it.
+            let rows = unsafe { (*result).0.clone() };
+            unsafe { si_candidates_free(result) };
+            rows
+        };
+        let unknown = candidates(None);
+        assert!(unknown.iter().all(|row| row.context_adjustment == 0.0));
+        assert_eq!(unknown, candidates(Some(&[0xff])));
+        let start = candidates(Some(b""));
+        assert_eq!(start[0].text, "把我们");
+        assert!(start[0].context_adjustment > 0.0 && start[0].context_adjustment <= 2.0);
+        let bad = start.iter().find(|row| row.text == "吧我们").unwrap();
+        assert!(
+            bad.context_adjustment > 0.0 && bad.context_adjustment < start[0].context_adjustment
+        );
+        assert_eq!(start, candidates(Some("我们? ".as_bytes())));
+        drop(engine);
+        std::fs::remove_dir_all(directory)?;
+        Ok(())
     }
 }

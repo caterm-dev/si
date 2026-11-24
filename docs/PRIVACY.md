@@ -15,12 +15,15 @@ memory for conversion and are never logged, saved, sent to a service or used as
 training data by this path. AI Completion has separate
 triggers and data flows described below.
 
-On Space, number or mouse confirmation, SI may also inspect at most four UTF-16
+On Space, number or mouse confirmation, SI may also request at most four UTF-16
 units before the marked spelling to separate Chinese and English at the insertion
-boundary. It validates the current marked spelling and selection and skips
-secure/direct input. These boundary snippets stay transient and are not logged,
-recorded, used for learning or sent to a service. Independently enabled Input
-History records only the actual submission, including a leading space SI adds.
+boundary. A valid reported marked range needs only this prefix read; if the range
+must be derived from the document caret, SI also validates the displayed spelling.
+A native response may cover more text than requested; SI keeps only the requested
+slice and discards the rest. Host ranges and client state are revalidated, and
+secure/direct input skips reads. Boundary snippets stay transient and are not
+logged, recorded, used for learning or sent to a service. Independently enabled
+Input History records only the actual submission, including a leading space SI adds.
 
 The optional Local model ranking switch also uses a short suffix of the
 already available preceding text and a bounded pool of current candidates.
