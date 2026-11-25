@@ -70,13 +70,17 @@ paths containing a personal phrase preserve their token bytes without
 adding spaces and are excluded from learning. An exact literal is available
 for every nonempty input.
 
-Conversion uses a word lattice with up to 24 paths per input position,
-language combination and scoring lane, or six in preview. The base lane preserves dictionary
+Conversion uses a word lattice with a default of 24 paths per input position,
+language combination and scoring lane, or six in preview. Configured full,
+preview and correction beams accept 1 through 64 paths. Completion-pruning
+masks use 64-bit integers and explicitly handle a full 64-path beam.
+The base lane preserves dictionary
 paths when user evidence is enabled. A bounded lane keeps personal and
 verbatim paths available with their learning exclusions. Exact direct dictionary matches
 bypass the beam. Constructed paths are bounded to the first 128 normalized
-units and 4,096 output bytes. Final completions can extend up to eight
-spelling units, with up to 32 direct completions per language. Composed
+units and 4,096 output bytes. Final completions default to eight missing
+spelling units and 32 direct completions per language; these limits are configurable
+within 0..32 and 1..128 respectively. Composed
 prefixes retain up to two distinct outputs per language combination and span.
 
 Each dictionary edge adds a unigram or smoothed gram log probability in bits
@@ -183,27 +187,57 @@ suggestions.
 The independent Local model ranking switch defaults on and lets full conversion
 add a bounded whole-input reward from the packaged small FP32 character model
 after the statistical search. It scores up to 12 eligible whole-input candidates
-in statistical order without a score-gap cutoff. The native bridge shares the immutable model
+in statistical order without a score-gap cutoff. Model mean log probabilities
+are compared with the highest in that pool, converted to bit gaps, floored at
+-8 bits, shifted by 8 bits and weighted by 0.8. Rewards range from zero to
+6.4 bits; unscored results retain zero reward.
+The native bridge shares the immutable model
 with user snapshots and returns the reward separately from lexical and
 contextual scores. Secure input disables inference, and the engine falls back
 to statistical ordering if the model cannot score the pool.
+`resources::EngineConfig` contains immutable, validated settings for local model
+ranking, statistical scoring, spelling costs, Pinyin correction and candidate
+search. Defaults are parsed from the compile-time embedded `config/si.conf`.
+The public group types have private numeric fields, so external callers cannot
+bypass range validation. `SiConfig::open` returns the typed `engine` configuration;
+`CandidateEngine::new_with_config` captures it before building lookup/scoring
+state. Supply `engine.local_model_ranking` separately to
+`SmallReranker::open_with_config`. `CandidateEngine::new` and the app continue
+to use embedded defaults. No settings are read from disk during conversion.
+
+Each supplied engine section requires its documented keys. Missing whole
+sections inherit embedded defaults. Integer and finite floating-point ranges,
+duplicate/unknown fields and sections, and the preview/full and higher-recall/
+conservative relationships are validated before an engine is constructed.
+Scoring priors stay positive, interpolation weights stay at most 0.8, spelling
+costs stay nonnegative and correction edit costs stay strictly positive.
+Completion costs are shared by ordinary scoring and optimistic pruning; the
+configured sentence-start reward is also the pruning upper bound. Correction
+pruning uses the minimum of all configured edit costs. This keeps pruning
+consistent with the scores it bounds. This does not add live reload.
 [Ranking policy](ranking-architecture.md#local-model-ranking)
 
 The app passes opted-in token and consumed-spelling preferences to the search.
 Their larger value counts toward the shared 32-point frequency cap.
 
 At composition start and after a prefix commit, `SIInputController` asks the
-active InputMethodKit client for the full UTF-16 range before the insertion point.
-It revalidates the client and ranges across the read. The Swift request carries
-that text separately from composition spelling.
-The request distinguishes unavailable text from a confirmed empty prefix.
-Selection offset zero can confirm an empty prefix without a host text read,
-after revalidating the selection and absence of marked text. Secure input or an
-unsupported/stale range supplies unavailable context. Direct input bypasses
-conversion. The C ABI represents unavailable context with a null pointer and
-a confirmed empty prefix with a nonnull pointer and zero UTF-8 bytes. Rust's
-`convert_with_options` uses `Option<&str>`; `convert_with_context` treats its
-string as available, including an empty string. The snapshot is transient and local.
+active InputMethodKit client for at most the last 96 UTF-16 units before the
+insertion point, excluding selected text. The limit comes from
+`[field_context].preceding_text_utf16_limit` in `config/si.conf`, embedded in Rust
+and exposed through a cached Swift bridge accessor; no configuration file is
+read on the key-event path. Swift passes the returned text unchanged, without
+trimming whitespace, expanding the read range or attaching a field-start flag.
+Rust owns fragment and sentence-start classification.
+The reader revalidates the client and ranges across the read. The Swift request
+carries that text separately from composition spelling and distinguishes unavailable
+text from an available empty prefix. Selection offset zero can confirm an empty
+prefix without a host text read, after revalidating the selection and absence of
+marked text. Secure input or an unsupported/stale range supplies unavailable
+context. Direct input bypasses conversion. The C ABI represents unavailable
+context with a null pointer and an available empty prefix with a nonnull pointer
+and zero UTF-8 bytes. Rust's `convert_with_options` uses `Option<&str>`;
+`convert_with_context` treats its string as available, including an empty string.
+The snapshot is transient and local.
 
 Rust selects the fragment after the last explicit sentence/fragment delimiter,
 using the same source-aware classification as base ingestion before lexical
@@ -215,13 +249,51 @@ the source slices are not concatenated into a new spelling. It preserves
 horizontal whitespace, and never trims a terminal delimiter to recover words
 from the previous fragment. Unrecognized symbols break adjacency without
 seeding a sentence start. The base
-gram history uses base-lexicon segmentation. When user grams are available, the
-user gram history uses the user vocabulary as an overlay on the base lexicon.
-Each history keeps the final consecutive recognized words up to its gram
-order. The difference between the first word's conditioned and
-unconditioned log probabilities adjusts ranking before pruning. Later words
-use the history from the composition. Candidates containing personal or verbatim segments receive no field
+gram history uses base-lexicon segmentation. When user grams are available,
+the user gram history uses the user vocabulary as an overlay on the base lexicon.
+For each corpus, preceding-field preparation retains up to K distinct effective
+terminal word-ID histories, ordered by the best complete segmentation-path score.
+Effective length follows the highest saved gram order minus one: two words for
+the current base trigrams, up to four for a user five-gram model. Different cuts
+with the same terminal IDs keep their single highest score and do not add weight.
+Search continues through duplicate paths to obtain different histories.
+
+The field-only segmentation DAG uses the same lexical edges, add-one written-word
+priors, one-bit segment cost, ASCII-run rules and Han reading resolution as the
+ordinary segmenter. It keeps the best path per terminal history at each source
+boundary, preserving longer-final-edge ties without depending on word-ID allocation.
+The traversal is bounded to 8,192 states and 65,536 transitions per corpus;
+exhaustion uses the original complete single-best segmentation, rather than
+partial histories. Unknown terminal spans provide no history; weaker all-unknown
+alternatives do not consume ordinary history slots. Corpus/user ingestion continues
+to use the existing single-best segmenter.
+
+`[field_context].segmentation_history_limit` defaults to 3 (range 1..16), and
+`segmentation_temperature` defaults to 4 (finite range 0.125..32). A retained path
+with score `s_i` in bits receives normalized weight proportional to
+`2^((s_i - s_max) / T)`; the implementation uses equivalent natural-log scores.
+K=1 retains the original single-best field scoring. Each base history smooths
+unigrams through its available word grams. The weighted mean of these probabilities
+supplies the base field probability. The personalized lane applies the same base
+mixture to its user-boosted prior, then mixes independently prepared user-gram
+boosts; user evidence remains bounded and cannot reduce that probability.
+The difference between the first word's mixed conditional log probability and its
+unconditioned log probability adjusts ranking before pruning. Later words use the
+history from the composition. Spelling costs are applied once, outside the probability
+mixture. Candidates containing personal or verbatim segments receive no field
 adjustment. The adjustment is separate from the lexical score saved by Personal Learning.
+
+`PrecedingTextCache` is an optional, caller-owned Rust cache for one client/session.
+It holds one final-fragment key (at most 4,096 UTF-8 bytes) and immutable prepared
+histories/weights, without composition spelling, candidate lists or model results.
+The Swift `InputSession` owns its C-ABI handle and passes it through immutable full
+and preview requests. Reset/context removal releases the session's reference;
+outstanding requests retain only their own transient handle and remain subject to
+existing result-ID validation. A resource/configuration-instance identity and exact
+fragment bytes guard every hit, so model replacement/deletion cannot reuse old
+word IDs. Preparation runs outside the cache lock; contended queries compute
+locally instead of waiting. Nothing is persisted or logged. Calls without a cache
+use the same preparation/scoring path. The CLI owns a cache for its input stream.
 
 An available final fragment containing only whitespace and wrappers seeds a separate base `<s>`
 history when the paired lexicon contains its unindexed zero-count symbol.
@@ -321,7 +393,8 @@ entries, aliases and paired grams. Publication is atomic. Source CSVs remain
 unchanged, and loaded engines must be recreated to observe the addition.
 
 [SI configuration](../config/si.conf) selects independent maximum counting
-orders and vocabulary thresholds for base and user resources. Base corpus
+orders and vocabulary thresholds for base and user resources, and model reward
+parameters in `[local_model_ranking]`. Base corpus
 commands use `[base]`, and user word-gram imports use `[user]`. Each import
 counts new observations from order two through the selected maximum. It
 preserves existing rows at every order when the setting changes. Paragraph
@@ -792,7 +865,7 @@ The local installer builds Release by default (`./scripts/install.sh Debug` expl
 
 `scripts/reinstall.sh` explicitly opts into stopping the current user's exact-name `SI` processes with SIGTERM, waiting up to five seconds before SIGKILL and another bounded wait. It then delegates to the installer, retaining both running-process checks and temporary rollback without retained app backups. A restarted process can still cause installation to abort. It does not select/enable input sources or force logout; pending composition and unsaved learning may be lost when stopping SI.
 
-`SIInputController` adapts key events to the core and maintains marked text in the client. It owns one `CandidateSelection` and one nonactivating AppKit `CandidatePanel` per client. Number labels, highlighted rows, keyboard navigation, Space confirmation, and mouse clicks use the same selection state. A composition starts collapsed with six choices per horizontal page. Expanding shows up to five rows of the same list. Switching layout preserves the selected candidate and digit. Ending the composition resets expansion and scroll position. Row labels remain presentation data; only validated candidate text is committed. Objective-C callbacks lack Swift actor annotations. The UI callback boundary uses `MainActor.assumeIsolated` explicitly; this relies on InputMethodKit delivering those callbacks on the main thread. Non-Sendable Objective-C callback arguments are captured using narrowly scoped `nonisolated(unsafe)` locals, and the controller explicitly declares `@unchecked Sendable` while its mutable state stays main-actor isolated. This boundary must be exercised during manual integration checks.
+`SIInputController` adapts key events to the core and maintains marked text in the client. It owns one `CandidateSelection` and one nonactivating AppKit `CandidatePanel` per client. Number labels, highlighted rows, keyboard navigation, Space confirmation, and mouse clicks use the same selection state. A composition starts collapsed with up to six choices per horizontal page. Available width can reduce this to one column. Expanding shows up to five rows of the same list at the fitted column count. Width and layout changes preserve the selected candidate; its displayed number follows its new column. Ending the composition resets expansion and scroll position. Row labels remain presentation data; only validated candidate text is committed. Objective-C callbacks lack Swift actor annotations. The UI callback boundary uses `MainActor.assumeIsolated` explicitly; this relies on InputMethodKit delivering those callbacks on the main thread. Non-Sendable Objective-C callback arguments are captured using narrowly scoped `nonisolated(unsafe)` locals, and the controller explicitly declares `@unchecked Sendable` while its mutable state stays main-actor isolated. This boundary must be exercised during manual integration checks.
 
 `CandidateBoundaryReader` requests at most four UTF-16 units before the current marked range on Space/number/mouse acceptance. The controller uses the last spelling and caret actually sent through `setMarkedText`, rather than recomputing decoration from potentially refreshed candidates. When the host reports a valid marked range, the reader checks its length, any available caret, client, presentation/key revisions, configuration and secure/direct-input state, then reads only the committed prefix. It does not require a readback of the underlined composition. Attributed substring reads fall back to `string(from:actualRange:)`; a well-formed actual range covering the request is sliced in UTF-16 units, and extra returned text is discarded. If the host omits its marked range but exposes a document caret, the reader derives a possible range from the last sent spelling and caret offset, then requires an exact spelling readback and unchanged host ranges. A known marked range works without a reported selection; when both positions are unavailable the read is skipped. Unsupported ranges or stale state never authorize a guessed separator. `CandidateSpacing` adds one leading ASCII space only when the actual submitted text changes between Han and English letters at that preceding boundary, in either direction. This applies to mixed, prefix and explicitly confirmed literal choices; punctuation candidates remain undecorated. Same-script boundaries, existing whitespace, digits, symbols and field starts receive no space. Confirmation never adds a trailing space. Unsupported boundary reads submit without guessing a separator; secure input skips reads and direct input bypasses confirmation. The decoration is inserted once with the candidate and included in independently consented Input History, while learning receives only the original candidate bytes. Boundary text stays transient and is never logged, stored or sent.
 
@@ -802,7 +875,7 @@ Inline spelling is sent as an `NSAttributedString` using `IMKInputController.mar
 
 Candidate panels additionally share one weak main-actor visibility owner. Activation or a current key event claims that owner and hides the previous panel; result delivery, timers, mouse callbacks and panel rendering cannot reclaim it. A late old-client deactivation cannot release a new client's owner. This shares only presentation ownership, never composition buffers or selection. The `activateServer:` override uses the existing main-thread IMK callback assumption, checked against the SDK declaration; actual callback ordering remains a native integration check. Per-controller presentation revisions reject work superseded by synchronous reentry during host marked-text, insertion and geometry calls.
 
-After updating marked text and rendering candidate rows, `SIInputController` queues placement with `DispatchQueue.main.async`. It revalidates the client, ownership and presentation revisions at delivery and after host calls. SI probes inline offset zero, as defined by InputMethodKit, with only the document-relative marked start as a compatibility probe. Caret and end offsets are excluded. A superseded probe stops without querying another index. The first usable line rectangle intersecting a connected display supplies the anchor. `MarkedTextState` retains that rectangle across typing, wrapping, deletion, caret movement and successive prefix confirmations. Prefix insertion clears only the host-text cache and retains the same candidate client so marking the remainder does not reset the anchor. Full commit, cancellation, and client or focus changes clear the retained start. Host-call reentry still invalidates the insertion; no saved anchor is restored after a stale callback. A retained rectangle on a disconnected display is queried again. If the start is unavailable, a weak client-keyed cache supplies the last usable host rectangle, with the mouse location as the next fallback. Fallbacks do not become the retained composition start; later placement retries the start query until it receives usable geometry. The panel measures the latest rows against the selected display, tries below the anchor, flips above if needed and clamps to its visible frame. The same placement path runs when expansion or prediction content changes the panel size.
+Before sending a composition's first marked text, `SIInputController` captures `attributes(forCharacterIndex: 0, lineHeightRectangle:)`. With no inline session yet, InputMethodKit defines zero as the current selection. The controller revalidates its client, presentation revision and ownership after host calls. Panel placement runs after marked-text layout with `DispatchQueue.main.async`. `CandidateAnchor.activeLine` probes the displayed UTF-16 caret, falling back to the preceding whole grapheme if its rectangle is unavailable, and compares it with geometry at the retained line's source offset. Substantial vertical overlap identifies the same line without following horizontal caret motion or small rectangle-height differences. If the line changes, a binary search over displayed grapheme boundaries locates the first character on the caret's line, with at most 32 search steps. This also handles a growing input field whose screen-space caret height stays constant while the first line moves up. Unavailable geometry retains the current anchor; obsolete calls stop further probes and cannot update state. `MarkedTextState` retains the line anchor and its UTF-16 source offset. Prefix confirmation preserves the visible anchor and rebases its source offset to zero for the newly marked remainder. Full commit, cancellation and client/focus changes clear capture state. Failed initial capture leaves that composition's panel unavailable. There are no document-offset probes, previous-client caches or mouse fallbacks. `CandidatePlacement` places the panel's top-left immediately below the retained line start. Candidate-size changes retain that top-left; no edge clamping or above/below switching moves the panel. Horizontal size is capped to the width remaining between the retained anchor and the display’s visible right edge, rounded down in screen points so NSWindow size rounding cannot overflow that edge. The panel can still extend below the display near its bottom edge. Actual host wrap geometry and callback timing require the native positioning checks.
 
 `CandidateSelection` passes the complete ranked list through the thin Swift `CandidateShortlist` adapter to `si_engine::presentation::shortlist` without inspecting system font coverage. Candidate availability and shortlist allocation do not depend on installed fonts. Numbers, Space, keyboard navigation and mouse selection use that same shortlist. Labels use the system font and normal platform fallback; rendering does not filter candidate identities or change their exact committed bytes.
 
@@ -860,13 +933,13 @@ adjustments, enabled-language identity and source/output bytes keep their existi
 contracts. Local model ranking continues to affect incoming order, while the
 window adds only a display-count restriction. UI state remains per client.
 
-The controller consumes navigation and number-selection events while composing. `CandidateSelection.action` maps the first Down Arrow while collapsed to expansion without advancing selection, and otherwise maps event key codes/characters to moves or numbered choices; digit lookup reads the active six-column row. Left/Right selects in the collapsed strip and changes columns when expanded. Expanded Up/Down moves by one row across the entire list and scrolls just enough to keep the active row visible. Page Up/Down moves one row when collapsed or up to five rows when expanded, preserving the column where possible. There is no `IMKCandidates` instance or dependency on its selection-key display, identifiers, or callbacks. Out-of-range row numbers do not commit another candidate. Shortcuts retain literal passthrough, and outside composition these keys pass through. Candidate edits/reset invalidate the previous selection. Mouse buttons return candidate identities and use the same current-candidate validation/learning path as digit keys.
+The controller consumes navigation and number-selection events while composing. `CandidateSelection.action` maps the first Down Arrow while collapsed to expansion without advancing selection, and otherwise maps event key codes/characters to moves or numbered choices; digit lookup reads the active row at its fitted one-to-six column count. Left/Right selects in the collapsed strip and changes columns when expanded. Expanded Up/Down moves by one row across the entire list and scrolls just enough to keep the active row visible. Page Up/Down moves one row when collapsed or up to five rows when expanded, preserving the column where possible. There is no `IMKCandidates` instance or dependency on its selection-key display, identifiers, or callbacks. Out-of-range row numbers do not commit another candidate. Shortcuts retain literal passthrough, and outside composition these keys pass through. Candidate edits/reset invalidate the previous selection. Mouse buttons return candidate identities and use the same current-candidate validation/learning path as digit keys.
 
 The panel never becomes key/main, preserving the host's input focus. The package's `SIPresentation` target compiles the same selection, positioning and AppKit view sources.
 
 In Debug builds, the default-off `debug.candidateGeometryLogging` preference enables one geometry line per placement at `~/Library/Logs/SI/CandidateGeometry.log`. The main actor captures the time, foreground bundle identifier, host ranges, raw probe rectangles, chosen index and display, and final AppKit window frame. A dedicated serial queue formats and appends these records, truncating the existing contents before an append would exceed 2 MB. The disabled writer leaves the file untouched. Secure input and typed content are excluded. See the [positioning checks](TESTING.md#candidate-positioning) for commands.
 
-`CandidateStyle` pairs a neutral background with the solid AppKit control accent and emphasized selection text colors. By default the selection is blue with white text and numbering. The active row uses a subtler accent tint. The system Increased Contrast preference strengthens the card border and outlines the selection. The default 36-point-high strip lays out up to six 28-point candidate buttons horizontally and reserves a trailing expansion chevron with a subtle divider. Each button keeps a compact gap between its number and candidate labels and fits its full text and source symbol, without a fixed per-cell width cap. Extra retained window width does not stretch compact buttons; narrower screens proportionally shrink them without overlapping the chevron. Text-cell insets are included in width measurement; labels with too little room to draw a complete glyph hide rather than clipping through a symbol. Full text remains in accessibility and tooltips. Expanded mode displays up to five six-candidate rows from a continuous vertical list. `CandidateSelection.visibleRange` is the active numbered row. `displayedRange` is the visible portion of the list, and only those candidates have button views. Retained Chinese characters can extend the list beyond the ordinary 27-choice budget. Each row repeats numbers 1–6; only the active row has full-strength numbers and a row highlight. Mouse buttons retain identities across every displayed row, and accessibility help identifies the row and column. Expanded natural width uses the widest visible candidate in each column, including number/source spacing, so lower rows can widen the window beyond the compact strip. All rows share those six column origins and widths, including on narrow screens. The shared columns reserve a minimum number/glyph budget before sharing extra width. Cell content and selection backgrounds fit the candidate within its column rather than stretching short words across a wide slot. Number/text insets follow the shared column width to retain vertical alignment. Tight cells reduce padding and hide source icons while retaining full tooltips/accessibility; preferred widths remain independent of constrained icon visibility. `CandidatePanel` measures against the anchor screen's available width before placement. The collapse chevron stays at the top right. Ordinary word language descriptions are hidden visually; punctuation variants show small E/C badges immediately after the text in both layouts, and their literal fallback shows A (As Typed). Personal, literal and verbatim hints use the same small symbols in both layouts. Prefix consumption and full source descriptions remain in tooltips and accessibility labels. Language identity, full text, exact consumed-input descriptions and selection state remain available in accessibility labels and tooltips. Both layouts render each completed synchronous result with visible shortcut numbers, the same selection and immediately available controls. Wheel and trackpad gestures leave the candidate selection and scroll position in place. Clipping labels never changes committed text.
+`CandidateStyle` pairs a neutral background with the solid AppKit control accent and emphasized selection text colors. By default the selection is blue with white text and numbering. The active row uses a subtler accent tint. The system Increased Contrast preference strengthens the card border and outlines the selection. The default 36-point-high strip lays out up to six 28-point candidate buttons horizontally and reserves a trailing expansion chevron with a subtle divider. Each button keeps a compact gap between its number and candidate labels and fits its full text and source symbol, without a fixed per-cell width cap. Extra window width does not stretch compact buttons. `CandidatePanel.fit` tests six down to one column against the width remaining from the fixed anchor to the visible right edge. `CandidateListView.fittingPageSize` uses the same button measurements and expanded viewport as rendering, including numbers, source hints and the chevron. Measurements are reused within a fit pass. It reduces the column count before truncating a single oversized choice. AI prediction text has its own truncation and does not reduce candidate columns. Text-cell insets are included in width measurement; labels with too little room to draw a complete glyph hide rather than clipping through a symbol. Full text remains in accessibility and tooltips. Expanded mode displays up to five rows of one to six candidates from a continuous vertical list. `CandidateSelection.visibleRange` is the active numbered row. `displayedRange` is the visible portion of the list, and only those candidates have button views. Retained Chinese characters can extend the list beyond the ordinary 27-choice budget. Each row repeats numbers 1 through its fitted column count; only the active row has full-strength numbers and a row highlight. Mouse buttons retain identities across every displayed row, and accessibility help identifies the row and column. Expanded natural width uses the widest visible candidate in each column, including number/source spacing, so lower rows can widen the window beyond the compact strip. All rows share the fitted column origins and widths, including on narrow screens. The shared columns reserve a minimum number/glyph budget before sharing extra width. Cell content and selection backgrounds fit the candidate within its column rather than stretching short words across a wide slot. Number/text insets follow the shared column width to retain vertical alignment. Tight cells reduce padding and hide source icons while retaining full tooltips/accessibility; preferred widths remain independent of constrained icon visibility. `CandidateSelection.setPageSize` reflows page/row ranges and navigation strides while preserving the selected identity and complete shortlist. Digit keys, mouse rows, highlighted numbering, accessibility row/column descriptions and layout all use this same count. Fitting runs during synchronous rendering and again after line-position resolution, before display. `CandidatePanel` measures against the remaining width at the anchor before placement; it never moves the anchor to make a row fit. The collapse chevron stays at the top right. Ordinary word language descriptions are hidden visually; punctuation variants show small E/C badges immediately after the text in both layouts, and their literal fallback shows A (As Typed). Personal, literal and verbatim hints use the same small symbols in both layouts. Prefix consumption and full source descriptions remain in tooltips and accessibility labels. Language identity, full text, exact consumed-input descriptions and selection state remain available in accessibility labels and tooltips. Both layouts render each completed synchronous result with visible shortcut numbers, the same selection and immediately available controls. Wheel and trackpad gestures leave the candidate selection and scroll position in place. Clipping labels never changes committed text.
 
 `scripts/generate-icons.swift` produces `InputSourceIconTemplate.tiff` on a 16-point canvas with 16×16 and 32×32 pixel representations. The rounded badge is opaque, while the SI glyphs are cut out with destination-out blending. `TISIconIsTemplate` is true, allowing macOS to tint this alpha mask for menu-bar appearance and selection without flattening opaque lettering and background into a solid block. There is no separate alternate color bitmap. The new resource name distinguishes it from the former full-color assets; installed sources retain their identifiers, connection, and language settings. Core Text glyph bounds, rather than the font's full line box, determine centering. Both representations carry the same logical size, avoiding a 32-point icon in system input-source rows. Resource previews and bundle checks do not establish actual menu-bar rendering; verify the installed update in the login session.
 

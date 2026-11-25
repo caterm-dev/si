@@ -68,7 +68,7 @@ fn run(args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
             Some(EngineResources::open(Path::new(lexicon), grams.first().map(Path::new)).map(drop))
         }
         [scope, base, options @ ..] if scope == "candidates" => {
-            candidates::run(Path::new(base), options)
+            candidates::run(Path::new(base), options, config)
         }
         [scope, action, output, inputs @ ..] if scope == "lexicon" && action == "build" => {
             let sources = lexicon_sources(inputs)?;

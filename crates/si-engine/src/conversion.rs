@@ -13,8 +13,9 @@ use si_lexicon::{IndexId, WordId};
 use self::input::Input;
 use self::lookup::Lookup;
 use self::scoring::Scoring;
-use crate::resources::EngineResources;
+use crate::resources::{EngineConfig, EngineResources, PinyinCorrectionConfig};
 use crate::text_boundaries::last_fragment;
+pub use context::PrecedingTextCache;
 pub use reranking::SmallReranker;
 
 const MAX_OUTPUT_BYTES: usize = 4_096;
@@ -155,10 +156,10 @@ pub enum CorrectionSensitivity {
 }
 
 impl CorrectionSensitivity {
-    fn margin(self) -> f64 {
+    fn margin(self, config: PinyinCorrectionConfig) -> f64 {
         match self {
-            Self::Conservative => 2.0,
-            Self::HigherRecall => 0.0,
+            Self::Conservative => config.conservative_correction_minimum_lead_bits,
+            Self::HigherRecall => config.higher_recall_correction_minimum_lead_bits,
         }
     }
 }
@@ -166,6 +167,7 @@ impl CorrectionSensitivity {
 /// Reuse this engine across requests. Construction indexes dictionary
 /// readings. Candidate generation uses the loaded resources in memory.
 pub struct CandidateEngine<'a> {
+    config: EngineConfig,
     pinyin_correction: Option<CorrectionSensitivity>,
     lookup: Lookup<'a>,
     scoring: Scoring<'a>,
@@ -174,16 +176,27 @@ pub struct CandidateEngine<'a> {
 
 impl<'a> CandidateEngine<'a> {
     pub fn new(base: &'a EngineResources, user: Option<&'a EngineResources>) -> Self {
-        let lookup = Lookup::new(base.lexicon(), user.map(EngineResources::lexicon));
-        let scoring = Scoring::new(base, user);
+        Self::new_with_config(base, user, EngineConfig::default())
+    }
+
+    /// Capture validated tuning before indexing resources. Conversion performs no config I/O.
+    pub fn new_with_config(
+        base: &'a EngineResources,
+        user: Option<&'a EngineResources>,
+        config: EngineConfig,
+    ) -> Self {
+        let lookup = Lookup::new(base.lexicon(), user.map(EngineResources::lexicon), config);
+        let scoring = Scoring::new(base, user, config);
         let user_with_grams = user.filter(|user| user.grams().is_some());
         let context = (base.grams().is_some() || user_with_grams.is_some()).then(|| {
             context::Context::new(
                 base.lexicon(),
                 user_with_grams.map(EngineResources::lexicon),
+                config.field_context,
             )
         });
         Self {
+            config,
             pinyin_correction: None,
             lookup,
             scoring,
@@ -328,6 +341,32 @@ impl<'a> CandidateEngine<'a> {
         preceding_text: Option<&str>,
         options: ConversionOptions<'_>,
     ) -> Vec<Candidate> {
+        self.convert_with_cached_context(
+            text,
+            languages,
+            preview,
+            phrases,
+            preferences,
+            preceding_text,
+            options,
+            None,
+        )
+    }
+
+    /// Reuse preceding-text preparation within a client/session. Resource/config
+    /// identity and exact final-fragment bytes are checked before each cache hit.
+    #[allow(clippy::too_many_arguments)]
+    pub fn convert_with_cached_context(
+        &self,
+        text: &str,
+        languages: EnabledLanguages,
+        preview: bool,
+        phrases: &[PersonalPhrase<'_>],
+        preferences: ConversionPreferences<'_>,
+        preceding_text: Option<&str>,
+        options: ConversionOptions<'_>,
+        cache: Option<&PrecedingTextCache>,
+    ) -> Vec<Candidate> {
         if text.is_empty() {
             return Vec::new();
         }
@@ -336,9 +375,9 @@ impl<'a> CandidateEngine<'a> {
                 .context
                 .as_ref()
                 .map_or_else(Default::default, |context| {
-                    context.history(preceding_text, &self.scoring)
+                    context.history(preceding_text, &self.scoring, cache)
                 });
-            let personal = Lookup::personal(phrases);
+            let personal = Lookup::personal(phrases, self.config);
             search::run(
                 &Input::new(text),
                 languages,
@@ -348,6 +387,7 @@ impl<'a> CandidateEngine<'a> {
                 &personal,
                 preferences,
                 options.correction,
+                self.config,
                 options.reranker.filter(|_| !preview).map(|model| {
                     (
                         model,

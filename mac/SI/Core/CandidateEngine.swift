@@ -1,6 +1,7 @@
 import Foundation
 
 public struct CandidateEngine: Sendable {
+    public static var precedingTextUTF16Limit: Int { RustConversion.precedingTextUTF16Limit }
     public enum PinyinCorrectionMode: UInt8, CaseIterable, Sendable {
         case off, conservative, higherRecall
     }
@@ -22,10 +23,11 @@ public struct CandidateEngine: Sendable {
                            now: Date = .now, context: CandidateContext? = nil,
                            includesConfirmationEvidence: Bool = false,
                            applicationMemory: ApplicationMemorySnapshot = .empty,
-                           precedingText: String? = nil) -> [InputCandidate] {
+                           precedingText: String? = nil, precedingTextCache: PrecedingTextCache? = nil) -> [InputCandidate] {
         converted(input, languages: languages, learning: learning, dictionary: dictionary,
                   now: now, context: context, applicationMemory: applicationMemory, preview: false,
                   includesConfirmation: includesConfirmationEvidence, precedingText: precedingText,
+                  precedingTextCache: precedingTextCache,
                   rerankingEnabled: rerankingEnabled)
     }
 
@@ -33,16 +35,17 @@ public struct CandidateEngine: Sendable {
     func previewCandidates(for input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot = .empty,
-                           precedingText: String? = nil) -> [InputCandidate] {
+                           precedingText: String? = nil, precedingTextCache: PrecedingTextCache? = nil) -> [InputCandidate] {
         return converted(input, languages: languages, learning: learning, dictionary: dictionary,
                          now: now, context: context, applicationMemory: applicationMemory, preview: true,
-                         precedingText: precedingText)
+                         precedingText: precedingText, precedingTextCache: precedingTextCache)
     }
 
     private func converted(_ input: String, languages: Set<InputLanguage>, learning: LearningProfile,
                            dictionary: UserDictionary, now: Date, context: CandidateContext?,
                            applicationMemory: ApplicationMemorySnapshot, preview: Bool,
                            includesConfirmation: Bool = false, precedingText: String?,
+                           precedingTextCache: PrecedingTextCache? = nil,
                            rerankingEnabled: Bool = false) -> [InputCandidate] {
         guard !input.isEmpty else { return [] }
         let generated: [InputCandidate]
@@ -54,7 +57,8 @@ public struct CandidateEngine: Sendable {
             let rust = applicationMemory.sentenceModel?.conversion ?? RustConversion.shared
             generated = rust?.candidates(for: input, languages: languages, preview: preview,
                 dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now,
-                context: context, precedingText: precedingText, correctionMode: pinyinCorrectionMode,
+                context: context, precedingText: precedingText, precedingTextCache: precedingTextCache,
+                correctionMode: pinyinCorrectionMode,
                 rerankingEnabled: rerankingEnabled)
                 ?? dictionary.candidates(for: input, languages: languages)
         }
@@ -65,7 +69,7 @@ public struct CandidateEngine: Sendable {
                 ? [InputCandidate(text: "", language: nil, score: 0)]
                 : converted(punctuation.prefix, languages: languages, learning: learning, dictionary: dictionary,
                             now: now, context: context, applicationMemory: applicationMemory, preview: preview,
-                            precedingText: precedingText)
+                            precedingText: precedingText, precedingTextCache: precedingTextCache)
             entries += PunctuationCandidates.candidates(symbol: punctuation.symbol, prefixes: prefixes, languages: languages) {
                 learning.rankingScore(for: $0, input: punctuation.prefix, now: now, context: context)
                     + $0.fieldContextAdjustment

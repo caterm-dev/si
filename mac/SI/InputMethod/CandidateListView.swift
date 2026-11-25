@@ -16,6 +16,8 @@ final class CandidateListView: NSView {
     var onToggleExpansion: (() -> Void)?
     private let rowHeight = CandidateStyle.rowHeight
     private var keyboardLine = 0
+    private var columnsPerRow = CandidateSelection.pageSize
+    private let measurementRow = CandidateRowButton()
 
     init() {
         super.init(frame: .zero)
@@ -66,6 +68,7 @@ final class CandidateListView: NSView {
             predictionButton.setAccessibilityLabel(nil)
             predictionButton.setAccessibilityHelp(nil)
         }
+        columnsPerRow = selection.visiblePageSize
         let visible = selection.displayedRange
         keyboardLine = (selection.visibleRange.lowerBound - visible.lowerBound) / selection.visiblePageSize
         isExpanded = selection.isExpanded
@@ -119,6 +122,31 @@ final class CandidateListView: NSView {
         needsDisplay = true
     }
 
+    /// Reduce columns before truncating a single oversized candidate. Measure the
+    /// same compact buttons and expanded viewport that will actually be displayed.
+    func fittingPageSize(for selection: CandidateSelection, maximumWidth: CGFloat) -> Int {
+        var measured: [Int: CGFloat] = [:]
+        for count in stride(from: CandidateSelection.pageSize, through: 1, by: -1) {
+            var trial = selection
+            trial.setPageSize(count)
+            var widths = Array(repeating: CGFloat(44), count: min(count, trial.displayedRange.count))
+            for index in trial.displayedRange {
+                let width: CGFloat
+                if let cached = measured[index] { width = cached }
+                else {
+                    measurementRow.configure(candidate: trial.candidates[index], number: index % count + 1,
+                                             selected: false, compact: true)
+                    width = measurementRow.preferredWidth
+                    measured[index] = width
+                }
+                widths[index % count] = max(widths[index % count], width)
+            }
+            // Candidate cells plus the existing outer insets and expansion control.
+            if widths.reduce(0, +) + 38 <= maximumWidth { return count }
+        }
+        return 1
+    }
+
     private var cardRadius: CGFloat {
         isExpanded || !predictionButton.isHidden ? 12 : CandidateStyle.stripHeight / 2
     }
@@ -131,17 +159,17 @@ final class CandidateListView: NSView {
         let predictionWidth = predictionButton.isHidden ? 0 : min(540, predictionButton.fittingSize.width + 22)
         let naturalWidth = max(160, naturalColumnWidths.reduce(0, +) + 38, predictionWidth)
         let width = min(max(1, maximumWidth), naturalWidth)
-        let lines = isExpanded ? max(1, (rows.count + CandidateSelection.pageSize - 1) / CandidateSelection.pageSize) : 1
+        let lines = isExpanded ? max(1, (rows.count + columnsPerRow - 1) / columnsPerRow) : 1
         let contentHeight = CGFloat(lines) * (rowHeight + 4) + 4
         return NSSize(width: width, height: contentHeight + predictionHeight)
     }
 
     private var naturalColumnWidths: [CGFloat] {
-        let count = min(rows.count, CandidateSelection.pageSize)
+        let count = min(rows.count, columnsPerRow)
         var widths = Array(repeating: CGFloat(44), count: count)
         // Every visible row shares its column's widest text, number and source hint.
         for (index, row) in rows.enumerated() {
-            widths[index % CandidateSelection.pageSize] = max(widths[index % CandidateSelection.pageSize], row.preferredWidth)
+            widths[index % columnsPerRow] = max(widths[index % columnsPerRow], row.preferredWidth)
         }
         return widths
     }
@@ -160,10 +188,10 @@ final class CandidateListView: NSView {
         let available = max(0, width - 38)
         let columns = cellWidths(naturalColumnWidths, available: available)
         var cells: [(x: CGFloat, width: CGFloat, line: Int)] = []
-        for start in stride(from: 0, to: rows.count, by: CandidateSelection.pageSize) {
+        for start in stride(from: 0, to: rows.count, by: columnsPerRow) {
             var x: CGFloat = 5
-            for column in 0..<min(CandidateSelection.pageSize, rows.count - start) {
-                cells.append((x: x, width: columns[column], line: start / CandidateSelection.pageSize))
+            for column in 0..<min(columnsPerRow, rows.count - start) {
+                cells.append((x: x, width: columns[column], line: start / columnsPerRow))
                 x += columns[column]
             }
         }

@@ -1,6 +1,7 @@
 //! Frequency-scored segmentation of written text against immutable lexicons.
 
 mod addresses;
+mod histories;
 
 use std::ops::Range;
 
@@ -161,7 +162,7 @@ impl<'a> Segmenter<'a> {
             previous: 0,
             kind: SegmentKind::Boundary,
         });
-        for (start, first) in text.char_indices() {
+        for (start, _) in text.char_indices() {
             let Some(previous) = steps[start] else {
                 continue;
             };
@@ -181,64 +182,83 @@ impl<'a> Segmenter<'a> {
                     *slot = Some(next);
                 }
             };
-            let remaining = &text[start..];
-            let preceding = text.as_bytes()[..start].last().copied();
-            if recognize_email
-                && let Some(length) = addresses::email_prefix_len(remaining, preceding)
-            {
-                offer(length, SegmentKind::NewEnglishWord, self.unknown_score);
-                continue;
-            }
-            if first.is_ascii_alphanumeric() {
-                let url = if recognize_addresses && !matches!(preceding, Some(b'@' | b'.')) {
-                    addresses::web_prefix(remaining)
-                } else {
-                    None
-                };
-                let (length, kind, score) = match url {
-                    Some(url) => (
-                        url.consumed_bytes,
-                        SegmentKind::WebAddress {
-                            host_end: url.host_end,
-                            user_info_bytes: url.user_info_bytes,
-                        },
-                        self.unknown_score,
-                    ),
-                    None => self.ascii(remaining, first, recognize_addresses),
-                };
-                offer(length, kind, score);
-            } else if first.is_alphanumeric() {
-                self.matches(remaining, |length, entry| {
-                    offer(length, entry.kind, entry.score)
-                });
-                // A single unknown scalar remains available even when a longer word
-                // matches, so a poor match cannot hide a better following word.
-                offer(first.len_utf8(), SegmentKind::Unknown, self.unknown_score);
-            } else {
-                let kind = match first {
-                    '\r' | '\n' | '\u{2028}' | '\u{2029}' => SegmentKind::Boundary,
-                    character if character.is_whitespace() => SegmentKind::Space,
-                    _ => SegmentKind::Boundary,
-                };
-                offer(first.len_utf8(), kind, 0.0);
-            }
+            self.visit_edges(
+                text,
+                start,
+                recognize_addresses,
+                recognize_email,
+                &mut offer,
+            );
         }
         let mut segments = Vec::new();
         let mut end = text.len();
         while end != 0 {
             let step = steps[end].expect("every source scalar has a fallback");
             let range = step.previous..end;
-            let surface = &text[range.clone()];
-            let kind = if step.kind == SegmentKind::Ambiguous && surface.chars().all(han::is_han) {
-                self.resolve_han(surface).unwrap_or(step.kind)
-            } else {
-                step.kind
-            };
+            let kind = self.resolved_kind(&text[range.clone()], step.kind);
             segments.push(Segment { range, kind });
             end = step.previous;
         }
         segments.reverse();
         segments.into_iter()
+    }
+
+    fn resolved_kind(&self, surface: &str, kind: SegmentKind) -> SegmentKind {
+        if kind == SegmentKind::Ambiguous && surface.chars().all(han::is_han) {
+            self.resolve_han(surface).unwrap_or(kind)
+        } else {
+            kind
+        }
+    }
+
+    fn visit_edges(
+        &self,
+        text: &str,
+        start: usize,
+        recognize_addresses: bool,
+        recognize_email: bool,
+        mut offer: impl FnMut(usize, SegmentKind, f64),
+    ) {
+        let remaining = &text[start..];
+        let first = remaining.chars().next().expect("source scalar boundary");
+        let preceding = text.as_bytes()[..start].last().copied();
+        if recognize_email && let Some(length) = addresses::email_prefix_len(remaining, preceding) {
+            offer(length, SegmentKind::NewEnglishWord, self.unknown_score);
+            return;
+        }
+        if first.is_ascii_alphanumeric() {
+            let url = if recognize_addresses && !matches!(preceding, Some(b'@' | b'.')) {
+                addresses::web_prefix(remaining)
+            } else {
+                None
+            };
+            let (length, kind, score) = match url {
+                Some(url) => (
+                    url.consumed_bytes,
+                    SegmentKind::WebAddress {
+                        host_end: url.host_end,
+                        user_info_bytes: url.user_info_bytes,
+                    },
+                    self.unknown_score,
+                ),
+                None => self.ascii(remaining, first, recognize_addresses),
+            };
+            offer(length, kind, score);
+        } else if first.is_alphanumeric() {
+            self.matches(remaining, |length, entry| {
+                offer(length, entry.kind, entry.score)
+            });
+            // A single unknown scalar remains available even when a longer word
+            // matches, so a poor match cannot hide a better following word.
+            offer(first.len_utf8(), SegmentKind::Unknown, self.unknown_score);
+        } else {
+            let kind = match first {
+                '\r' | '\n' | '\u{2028}' | '\u{2029}' => SegmentKind::Boundary,
+                character if character.is_whitespace() => SegmentKind::Space,
+                _ => SegmentKind::Boundary,
+            };
+            offer(first.len_utf8(), kind, 0.0);
+        }
     }
 
     fn resolve_han(&self, surface: &str) -> Option<SegmentKind> {

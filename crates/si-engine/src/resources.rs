@@ -1,6 +1,7 @@
 //! Resource loading and offline import shared by SI frontends.
 
 mod csv_output;
+mod engine_config;
 mod learn;
 mod learning_config;
 mod paragraph;
@@ -22,6 +23,10 @@ use si_lexicon::{IndexId, Lexicon, WordId};
 
 pub use si_gram::{GramOrder, GramSizes};
 
+pub use engine_config::{
+    CandidateSearchConfig, EngineConfig, FieldContextConfig, PinyinCorrectionConfig,
+    RerankerConfig, SpellingScoringConfig, StatisticalScoringConfig,
+};
 pub use learning_config::{LearningConfig, SiConfig};
 pub use progress::CorpusProgress;
 use progress::ProgressReporter;

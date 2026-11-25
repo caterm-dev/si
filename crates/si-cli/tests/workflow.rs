@@ -9,6 +9,76 @@ use si_engine::resources::EngineResources;
 use si_engine::resources::user::UserModelStore;
 
 #[test]
+fn explicit_engine_configuration_controls_conversion_and_rejects_invalid_limits() -> io::Result<()>
+{
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "en.csv",
+        "text,reading,weight\nhello,hello,100\nhelp,help,100\n",
+    )?;
+    scratch.run(&["lexicon", "build", "base.silex", "1", "en.csv"])?;
+    let config = include_str!("../../../config/si.conf");
+    scratch.write(
+        "engine.conf",
+        &config.replace(
+            "completion_base_cost_bits = 4",
+            "completion_base_cost_bits = 0",
+        ),
+    )?;
+    let query = |args: &[&str]| -> io::Result<String> {
+        let mut child = scratch
+            .command(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        child.stdin.take().unwrap().write_all(b"hel\n")?;
+        let output = child.wait_with_output()?;
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).map_err(io::Error::other)
+    };
+    let baseline = query(&["candidates", "base.silex", "--languages", "en"])?;
+    let custom = query(&[
+        "--config",
+        "engine.conf",
+        "candidates",
+        "base.silex",
+        "--languages",
+        "en",
+    ])?;
+    let score = |output: &str| -> f64 {
+        output
+            .lines()
+            .find(|line| line.ends_with("\thello"))
+            .unwrap()
+            .split('\t')
+            .nth(3)
+            .unwrap()
+            .parse()
+            .unwrap()
+    };
+    assert!((score(&custom) - score(&baseline) - 4.0).abs() < 1e-6);
+    let before = fs::read(scratch.0.join("base.silex"))?;
+    scratch.write(
+        "engine.conf",
+        &config.replace("full_search_beam_width = 24", "full_search_beam_width = 65"),
+    )?;
+    let invalid = scratch
+        .command(&["--config", "engine.conf", "candidates", "base.silex"])
+        .output()?;
+    assert!(!invalid.status.success());
+    assert!(invalid.stdout.is_empty());
+    let error = String::from_utf8_lossy(&invalid.stderr);
+    assert!(error.contains("full_search_beam_width") && error.contains("1..=64"));
+    assert_eq!(fs::read(scratch.0.join("base.silex"))?, before);
+    Ok(())
+}
+
+#[test]
 fn user_and_base_imports_apply_independent_orders_to_new_batches() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     let config = TEST_CONFIG;

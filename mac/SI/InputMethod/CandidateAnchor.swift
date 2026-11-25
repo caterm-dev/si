@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 struct CandidateAnchor {
     let rect: CGRect
@@ -11,28 +12,60 @@ struct CandidateAnchor {
         self.screen = screen
     }
 
-    static func startIndices(marked: NSRange) -> [Int] {
-        // IMK's index is inline-relative. Only the document-relative start is a
-        // compatibility probe: a caret/end offset would move the panel as we type.
-        let start = marked.location
-        guard start > 0, start != NSNotFound,
-              marked.length > 0, marked.length <= Int.max - start else { return [0] }
-        return [0, start]
+    static func sameLine(_ first: CGRect, _ second: CGRect) -> Bool {
+        min(first.maxY, second.maxY) - max(first.minY, second.minY) > min(first.height, second.height) / 2
     }
 
-    static func query(indices: [Int], screens: [CandidatePlacement.Screen],
-                      rectangleAt: (Int) -> CGRect?) -> (index: Int, anchor: CandidateAnchor)? {
-        for index in indices {
-            guard let rect = rectangleAt(index) else { return nil }
-            if let anchor = CandidateAnchor(rect, screens: screens) { return (index, anchor) }
+    /// Resolve the active visual line from host geometry, without following its caret horizontally.
+    /// Nil rectangles stop obsolete queries; unusable geometry keeps the previous anchor.
+    static func activeLine(inlineText: String, caretUTF16Offset: Int, retainedStart: Int,
+                           screens: [CandidatePlacement.Screen], rectangleAt: (Int) -> CGRect?)
+        -> (offset: Int, anchor: CandidateAnchor)? {
+        var boundaries = [0]
+        var offset = 0
+        for character in inlineText {
+            offset += character.utf16.count
+            if offset > caretUTF16Offset { break }
+            boundaries.append(offset)
         }
-        return nil
-    }
+        guard !inlineText.isEmpty, caretUTF16Offset >= 0,
+              caretUTF16Offset <= inlineText.utf16.count,
+              boundaries.last == caretUTF16Offset else { return nil }
+        var stopped = false
+        var anchors: [Int: CandidateAnchor] = [:]
+        func read(_ index: Int) -> CandidateAnchor? {
+            if let cached = anchors[index] { return cached }
+            guard !stopped, let rect = rectangleAt(index) else { stopped = true; return nil }
+            let anchor = CandidateAnchor(rect, screens: screens)
+            anchors[index] = anchor
+            return anchor
+        }
+        var end = boundaries.count - 1
+        var caret = read(boundaries[end])
+        if caret == nil, !stopped, end > 0 {
+            end -= 1
+            caret = read(boundaries[end])
+        }
+        guard let caret, !stopped else { return nil }
 
-    static func fallback(lastValid: CGRect?, mouseLocation: @autoclosure () -> CGPoint,
-                         screens: [CandidatePlacement.Screen]) -> CandidateAnchor? {
-        if let lastValid, let anchor = CandidateAnchor(lastValid, screens: screens) { return anchor }
-        let rect = CGRect(origin: mouseLocation(), size: CGSize(width: 1, height: 1))
-        return CandidateAnchor(rect, screens: screens)
+        // Most edits stay on the same line: probe its retained source position once.
+        if retainedStart <= boundaries[end], boundaries.contains(retainedStart) {
+            guard let retained = read(retainedStart) else { return nil }
+            if sameLine(retained.rect, caret.rect) { return (retainedStart, retained) }
+        }
+
+        // All indices precede the caret. Their line membership is monotonic, so a
+        // bounded binary search finds the first character on the active line.
+        var lower = 0
+        var upper = end
+        for _ in 0..<32 {
+            if lower == upper { break }
+            let middle = lower + (upper - lower) / 2
+            guard let probe = read(boundaries[middle]) else { return nil }
+            if sameLine(probe.rect, caret.rect) { upper = middle }
+            else { lower = middle + 1 }
+        }
+        guard lower == upper, let start = read(boundaries[lower]) else { return nil }
+        return (boundaries[lower], start)
     }
 }

@@ -11,13 +11,15 @@ public struct CandidateRequest: Sendable {
     fileprivate let now: Date
     fileprivate let context: CandidateContext?
     fileprivate let precedingText: String?
+    fileprivate let precedingTextCache: PrecedingTextCache?
     fileprivate let automaticConfirmationEnabled: Bool
     fileprivate let applicationMemory: ApplicationMemorySnapshot
 
     public func generate() -> CandidateResult {
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
                                            now: now, context: context, includesConfirmationEvidence: automaticConfirmationEnabled,
-                                           applicationMemory: applicationMemory, precedingText: precedingText)
+                                           applicationMemory: applicationMemory, precedingText: precedingText,
+                                           precedingTextCache: precedingTextCache)
         return CandidateResult(requestID: id, candidates: candidates,
                                confirmationPrefixes: automaticConfirmationEnabled
                                 ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
@@ -27,7 +29,7 @@ public struct CandidateRequest: Sendable {
     public func generatePreview() -> CandidateResult {
         let candidates = engine.previewCandidates(
             for: input, languages: languages, learning: learning, dictionary: dictionary, now: now, context: context,
-            applicationMemory: applicationMemory, precedingText: precedingText)
+            applicationMemory: applicationMemory, precedingText: precedingText, precedingTextCache: precedingTextCache)
         return CandidateResult(requestID: id, candidates: candidates, isPreview: true)
     }
 }
@@ -71,6 +73,7 @@ public struct InputSession: Sendable {
     private var usesContext = false
     private var recentContext: RecentContext?
     private var precedingText: String?
+    private var precedingTextCache: PrecedingTextCache?
     private var contextGeneration: UInt64 = 0
     private var automaticConfirmationEnabled = false
     private var configurationGeneration: UInt64 = 0
@@ -151,6 +154,7 @@ public struct InputSession: Sendable {
         if let previous = precedingText, let text, previous.utf8.elementsEqual(text.utf8) { return }
         if precedingText == nil && text == nil { return }
         precedingText = text
+        precedingTextCache = text.map { _ in precedingTextCache ?? PrecedingTextCache() }
         automaticConfirmation = AutomaticConfirmation()
         if !buffer.isEmpty { refresh() }
     }
@@ -245,6 +249,7 @@ public struct InputSession: Sendable {
         hasCandidatePreview = false
         recentContext = nil
         precedingText = nil
+        precedingTextCache = nil
     }
 
     public mutating func breakContext() {
@@ -289,6 +294,7 @@ public struct InputSession: Sendable {
         automaticConfirmationRevision &+= 1
         guard !buffer.isEmpty else {
             precedingText = nil
+            precedingTextCache = nil
             candidates = []
             pendingCandidateRequest = nil
             hasCandidatePreview = false
@@ -297,6 +303,7 @@ public struct InputSession: Sendable {
         let request = CandidateRequest(input: buffer, languages: languages, engine: engine, learning: learning,
                                        dictionary: dictionary, now: now, context: currentContext(now: now),
                                        precedingText: precedingText,
+                                       precedingTextCache: precedingTextCache,
                                        automaticConfirmationEnabled: automaticConfirmationEnabled,
                                        applicationMemory: applicationMemory)
         pendingCandidateRequest = request

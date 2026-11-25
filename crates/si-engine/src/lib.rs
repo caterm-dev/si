@@ -11,6 +11,6 @@ mod text_boundaries;
 pub use conversion::{
     Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionOptions,
     ConversionPreferences, Correction, CorrectionKind, CorrectionSensitivity, EnabledLanguages,
-    PathPreference, PersonalPhrase, SmallReranker, TokenPreference,
+    PathPreference, PersonalPhrase, PrecedingTextCache, SmallReranker, TokenPreference,
 };
 pub use si_lexicon::IndexId;

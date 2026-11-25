@@ -22,16 +22,20 @@ enum CandidatePlacement {
     }
 
     // InputMethodKit and AppKit already supply screen points; never apply a Retina scale here.
+    static func availableWidth(at anchor: CandidateAnchor) -> CGFloat {
+        // NSWindow rounds its size in screen points. Round down so the final
+        // window cannot grow past a fractional remaining-width boundary.
+        max(1, min(anchor.screen.visibleFrame.width,
+                   anchor.screen.visibleFrame.maxX - anchor.rect.minX).rounded(.down))
+    }
+
     static func frame(preferredSize: CGSize, anchor: CandidateAnchor) -> CGRect? {
         guard preferredSize.width.isFinite, preferredSize.height.isFinite,
               preferredSize.width > 0, preferredSize.height > 0 else { return nil }
         let available = anchor.screen.visibleFrame
         guard available.width > 0, available.height > 0 else { return nil }
-        let size = CGSize(width: min(preferredSize.width, available.width), height: min(preferredSize.height, available.height))
-        let x = min(max(anchor.rect.minX, available.minX), available.maxX - size.width)
-        var y = anchor.rect.minY - size.height
-        if y < available.minY { y = anchor.rect.maxY }
-        y = min(max(y, available.minY), available.maxY - size.height)
-        return CGRect(origin: CGPoint(x: x, y: y), size: size)
+        let size = CGSize(width: min(preferredSize.width, availableWidth(at: anchor)),
+                          height: min(preferredSize.height, available.height))
+        return CGRect(x: anchor.rect.minX, y: anchor.rect.minY - size.height, width: size.width, height: size.height)
     }
 }

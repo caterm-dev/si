@@ -21,11 +21,32 @@ tokens from the current punctuation-delimited fragment. A terminal boundary
 clears the previous fragment for model ranking too. Empty context works at
 the start of a field.
 
-The character model's mean log probability per output scalar is converted
-to bits, measured relative to the least likely scored output, weighted by
-0.8, and capped at two bits. Rust adds that reward after statistical
-search and preserves deterministic ties. The shared Rust presentation policy carries the reward into final ordering
-and retains the original statistical scores for the shortlist.
+Let `r_i` be the character model's mean natural-log probability per output
+scalar, and `r_max` the highest score in the scored pool. The model gap is
+`d_i = (r_i - r_max) / ln(2)` bits. With `lambda = 0.8` and `C = 8`, Rust
+adds the nonnegative reward `lambda * (C + max(d_i, -C))` after statistical
+search. The strongest model result receives 6.4 bits; results at least 8
+model bits behind it receive zero. Differences within that range are preserved,
+and adding a worse model outlier cannot change existing rewards. This is a
+common 6.4-bit offset from the signed adjustment `lambda * max(d_i, -C)`
+within the scored pool. Unscored candidates retain zero reward, so the two
+forms are equivalent only when comparing scored candidates with one another.
+Rust preserves deterministic ties. The shared Rust presentation policy carries
+the reward into final ordering and retains the original statistical scores
+for the shortlist.
+The defaults come from `[local_model_ranking]` in [config/si.conf](../config/si.conf):
+`model_score_weight = 0.8` and `model_score_gap_limit_bits = 8`. Rust embeds this file at build time;
+`SmallReranker::open` captures the validated parameters when the model loads.
+Changing the source configuration requires rebuilding and reinstalling the app.
+Library callers can read an explicit `SiConfig` and pass its `engine.local_model_ranking` to
+`SmallReranker::open_with_config` without recompiling. Pool size, context tokens
+and candidate tokens also come from that section. The limits are 1..64 candidates,
+0..128 context tokens and 1..64 candidate tokens. Pools with fewer than two
+eligible distinct outputs skip scoring. The CLI's `candidates` command still
+does not run the character model. Omitted engine sections retain bundled defaults;
+an explicitly supplied section requires all its keys. Reward weight accepts
+0..4 and gap limit 0..32 bits; either can be zero to disable model rewards.
+No configuration files are read during conversion.
 An exact remembered choice retains priority. If the model changes the
 leading whole candidate, that result cannot trigger prefix auto-confirmation.
 
@@ -107,6 +128,18 @@ There are up to 27 ordinary slots and nine ordinary exact word slots. Generated
 exact Chinese dictionary characters also remain pageable. Language-aware identity
 and the exact literal are preserved. The first displayed candidate gets the
 initial highlight. Space confirms the highlighted candidate.
+
+## Preceding-text segmentation and reuse
+
+Field scoring retains the best K distinct terminal histories (default 3), not
+the first K raw segmentation paths. Duplicate histories retain only their best
+path. Weights are proportional to `2^((s_i - s_max) / T)` with T=4 by default;
+`[field_context]` in `config/si.conf` owns both settings. The engine averages
+smoothed conditional probabilities, then takes log2. Ingestion remains single-best.
+Caller-owned Rust caches reuse immutable preparation for the same final fragment
+and resource/configuration instance. They do not cache candidates or model scores.
+See [field-context architecture](ARCHITECTURE.md#rust-conversion) for search bounds,
+base/user histories, lifecycle and privacy.
 
 ## Exact terminal-completion pruning
 

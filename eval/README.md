@@ -4,7 +4,7 @@
 | --- | --- | --- |
 | Recall | [1,020 queries](recall/test.jsonl) | Full Rust decoding before model or window filtering |
 | Ranking with preceding text | [458 queries in 229 paired contrasts](ranking/context.jsonl) | Character scorer on an identical ordered pool for each pair |
-| Ranking at the start of a field | [539 queries](ranking/context-free.jsonl) | Character scorer on fixed, phonetically compatible alternatives |
+| Ranking at the start of a field | [531 queries](ranking/context-free.jsonl) | Character scorer on fixed, phonetically compatible alternatives |
 | Window regressions | [17 product fixtures](regression/README.md) | Candidate selection and presentation using App policy |
 
 ### Recall
@@ -37,9 +37,9 @@ For example, an e-mail can require a new `登录`, while a boat needs a place to
 reports individual Top-1 and MRR, and how many pairs place both context-specific
 references first.
 
-The context-free suite contains 390 natural utterances with localized
-homophonic distractors from a pinned, correction-off Rust export and 149
-authored orthography contrasts. Candidate order is frozen independently of
+The context-free suite contains 381 utterances with localized homophonic
+distractors from a pinned, correction-off Rust export, three explicitly marked
+repairs of unnatural source wording, and 147 authored orthography contrasts. Candidate order is frozen independently of
 gold status and model scores. Acceptable alternate outputs identified in
 review are carried as additional references. A ranking reference is in its
 fixed pool by design, including when the original engine did not return it.
@@ -52,10 +52,72 @@ decoder binary and snapshots used for the fixed Rust alternatives. The query
 files are the versioned authored sources. The fixtures are synthetic and
 AI-authored. Validation checks the syllables against maintained Chinese
 readings and rejects exact spelling, context and target overlaps with the
-maintained Pinyin training fixtures. This
-leaves broader corpus and checkpoint overlap unverified. Independent human
-annotation and representative typing samples are unavailable. Keep these
+maintained Pinyin training fixtures. Exact context-plus-reference text was
+also audited against three frozen character-LM training bundles, with matches
+recorded below. Semantic overlap and unsnapshotted corpora remain unverified.
+Independent human annotation and representative typing samples are unavailable. Keep these
 test suites outside training and model selection.
+
+### Ranking review on 2026-11-24
+
+The reviewed identity is `conversion-v2-reviewed-20261124`. Review covered all
+229 context pairs, all 539 original context-free pools, and the separate
+historical query-only suite. Format, unique identities, language readings,
+spelling alignment, ordered pair invariants and maintained Pinyin training
+separation pass the validators.
+
+The review expanded 53 context-free reference sets to accept additional fluent
+readings. Examples include unspecified `他`/`她`, `打车`/`搭车`, `背面`/`北面`,
+and `记录`/`纪录`. Conversational questions can accept `吗` and `嘛` where both
+make sense. Candidates and their ordering were preserved for these changes.
+Three rows now use natural wording with aligned input and candidates, including
+retracting a pole to its shortest position and using `一份清单`. Seven contextual
+snippets were clarified while retaining their original paired pools and labels.
+
+Eight context-free rows were removed because their judgments depended on
+unspecified names/locations, missing clause punctuation, alternative spellings,
+or entirely plausible competing announcements. Their IDs and individual reasons
+are retained in `ranking_review` in the manifest. IDs of retained rows remain
+stable. For example, the dictionary records `莫名其妙` and `莫明其妙` as variants,
+and records `钮扣` alongside `纽扣`. This review removed the two-choice idiom
+item and accepted the button variant in the four-choice sentence. [Education
+Ministry idiom entry](https://dict.idioms.moe.edu.tw/idiomView.jsp?ID=6922&la=0&webMd=2),
+[Education Ministry button entry](https://dict.revised.moe.edu.tw/dictView.jsp?ID=57946&q=1&word=%E6%89%A3)
+
+The 531 retained context-free cases include 60 with multiple accepted outputs.
+Uniform random choice over each case's pool averages about 35.1% Top-1, and
+always taking the first candidate yields about 35.2%. Contextual labels are
+balanced 229/229 across the two candidate positions. Report contextual and
+context-free scores separately. Two-choice spelling items remain easier and
+more constrained than natural candidate retrieval. The historical 220 queries
+retain their authored intended targets and regression purpose.
+
+An exact text audit scanned the training documents in the frozen
+`small-character-v1`, `small-chat-v2` and `small-si-v3` bundles. It applies NFKC,
+case folding and whitespace removal, then searches each context-plus-reference
+as a substring within a training document. No complete contextual query matched
+in any of the three bundles. Context-free matches were common idioms and terms:
+
+| Training bundle | Training documents scanned | Matched context-free queries |
+| --- | ---: | ---: |
+| `small-character-v1` | 1,394,936 | 33 |
+| `small-chat-v2` | 981,821 | 18 |
+| `small-si-v3` | 2,589,409 | 24 |
+
+The chat-v2 model inherits the original model's training as well. The union is
+33 seen-text queries for its lineage and 35 after including the SI-v3 bundle.
+The manifest retains matched IDs, corpus identities, document hashes and exact
+audit method. These unsupervised text matches do not contain ranking labels.
+They show that these vocabulary items are already familiar to the model, and
+scores on them cannot establish unseen-text generalization. Short terminology
+and spelling regressions remain part of the stated test coverage.
+
+This was AI-assisted linguistic review. Independent human annotation,
+paraphrase leakage checks and representative typing coverage remain open.
+Related vocabulary and templates can recur, and the contextual task includes
+short collocation completions. Test membership and references were revised
+without consulting per-case model scores. Re-run model comparisons against
+these new hashes; older accuracy reports describe the previous dataset.
 
 ### Run the new suites
 

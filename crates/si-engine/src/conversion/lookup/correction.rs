@@ -2,12 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::conversion::{CorrectionKind, MAX_OUTPUT_BYTES};
 
-use super::{
-    Entry, Input, Language, Lexeme, Lookup, MAX_UNTYPED_LETTERS, Match, lookup_syllable,
-    matches_separators,
-};
+use super::{Entry, Input, Language, Lexeme, Lookup, Match, lookup_syllable, matches_separators};
 
-pub(in crate::conversion) const MIN_CORRECTION_BITS: f64 = 8.0;
+use crate::resources::PinyinCorrectionConfig;
 
 const MAX_WORD_UNITS: usize = 48;
 // A missing key can make the dictionary reading one unit longer than the window.
@@ -47,10 +44,11 @@ impl Edit {
         }
     }
 
-    fn cost(self) -> f64 {
+    fn cost(self, config: PinyinCorrectionConfig) -> f64 {
         match self {
-            Self::Swap | Self::Missing => MIN_CORRECTION_BITS,
-            Self::Replace => 11.0,
+            Self::Swap => config.adjacent_swap_correction_cost_bits,
+            Self::Missing => config.missing_key_correction_cost_bits,
+            Self::Replace => config.neighbor_key_correction_cost_bits,
         }
     }
 }
@@ -154,7 +152,9 @@ impl<'a> Lookup<'a> {
                         .any(|row| {
                             let missing = row.spelling.len() - length;
                             (missing == 0 && reachable[end]
-                                || terminal && missing <= MAX_UNTYPED_LETTERS)
+                                || terminal
+                                    && missing
+                                        <= self.search_config.completion_missing_letter_limit)
                                 && matches_separators(row.reading, separators.clone())
                         })
                     {
@@ -260,7 +260,7 @@ impl<'a> Lookup<'a> {
                             {
                                 found = true;
                                 let end = start + consumed;
-                                let cost = edit.cost();
+                                let cost = edit.cost(self.correction_config);
                                 let index = matches.len();
                                 let existing =
                                     *seen.entry((end, std::ptr::from_ref(row))).or_insert(index);

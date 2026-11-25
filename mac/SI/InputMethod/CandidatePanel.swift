@@ -46,9 +46,17 @@ final class CandidatePanel: NSPanel {
         list.render(selection, prediction: prediction, predictionStatus: predictionStatus)
     }
 
+    func fit(selection: inout CandidateSelection, at anchor: CandidateAnchor,
+             prediction: String? = nil, predictionStatus: String? = nil) {
+        guard ownsPresentation else { return }
+        let count = list.fittingPageSize(for: selection, maximumWidth: CandidatePlacement.availableWidth(at: anchor))
+        selection.setPageSize(count)
+        render(selection: selection, prediction: prediction, predictionStatus: predictionStatus)
+    }
+
     func show(at anchor: CandidateAnchor, clientLevel: Int) {
         guard ownsPresentation, !list.rows.isEmpty else { return }
-        let size = list.preferredSize(constrainedTo: max(1, anchor.screen.visibleFrame.width))
+        let size = list.preferredSize(constrainedTo: CandidatePlacement.availableWidth(at: anchor))
         guard let frame = CandidatePlacement.frame(preferredSize: size, anchor: anchor) else {
             orderOut(nil)
             return

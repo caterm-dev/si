@@ -6,6 +6,7 @@ use std::path::Path;
 use si_gram::{GramOrder, MAX_ORDER};
 use si_lexicon::IndexId;
 
+use super::engine_config::EngineConfig;
 use super::source::{bad_line, parse_count, strip_bom};
 
 const FIELDS: [(&str, u64, u64); 13] = [
@@ -109,8 +110,9 @@ impl UserLearningConfig {
     }
 }
 
-/// Settings shared by the offline corpus and vocabulary workflows.
+/// Settings shared by conversion, offline corpus and vocabulary workflows.
 pub struct SiConfig {
+    pub engine: EngineConfig,
     pub base_max_order: GramOrder,
     pub user_max_order: GramOrder,
     pub base_learning: LearningConfig,
@@ -134,15 +136,21 @@ impl SiConfig {
     }
 
     fn parse(path: &Path, text: &str) -> io::Result<Self> {
+        let engine = EngineConfig::parse_overrides(path, text)?;
         let mut sections = [None, None];
         let mut current = None;
         for (line_number, line) in settings(text) {
             let section = match line {
                 "[base]" => Some(0),
                 "[user]" => Some(1),
+                _ if EngineConfig::is_section(line) => Some(2),
                 _ => None,
             };
             if let Some(section) = section {
+                if section == 2 {
+                    current = Some(section);
+                    continue;
+                }
                 if sections[section].replace(Section::default()).is_some() {
                     return Err(bad_line(
                         path,
@@ -153,9 +161,19 @@ impl SiConfig {
                 current = Some(section);
                 continue;
             }
+            if line.starts_with('[') {
+                return Err(bad_line(path, line_number, "unknown configuration section"));
+            }
             let Some(index) = current else {
-                return Err(bad_line(path, line_number, "expected [base] or [user]"));
+                return Err(bad_line(
+                    path,
+                    line_number,
+                    "expected a named configuration section",
+                ));
             };
+            if index == 2 {
+                continue;
+            }
             let section = sections[index]
                 .as_mut()
                 .expect("selected configuration section");
@@ -193,6 +211,7 @@ impl SiConfig {
         let (base_max_order, base_learning) = finish("[base]", base)?;
         let (user_max_order, user_learning) = finish("[user]", user)?;
         Ok(Self {
+            engine,
             base_max_order,
             user_max_order,
             base_learning,
@@ -293,6 +312,7 @@ fn parse_legacy(path: &Path, text: &str) -> io::Result<LearningConfig> {
 #[cfg(test)]
 mod tests {
     use super::{IndexId, LearningConfig, Ordering, SiConfig, compare_ratios};
+    use crate::resources::RerankerConfig;
 
     #[test]
     fn bundled_config_preserves_separate_base_and_user_thresholds() {
@@ -309,6 +329,102 @@ mod tests {
         assert_eq!(config.user_learning.0.min_forward_percent, 30);
         assert_eq!(config.user_learning.0.min_backward_percent, 30);
         assert_eq!(config.user_learning.0.min_lift, 2);
+        assert_eq!(
+            config.engine.local_model_ranking,
+            reloaded.engine.local_model_ranking
+        );
+        assert_eq!(config.engine.local_model_ranking.model_score_weight, 0.8);
+        assert_eq!(
+            config.engine.local_model_ranking.model_score_gap_limit_bits,
+            8.0
+        );
+    }
+
+    #[test]
+    fn reranker_configuration_accepts_custom_values_and_older_learning_configs() {
+        let path = std::path::Path::new("custom.conf");
+        let bundled = include_str!("../../../../config/si.conf");
+        let custom = bundled
+            .replace("model_score_weight = 0.8", "model_score_weight = 0.5")
+            .replace(
+                "model_score_gap_limit_bits = 8",
+                "model_score_gap_limit_bits = 4",
+            );
+        let config = SiConfig::parse(path, &custom).unwrap();
+        assert_eq!(config.engine.local_model_ranking.model_score_weight, 0.5);
+        assert_eq!(
+            config.engine.local_model_ranking.model_score_gap_limit_bits,
+            4.0
+        );
+        let old = &bundled[bundled.find("[base]").unwrap()..];
+        assert_eq!(
+            SiConfig::parse(path, old)
+                .unwrap()
+                .engine
+                .local_model_ranking,
+            RerankerConfig::default()
+        );
+        for (key, value) in [
+            ("model_score_weight = 0.8", "model_score_weight = 0"),
+            (
+                "model_score_gap_limit_bits = 8",
+                "model_score_gap_limit_bits = 0",
+            ),
+        ] {
+            assert!(SiConfig::parse(path, &bundled.replace(key, value)).is_ok());
+        }
+    }
+
+    #[test]
+    fn invalid_reranker_configuration_is_rejected() {
+        let path = std::path::Path::new("invalid.conf");
+        let bundled = include_str!("../../../../config/si.conf");
+        for (key, replacement) in [
+            ("model_score_weight = 0.8", "model_score_weight = -0.1"),
+            ("model_score_weight = 0.8", "model_score_weight = NaN"),
+            ("model_score_weight = 0.8", "model_score_weight = inf"),
+            ("model_score_weight = 0.8", "model_score_weight = wrong"),
+            (
+                "model_score_weight = 0.8",
+                "model_score_weight = 0.8\nmodel_score_weight = 0.5",
+            ),
+            ("model_score_weight = 0.8", ""),
+            (
+                "model_score_gap_limit_bits = 8",
+                "model_score_gap_limit_bits = -1",
+            ),
+            (
+                "model_score_gap_limit_bits = 8",
+                "model_score_gap_limit_bits = NaN",
+            ),
+            (
+                "model_score_gap_limit_bits = 8",
+                "model_score_gap_limit_bits = inf",
+            ),
+            (
+                "model_score_gap_limit_bits = 8",
+                "model_score_gap_limit_bits = 8\nmodel_score_gap_limit_bits = 4",
+            ),
+            ("model_score_gap_limit_bits = 8", ""),
+            ("model_score_gap_limit_bits = 8", "unknown = 8"),
+            (
+                "[local_model_ranking]",
+                "[local_model_ranking]\n[local_model_ranking]",
+            ),
+            ("[local_model_ranking]", "[unknown]"),
+        ] {
+            assert!(
+                SiConfig::parse(path, &bundled.replace(key, replacement)).is_err(),
+                "{replacement}"
+            );
+        }
+        let overflow = bundled
+            .replace("model_score_weight = 0.8", "model_score_weight = 1e308")
+            .replace(
+                "model_score_gap_limit_bits = 8",
+                "model_score_gap_limit_bits = 1e308",
+            );
+        assert!(SiConfig::parse(path, &overflow).is_err());
     }
 
     #[test]

@@ -1,11 +1,9 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use super::reranking::{MAX_CANDIDATE_BYTES, MAX_CANDIDATES};
 use super::{Candidate, CandidateLanguage, ConversionBoundary, Correction, SmallReranker};
 
 const MAX_CORRECTIONS: usize = 4;
-const DIRECT_COMPLETIONS_PER_LANGUAGE: usize = 32;
 
 #[derive(Default)]
 pub(super) struct Results {
@@ -160,11 +158,11 @@ fn rerank(rows: &mut [Row], model: &SmallReranker, context: &str, full_span: usi
         .enumerate()
         .take_while(|(_, ((end, ..), _))| *end == full_span)
         .filter(|(_, (_, row))| !row.personal && !row.verbatim && row.correction.is_none());
-    let mut pool = Vec::with_capacity(MAX_CANDIDATES);
-    let mut texts = Vec::with_capacity(MAX_CANDIDATES);
-    for (index, ((_, _, text), _)) in whole
-        .filter(|(_, ((_, _, text), row))| !row.completion && text.len() <= MAX_CANDIDATE_BYTES)
-    {
+    let mut pool = Vec::with_capacity(model.candidate_limit());
+    let mut texts = Vec::with_capacity(model.candidate_limit());
+    for (index, ((_, _, text), _)) in whole.filter(|(_, ((_, _, text), row))| {
+        !row.completion && text.len() <= model.candidate_byte_limit()
+    }) {
         let text = text.as_str();
         let slot = texts
             .iter()
@@ -174,7 +172,7 @@ fn rerank(rows: &mut [Row], model: &SmallReranker, context: &str, full_span: usi
                 texts.len() - 1
             });
         pool.push((index, slot));
-        if pool.len() == MAX_CANDIDATES {
+        if pool.len() == model.candidate_limit() {
             break;
         }
     }
@@ -193,12 +191,14 @@ fn rerank(rows: &mut [Row], model: &SmallReranker, context: &str, full_span: usi
 }
 
 /// Direct completions from one language at the whole input span.
-#[derive(Default)]
-pub(super) struct Completions(Vec<(Candidate, f64)>);
+pub(super) struct Completions(Vec<(Candidate, f64)>, usize);
 
 impl Completions {
+    pub(super) fn new(limit: usize) -> Self {
+        Self(Vec::new(), limit)
+    }
     pub(super) fn could_enter(&self, score: f64) -> bool {
-        self.0.len() < DIRECT_COMPLETIONS_PER_LANGUAGE || score >= self.0.last().unwrap().1
+        self.0.len() < self.1 || score >= self.0.last().unwrap().1
     }
 
     pub(super) fn insert(&mut self, candidate: Candidate, adjustment: f64) {
@@ -221,9 +221,9 @@ impl Completions {
         let position = self
             .0
             .partition_point(|row| compare(row) != Ordering::Greater);
-        if position < DIRECT_COMPLETIONS_PER_LANGUAGE {
+        if position < self.1 {
             self.0.insert(position, (candidate, score));
-            self.0.truncate(DIRECT_COMPLETIONS_PER_LANGUAGE);
+            self.0.truncate(self.1);
         }
     }
 

@@ -4,6 +4,53 @@ import SICore
 @testable import SIPresentation
 
 struct CandidateSelectionTests {
+    @Test(arguments: 1...6)
+    func reducedColumnCountsKeepEveryCandidateReachableAndNumbered(count: Int) throws {
+        let literal = InputCandidate(text: "Exact_Bytes", language: nil, score: 0)
+        for expanded in [false, true] {
+            var selection = CandidateSelection()
+            selection.update(candidates(33) + [literal])
+            selection.setPageSize(count)
+            selection.setExpanded(expanded)
+            let expected = selection.candidates.map(\.id)
+            var seen: [String] = []
+            for row in 0..<selection.rowCount {
+                selection.move(by: row * count - selection.selectedIndex)
+                #expect(selection.displayedRange.contains(selection.selectedIndex))
+                for number in 1...count {
+                    if let candidate = selection.candidate(number: number) { seen.append(candidate.id) }
+                }
+                #expect(selection.candidate(number: count + 1) == nil)
+                #expect(CandidateSelection.action(keyCode: 0, characters: String(count + 1),
+                                                  pageSize: selection.visiblePageSize, isExpanded: expanded) == nil)
+            }
+            #expect(seen == expected && seen.last == literal.id)
+        }
+    }
+
+    @Test func resizingRowsPreservesSelectionAndUsesTheNewPageStride() throws {
+        var selection = CandidateSelection()
+        selection.update(candidates(33))
+        selection.setExpanded(true)
+        selection.move(by: 17)
+        let chosen = try #require(selection.selected)
+        for count in [3, 1, 5, 2, 6] {
+            selection.setPageSize(count)
+            #expect(selection.selected == chosen)
+            #expect(selection.displayedRange.contains(selection.selectedIndex))
+            #expect(selection.candidate(number: selection.selectedIndex % count + 1) == chosen)
+        }
+        selection.setExpanded(false)
+        selection.setPageSize(2)
+        selection.movePage(by: 1)
+        #expect(selection.selectedIndex == 19 && selection.visibleRange == 18..<20)
+        selection.setPageSize(1)
+        selection.setExpanded(true)
+        selection.movePage(by: 1)
+        #expect(selection.selectedIndex == 24 && selection.visibleRange == 24..<25)
+        #expect(selection.confirmationReason(for: selection.candidates.first) == .defaultAcceptance)
+    }
+
     @Test func expandedListKeepsFiveRowsVisibleWithAnIndependentNumberedRow() {
         var selection = CandidateSelection()
         selection.update(candidates(33))

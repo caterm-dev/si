@@ -1,23 +1,20 @@
 use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
 use std::hash::BuildHasherDefault;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use si_gram::{Context, GramModel, MAX_ORDER};
 use si_lexicon::{Lexicon, WordId};
 
 use super::cache::IdHasher;
+use super::context::FieldContext;
 use super::lookup::Lexeme;
 use super::{Language, WordIds};
-use crate::resources::EngineResources;
+use crate::resources::{
+    EngineConfig, EngineResources, SpellingScoringConfig, StatisticalScoringConfig,
+};
 use crate::text_boundaries::START_TOKEN;
 
-const USER_UNIGRAM_PRIOR: f64 = 32.0;
-const USER_UNIGRAM_LIMIT: f64 = 0.8;
-const BASE_GRAM_PRIOR: f64 = 32.0;
-const USER_GRAM_PRIOR: f64 = 8.0;
-const GRAM_WEIGHT_LIMIT: f64 = 0.8;
-const START_REWARD_LIMIT: f64 = 2.0;
 const HISTORY_WORDS: usize = MAX_ORDER - 1;
 const CONTEXT_CACHE_CAPACITY: usize = 8_192;
 
@@ -60,6 +57,7 @@ impl<'a> Corpus<'a> {
 }
 
 pub(super) struct Scoring<'a> {
+    config: EngineConfig,
     base: Corpus<'a>,
     start_token: Option<WordId>,
     user: Option<Corpus<'a>>,
@@ -67,7 +65,11 @@ pub(super) struct Scoring<'a> {
 }
 
 impl<'a> Scoring<'a> {
-    pub(super) fn new(base: &'a EngineResources, user: Option<&'a EngineResources>) -> Self {
+    pub(super) fn new(
+        base: &'a EngineResources,
+        user: Option<&'a EngineResources>,
+        config: EngineConfig,
+    ) -> Self {
         let base = Corpus::new(base);
         let user = user
             .map(Corpus::new)
@@ -81,6 +83,7 @@ impl<'a> Scoring<'a> {
             .zip(base.grams)
             .is_some_and(|(id, grams)| grams.context(&[id]).continuations().next().is_some());
         Self {
+            config,
             base,
             start_token: start_token.filter(|_| has_starts),
             user,
@@ -114,7 +117,12 @@ impl<'a> Scoring<'a> {
         Scores {
             base,
             personalized: self.user.map_or(base, |user| {
-                boost_user_unigram(base, user, user.count(word.ids.user))
+                boost_user_unigram(
+                    base,
+                    user,
+                    user.count(word.ids.user),
+                    self.config.statistical_scoring,
+                )
             }),
         }
     }
@@ -135,10 +143,28 @@ impl<'a> Scoring<'a> {
         }
     }
 
-    pub(super) fn session(&self, initial_history: History) -> ScoreSession<'_, 'a> {
+    pub(super) fn field_history(&self, mut history: History, user: bool) -> History {
+        let corpus = if user { self.user } else { Some(self.base) };
+        let limit = corpus
+            .and_then(|corpus| corpus.grams)
+            .and_then(|grams| grams.sizes().iter().rposition(|&size| size != 0))
+            .map_or(0, |index| index + 1);
+        let mut ids = if user { history.user } else { history.base };
+        ids.len = ids.len.min(limit);
+        ids.ids[ids.len..].fill(WordId(0));
+        history = History::default();
+        if user {
+            history.user = ids;
+        } else {
+            history.base = ids;
+        }
+        history
+    }
+
+    pub(super) fn session(&self, field: Arc<FieldContext>) -> ScoreSession<'_, 'a> {
         ScoreSession {
             model: self,
-            initial_history,
+            field,
             start_maxima: HashMap::new(),
             // Lease the cached dictionary contexts for this request. Concurrent
             // conversions compute locally, without waiting for the lease.
@@ -211,7 +237,7 @@ impl HistoryIds {
     }
 }
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(super) struct StartHistory {
     history: HistoryIds,
     pub(super) remaining: usize,
@@ -228,7 +254,7 @@ pub(super) struct StartSpan {
     pub(super) corrected: bool,
 }
 
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub(super) struct History {
     base: HistoryIds,
     user: HistoryIds,
@@ -237,15 +263,9 @@ pub(super) struct History {
 }
 
 impl History {
-    pub(super) fn from_field(base: Self, user: Self) -> Self {
-        Self {
-            base: base.base,
-            user: user.user,
-            last: base.last.or(user.last),
-            start: None,
-        }
+    pub(super) fn is_empty(self) -> bool {
+        self.base.len == 0 && self.user.len == 0
     }
-
     pub(super) fn last(self) -> Option<Language> {
         self.last
     }
@@ -254,19 +274,19 @@ impl History {
         self.start.is_some()
     }
 
-    pub(super) fn start_adjustment(self) -> Option<Scores> {
+    pub(super) fn start_adjustment(self, reward_limit: f64) -> Option<Scores> {
         self.start.map(|start| Scores {
-            base: start_reward(start.count, start.maximum),
-            personalized: start_reward(start.count, start.maximum),
+            base: start_reward(start.count, start.maximum, reward_limit),
+            personalized: start_reward(start.count, start.maximum, reward_limit),
         })
     }
 
     /// A longer observed prefix may change the reward while the boundary remains in range.
-    pub(super) fn context_upper(self, current: Scores) -> Scores {
+    pub(super) fn context_upper(self, current: Scores, reward_limit: f64) -> Scores {
         if self.start.is_some() {
             Scores {
-                base: START_REWARD_LIMIT,
-                personalized: START_REWARD_LIMIT,
+                base: reward_limit,
+                personalized: reward_limit,
             }
         } else {
             current
@@ -302,14 +322,14 @@ pub(super) struct CompletionBounds {
 
 pub(super) struct ScoreSession<'model, 'data> {
     model: &'model Scoring<'data>,
-    initial_history: History,
+    field: Arc<FieldContext>,
     start_maxima: HashMap<StartSpan, u64>,
     contexts: ContextCaches<'data>,
 }
 
 impl ScoreSession<'_, '_> {
     pub(super) fn initial_start(&self) -> Option<StartHistory> {
-        self.initial_history.start
+        self.field.start.start
     }
 
     pub(super) fn set_start_maxima(&mut self, maxima: HashMap<StartSpan, u64>) {
@@ -404,7 +424,8 @@ impl ScoreSession<'_, '_> {
             .max(base.copied().unwrap_or_default())
             .max(user.copied().unwrap_or_default());
         // Allow for accumulated rounding in smoothing and the optimistic score.
-        probability_bits(upper) - (4.0 + missing as f64) + 1e-9
+        probability_bits(upper) - completion_cost(self.model.config.spelling_scoring, missing)
+            + 1e-9
     }
 
     pub(super) fn has_user(&self) -> bool {
@@ -421,7 +442,7 @@ impl ScoreSession<'_, '_> {
         let word_score = WordScore::new(word);
         let (history, scores) = self.step(
             History {
-                start: self.initial_history.start,
+                start: self.field.start.start,
                 ..History::default()
             },
             &word_score,
@@ -429,18 +450,68 @@ impl ScoreSession<'_, '_> {
             end,
             corrected,
         );
-        let mut adjustment = history.start_adjustment().unwrap_or_default();
-        let preceding = self.initial_history;
-        if (preceding.base.len > 0 || preceding.user.len > 0)
+        let mut adjustment = history
+            .start_adjustment(
+                self.model
+                    .config
+                    .statistical_scoring
+                    .sentence_start_reward_limit_bits,
+            )
+            .unwrap_or_default();
+        if (!self.field.base.is_empty() || !self.field.user.is_empty())
             && word.personal.is_none()
             && !word.verbatim
         {
-            // Compare the same first word with and without preceding grams, using the same costs.
-            let (_, conditioned) = self.step(preceding, &word_score, missing, end, corrected);
-            adjustment.base = conditioned.base - scores.base;
-            adjustment.personalized = conditioned.personalized - scores.personalized;
+            let priors = *word_score.unigram.get_or_init(|| self.model.unigram(word));
+            let mixed = self.field_probabilities(priors, word.ids);
+            let cost = completion_cost(self.model.config.spelling_scoring, missing);
+            adjustment.base = probability_bits(mixed.base) - cost - scores.base;
+            adjustment.personalized =
+                probability_bits(mixed.personalized) - cost - scores.personalized;
         }
         (history, scores, adjustment)
+    }
+
+    fn field_probabilities(&mut self, mut priors: Scores, ids: WordIds) -> Scores {
+        let config = self.model.config.statistical_scoring;
+        if !self.field.base.is_empty() {
+            let mut mixed = Scores::default();
+            for row in &self.field.base {
+                let mut probability = priors;
+                for (observed, mass) in continuations(
+                    &mut self.contexts.base,
+                    self.model.base,
+                    row.history.base,
+                    ids.base,
+                ) {
+                    probability.base = smooth_base_gram(probability.base, observed, mass, config);
+                    probability.personalized =
+                        smooth_base_gram(probability.personalized, observed, mass, config);
+                }
+                mixed.base += row.weight * probability.base;
+                mixed.personalized += row.weight * probability.personalized;
+            }
+            priors = Scores {
+                base: mixed.base.min(1.0),
+                personalized: mixed.personalized.min(1.0),
+            };
+        }
+        if let Some(user) = self.model.user.filter(|_| !self.field.user.is_empty()) {
+            let mut mixed = 0.0;
+            for row in &self.field.user {
+                let mut probability = priors.personalized;
+                for (observed, mass) in
+                    continuations(&mut self.contexts.user, user, row.history.user, ids.user)
+                {
+                    probability = boost_user_gram(probability, observed, mass, config);
+                }
+                mixed += row.weight * probability;
+            }
+            // User components are boosts; rounding in normalized weights must
+            // not turn an otherwise neutral user mixture into a penalty.
+            priors.personalized = priors.personalized.max(mixed.min(1.0));
+        }
+        priors
     }
 
     pub(super) fn step(
@@ -471,7 +542,7 @@ impl ScoreSession<'_, '_> {
             let spelling_cost = if missing == 0 {
                 0.0
             } else {
-                4.0 + missing as f64
+                completion_cost(self.model.config.spelling_scoring, missing)
             };
             let score = -word_cost - spelling_cost + f64::from(pinned);
             return (
@@ -490,18 +561,33 @@ impl ScoreSession<'_, '_> {
         for (observed, mass) in
             continuations(&mut self.contexts.base, base, previous.base, word.ids.base)
         {
-            priors.base = smooth_base_gram(priors.base, observed, mass);
-            priors.personalized = smooth_base_gram(priors.personalized, observed, mass);
+            priors.base = smooth_base_gram(
+                priors.base,
+                observed,
+                mass,
+                self.model.config.statistical_scoring,
+            );
+            priors.personalized = smooth_base_gram(
+                priors.personalized,
+                observed,
+                mass,
+                self.model.config.statistical_scoring,
+            );
         }
         if let Some(user) = self.model.user {
             for (observed, mass) in
                 continuations(&mut self.contexts.user, user, previous.user, word.ids.user)
             {
-                priors.personalized = boost_user_gram(priors.personalized, observed, mass);
+                priors.personalized = boost_user_gram(
+                    priors.personalized,
+                    observed,
+                    mass,
+                    self.model.config.statistical_scoring,
+                );
             }
         }
         let cost = if missing > 0 {
-            4.0 + missing as f64
+            completion_cost(self.model.config.spelling_scoring, missing)
         } else {
             0.0
         };
@@ -538,41 +624,68 @@ impl Drop for ScoreSession<'_, '_> {
     }
 }
 
+fn completion_cost(config: SpellingScoringConfig, missing: usize) -> f64 {
+    if missing == 0 {
+        0.0
+    } else {
+        config.completion_base_cost_bits
+            + config.completion_missing_letter_cost_bits * missing as f64
+    }
+}
+
 fn probability_bits(probability: f64) -> f64 {
     // Known zero-count words remain selectable with a finite score.
     probability.max(f64::MIN_POSITIVE).log2()
 }
 
-fn smooth_base_gram(prior: f64, count: f64, mass: f64) -> f64 {
-    let weight = gram_weight(mass, BASE_GRAM_PRIOR);
+fn smooth_base_gram(prior: f64, count: f64, mass: f64, config: StatisticalScoringConfig) -> f64 {
+    let weight = gram_weight(
+        mass,
+        config.base_word_gram_prior_count,
+        config.word_gram_interpolation_weight_limit,
+    );
     // Missing continuations still retain lower-order evidence, even for frequent histories.
     (1.0 - weight) * prior + weight * (count / mass)
 }
 
-fn start_reward(count: u64, maximum: u64) -> f64 {
+fn start_reward(count: u64, maximum: u64, reward_limit: f64) -> f64 {
     if maximum == 0 {
         return 0.0;
     }
     let x = (count as f64 / maximum as f64).min(1.0);
     // Smoothstep joins the zero and full-reward plateaus with zero slope.
-    START_REWARD_LIMIT * x * x * (3.0 - 2.0 * x)
+    reward_limit * x * x * (3.0 - 2.0 * x)
 }
 
 fn boost(prior: f64, probability: f64, weight: f64) -> f64 {
     prior + weight * (probability - prior).max(0.0)
 }
 
-fn boost_user_unigram(prior: f64, user: Corpus<'_>, count: f64) -> f64 {
-    let weight = USER_UNIGRAM_LIMIT * user.total_count / (user.total_count + USER_UNIGRAM_PRIOR);
+fn boost_user_unigram(
+    prior: f64,
+    user: Corpus<'_>,
+    count: f64,
+    config: StatisticalScoringConfig,
+) -> f64 {
+    let weight = config.user_unigram_boost_weight_limit * user.total_count
+        / (user.total_count + config.user_unigram_prior_count);
     boost(prior, user.frequency(count), weight)
 }
 
-fn boost_user_gram(prior: f64, count: f64, mass: f64) -> f64 {
-    boost(prior, count / mass, gram_weight(mass, USER_GRAM_PRIOR))
+fn boost_user_gram(prior: f64, count: f64, mass: f64, config: StatisticalScoringConfig) -> f64 {
+    boost(
+        prior,
+        count / mass,
+        gram_weight(
+            mass,
+            config.user_word_gram_prior_count,
+            config.word_gram_interpolation_weight_limit,
+        ),
+    )
 }
 
-fn gram_weight(mass: f64, prior_mass: f64) -> f64 {
-    (mass / (mass + prior_mass)).min(GRAM_WEIGHT_LIMIT)
+fn gram_weight(mass: f64, prior_mass: f64, weight_limit: f64) -> f64 {
+    (mass / (mass + prior_mass)).min(weight_limit)
 }
 
 fn continuations<'cache, 'data>(
@@ -650,12 +763,70 @@ fn prepare_context<'cache, 'data>(
 
 #[cfg(test)]
 mod tests {
-    use super::start_reward;
+    use super::{
+        Corpus, History, HistoryIds, Scores, StartHistory, boost_user_gram, boost_user_unigram,
+        smooth_base_gram, start_reward,
+    };
+    use crate::resources::EngineConfig;
+    use si_lexicon::Lexicon;
+
+    #[test]
+    fn configured_statistical_priors_and_caps_control_their_probability_components() {
+        let original = EngineConfig::default().statistical_scoring;
+        let mut custom = original;
+        let prior = 0.01;
+        let baseline = smooth_base_gram(prior, 16.0, 32.0, original);
+        custom.base_word_gram_prior_count = 64.0;
+        assert!(smooth_base_gram(prior, 16.0, 32.0, custom) < baseline);
+        custom = original;
+        custom.word_gram_interpolation_weight_limit = 0.25;
+        assert!(smooth_base_gram(prior, 16.0, 32.0, custom) < baseline);
+        let baseline = boost_user_gram(prior, 16.0, 32.0, original);
+        custom = original;
+        custom.user_word_gram_prior_count = 64.0;
+        assert!(boost_user_gram(prior, 16.0, 32.0, custom) < baseline);
+        custom = original;
+        custom.word_gram_interpolation_weight_limit = 0.0;
+        assert_eq!(boost_user_gram(prior, 16.0, 32.0, custom), prior);
+
+        let lexicon = Lexicon::new();
+        let corpus = Corpus {
+            lexicon: &lexicon,
+            grams: None,
+            history_limit: 3,
+            total_count: 32.0,
+        };
+        let baseline = boost_user_unigram(prior, corpus, 16.0, original);
+        custom = original;
+        custom.user_unigram_prior_count = 64.0;
+        assert!(boost_user_unigram(prior, corpus, 16.0, custom) < baseline);
+        custom = original;
+        custom.user_unigram_boost_weight_limit = 0.0;
+        assert_eq!(boost_user_unigram(prior, corpus, 16.0, custom), prior);
+    }
+
+    #[test]
+    fn sentence_start_adjustments_and_pruning_bounds_share_the_configured_limit() {
+        let history = History {
+            start: Some(StartHistory {
+                history: HistoryIds::default(),
+                remaining: 1,
+                count: 50,
+                maximum: 100,
+            }),
+            ..History::default()
+        };
+        for limit in [0.0, 2.0, 8.0] {
+            assert_eq!(history.start_adjustment(limit).unwrap().base, limit / 2.0);
+            assert_eq!(history.context_upper(Scores::default(), limit).base, limit);
+            assert_eq!(start_reward(100, 100, limit), limit);
+        }
+    }
 
     #[test]
     fn sentence_start_reward_uses_relative_probability_and_scales_with_the_pool() {
-        assert_eq!(start_reward(0, 0), 0.0);
-        assert_eq!(start_reward(0, 100), 0.0);
+        assert_eq!(start_reward(0, 0, 2.0), 0.0);
+        assert_eq!(start_reward(0, 100, 2.0), 0.0);
         let mut previous = -1.0;
         for (count, expected) in [
             (0, 0.0),
@@ -665,13 +836,13 @@ mod tests {
             (75, 1.6875),
             (100, 2.0),
         ] {
-            let reward = start_reward(count, 100);
+            let reward = start_reward(count, 100, 2.0);
             assert!((reward - expected).abs() < 1e-12);
             assert!(reward > previous && reward <= 2.0);
-            assert_eq!(reward, start_reward(count * 7, 700));
+            assert_eq!(reward, start_reward(count * 7, 700, 2.0));
             previous = reward;
         }
-        assert_eq!(start_reward(u64::MAX, u64::MAX), 2.0);
-        assert_eq!(start_reward(101, 100), 2.0);
+        assert_eq!(start_reward(u64::MAX, u64::MAX, 2.0), 2.0);
+        assert_eq!(start_reward(101, 100, 2.0), 2.0);
     }
 }

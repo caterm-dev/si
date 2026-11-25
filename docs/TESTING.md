@@ -76,12 +76,25 @@ fallback preserving completed prefixes on traversal-budget exhaustion, longest s
 replacement, retained opening counts beyond the model order, exact-prefix
 independence, direct-word scoring, literal/personal/verbatim exclusions and
 neutral behavior without marker data. `PrecedingTextReaderTests` checks a
-revalidated empty prefix; bridge fixtures distinguish it from unavailable or
+revalidated empty prefix, one host request capped at the last 96 UTF-16 units
+for 100,000-character Chinese/ASCII fields, selected-text exclusion, custom limits,
+emoji, unchanged spaces/tabs/newlines, and stale-client/range suppression. Swift
+neither trims whitespace nor sends a field-start flag. These checks use synthetic
+text and mocked host reads, not native timing measurements. Bridge fixtures
+distinguish an available empty prefix from unavailable or
 invalid UTF-8 context. Changing between known-empty and unavailable context
 invalidates deferred candidate requests. Context regressions also compare
 `看过《青蛇》`, `你看过《战争之王》`, `看过《唐伯虎点秋香》` and `(提名)`
 with ordinary preceding words, while `他说：“` and `你好。”` retain confirmed
 sentence-start behavior. Symbols and unknown text never establish a new start.
+
+After an intentionally requested install, use a synthetic long field without
+punctuation, including emoji near the 96-unit window boundary, and check ordinary
+conversion, prefix commits, focus changes and secure/direct-input suppression.
+Confirm that the host request is capped at 96 UTF-16 units and returned spaces,
+tabs and newlines reach Rust unchanged. Check punctuation-delimited context and
+field starts with the existing Rust classifier. Live host behavior and latency
+remain unverified by the mocked read tests and app build.
 
 After an intentionally requested install with rebuilt boundary statistics,
 check empty fields and text following `?`, `，`, `。`, repeated punctuation and
@@ -94,6 +107,27 @@ the context, and that secure/direct input and unreadable fields do not infer
 sentence start. Fixture results and a build do not establish live host behavior
 or production ranking quality. Existing packaged resources are not automatically
 re-ingested by the code change.
+
+Preceding-field multi-history regressions cover K=1 compatibility, duplicate
+prefix paths without accumulated weights, deterministic terminal-history ordering,
+K=3/T=4 defaults, normalized temperature weights, base trigram versus user five-gram
+history identity, and a dense search exhausting its fixed budget. Synthetic
+homophones verify probability mixing (not averaging log scores), ranking changes
+between T=1 and T=4, unchanged lexical scores, and identical full/preview results.
+Cache tests prove reuse of an identical final fragment, invalidation across fragment,
+configuration and resource-owner changes, unavailable-context suppression, concurrent
+queries, and bit-identical cached/uncached conversion across edits and enabled
+languages. Swift integration covers per-session cache use, user-model replacement,
+reset and rejection of results from obsolete requests. No native latency or broad
+ranking-quality claim follows from these synthetic fixtures.
+
+A local Release in-process comparison used the packaged base lexicon/grams,
+empty personal state, correction/model scoring off, and the synthetic preceding
+fragment `最好沿着围墙多种几棵`. Across 180 conversions cycling `s`, `sh`, `shu`,
+`shum`, `shu`, cached/uncached candidates and score bits matched exactly.
+The reported `shu` example places `树` first with statistical total -8.233161 bits,
+versus -12.621475 for `数`; enabling the packaged reranker also retained `树` first.
+This checks the requested example, not representative ranking quality or host latency.
 
 Segmentation regressions cover `没有输入法` → `没有 / 输入法` in base
 paragraph ingestion, user ingestion and preceding-field ranking, bounded
@@ -325,11 +359,48 @@ second host such as Safari. Repeat in an eligible field with preceding text,
 then verify direct and secure input suppress model use. Check VoiceOver's
 setting label and value. The automated integration test covers the two
 correction modes and the separation between model and statistical scores.
-The Rust regression `small_reranker_scores_beyond_two_bits_and_caps_the_bonus_at_two`
+The Rust regression `small_reranker_preserves_model_gaps_across_large_statistical_gaps`
 uses `yuanshipinxie` to verify scoring across statistical gaps above two bits,
-the two-bit bonus cap, and preservation of the original statistical score.
+the 6.4-bit reward cap, and preservation of the original statistical score.
+`small_reranker_promotes_tree_after_planting_context` uses a synthetic dictionary
+of exact homophones and verifies `shu` ranks
+`树` first after `院子太晒，最好沿着围墙多种几棵`, preserves candidate identities
+and lexical scores, and returns the same order on repeated requests and in
+the window. Unit checks cover clipping the model gap at 8 bits before the
+0.8 weight, ties, invariance to worse outliers and shared score offsets,
+and fallback for unusable scores. Repeat the planting example in a host with
+Local model ranking off/on; automated checks do not establish host context reads.
 `small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth` verifies
 the 12-candidate pool limit and preservation of the exact original spelling.
+`small_reranker_uses_loaded_configuration_without_reading_it_during_conversion`
+loads custom reward parameters, removes the configuration file before conversion,
+and checks the requested reward cap and zero-weight statistical fallback.
+Configuration unit checks reject negative/nonfinite values, overflowing rewards,
+missing/duplicate fields, duplicate sections and unknown settings, while retaining
+compatibility with older base/user-only configurations.
+
+### Engine tuning configuration
+
+Run `cargo test --workspace --locked`. The configuration range matrix tests
+every documented engine parameter at both endpoints, outside its range, with
+nonfinite/nonnumeric values, duplicate keys and fractional integer limits.
+Additional checks reject inconsistent preview/full widths and correction leads,
+missing fields and unknown/duplicate sections. Older base/user-only files use
+embedded engine defaults.
+
+`configured_search_widths_include_sixty_four_path_completion_masks` uses a dense
+synthetic lattice at widths 1, 31, 32, 33, 63 and 64, verifies full/preview order,
+determinism and exact literal preservation. A mask unit test covers every bit
+at the 64-path boundary. Custom conversion fixtures check model pool/context/
+candidate token limits, spelling costs, completion limits, abbreviation costs,
+correction edit costs and confidence margins. Statistical unit fixtures check
+independent prior/weight controls and matching sentence-start pruning bounds.
+The CLI workflow test verifies that `--config` changes real conversion scores
+and rejects an out-of-range width before modifying any resource.
+
+The hard parameter ranges do not establish native host latency at their maxima.
+App defaults remain embedded and require a rebuild/reinstall to change; these
+tests do not enable live configuration reload or verify native host behavior.
 
 ### Pinyin correction in a host
 
@@ -360,27 +431,50 @@ highlighted for each edited composition.
 
 ## Candidate positioning
 
-`CandidatePlacementTests` covers start-only inline and compatibility probes,
-anchor reuse while typing and deleting across a wrap or moving the caret,
-successive prefix confirmations, anchor reset, superseded queries, invalid
-rectangles, last-valid and mouse fallbacks, resizing, and disconnected or
-multiple displays.
-`CandidatePanelOwnershipTests` covers a focus switch between rendering and display.
+`CandidatePlacementTests` covers fixed placement within a line; transitions across
+multiple wrapped lines and deletion back; growing fields with unchanged caret
+screen height; UTF-16 grapheme probes; unavailable and obsolete geometry; prefix
+remainders, capture reset, resizing, and global display coordinates.
+`CandidatePanelOwnershipTests` covers a focus switch between rendering and display,
+and actual AppKit panel placement while candidate widths and expansion change.
+`CandidateWidthTests` covers each reduction from six columns to one, expansion
+at a reduced count, restored width, unchanged candidate order/selection, mouse
+and digit agreement, fractional remaining width, and exact oversized text.
+`CandidateSelectionTests` covers paging through every choice, including literal
+input, at each column count in both layouts.
 
 On an intentionally installed Debug build, type synthetic Pinyin such as
 `dangqian` in a new Claude Desktop composer, the Chrome address bar, a Chrome
 web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Check
-that the panel first appears beside the start of the composition. In Codex,
-place the caret within a long line of synthetic text. Type until the marked
-spelling wraps, delete back across the wrap, and move the caret with Home and
-End. Verify that the panel stays at the start of the spelling. In each host, try rapid
-typing, a new line, the end of existing text, and starting another composition
-after moving the window. Confirm several prefixes with Space, numbers and mouse;
-the panel must keep the original start while each remainder stays editable. Repeat
-with automatic prefix confirmation enabled. Finish or cancel the remainder, then
-start a new composition and verify its new anchor. Repeat on a connected external display. Check that expand/collapse and paging keep the resized panel
-beside the composition and within the visible frame near the bottom and right
-edges. Delete the entire spelling, press Escape, commit, switch focus and enable
+that the panel first appears at the composition start. In Chrome and Codex, place the
+caret within a long line of synthetic text. Type until the marked spelling wraps,
+delete back across the wrap, and move the caret with Home and End. Verify that
+the panel moves to the new visual line's start when spelling wraps, stays fixed
+while typing within that line, and returns to the earlier line's start on deletion
+or caret movement back across the wrap. In an expanding bottom-aligned composer,
+verify this also works when adding a line moves existing text upward while the
+caret's screen height stays unchanged.
+In each host, try rapid typing, a new line,
+the end of existing text, and starting another composition after moving the
+window. Confirm several prefixes with Space, numbers and mouse. Check that
+the panel stays fixed within the remainder's current line and follows subsequent
+wraps to the next line's start.
+Repeat with automatic prefix confirmation enabled. Finish or cancel the remainder, then start a new
+composition and verify its new position. Repeat on a connected external
+display. Check that expand/collapse, paging and changing candidate widths keep
+the same top-left below the current line start, including near the bottom and right
+edges. Near the right edge, vary candidate lengths and verify the row reduces
+from six candidates down to one before truncating a single oversized label.
+The panel must stay at the same line anchor and within the visible right edge.
+Confirm each displayed digit and mouse choice, page through the entire shortlist
+including literal input, expand/collapse, and move to a new line with more width.
+The count can grow again when space permits; all choices retain engine order.
+Check light/dark appearance, keyboard focus and VoiceOver row/column descriptions.
+Near the bottom edge the panel still does not flip above the line. Moving the mouse, moving
+the host window or disconnecting a display must not introduce mouse or previous-
+client fallback positions. An unavailable initial host rectangle must leave the panel hidden
+for that composition, without later geometry or mouse fallback. Delete the entire
+spelling, press Escape, commit, switch focus and enable
 a direct-input rule in separate compositions. A queued update must not restore
 a dismissed panel or position it for another client. Exercise a shortcut during
 composition to check that focus and host routing are preserved.
@@ -397,9 +491,10 @@ tail -f "$HOME/Library/Logs/SI/CandidateGeometry.log"
 Each placement uses one line in this order: UTC timestamp with milliseconds,
 frontmost bundle ID, marked range, selected range, all attempted indices and raw
 rectangles, selected index, display geometry, and final window frame. A selected
-index of `none` indicates that placement reused the retained start or used
-fallback geometry (or hid the panel) when no host start was available. Save the relevant
-log lines and screenshots from synthetic fields per host. Logs exclude secure
+index of `none` indicates unavailable line geometry; the panel retains its previous
+anchor. Successful probes identify the retained or newly resolved line-start offset.
+Save the relevant log lines and
+screenshots from synthetic fields per host. Logs exclude secure
 input and typed content. The writer clears the file before an append that would
 exceed 2 MB. Disable logging before deleting the file:
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "suite": "conversion-v1",
+  "suite": "conversion-v2-reviewed-20261124",
   "source": "SI-authored synthetic reference outputs and context contrasts. Context-free distractors are frozen from an offline Rust exact candidate export.",
   "license": "GPL-3.0-only",
   "files": {
@@ -60,22 +60,22 @@
         "services-and-actions": 44,
         "short-homophones": 42
       },
-      "sha256": "aea60b17fa073d3223497490f159a39aff109f2b98eaf3d3a40844b90b5818c8"
+      "sha256": "a21a9c1cf9e358789384cca511a01463bfc92ff17128775a8cef45dce4606b36"
     },
     "ranking/context-free.jsonl": {
-      "rows": 539,
+      "rows": 531,
       "categories": {
         "cooking-and-shopping": 68,
         "daily-collocations": 68,
-        "grammatical-contrasts": 41,
-        "hard-phrasing": 63,
-        "idioms": 65,
+        "grammatical-contrasts": 40,
+        "hard-phrasing": 62,
+        "idioms": 64,
         "institutions-and-technical": 62,
-        "places-and-people": 68,
-        "requests-and-decisions": 61,
+        "places-and-people": 66,
+        "requests-and-decisions": 58,
         "standard-terms": 43
       },
-      "sha256": "d78a63059a6ab128bee07a5f698c05988ce8658fa753a707f5fb9b8cc4531548"
+      "sha256": "2031936c649d0651d6f35f1af1b3511c003f1ddef561481317a8856619cee115"
     }
   },
   "context_free_distractor_snapshot": {
@@ -84,5 +84,202 @@
     "engine_sha256": "f65f8a86fbcee531121ac3eab58f702c958e45377f98ae48d3796d38ffccd046",
     "lexicon_sha256": "bacc7860489f8c5ca0da88766f903213afde953cc5b14e3aa121e08afdb86fc1",
     "grams_sha256": "77eb6ad0b505239728ed6e1226cedba2bf6259c5b134a97c2b7f6a0ca6a82d18"
+  },
+  "ranking_review": {
+    "date": "2026-11-24",
+    "method": "AI-assisted linguistic review of all contextual pairs and context-free pools, plus structural validation; no model score was used to choose edits.",
+    "previous_sha256": {
+      "context.jsonl": "aea60b17fa073d3223497490f159a39aff109f2b98eaf3d3a40844b90b5818c8",
+      "context-free.jsonl": "d78a63059a6ab128bee07a5f698c05988ce8658fa753a707f5fb9b8cc4531548"
+    },
+    "expanded_reference_rows": [
+      "free-012",
+      "free-037",
+      "free-064",
+      "free-073",
+      "free-078",
+      "free-093",
+      "free-132",
+      "free-136",
+      "free-152",
+      "free-153",
+      "free-157",
+      "free-169",
+      "free-182",
+      "free-185",
+      "free-189",
+      "free-191",
+      "free-204",
+      "free-208",
+      "free-209",
+      "free-219",
+      "free-221",
+      "free-224",
+      "free-225",
+      "free-227",
+      "free-236",
+      "free-239",
+      "free-242",
+      "free-245",
+      "free-251",
+      "free-254",
+      "free-255",
+      "free-264",
+      "free-266",
+      "free-271",
+      "free-297",
+      "free-305",
+      "free-316",
+      "free-317",
+      "free-329",
+      "free-330",
+      "free-331",
+      "free-334",
+      "free-335",
+      "free-340",
+      "free-344",
+      "free-354",
+      "free-356",
+      "free-363",
+      "free-366",
+      "free-372",
+      "free-380",
+      "free-382",
+      "free-383"
+    ],
+    "reworded_rows": [
+      "free-066",
+      "free-336",
+      "free-367"
+    ],
+    "clarified_context_rows": [
+      "ctx-003-a",
+      "ctx-032-b",
+      "ctx-038-b",
+      "ctx-057-a",
+      "ctx-135-a",
+      "ctx-201-a",
+      "ctx-219-a"
+    ],
+    "removed_rows": {
+      "free-147": "Unspecified personal names compete naturally with the common noun.",
+      "free-195": "Opening and abandoning the walkway are both possible announcements without preceding text.",
+      "free-230": "All candidates depend on unspecified spelling or conversational-particle preferences.",
+      "free-235": "Breath-holding and negative commands plus unspecified erased referents prevent a unique judgment.",
+      "free-238": "Missing clause punctuation leaves unrelated interpretations unresolved.",
+      "free-332": "Several legitimate geographical names compete without a location.",
+      "free-402": "The two idiom spellings are both recorded dictionary variants.",
+      "free-507": "The contrast depends on a regional or editorial spelling preference for the same object."
+    },
+    "limitations": "Independent human annotation and representative typing distributions remain unavailable. Changed dataset hashes require new reports.",
+    "dictionary_checks": [
+      "https://dict.idioms.moe.edu.tw/idiomView.jsp?ID=6922&la=0&webMd=2",
+      "https://dict.revised.moe.edu.tw/dictView.jsp?ID=57946&q=1&word=%E6%89%A3"
+    ],
+    "training_text_audit": {
+      "method": "NFKC/casefold with whitespace removed; exact context-plus-reference substring inside one training document. No semantic or paraphrase audit.",
+      "ranking_sha256": {
+        "context.jsonl": "a21a9c1cf9e358789384cca511a01463bfc92ff17128775a8cef45dce4606b36",
+        "context-free.jsonl": "2031936c649d0651d6f35f1af1b3511c003f1ddef561481317a8856619cee115"
+      },
+      "corpora": {
+        "small-character-v1": {
+          "dataset_id": "261ce0da5ced0a85481bbeb9af140e65f0b2313285dae57d76a707feb52b4cdd",
+          "train_documents_sha256": "eaf128876f15a13f791c6b375801238c9caddf9cdf21fbf98cbbcf55cfb0af3f",
+          "documents": 1394936,
+          "matched_query_ids": [
+            "free-391",
+            "free-396",
+            "free-398",
+            "free-410",
+            "free-412",
+            "free-413",
+            "free-414",
+            "free-418",
+            "free-419",
+            "free-425",
+            "free-426",
+            "free-427",
+            "free-434",
+            "free-437",
+            "free-439",
+            "free-440",
+            "free-443",
+            "free-445",
+            "free-446",
+            "free-450",
+            "free-456",
+            "free-458",
+            "free-459",
+            "free-460",
+            "free-463",
+            "free-464",
+            "free-465",
+            "free-466",
+            "free-467",
+            "free-470",
+            "free-471",
+            "free-475",
+            "free-493"
+          ]
+        },
+        "small-chat-v2": {
+          "dataset_id": "6e7f318687c5ae004b1e6e10737b5342a2643a5e2f497356c47ebf58a936423a",
+          "train_documents_sha256": "fadfc66bb0668824a642e28e0b96ec88d5c62be92beeedfb0b1f870b29c5f721",
+          "documents": 981821,
+          "matched_query_ids": [
+            "free-391",
+            "free-410",
+            "free-412",
+            "free-413",
+            "free-414",
+            "free-418",
+            "free-419",
+            "free-425",
+            "free-427",
+            "free-434",
+            "free-437",
+            "free-439",
+            "free-446",
+            "free-450",
+            "free-459",
+            "free-464",
+            "free-465",
+            "free-475"
+          ]
+        },
+        "small-si-v3": {
+          "dataset_id": "a56f9e55f9cba842d267d1af7c38b862d204c1b8ce3d3390f40532861da68976",
+          "train_documents_sha256": "c27e1031b7e749574ee0687baf10bb5b21fadebe08201d0631a1cb416659722c",
+          "documents": 2589409,
+          "matched_query_ids": [
+            "free-391",
+            "free-396",
+            "free-398",
+            "free-410",
+            "free-412",
+            "free-413",
+            "free-414",
+            "free-418",
+            "free-419",
+            "free-425",
+            "free-426",
+            "free-427",
+            "free-434",
+            "free-437",
+            "free-439",
+            "free-440",
+            "free-443",
+            "free-446",
+            "free-449",
+            "free-450",
+            "free-456",
+            "free-458",
+            "free-465",
+            "free-473"
+          ]
+        }
+      }
+    }
   }
 }

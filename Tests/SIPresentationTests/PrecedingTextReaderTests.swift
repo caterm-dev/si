@@ -22,14 +22,43 @@ struct PrecedingTextReaderTests {
                                        markedRange: { noMark }) { _ in nil } == nil)
     }
 
-    @Test func readsTheEntirePrefixInUTF16ExcludingTheSelection() {
-        let prefix = String(repeating: "第一句。👩‍💻\n", count: 256) + "最后一句。"
-        let selection = NSRange(location: prefix.utf16.count, length: 2)
-        let result = PrecedingTextReader.read(isCurrent: { true }, selection: { selection }, markedRange: { noMark }) { range in
-            #expect(range == NSRange(location: 0, length: prefix.utf16.count))
-            return prefix
+    @Test func requestsOnlyTheLastUTF16UnitsExcludingTheSelection() {
+        for prefix in ["你好👩‍💻", String(repeating: "树", count: 96), String(repeating: "树", count: 100_000),
+                       String(repeating: "a", count: 100_000) + "👩‍💻"] {
+            let selection = NSRange(location: prefix.utf16.count, length: 2)
+            var requests: [NSRange] = []
+            let length = min(prefix.utf16.count, 96)
+            let expectedRange = NSRange(location: prefix.utf16.count - length, length: length)
+            let expected = (prefix as NSString).substring(with: expectedRange)
+            let result = PrecedingTextReader.read(isCurrent: { true }, selection: { selection }, markedRange: { noMark }) { range in
+                requests.append(range)
+                return (prefix as NSString).substring(with: range)
+            }
+            #expect(requests == [expectedRange])
+            #expect(result?.utf8.elementsEqual(expected.utf8) == true)
         }
-        #expect(result?.utf8.elementsEqual(prefix.utf8) == true)
+    }
+
+    @Test func preservesHostWhitespaceAndUsesTheConfiguredLimit() {
+        for prefix in ["want books \t", "你好。   ", "你好\n \t", String(repeating: "a", count: 200) + " \t"] {
+            let selection = NSRange(location: prefix.utf16.count, length: 0)
+            let length = min(prefix.utf16.count, 96)
+            let range = NSRange(location: prefix.utf16.count - length, length: length)
+            let expected = (prefix as NSString).substring(with: range)
+            let result = PrecedingTextReader.read(isCurrent: { true }, selection: { selection }, markedRange: { noMark }) { requested in
+                #expect(requested == range)
+                return expected
+            }
+            #expect(result?.utf8.elementsEqual(expected.utf8) == true)
+        }
+        let prefix = "some earlier text before the caret"
+        let selection = NSRange(location: prefix.utf16.count, length: 0)
+        let result = PrecedingTextReader.read(isCurrent: { true }, selection: { selection }, markedRange: { noMark },
+                                             utf16Limit: 8) { range in
+            #expect(range == NSRange(location: prefix.utf16.count - 8, length: 8))
+            return (prefix as NSString).substring(with: range)
+        }
+        #expect(result == "he caret")
     }
 
     @Test func skipsUnavailableAndStaleContexts() {

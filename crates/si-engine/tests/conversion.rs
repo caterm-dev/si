@@ -27,6 +27,322 @@ const ENGLISH: EnabledLanguages = EnabledLanguages {
     english: true,
 };
 
+fn engine_config(
+    directory: &Scratch,
+    changes: &[(&str, &str)],
+) -> io::Result<si_engine::resources::EngineConfig> {
+    let mut config = include_str!("../../../config/si.conf").to_owned();
+    for (key, value) in changes {
+        config = config
+            .lines()
+            .map(|line| {
+                if line
+                    .split_once('=')
+                    .is_some_and(|(name, _)| name.trim() == *key)
+                {
+                    format!("{key} = {value}")
+                } else {
+                    line.to_owned()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+    let path = directory.path("engine.conf");
+    fs::write(&path, config)?;
+    let config = si_engine::resources::SiConfig::open(&path)?.engine;
+    fs::remove_file(path)?;
+    Ok(config)
+}
+
+#[test]
+fn configured_model_pool_context_and_candidate_token_limits_are_used() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for text in ["树", "数", "书", "输"] {
+        add(&mut lexicon, ZH, "shu", text, 100);
+    }
+    for text in ["你好", "你号"] {
+        add(&mut lexicon, ZH, "ni'hao", text, 100);
+    }
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let model_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let config = engine_config(
+        &directory,
+        &[
+            ("model_candidate_limit", "2"),
+            ("model_context_token_limit", "0"),
+        ],
+    )?;
+    let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
+    let convert = |input: &str, preceding: Option<&str>, model: &SmallReranker| {
+        engine.convert_with_options(
+            input,
+            CHINESE,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            preceding,
+            ConversionOptions {
+                correction: None,
+                reranker: Some(model),
+            },
+        )
+    };
+    let baseline = engine.candidates("shu", CHINESE);
+    let rows = convert("shu", None, &model);
+    assert_eq!(rows, convert("shu", Some("院子里种几棵"), &model));
+    for row in &rows {
+        if !baseline[..2].iter().any(|base| base.text == row.text) {
+            assert_eq!(row.reranking_bonus, 0.0);
+        }
+    }
+    assert!(
+        rows.iter()
+            .any(|row| (row.reranking_bonus - 6.4).abs() < 1e-12)
+    );
+    for (tokens, rewarded) in [("1", false), ("2", true)] {
+        let config = engine_config(&directory, &[("model_candidate_token_limit", tokens)])?;
+        let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
+        let rows = convert("nihao", None, &model);
+        assert_eq!(rows.iter().any(|row| row.reranking_bonus > 0.0), rewarded);
+        assert_literal(rows.last().unwrap(), "nihao");
+    }
+    Ok(())
+}
+
+#[test]
+fn configured_search_widths_include_sixty_four_path_completion_masks() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for i in 0..70 {
+        add(&mut lexicon, EN, "a", &format!("token{i:02}"), 100);
+    }
+    add(&mut lexicon, EN, "hello", "hello", 100);
+    add(&mut lexicon, EN, "ahello", "ahello", 100);
+    let resources = directory.resources(&mut lexicon, None)?;
+    for width in [1, 31, 32, 33, 63, 64] {
+        let width_text = width.to_string();
+        let config = engine_config(
+            &directory,
+            &[
+                ("full_search_beam_width", &width_text),
+                ("preview_search_beam_width", &width_text),
+                ("correction_search_beam_width", &width_text),
+            ],
+        )?;
+        let engine = CandidateEngine::new_with_config(&resources, None, config);
+        let full = engine.candidates("aahell", ENGLISH);
+        let whole = full
+            .iter()
+            .filter(|row| !row.verbatim && row.completion && row.consumed_bytes == 6)
+            .count();
+        assert_eq!(whole, width, "search width {width}");
+        assert_eq!(full, engine.candidates("aahell", ENGLISH));
+        assert_eq!(full, engine.preview("aahell", ENGLISH));
+        assert_literal(full.last().unwrap(), "aahell");
+    }
+    Ok(())
+}
+
+#[test]
+fn configured_completion_costs_and_limits_change_only_their_scored_spelling() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for (reading, text) in [("hello", "hello"), ("help", "help"), ("helm", "helm")] {
+        add(&mut lexicon, EN, reading, text, 100);
+    }
+    let resources = directory.resources(&mut lexicon, None)?;
+    let baseline = CandidateEngine::new(&resources, None).candidates("hel", ENGLISH);
+    for (key, value, expected_delta) in [
+        ("completion_base_cost_bits", "2", 2.0),
+        ("completion_missing_letter_cost_bits", "3", -4.0),
+    ] {
+        let config = engine_config(&directory, &[(key, value)])?;
+        let engine = CandidateEngine::new_with_config(&resources, None, config);
+        let rows = engine.candidates("hel", ENGLISH);
+        let old = find(&baseline, "hello", CandidateLanguage::English, 3)
+            .score_bits
+            .unwrap();
+        let new = find(&rows, "hello", CandidateLanguage::English, 3)
+            .score_bits
+            .unwrap();
+        assert!((new - old - expected_delta).abs() < 1e-12, "{key}");
+        assert!(!engine.candidates("hello", ENGLISH)[0].completion);
+        assert_literal(rows.last().unwrap(), "hel");
+    }
+    let config = engine_config(&directory, &[("direct_completion_limit_per_language", "1")])?;
+    let rows =
+        CandidateEngine::new_with_config(&resources, None, config).candidates("hel", ENGLISH);
+    assert_eq!(rows.iter().filter(|row| row.completion).count(), 1);
+    let config = engine_config(&directory, &[("completion_missing_letter_limit", "1")])?;
+    let rows =
+        CandidateEngine::new_with_config(&resources, None, config).candidates("hel", ENGLISH);
+    assert!(!rows.iter().any(|row| row.text == "hello"));
+    assert!(rows.iter().any(|row| row.text == "help"));
+    let config = engine_config(&directory, &[("completion_missing_letter_limit", "0")])?;
+    let engine = CandidateEngine::new_with_config(&resources, None, config);
+    assert!(
+        engine
+            .candidates("hel", ENGLISH)
+            .iter()
+            .all(|row| !row.completion)
+    );
+    assert_eq!(engine.candidates("hello", ENGLISH)[0].text, "hello");
+    Ok(())
+}
+
+#[test]
+fn configured_correction_edit_costs_and_confidence_margins_reach_search_and_pruning()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "ni'hao", "你好", 100);
+    let resources = directory.resources(&mut lexicon, None)?;
+    for (input, key, cost, kind) in [
+        (
+            "niho",
+            "missing_key_correction_cost_bits",
+            3.0,
+            si_engine::CorrectionKind::MissingKey,
+        ),
+        (
+            "nihoa",
+            "adjacent_swap_correction_cost_bits",
+            5.0,
+            si_engine::CorrectionKind::AdjacentSwap,
+        ),
+        (
+            "nigao",
+            "neighbor_key_correction_cost_bits",
+            7.0,
+            si_engine::CorrectionKind::NeighborKey,
+        ),
+    ] {
+        let cost_text = cost.to_string();
+        let config = engine_config(&directory, &[(key, &cost_text)])?;
+        let engine =
+            CandidateEngine::new_with_config(&resources, None, config).with_pinyin_correction(true);
+        for rows in [
+            engine.candidates(input, CHINESE),
+            engine.preview(input, CHINESE),
+        ] {
+            let row = rows
+                .iter()
+                .find(|row| row.text == "你好")
+                .expect("configured edit remains available");
+            assert_eq!(row.correction.unwrap().kind, kind);
+            assert_eq!(row.score_bits, Some(-cost));
+            assert_literal(rows.last().unwrap(), input);
+        }
+    }
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "duo'jiu", "多久", 600);
+    add(&mut lexicon, ZH, "duo'ju", "多聚", 1);
+    let resources = directory.resources(&mut lexicon, None)?;
+    for (lead, expected) in [("2", "多聚"), ("1", "多久")] {
+        let config = engine_config(
+            &directory,
+            &[("conservative_correction_minimum_lead_bits", lead)],
+        )?;
+        let engine =
+            CandidateEngine::new_with_config(&resources, None, config).with_pinyin_correction(true);
+        assert_eq!(engine.candidates("duoju", CHINESE)[0].text, expected);
+    }
+    let config = engine_config(&directory, &[("missing_key_correction_cost_bits", "7")])?;
+    let engine =
+        CandidateEngine::new_with_config(&resources, None, config).with_pinyin_correction(true);
+    assert_eq!(engine.candidates("duoju", CHINESE)[0].text, "多久");
+    let config = engine_config(
+        &directory,
+        &[("higher_recall_correction_minimum_lead_bits", "2")],
+    )?;
+    let engine = CandidateEngine::new_with_config(&resources, None, config)
+        .with_correction_sensitivity(Some(si_engine::CorrectionSensitivity::HigherRecall));
+    assert_eq!(engine.candidates("duoju", CHINESE)[0].text, "多聚");
+    Ok(())
+}
+
+#[test]
+fn configured_abbreviation_cost_reaches_exact_and_composed_paths() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "ni'hao", "你好", 100);
+    add(&mut lexicon, ZH, "ma", "吗", 100);
+    let resources = directory.resources(&mut lexicon, None)?;
+    let base = CandidateEngine::new(&resources, None);
+    let config = engine_config(&directory, &[("pinyin_abbreviation_cost_bits", "3")])?;
+    let custom = CandidateEngine::new_with_config(&resources, None, config);
+    for input in ["nh", "nhma"] {
+        let baseline = base.candidates(input, CHINESE);
+        let rows = custom.candidates(input, CHINESE);
+        let text = if input == "nh" { "你好" } else { "你好吗" };
+        let before = find(&baseline, text, CandidateLanguage::Chinese, input.len())
+            .score_bits
+            .unwrap();
+        let after = find(&rows, text, CandidateLanguage::Chinese, input.len())
+            .score_bits
+            .unwrap();
+        assert!((after - before - 4.0).abs() < 1e-12);
+    }
+    Ok(())
+}
+
+#[test]
+fn small_reranker_uses_loaded_configuration_without_reading_it_during_conversion() -> io::Result<()>
+{
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "shu", "树", 100);
+    add(&mut lexicon, ZH, "shu", "数", 100);
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let baseline = engine.candidates("shu", CHINESE);
+    let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let config_path = directory.path("si.conf");
+    let bundled = include_str!("../../../config/si.conf");
+    for model_score_weight in [0.5, 0.0] {
+        fs::write(
+            &config_path,
+            bundled
+                .replace(
+                    "model_score_weight = 0.8",
+                    &format!("model_score_weight = {model_score_weight}"),
+                )
+                .replace(
+                    "model_score_gap_limit_bits = 8",
+                    "model_score_gap_limit_bits = 4",
+                ),
+        )?;
+        let config = si_engine::resources::SiConfig::open(&config_path)?;
+        let reranker = SmallReranker::open_with_config(&model, config.engine.local_model_ranking)?;
+        fs::remove_file(&config_path)?;
+        let ranked = engine.convert_with_options(
+            "shu",
+            CHINESE,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            None,
+            ConversionOptions {
+                correction: None,
+                reranker: Some(&reranker),
+            },
+        );
+        let maximum = ranked
+            .iter()
+            .map(|row| row.reranking_bonus)
+            .reduce(f64::max)
+            .unwrap();
+        assert_eq!(maximum, model_score_weight * 4.0);
+        if model_score_weight == 0.0 {
+            assert_eq!(ranked, baseline);
+        }
+    }
+    Ok(())
+}
+
 #[test]
 fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::Result<()> {
     let directory = Scratch::new()?;
@@ -55,14 +371,16 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
     );
     assert_eq!(baseline.len(), 14);
     assert_eq!(ranked.len(), baseline.len());
-    // The model measures rewards relative to its lowest-scoring result, which gets zero.
-    assert_eq!(
-        ranked
-            .iter()
-            .filter(|row| row.reranking_bonus > 0.0)
-            .count(),
-        11
-    );
+    let texts: Vec<_> = baseline[..12].iter().map(|row| row.text.as_str()).collect();
+    let scores = si_neural::Reranker::open(&model)?
+        .bounded_mean_scores("", &texts, 16, 12)?
+        .unwrap();
+    let highest = scores.iter().copied().reduce(f64::max).unwrap();
+    for (text, score) in texts.iter().zip(scores) {
+        let expected = 0.8 * (8.0 + ((score - highest) * std::f64::consts::LOG2_E).max(-8.0));
+        let row = ranked.iter().find(|row| row.text == *text).unwrap();
+        assert!((row.reranking_bonus - expected).abs() < 1e-6);
+    }
     assert_eq!(
         ranked
             .iter()
@@ -71,20 +389,29 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
             .reranking_bonus,
         0.0
     );
+    // The result order includes unscored alternatives as well as the model pool.
+    for pair in ranked[..ranked.len() - 1].windows(2) {
+        let score = |row: &Candidate| {
+            row.score_bits.unwrap() + row.context_adjustment + row.reranking_bonus
+        };
+        assert!(score(&pair[0]) >= score(&pair[1]));
+    }
     assert_eq!(ranked.last(), baseline.last());
     Ok(())
 }
 
 #[test]
-fn small_reranker_scores_beyond_two_bits_and_caps_the_bonus_at_two() -> io::Result<()> {
+fn small_reranker_preserves_model_gaps_across_large_statistical_gaps() -> io::Result<()> {
     let directory = Scratch::new()?;
     let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
     let reranker = SmallReranker::open(&model)?;
 
-    // Score candidates across large statistical gaps while retaining the reward cap.
-    for (leader_count, expected_first) in
-        [(390, "原始拼写"), (410, "元是拼写"), (10_000, "元是拼写")]
-    {
+    // Model evidence can overcome the former two-bit limit, but remains bounded.
+    for (leader_count, expected_first) in [
+        (390, "原始拼写"),
+        (410, "原始拼写"),
+        (1_000_000, "元是拼写"),
+    ] {
         let mut lexicon = Lexicon::new();
         add(
             &mut lexicon,
@@ -114,8 +441,59 @@ fn small_reranker_scores_beyond_two_bits_and_caps_the_bonus_at_two() -> io::Resu
         let expected = ranked.iter().find(|row| row.text == "原始拼写").unwrap();
         assert_eq!(ranked[0].text, expected_first);
         assert_eq!(expected.score_bits, baseline[1].score_bits);
-        assert_eq!(expected.reranking_bonus, 2.0);
+        assert!((expected.reranking_bonus - 6.4).abs() < 1e-12);
+        let other = ranked.iter().find(|row| row.text == "元是拼写").unwrap();
+        assert!(expected.reranking_bonus - other.reranking_bonus > 2.0);
     }
+    Ok(())
+}
+
+#[test]
+fn small_reranker_promotes_tree_after_planting_context() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for (text, count) in [
+        ("数", 4_473_854),
+        ("书", 3_193_779),
+        ("输", 1_099_171),
+        ("树", 830_603),
+        ("熟", 430_235),
+        ("丨", 156_384),
+    ] {
+        add(&mut lexicon, ZH, "shu", text, count);
+    }
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let baseline = engine.candidates("shu", CHINESE);
+    assert_eq!(baseline[0].text, "数");
+    let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let reranker = SmallReranker::open(&model)?;
+    let convert = || {
+        engine.convert_with_options(
+            "shu",
+            CHINESE,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            Some("院子太晒，最好沿着围墙多种几棵"),
+            ConversionOptions {
+                correction: None,
+                reranker: Some(&reranker),
+            },
+        )
+    };
+    let ranked = convert();
+    assert_eq!(ranked[0].text, "树");
+    assert_eq!(ranked, convert());
+    assert_eq!(ranked.len(), baseline.len());
+    for row in &ranked {
+        let original = baseline.iter().find(|old| old.text == row.text).unwrap();
+        assert_eq!(row.score_bits, original.score_bits);
+        assert_eq!(row.consumed_bytes, original.consumed_bytes);
+    }
+    assert_eq!(ranked.last(), baseline.last());
+    let window = si_engine::presentation::conversion_window("shu", CHINESE, &ranked);
+    assert_eq!(ranked[window[0]].text, "树");
     Ok(())
 }
 
@@ -1437,7 +1815,10 @@ fn field_context_uses_the_complete_frequency_segmentation() -> io::Result<()> {
     let mut grams = GramBuilder::new();
     grams.add(&[ime, good], 1_000).unwrap();
     let base = directory.resources(&mut lexicon, Some(grams))?;
-    let engine = CandidateEngine::new(&base, None);
+    // K=1 retains the original single-best segmentation contract. Multi-history
+    // scoring deliberately also considers alternate suffix cuts (covered below).
+    let config = engine_config(&directory, &[("segmentation_history_limit", "1")])?;
+    let engine = CandidateEngine::new_with_config(&base, None, config);
     let convert = |context| {
         engine.convert_with_context(
             "hao",
@@ -3480,5 +3861,235 @@ fn relative_sentence_start_preserves_umlaut_aliases_and_explicit_source_separato
             assert_literal(rows.last().unwrap(), input);
         }
     }
+    Ok(())
+}
+
+#[test]
+fn preceding_top_k_mixes_probabilities_and_temperature_changes_homophone_ranking() -> io::Result<()>
+{
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for (text, reading, count) in [
+        ("最好", "zui'hao", 1_000),
+        ("最", "zui", 900),
+        ("好", "hao", 900),
+        ("多种", "duo'zhong", 100),
+        ("多", "duo", 80),
+        ("种", "zhong", 80),
+        ("几棵", "ji'ke", 100),
+        ("几", "ji", 90),
+        ("棵", "ke", 90),
+        ("树", "shu", 10),
+        ("数", "shu", 1_000),
+        ("书", "shu", 800),
+        ("大树", "da'shu", 10),
+    ] {
+        add(&mut lexicon, ZH, reading, text, count);
+    }
+    add(&mut lexicon, EN, "padding", "padding", 1_000_000_000);
+    let id = |text| lexicon.find_word(text).unwrap();
+    let mut grams = GramBuilder::new();
+    grams.add(&[id("几棵"), id("大树")], 2).unwrap();
+    grams
+        .add(&[id("多种"), id("几棵"), id("大树")], 32)
+        .unwrap();
+    grams.add(&[id("棵"), id("树")], 2).unwrap();
+    grams.add(&[id("几"), id("棵"), id("树")], 32).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let total = resources
+        .lexicon()
+        .words()
+        .map(|w| w.count as f64)
+        .sum::<f64>();
+    let segmentation_total = total + resources.lexicon().len() as f64 + 0.5;
+    let word = |count: f64| ((count + 1.0) / segmentation_total).ln() - std::f64::consts::LN_2;
+    let scores = [
+        word(100.0) + word(100.0),
+        word(100.0) + word(90.0) + word(90.0),
+        word(80.0) + word(80.0) + word(100.0),
+    ];
+    let cache = si_engine::PrecedingTextCache::default();
+    for (k, temperature) in [(1, 4), (3, 1), (3, 4)] {
+        let config = engine_config(
+            &directory,
+            &[
+                ("segmentation_history_limit", &k.to_string()),
+                ("segmentation_temperature", &temperature.to_string()),
+            ],
+        )?;
+        let engine = CandidateEngine::new_with_config(&resources, None, config);
+        let q = scores.map(|s| ((s - scores[0]) / temperature as f64).exp());
+        let mass: f64 = if k == 1 { q[0] } else { q.iter().sum() };
+        let weights = if k == 1 {
+            [1.0, 0.0, 0.0]
+        } else {
+            q.map(|p| p / mass)
+        };
+        for preview in [false, true] {
+            let convert = |cache| {
+                engine.convert_with_cached_context(
+                    "shu",
+                    CHINESE,
+                    preview,
+                    &[],
+                    ConversionPreferences::default(),
+                    Some("最好多种几棵"),
+                    ConversionOptions::default(),
+                    cache,
+                )
+            };
+            let rows = convert(None);
+            assert_eq!(rows, convert(Some(&cache)));
+            assert_eq!(rows, convert(Some(&cache)));
+            assert_eq!(
+                rows[0].text,
+                if k == 3 && temperature == 4 {
+                    "树"
+                } else {
+                    "数"
+                }
+            );
+            for (text, count) in [("树", 10.0), ("数", 1_000.0), ("书", 800.0)] {
+                let prior = count / total;
+                // A: missing continuation after 几棵, then after 多种/几棵.
+                // B: missing continuation after 几棵. C: observed 树 after 棵 and 几/棵.
+                let a = 0.5 * (16.0 / 17.0 * prior);
+                let b = 16.0 / 17.0 * prior;
+                let c = 0.5 * (16.0 / 17.0 * prior + if text == "树" { 1.0 / 17.0 } else { 0.0 })
+                    + if text == "树" { 0.5 } else { 0.0 };
+                let expected = (weights[0] * a + weights[1] * c + weights[2] * b).log2();
+                let row = find(&rows, text, CandidateLanguage::Chinese, 3);
+                assert!(
+                    (row.score_bits.unwrap() + row.context_adjustment - expected).abs() < 1e-10,
+                    "weighted probability for {text}"
+                );
+                assert_eq!(row.reranking_bonus, 0.0);
+                assert_eq!(row.token_bonus, 0.0);
+                assert_eq!(row.score_bits, Some(prior.log2()));
+            }
+            assert_eq!(rows.last().unwrap().text, "shu");
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn cached_context_matches_fresh_decoding_across_edits_languages_and_resources() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let want = add(&mut lexicon, EN, "want", "want", 100);
+    let books = add(&mut lexicon, EN, "books", "books", 50);
+    add(&mut lexicon, EN, "book", "book", 50);
+    add(&mut lexicon, ZH, "shu", "树", 50);
+    add(&mut lexicon, ZH, "shu", "书", 50);
+    let mut grams = GramBuilder::new();
+    grams.add(&[want, books], 100).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let cache = si_engine::PrecedingTextCache::default();
+    for temperature in [1, 4] {
+        let config = engine_config(
+            &directory,
+            &[("segmentation_temperature", &temperature.to_string())],
+        )?;
+        let engine =
+            CandidateEngine::new_with_config(&resources, None, config).with_pinyin_correction(true);
+        for preceding in [
+            None,
+            Some(""),
+            Some("want "),
+            Some("old. want "),
+            Some("want"),
+            Some("want。"),
+            Some("🦉"),
+            Some("书"),
+        ] {
+            for source in ["b", "bo", "boo", "books", "shu"] {
+                for preview in [false, true] {
+                    for languages in [
+                        CHINESE,
+                        ENGLISH,
+                        BILINGUAL,
+                        EnabledLanguages {
+                            chinese: false,
+                            english: false,
+                        },
+                    ] {
+                        let options = ConversionOptions {
+                            correction: Some(si_engine::CorrectionSensitivity::Conservative),
+                            reranker: None,
+                        };
+                        let expected = engine.convert_with_options(
+                            source,
+                            languages,
+                            preview,
+                            &[],
+                            ConversionPreferences::default(),
+                            preceding,
+                            options,
+                        );
+                        let actual = engine.convert_with_cached_context(
+                            source,
+                            languages,
+                            preview,
+                            &[],
+                            ConversionPreferences::default(),
+                            preceding,
+                            options,
+                            Some(&cache),
+                        );
+                        assert_eq!(actual, expected);
+                    }
+                }
+            }
+        }
+    }
+    let engines = [
+        CandidateEngine::new(&resources, None),
+        CandidateEngine::new_with_config(
+            &resources,
+            None,
+            engine_config(&directory, &[("segmentation_history_limit", "1")])?,
+        ),
+    ];
+    std::thread::scope(|scope| {
+        for (index, (source, preceding)) in [
+            ("books", "want "),
+            ("shu", "书"),
+            ("boo", "want "),
+            ("books", ""),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let engine = &engines[index % engines.len()];
+            let cache = &cache;
+            scope.spawn(move || {
+                let expected = engine.convert_with_context(
+                    source,
+                    BILINGUAL,
+                    false,
+                    &[],
+                    ConversionPreferences::default(),
+                    preceding,
+                );
+                for _ in 0..8 {
+                    assert_eq!(
+                        engine.convert_with_cached_context(
+                            source,
+                            BILINGUAL,
+                            false,
+                            &[],
+                            ConversionPreferences::default(),
+                            Some(preceding),
+                            ConversionOptions::default(),
+                            Some(cache)
+                        ),
+                        expected
+                    );
+                }
+            });
+        }
+    });
+
     Ok(())
 }

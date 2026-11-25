@@ -7,142 +7,160 @@ struct CandidatePlacementTests {
                                                     visibleFrame: CGRect(x: 0, y: 40, width: 1440, height: 835))
     private let size = CGSize(width: 300, height: 36)
 
-    @Test func onlyInlineAndDocumentStartsAreProbed() {
-        for length in [1, 9, 10] {
-            #expect(CandidateAnchor.startIndices(marked: NSRange(location: 2553, length: length)) == [0, 2553])
-        }
-    }
-
-    @Test(arguments: [NSRange(location: 0, length: 9), NSRange(location: NSNotFound, length: 0),
-                      NSRange(location: 20, length: 0), NSRange(location: Int.max - 1, length: 7)])
-    func invalidDocumentRangesDoNotBlockInlineGeometry(marked: NSRange) {
-        #expect(CandidateAnchor.startIndices(marked: marked) == [0])
-    }
-
-    @Test func typingAcrossAWrapDeletionAndCaretMovementKeepTheCompositionStart() throws {
+    @Test func sameLineTypingDeletionAndCaretMovementCannotReplaceTheStart() throws {
         var state = MarkedTextState()
-        let start = CGRect(x: 1076, y: 84, width: 1, height: 16)
-        let wrapped = CGRect(x: 480, y: 68, width: 1, height: 16)
-        _ = state.shouldSend("d", selection: NSRange(location: 1, length: 0))
-        let initial = try #require(state.candidateAnchor(screens: [primary]) {
-            CandidateAnchor(start, screens: [primary])
-        })
-        state.candidateStartRect = initial.rect
-
-        for (spelling, caret) in [("dang qian", 9), ("dang", 4), ("dang", 2), ("dang", 0)] {
+        let start = CGRect(x: 568, y: 53, width: 1, height: 18)
+        state.captureCandidateStart(start, screens: [primary])
+        for (spelling, caret) in [("d", 1), ("dang qian", 9), ("dang", 4), ("dang", 2), ("dang", 0)] {
             _ = state.shouldSend(spelling, selection: NSRange(location: caret, length: 0))
-            let anchor = try #require(state.candidateAnchor(screens: [primary]) {
-                Issue.record("An ongoing composition must retain its start instead of following host caret geometry.")
-                return CandidateAnchor(wrapped, screens: [primary])
-            })
+            state.captureCandidateStart(CGRect(x: 678, y: 300, width: 1, height: 18), screens: [primary])
+            let anchor = try #require(state.candidateStart)
             #expect(anchor.rect == start)
             #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
-                    == CandidatePlacement.frame(preferredSize: size, anchor: initial))
+                    == CGRect(x: 568, y: 17, width: 300, height: 36))
         }
-
-        // Full commits, cancellation and client changes reset this state.
-        state.reset()
-        _ = state.shouldSend("qian", selection: NSRange(location: 4, length: 0))
-        let remainder = state.candidateAnchor(screens: [primary]) { CandidateAnchor(wrapped, screens: [primary]) }
-        #expect(remainder?.rect == wrapped)
     }
 
-    @Test func successivePrefixCommitsKeepTheOriginalStartUntilCompositionEnds() throws {
+    @Test func wrappingAndDeletingBackFollowLineStartsWithoutFollowingTheCaret() throws {
         var state = MarkedTextState()
-        let start = CGRect(x: 370, y: 420, width: 1, height: 20)
-        let nextStart = CGRect(x: 600, y: 400, width: 1, height: 20)
-        _ = state.shouldSend("ni hao shi jie", selection: NSRange(location: 14, length: 0))
-        state.candidateStartRect = start
-
-        for remainder in ["hao shi jie", "shi jie", "jie"] {
-            state.reset(preservingCandidateStart: true)
-            #expect(state.text == nil)
-            #expect(state.caretUTF16Offset == nil)
-            let sendsRemainder = state.shouldSend(remainder, selection: NSRange(location: remainder.utf16.count, length: 0))
-            #expect(sendsRemainder)
-            let anchor = try #require(state.candidateAnchor(screens: [primary]) {
-                Issue.record("Prefix confirmation must not query a new panel start.")
-                return CandidateAnchor(nextStart, screens: [primary])
+        let start = CGRect(x: 1000, y: 400, width: 1, height: 18)
+        state.captureCandidateStart(start, screens: [primary])
+        for (count, expectedOffset, x, y) in [(2, 0, 1000.0, 400.0), (4, 3, 100.0, 380.0),
+                                             (5, 3, 100.0, 380.0), (8, 7, 100.0, 360.0),
+                                             (5, 3, 100.0, 380.0), (2, 0, 1000.0, 400.0)] {
+            let text = String(repeating: "a", count: count)
+            _ = state.shouldSend(text, selection: NSRange(location: count, length: 0))
+            let line = try #require(CandidateAnchor.activeLine(inlineText: text, caretUTF16Offset: count,
+                retainedStart: state.candidateLineStartUTF16Offset, screens: [primary]) { index in
+                if index < 3 { return CGRect(x: 1000 + Double(index) * 8, y: 400, width: 1, height: 18) }
+                let row = 1 + (index - 3) / 4
+                return CGRect(x: 100 + Double((index - 3) % 4) * 8, y: 400 - Double(row) * 20, width: 1, height: 18)
             })
-            #expect(anchor.rect == start)
-            #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
-                    == CGRect(x: 370, y: 384, width: 300, height: 36))
+            state.updateCandidateLine(offset: line.offset, anchor: line.anchor)
+            #expect(state.candidateLineStartUTF16Offset == expectedOffset)
+            #expect(state.candidateStart?.rect.origin == CGPoint(x: x, y: y))
         }
-
-        // Finishing or cancelling the remainder must release the original anchor.
-        state.reset()
-        #expect(state.candidateStartRect == nil)
-        _ = state.shouldSend("xin", selection: NSRange(location: 3, length: 0))
-        let next = state.candidateAnchor(screens: [primary]) { CandidateAnchor(nextStart, screens: [primary]) }
-        #expect(next?.rect == nextStart)
     }
 
-    @Test func anUnavailableInlineStartUsesOnlyTheDocumentStart() throws {
-        var attempts: [Int] = []
-        let start = CGRect(x: 370, y: 420, width: 1, height: 20)
-        let result = try #require(CandidateAnchor.query(
-            indices: CandidateAnchor.startIndices(marked: NSRange(location: 2553, length: 9)), screens: [primary]
-        ) { index in
-            attempts.append(index)
-            return index == 2553 ? start : .zero
+    @Test func aGrowingFieldCanWrapWhileTheCaretKeepsItsOldScreenHeight() throws {
+        var state = MarkedTextState()
+        state.captureCandidateStart(CGRect(x: 1000, y: 400, width: 1, height: 18), screens: [primary])
+        let line = try #require(CandidateAnchor.activeLine(inlineText: "abcd", caretUTF16Offset: 4,
+            retainedStart: 0, screens: [primary]) { index in
+            CGRect(x: index < 3 ? 1000 + Double(index) * 8 : 100 + Double(index - 3) * 8,
+                   y: index < 3 ? 420 : 400, width: 1, height: 18)
         })
-        #expect(result.index == 2553)
-        #expect(result.anchor.rect == start)
-        #expect(attempts == [0, 2553])
+        state.updateCandidateLine(offset: line.offset, anchor: line.anchor)
+        #expect(line.offset == 3)
+        #expect(state.candidateStart?.rect.origin == CGPoint(x: 100, y: 400))
     }
 
-    @Test func aCachedStartOnADisconnectedDisplayIsQueriedAgain() throws {
+    @Test func sameLineCaretGeometryAndSmallHeightDifferencesDoNotMoveThePanel() throws {
         var state = MarkedTextState()
-        state.candidateStartRect = CGRect(x: 2000, y: 700, width: 1, height: 20)
-        let start = CGRect(x: 400, y: 650, width: 1, height: 20)
-        let anchor = try #require(state.candidateAnchor(screens: [primary]) { CandidateAnchor(start, screens: [primary]) })
-        #expect(anchor.rect == start)
+        let start = CGRect(x: 568, y: 53, width: 1, height: 18)
+        state.captureCandidateStart(start, screens: [primary])
+        for x in [600.0, 700.0, 800.0] {
+            let line = try #require(CandidateAnchor.activeLine(inlineText: "abc", caretUTF16Offset: 3,
+                retainedStart: 0, screens: [primary]) { _ in CGRect(x: x, y: 57, width: 1, height: 19) })
+            state.updateCandidateLine(offset: line.offset, anchor: line.anchor)
+            #expect(state.candidateStart?.rect == start)
+        }
     }
 
-    @Test func aSupersededProbeStopsBeforeQueryingAnotherIndex() {
+    @Test func missingEndGeometryUsesTheLastWholeGraphemeAndKeepsUTF16Offsets() throws {
         var attempts: [Int] = []
-        let result = CandidateAnchor.query(indices: [0, 2553], screens: [primary]) { index in
+        let line = try #require(CandidateAnchor.activeLine(inlineText: "a👩‍💻bc", caretUTF16Offset: 8,
+            retainedStart: 0, screens: [primary]) { index in
+            attempts.append(index)
+            if index == 8 { return .zero }
+            return CGRect(x: 100 + Double(index) * 8, y: index < 6 ? 400 : 380, width: 1, height: 18)
+        })
+        #expect(line.offset == 6)
+        #expect(attempts.prefix(2).elementsEqual([8, 7]))
+        #expect(attempts.allSatisfy { [0, 1, 6, 7, 8].contains($0) })
+    }
+
+    @Test func anObsoleteOrUnavailableLineProbeKeepsTheAnchor() {
+        var state = MarkedTextState()
+        let start = CGRect(x: 568, y: 53, width: 1, height: 18)
+        state.captureCandidateStart(start, screens: [primary])
+        var attempts: [Int] = []
+        let obsolete = CandidateAnchor.activeLine(inlineText: "abcdef", caretUTF16Offset: 6,
+            retainedStart: 0, screens: [primary]) { index in
             attempts.append(index)
             return nil
         }
-        #expect(result == nil)
-        #expect(attempts == [0])
+        #expect(obsolete == nil && attempts == [6])
+        let unavailable = CandidateAnchor.activeLine(inlineText: "abcdef", caretUTF16Offset: 6,
+            retainedStart: 0, screens: [primary]) { _ in .zero }
+        #expect(unavailable == nil && state.candidateStart?.rect == start)
     }
 
-    @Test func enoughSpacePlacesTheWindowDirectlyBelowTheCaret() throws {
-        let caret = CGRect(x: 620, y: 300, width: 0, height: 20)
-        let anchor = try #require(CandidateAnchor(caret, screens: [primary]))
-        #expect(anchor.rect.width == 1)
-        #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
-                == CGRect(x: 620, y: 264, width: 300, height: 36))
+    @Test func prefixRemaindersKeepTheStartAndANewCompositionCapturesANewStart() throws {
+        var state = MarkedTextState()
+        let start = CGRect(x: 370, y: 420, width: 1, height: 20)
+        let nextStart = CGRect(x: 600, y: 400, width: 1, height: 20)
+        state.captureCandidateStart(start, screens: [primary])
+        _ = state.shouldSend("ni hao shi jie", selection: NSRange(location: 14, length: 0))
+
+        for remainder in ["hao shi jie", "shi jie", "jie"] {
+            state.reset(preservingCandidateStart: true)
+            #expect(state.text == nil && state.caretUTF16Offset == nil)
+            #expect(state.didCaptureCandidateStart)
+            _ = state.shouldSend(remainder, selection: NSRange(location: remainder.utf16.count, length: 0))
+            state.captureCandidateStart(nextStart, screens: [primary])
+            #expect(state.candidateStart?.rect == start)
+        }
+
+        state.reset()
+        #expect(state.candidateStart == nil && !state.didCaptureCandidateStart)
+        state.captureCandidateStart(nextStart, screens: [primary])
+        #expect(state.candidateStart?.rect == nextStart)
     }
 
-    @Test func aLargerWindowFlipsAboveTheCaretWhenItNoLongerFitsBelow() throws {
-        let caret = CGRect(x: 500, y: 80, width: 1, height: 22)
-        let anchor = try #require(CandidateAnchor(caret, screens: [primary]))
-        #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
-                == CGRect(x: 500, y: 44, width: 300, height: 36))
-        #expect(CandidatePlacement.frame(preferredSize: CGSize(width: 350, height: 311), anchor: anchor)
-                == CGRect(x: 500, y: 102, width: 350, height: 311))
+    @Test func unavailableInitialGeometryIsNeverReplacedByALaterCaret() {
+        var state = MarkedTextState()
+        state.captureCandidateStart(.zero, screens: [primary])
+        #expect(state.didCaptureCandidateStart && state.candidateStart == nil)
+        state.reset(preservingCandidateStart: true)
+        state.captureCandidateStart(CGRect(x: 900, y: 200, width: 1, height: 20), screens: [primary])
+        #expect(state.didCaptureCandidateStart && state.candidateStart == nil)
     }
 
-    @Test func rightEdgeClampsToTheVisibleFrame() throws {
-        let caret = CGRect(x: 1430, y: 300, width: 1, height: 22)
-        let anchor = try #require(CandidateAnchor(caret, screens: [primary]))
-        #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
-                == CGRect(x: 1140, y: 264, width: 300, height: 36))
+    @Test func aWrappedPrefixRemainderRebasesItsLineOffsetBeforeMoreTyping() throws {
+        var state = MarkedTextState()
+        state.captureCandidateStart(CGRect(x: 1000, y: 400, width: 1, height: 18), screens: [primary])
+        let wrapped = try #require(CandidateAnchor(CGRect(x: 100, y: 380, width: 1, height: 18), screens: [primary]))
+        state.updateCandidateLine(offset: 7, anchor: wrapped)
+        state.reset(preservingCandidateStart: true)
+        #expect(state.candidateLineStartUTF16Offset == 0 && state.candidateStart?.rect == wrapped.rect)
+        let line = try #require(CandidateAnchor.activeLine(inlineText: "abcde", caretUTF16Offset: 5,
+            retainedStart: state.candidateLineStartUTF16Offset, screens: [primary]) { index in
+            CGRect(x: 100 + Double(index % 4) * 8, y: index < 4 ? 380 : 360, width: 1, height: 18)
+        })
+        state.updateCandidateLine(offset: line.offset, anchor: line.anchor)
+        #expect(state.candidateLineStartUTF16Offset == 4)
+        #expect(state.candidateStart?.rect.origin == CGPoint(x: 100, y: 360))
     }
 
-    @Test func aZeroRectangleUsesTheLastValidLocationBeforeTheMouse() throws {
-        #expect(CandidateAnchor(.zero, screens: [primary]) == nil)
-        let lastValid = CGRect(x: 400, y: 650, width: 1, height: 20)
-        let mouse = CGPoint(x: 300, y: 400)
-        let cached = try #require(CandidateAnchor.fallback(lastValid: lastValid, mouseLocation: mouse, screens: [primary]))
-        let atMouse = try #require(CandidateAnchor.fallback(lastValid: nil, mouseLocation: mouse, screens: [primary]))
-        #expect(CandidatePlacement.frame(preferredSize: size, anchor: cached)
-                == CGRect(x: 400, y: 614, width: 300, height: 36))
-        #expect(CandidatePlacement.frame(preferredSize: size, anchor: atMouse)
-                == CGRect(x: 300, y: 364, width: 300, height: 36))
+    @Test func screenChangesDoNotRecalculateTheCapturedStart() throws {
+        var state = MarkedTextState()
+        let removed = CandidatePlacement.Screen(frame: CGRect(x: 1440, y: 0, width: 1440, height: 900),
+                                                visibleFrame: CGRect(x: 1440, y: 40, width: 1440, height: 835))
+        let start = CGRect(x: 2000, y: 700, width: 1, height: 20)
+        state.captureCandidateStart(start, screens: [primary, removed])
+        state.captureCandidateStart(CGRect(x: 400, y: 650, width: 1, height: 20), screens: [primary])
+        let anchor = try #require(state.candidateStart)
+        #expect(anchor.rect == start && anchor.screen.frame == removed.frame)
+    }
+
+    @Test func resizingAtScreenEdgesKeepsTheSameTopLeftBelowTheStart() throws {
+        let anchor = try #require(CandidateAnchor(CGRect(x: 1430, y: 80, width: 1, height: 22), screens: [primary]))
+        for size in [size, CGSize(width: 650, height: 36), CGSize(width: 650, height: 311)] {
+            let frame = try #require(CandidatePlacement.frame(preferredSize: size, anchor: anchor))
+            #expect(frame.minX == 1430 && frame.maxY == 80)
+            #expect(frame.width == 10 && frame.height == size.height)
+        }
     }
 
     @Test(arguments: [CGRect.zero, CGRect.null, CGRect.infinite,
@@ -150,22 +168,13 @@ struct CandidatePlacementTests {
                       CGRect(x: 100, y: 100, width: 1, height: 0),
                       CGRect(x: 100, y: 100, width: 1, height: -20),
                       CGRect(x: 9000, y: 9000, width: 1, height: 20)])
-    func invalidClientRectanglesAreRejected(invalid: CGRect) {
+    func invalidInitialRectanglesAreRejected(invalid: CGRect) {
         #expect(CandidateAnchor(invalid, screens: [primary]) == nil)
     }
 
-    @Test func aNonzeroLineRectangleCanStartAtTheGlobalOrigin() {
-        #expect(CandidateAnchor(CGRect(x: 0, y: 0, width: 0, height: 20), screens: [primary]) != nil)
-    }
-
-    @Test func aWideRectangleUsesTheDisplayContainingItsLeadingEdge() throws {
-        let right = CandidatePlacement.Screen(frame: CGRect(x: 1440, y: 0, width: 1440, height: 900),
-                                              visibleFrame: CGRect(x: 1440, y: 0, width: 1440, height: 875))
-        let caret = CGRect(x: 1400, y: 650, width: 120, height: 20)
-        let anchor = try #require(CandidateAnchor(caret, screens: [right, primary]))
-        #expect(anchor.screen.frame == primary.frame)
-        #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
-                == CGRect(x: 1140, y: 614, width: 300, height: 36))
+    @Test func zeroWidthAndGlobalOriginAreValid() throws {
+        let anchor = try #require(CandidateAnchor(CGRect(x: 0, y: 0, width: 0, height: 20), screens: [primary]))
+        #expect(anchor.rect.width == 1)
     }
 
     @Test func displaysToTheLeftAndAboveUseGlobalAppKitPoints() throws {
@@ -173,21 +182,12 @@ struct CandidatePlacementTests {
                                              visibleFrame: CGRect(x: -1920, y: 0, width: 1920, height: 1055))
         let above = CandidatePlacement.Screen(frame: CGRect(x: 0, y: 900, width: 1920, height: 1080),
                                               visibleFrame: CGRect(x: 0, y: 900, width: 1920, height: 1055))
-        for (caret, screen) in [(CGRect(x: -500, y: 1000, width: 1, height: 20), left),
-                               (CGRect(x: 400, y: 1800, width: 1, height: 20), above)] {
-            let anchor = try #require(CandidateAnchor(caret, screens: [primary, left, above]))
+        for (rect, screen) in [(CGRect(x: -500, y: 1000, width: 1, height: 20), left),
+                              (CGRect(x: 400, y: 1800, width: 1, height: 20), above)] {
+            let anchor = try #require(CandidateAnchor(rect, screens: [primary, left, above]))
             #expect(anchor.screen.frame == screen.frame)
             #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
-                    == CGRect(x: caret.minX, y: caret.minY - 36, width: 300, height: 36))
+                    == CGRect(x: rect.minX, y: rect.minY - 36, width: 300, height: 36))
         }
-    }
-
-    @Test func aDisconnectedDisplayFallsBackToTheMouseOnTheRemainingScreen() throws {
-        let lastValid = CGRect(x: 2000, y: 700, width: 1, height: 20)
-        let mouse = CGPoint(x: 500, y: 400)
-        let anchor = try #require(CandidateAnchor.fallback(lastValid: lastValid, mouseLocation: mouse, screens: [primary]))
-        #expect(anchor.rect.origin == mouse)
-        #expect(anchor.screen.frame == primary.frame)
-        #expect(CandidateAnchor.fallback(lastValid: lastValid, mouseLocation: mouse, screens: []) == nil)
     }
 }

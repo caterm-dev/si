@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use super::input::Input;
-use super::lookup::{CorrectionBudget, Lookup, MIN_CORRECTION_BITS, Match};
+use super::lookup::{CorrectionBudget, Lookup, Match};
 use super::ranking::{Completions, Results};
 use super::scoring::{History, ScoreSession, Scores, WordScore};
 use super::{
@@ -13,16 +13,13 @@ use super::{
     PathPreference, SmallReranker, TokenPreference,
 };
 use crate::han;
+use crate::resources::EngineConfig;
 
 const MAX_SEARCH_UNITS: usize = 128;
-const BEAM_WIDTH: usize = 24;
-const PREVIEW_BEAM_WIDTH: usize = 6;
 const MAX_DERIVATIONS_PER_TEXT: usize = 2;
 const COMPOSED_PREFIXES_PER_LANGUAGE: usize = 2;
 const PERSONAL_EDGES_PER_SPAN: usize = 12;
-const CORRECTION_BEAM_WIDTH: usize = 4;
 const ORDINARY_FRONTIER_BEAMS: usize = 9;
-const ABBREVIATION_BITS: f64 = 7.0;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn run(
@@ -34,10 +31,12 @@ pub(super) fn run(
     personal: &Lookup<'_>,
     preferences: ConversionPreferences<'_>,
     correction: Option<CorrectionSensitivity>,
+    config: EngineConfig,
     reranking: Option<(&SmallReranker, &str, usize)>,
 ) -> Vec<Candidate> {
     let limit = input.len().min(MAX_SEARCH_UNITS);
-    let correction_margin = correction.map(CorrectionSensitivity::margin);
+    let correction_margin =
+        correction.map(|sensitivity| sensitivity.margin(config.pinyin_correction));
     let correction_context_backoff = correction == Some(CorrectionSensitivity::HigherRecall);
     let mut correction = correction.is_some()
         && languages.chinese
@@ -75,12 +74,13 @@ pub(super) fn run(
     scoring.set_start_maxima(start_maxima);
     let has_user = scoring.has_user();
     let mut search = Search {
+        config,
         input,
         limit,
         beam_width: if preview {
-            PREVIEW_BEAM_WIDTH
+            config.candidate_search.preview_search_beam_width
         } else {
-            BEAM_WIDTH
+            config.candidate_search.full_search_beam_width
         },
         scoring,
         lattice: (0..=limit).map(|_| Frontier::default()).collect(),
@@ -104,7 +104,8 @@ pub(super) fn run(
         .into_iter()
         .filter(|language| language.enabled(languages));
     for language in enabled.clone() {
-        let mut completions = Completions::default();
+        let mut completions =
+            Completions::new(config.candidate_search.direct_completion_limit_per_language);
         lookup.visit(language, input, 0, input.len(), |edge| {
             if language == Language::English && edge.end == input.len() && edge.missing == 0 {
                 correction = false;
@@ -135,7 +136,7 @@ pub(super) fn run(
             }
         }
     }
-    correction &= -MIN_CORRECTION_BITS > search.correction_floor;
+    correction &= -config.pinyin_correction.minimum_edit_cost() > search.correction_floor;
     let correction_suffixes = if correction {
         lookup.correction_suffixes(input)
     } else {
@@ -151,7 +152,14 @@ pub(super) fn run(
             &mut correction_budget,
             &correction_suffixes,
             |edge| {
-                search.seed(edge, &mut Completions::default(), false, true);
+                search.seed(
+                    edge,
+                    &mut Completions::new(
+                        config.candidate_search.direct_completion_limit_per_language,
+                    ),
+                    false,
+                    true,
+                );
             },
         );
     }
@@ -179,7 +187,8 @@ pub(super) fn run(
                 }
             });
         }
-        if correction && frontier.could_correct(search.correction_floor, correction_context_backoff)
+        if correction
+            && frontier.could_correct(search.correction_floor, correction_context_backoff, config)
         {
             lookup.visit_corrections(
                 input,
@@ -212,12 +221,11 @@ pub(super) fn run(
     )
 }
 
-fn correction_context(adjustment: Scores, backoff: bool) -> Scores {
+fn correction_context(adjustment: Scores, backoff: bool, backoff_cost: f64) -> Scores {
     if backoff {
-        const BACKOFF_COST_BITS: f64 = 2.0;
         Scores {
-            base: adjustment.base.max(-BACKOFF_COST_BITS),
-            personalized: adjustment.personalized.max(-BACKOFF_COST_BITS),
+            base: adjustment.base.max(-backoff_cost),
+            personalized: adjustment.personalized.max(-backoff_cost),
         }
     } else {
         adjustment
@@ -273,6 +281,7 @@ fn verbatim<'a>(input: &'a Input<'a>, start: usize, end: usize) -> Option<Match<
 }
 
 struct Search<'input, 'model, 'data, 'preferences> {
+    config: EngineConfig,
     input: &'input Input<'input>,
     limit: usize,
     beam_width: usize,
@@ -464,10 +473,13 @@ impl Search<'_, '_, '_, '_> {
         let context_adjustment = correction_context(
             context_adjustment,
             corrected && self.correction_context_backoff,
+            self.config
+                .pinyin_correction
+                .higher_recall_context_backoff_cost_bits,
         );
         if edge.is_abbreviated() {
-            score.base -= ABBREVIATION_BITS;
-            score.personalized -= ABBREVIATION_BITS;
+            score.base -= self.config.spelling_scoring.pinyin_abbreviation_cost_bits;
+            score.personalized -= self.config.spelling_scoring.pinyin_abbreviation_cost_bits;
         }
         score.base -= edge.correction_cost;
         score.personalized -= edge.correction_cost;
@@ -476,7 +488,7 @@ impl Search<'_, '_, '_, '_> {
             && !self.lattice[edge.end].corrected.could_enter(
                 score.personalized + context_adjustment.personalized,
                 Lane::Personalized,
-                CORRECTION_BEAM_WIDTH,
+                self.config.candidate_search.correction_search_beam_width,
                 true,
             )
         {
@@ -603,9 +615,12 @@ impl Search<'_, '_, '_, '_> {
         };
         let frontier = &mut self.lattice[edge.end];
         if corrected {
-            frontier
-                .corrected
-                .insert(path, Lane::Personalized, false, CORRECTION_BEAM_WIDTH);
+            frontier.corrected.insert(
+                path,
+                Lane::Personalized,
+                false,
+                self.config.candidate_search.correction_search_beam_width,
+            );
             return;
         }
         if has_user && edge.word.ids.base.is_some() {
@@ -778,7 +793,12 @@ impl Search<'_, '_, '_, '_> {
                 let context = if private {
                     Scores::default()
                 } else {
-                    path.history.context_upper(path.context_adjustment)
+                    path.history.context_upper(
+                        path.context_adjustment,
+                        self.config
+                            .statistical_scoring
+                            .sentence_start_reward_limit_bits,
+                    )
                 };
                 max_context[destination] = max_context[destination].max(lane.score(context, 0.0));
                 prefixes.push((
@@ -812,7 +832,7 @@ impl Search<'_, '_, '_, '_> {
         let mut masks = vec![paths];
         let mut scores = Vec::with_capacity(required.len());
         for (score, source, index) in required {
-            paths[source] |= 1 << index;
+            paths[source] |= 1u64 << index;
             scores.push(score);
             masks.push(paths);
         }
@@ -863,8 +883,8 @@ impl Search<'_, '_, '_, '_> {
             let allowed = pruning
                 .as_ref()
                 .and_then(|pruning| pruning.paths)
-                .map_or(u32::MAX, |paths| paths.get(source).copied().unwrap_or(0));
-            let mut remaining = allowed & ((1u32 << beam.paths.len()) - 1);
+                .map_or(u64::MAX, |paths| paths.get(source).copied().unwrap_or(0));
+            let mut remaining = allowed & beam_mask(beam.paths.len());
             while remaining != 0 {
                 let index = remaining.trailing_zeros() as usize;
                 remaining &= remaining - 1;
@@ -906,8 +926,16 @@ impl Search<'_, '_, '_, '_> {
                     Scores::default()
                 } else {
                     correction_context(
-                        path.history.context_upper(path.context_adjustment),
+                        path.history.context_upper(
+                            path.context_adjustment,
+                            self.config
+                                .statistical_scoring
+                                .sentence_start_reward_limit_bits,
+                        ),
                         corrected && self.correction_context_backoff,
+                        self.config
+                            .pinyin_correction
+                            .higher_recall_context_backoff_cost_bits,
                     )
                 };
                 let mask = path.mask | language.mask();
@@ -956,7 +984,7 @@ impl Search<'_, '_, '_, '_> {
                         || !self.lattice[edge.end].corrected.could_enter(
                             upper_bound,
                             Lane::Personalized,
-                            CORRECTION_BEAM_WIDTH,
+                            self.config.candidate_search.correction_search_beam_width,
                             true,
                         )
                     {
@@ -971,14 +999,22 @@ impl Search<'_, '_, '_, '_> {
                 } else {
                     correction_context(
                         history
-                            .start_adjustment()
+                            .start_adjustment(
+                                self.config
+                                    .statistical_scoring
+                                    .sentence_start_reward_limit_bits,
+                            )
                             .unwrap_or(path.context_adjustment),
                         corrected && self.correction_context_backoff,
+                        self.config
+                            .pinyin_correction
+                            .higher_recall_context_backoff_cost_bits,
                     )
                 };
                 if edge.is_abbreviated() {
-                    delta.base -= ABBREVIATION_BITS;
-                    delta.personalized -= ABBREVIATION_BITS;
+                    delta.base -= self.config.spelling_scoring.pinyin_abbreviation_cost_bits;
+                    delta.personalized -=
+                        self.config.spelling_scoring.pinyin_abbreviation_cost_bits;
                 }
                 delta.base -= edge.correction_cost;
                 delta.personalized -= edge.correction_cost;
@@ -993,7 +1029,10 @@ impl Search<'_, '_, '_, '_> {
                 let score = path.score + delta;
                 let frontier = &mut self.lattice[edge.end];
                 let (target, width) = if corrected {
-                    (&mut frontier.corrected, CORRECTION_BEAM_WIDTH)
+                    (
+                        &mut frontier.corrected,
+                        self.config.candidate_search.correction_search_beam_width,
+                    )
                 } else {
                     (frontier.beam(lane, mask, private), self.beam_width)
                 };
@@ -1106,7 +1145,48 @@ impl Search<'_, '_, '_, '_> {
     }
 }
 
-type PrefixMask = [u32; ORDINARY_FRONTIER_BEAMS];
+fn beam_mask(length: usize) -> u64 {
+    debug_assert!(length <= 64);
+    if length == 64 {
+        u64::MAX
+    } else {
+        (1u64 << length) - 1
+    }
+}
+
+#[cfg(test)]
+mod configuration_tests {
+    use super::super::scoring::Scores;
+    use super::{beam_mask, correction_context};
+
+    #[test]
+    fn correction_backoff_uses_the_configured_context_cost() {
+        let adjustment = Scores {
+            base: -10.0,
+            personalized: -6.0,
+        };
+        for cost in [0.0, 2.0, 5.0] {
+            let backed_off = correction_context(adjustment, true, cost);
+            assert_eq!(backed_off.base, -cost);
+            assert_eq!(backed_off.personalized, -cost);
+            assert_eq!(correction_context(adjustment, false, cost).base, -10.0);
+        }
+    }
+
+    #[test]
+    fn path_masks_cover_the_full_configurable_beam_without_shift_overflow() {
+        for length in [0, 1, 24, 31, 32, 33, 63, 64] {
+            let mask = beam_mask(length);
+            assert_eq!(mask.count_ones() as usize, length);
+            for index in 0..length {
+                assert_ne!(mask & (1u64 << index), 0);
+            }
+        }
+        assert_eq!(beam_mask(64), u64::MAX);
+    }
+}
+
+type PrefixMask = [u64; ORDINARY_FRONTIER_BEAMS];
 
 struct CompletionPrefixes {
     required: Vec<f64>,
@@ -1207,7 +1287,7 @@ impl Frontier {
             .chain(std::iter::once((Lane::Personalized, &self.corrected)))
     }
 
-    fn could_correct(&self, floor: f64, context_backoff: bool) -> bool {
+    fn could_correct(&self, floor: f64, context_backoff: bool, config: EngineConfig) -> bool {
         // A lexical continuation contributes a log probability at most zero.
         // Corrected paths carry their initial context but no preference bonus.
         self.lanes[Lane::Personalized as usize][0]
@@ -1217,11 +1297,17 @@ impl Frontier {
                 !path.abbreviated
                     && path.score.personalized
                         + correction_context(
-                            path.history.context_upper(path.context_adjustment),
+                            path.history.context_upper(
+                                path.context_adjustment,
+                                config.statistical_scoring.sentence_start_reward_limit_bits,
+                            ),
                             context_backoff,
+                            config
+                                .pinyin_correction
+                                .higher_recall_context_backoff_cost_bits,
                         )
                         .personalized
-                        - MIN_CORRECTION_BITS
+                        - config.pinyin_correction.minimum_edit_cost()
                         > floor
             })
     }

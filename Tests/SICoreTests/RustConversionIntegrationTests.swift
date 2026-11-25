@@ -21,11 +21,12 @@ struct RustConversionIntegrationTests {
         let ranked = request.generate()
         let promoted = try #require(ranked.candidates.first)
         #expect(promoted.text == "现在添加字幕")
-        #expect(promoted.rerankingBonus > 0 && promoted.rerankingBonus <= 2)
+        #expect(promoted.rerankingBonus > 0 && promoted.rerankingBonus <= 6.4 + 1e-12)
         #expect(Set(ranked.candidates.map(\.id)) == Set(baseline.candidates.map(\.id)))
         let baselineScores = Dictionary(uniqueKeysWithValues: baseline.candidates.map { ($0.id, $0.statisticalScore) })
         #expect(ranked.candidates.allSatisfy { baselineScores[$0.id] == .some($0.statisticalScore) })
-        #expect(ranked.candidates.filter { $0.rerankingBonus > 0 }.count < 8)
+        #expect(ranked.candidates.allSatisfy { $0.rerankingBonus >= 0 })
+        #expect(ranked.candidates.filter { $0.rerankingBonus > 0 }.count <= 12)
         for row in ranked.candidates where row.isPartial || row.isLiteral || row.hasCompletion || row.hasLiteralSegments {
             #expect(row.rerankingBonus == 0)
         }
@@ -156,6 +157,44 @@ struct RustConversionIntegrationTests {
         session.setPrecedingText(nil)
         let acceptedKnownStart = session.accept(confirmedStart.generate())
         #expect(!acceptedKnownStart)
+    }
+
+    @Test func precedingCacheFollowsSessionEditsResourceUpdatesAndReset() async throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SentenceLearningStore(profile: directory.appending(path: "model.si-user"))
+        let learned = try await store.ingest(Array(repeating: "want books", count: 20), batchID: UUID())
+        let model = try #require(learned.model)
+        var memory = ApplicationMemorySnapshot(sentenceModel: model)
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: [.english], applicationMemory: memory)
+        session.setPrecedingText("want ")
+        let engine = CandidateEngine()
+        for letter in ["b", "o", "o", "k", "s"] {
+            session.append(letter)
+            let request = try #require(session.pendingCandidateRequest)
+            let expected = engine.candidates(for: session.buffer, languages: [.english], applicationMemory: memory,
+                                             precedingText: "want ")
+            #expect(request.generate().candidates == expected)
+        }
+        let obsolete = try #require(session.pendingCandidateRequest)
+        let updated = try await store.ingest(Array(repeating: "read books", count: 20), batchID: UUID())
+        let updatedModel = try #require(updated.model)
+        memory = ApplicationMemorySnapshot(sentenceModel: updatedModel)
+        session.configure(languages: [.english], applicationMemory: memory)
+        let current = try #require(session.pendingCandidateRequest)
+        #expect(current.generate().candidates == engine.candidates(for: "books", languages: [.english],
+            applicationMemory: memory, precedingText: "want "))
+        let acceptedOld = session.accept(obsolete.generate())
+        #expect(!acceptedOld)
+        session.reset()
+        session.setPrecedingText(nil)
+        session.append("books")
+        let fresh = try #require(session.pendingCandidateRequest)
+        #expect(fresh.generate().candidates == engine.candidates(for: "books", languages: [.english], applicationMemory: memory))
+        let acceptedBeforeReset = session.accept(current.generate())
+        #expect(!acceptedBeforeReset)
     }
 
     @Test func sharedEngineReturnsBothLanguagesAndLiteral() throws {

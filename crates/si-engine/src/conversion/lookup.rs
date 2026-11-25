@@ -1,7 +1,7 @@
 mod correction;
 mod prefix;
 
-pub(super) use correction::{CorrectionBudget, MIN_CORRECTION_BITS};
+pub(super) use correction::CorrectionBudget;
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -12,7 +12,7 @@ use super::input::{Input, english_key_byte};
 use super::{CandidateLanguage, Language, PersonalPhrase, WordIds};
 use crate::pinyin::canonical_syllable;
 
-const MAX_UNTYPED_LETTERS: usize = 8;
+use crate::resources::{CandidateSearchConfig, EngineConfig, PinyinCorrectionConfig};
 const ABBREVIATION_ROWS: usize = 32;
 
 #[derive(Clone, Copy)]
@@ -87,6 +87,8 @@ impl Match<'_> {
 }
 
 pub(super) struct Lookup<'a> {
+    search_config: CandidateSearchConfig,
+    correction_config: PinyinCorrectionConfig,
     entries: [Vec<Entry<'a>>; 2],
     abbreviated: HashMap<Vec<u8>, Vec<Entry<'a>>>,
     correction_order: Option<HashMap<Vec<u8>, correction::CorrectionRows>>,
@@ -94,7 +96,7 @@ pub(super) struct Lookup<'a> {
 }
 
 impl<'a> Lookup<'a> {
-    pub(super) fn new(base: &'a Lexicon, user: Option<&'a Lexicon>) -> Self {
+    pub(super) fn new(base: &'a Lexicon, user: Option<&'a Lexicon>, config: EngineConfig) -> Self {
         let paired: HashMap<_, _> = user
             .into_iter()
             .flat_map(Lexicon::words)
@@ -197,6 +199,8 @@ impl<'a> Lookup<'a> {
             rows.truncate(ABBREVIATION_ROWS);
         }
         Self {
+            search_config: config.candidate_search,
+            correction_config: config.pinyin_correction,
             entries,
             abbreviated,
             correction_order: None,
@@ -204,7 +208,7 @@ impl<'a> Lookup<'a> {
         }
     }
 
-    pub(super) fn personal(phrases: &[PersonalPhrase<'a>]) -> Self {
+    pub(super) fn personal(phrases: &[PersonalPhrase<'a>], config: EngineConfig) -> Self {
         let mut entries: [Vec<_>; 2] = Default::default();
         for phrase in phrases.iter().take(1_000) {
             let language = match phrase.language {
@@ -252,6 +256,8 @@ impl<'a> Lookup<'a> {
             });
         }
         Self {
+            search_config: config.candidate_search,
+            correction_config: config.pinyin_correction,
             entries,
             abbreviated: HashMap::new(),
             correction_order: None,
@@ -320,7 +326,8 @@ impl<'a> Lookup<'a> {
                         || matches_separators(row.reading, separators.clone())
                 };
                 if permits_separators
-                    && (missing <= MAX_UNTYPED_LETTERS || row.word.personal.is_some())
+                    && (missing <= self.search_config.completion_missing_letter_limit
+                        || row.word.personal.is_some())
                 {
                     emit(Match {
                         end,

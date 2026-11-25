@@ -2,14 +2,14 @@ use std::ffi::OsString;
 use std::io::{self, BufRead, BufWriter, Write};
 use std::path::Path;
 
-use si_engine::resources::EngineResources;
 use si_engine::resources::user::UserModelStore;
+use si_engine::resources::{EngineResources, SiConfig};
 use si_engine::{
     Candidate, CandidateEngine, CandidateLanguage, ConversionOptions, ConversionPreferences,
-    CorrectionSensitivity, EnabledLanguages,
+    CorrectionSensitivity, EnabledLanguages, PrecedingTextCache,
 };
 
-pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
+pub(super) fn run(base: &Path, args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
     let (options, tail) = args.as_chunks::<2>();
     if !tail.is_empty() {
         return None;
@@ -61,13 +61,14 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
             .map(UserModelStore::load)
             .transpose()?
             .flatten();
-        let engine = CandidateEngine::new(&base, user.as_ref())
+        let engine = CandidateEngine::new_with_config(&base, user.as_ref(), config.engine)
             .with_correction_sensitivity(pinyin_correction.flatten());
         let mut output = BufWriter::new(io::stdout().lock());
+        let context_cache = PrecedingTextCache::default();
         for line in io::stdin().lock().lines() {
             let line = line?;
             let languages = languages.unwrap_or_default();
-            let rows = engine.convert_with_options(
+            let rows = engine.convert_with_cached_context(
                 &line,
                 languages,
                 preview.unwrap_or_default(),
@@ -78,6 +79,7 @@ pub(super) fn run(base: &Path, args: &[OsString]) -> Option<io::Result<()>> {
                     correction: pinyin_correction.flatten(),
                     reranker: None,
                 },
+                Some(&context_cache),
             );
             if window.unwrap_or_default() {
                 for index in si_engine::presentation::conversion_window(&line, languages, &rows) {

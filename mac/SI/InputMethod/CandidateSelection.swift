@@ -26,24 +26,24 @@ struct CandidateSelection {
     static let compactPageSize = pageSize
     static let expandedRowCount = 5
     private(set) var isExpanded = false
-    var visiblePageSize: Int { Self.pageSize }
+    private(set) var visiblePageSize = Self.pageSize
     private(set) var candidates: [InputCandidate] = []
     private(set) var selectedIndex = 0
     private var firstVisibleRow = 0
 
     var selected: InputCandidate? { candidates.indices.contains(selectedIndex) ? candidates[selectedIndex] : nil }
-    var row: Int { selectedIndex / Self.pageSize }
-    var rowCount: Int { (candidates.count + Self.pageSize - 1) / Self.pageSize }
-    // Digits always address the selected row's six columns.
+    var row: Int { selectedIndex / visiblePageSize }
+    var rowCount: Int { (candidates.count + visiblePageSize - 1) / visiblePageSize }
+    // Digits always address the currently displayed columns of the selected row.
     var visibleRange: Range<Int> {
-        let start = row * Self.pageSize
-        return start..<min(start + Self.pageSize, candidates.count)
+        let start = row * visiblePageSize
+        return start..<min(start + visiblePageSize, candidates.count)
     }
 
     var displayedRange: Range<Int> {
         guard isExpanded else { return visibleRange }
-        let start = firstVisibleRow * Self.pageSize
-        return start..<min(start + Self.expandedRowCount * Self.pageSize, candidates.count)
+        let start = firstVisibleRow * visiblePageSize
+        return start..<min(start + Self.expandedRowCount * visiblePageSize, candidates.count)
     }
 
     static func action(keyCode: UInt16, characters: String?, pageSize: Int = Self.pageSize,
@@ -66,7 +66,18 @@ struct CandidateSelection {
         self.candidates = CandidateShortlist.candidates(from: candidates)
         selectedIndex = 0
         firstVisibleRow = 0
-        if self.candidates.isEmpty { isExpanded = false }
+        if self.candidates.isEmpty {
+            isExpanded = false
+            visiblePageSize = Self.pageSize
+        }
+    }
+
+    mutating func setPageSize(_ count: Int) {
+        let count = max(1, min(Self.pageSize, count))
+        guard count != visiblePageSize else { return }
+        visiblePageSize = count
+        firstVisibleRow = 0
+        if isExpanded { revealSelectedRow() }
     }
 
     mutating func setExpanded(_ expanded: Bool) {
@@ -106,8 +117,8 @@ struct CandidateSelection {
     private mutating func moveRows(by offset: Int) {
         guard !candidates.isEmpty else { return }
         let nextRow = max(0, min(rowCount - 1, row + offset))
-        let column = selectedIndex % Self.pageSize
-        move(by: nextRow * Self.pageSize + column - selectedIndex)
+        let column = selectedIndex % visiblePageSize
+        move(by: nextRow * visiblePageSize + column - selectedIndex)
     }
 
     private mutating func revealSelectedRow() {
@@ -116,7 +127,7 @@ struct CandidateSelection {
     }
 
     func candidate(number: Int) -> InputCandidate? {
-        guard (1...Self.pageSize).contains(number) else { return nil }
+        guard (1...visiblePageSize).contains(number) else { return nil }
         let index = visibleRange.lowerBound + number - 1
         return visibleRange.contains(index) ? candidates[index] : nil
     }

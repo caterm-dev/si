@@ -6,12 +6,28 @@ struct MarkedTextState {
     private(set) var text: String?
     private var selection: NSRange?
     var caretUTF16Offset: Int? { selection?.location }
-    // Keep the original start through edits and prefix commits, even if later
-    // host geometry follows the caret. Resolve its display again on use.
-    var candidateStartRect: CGRect?
+    private(set) var candidateStart: CandidateAnchor?
+    private(set) var didCaptureCandidateStart = false
+    private(set) var candidateLineStartUTF16Offset = 0
 
-    func candidateAnchor(screens: [CandidatePlacement.Screen], queryStart: () -> CandidateAnchor?) -> CandidateAnchor? {
-        candidateStartRect.flatMap { CandidateAnchor($0, screens: screens) } ?? queryStart()
+    mutating func captureCandidateStart(_ rect: CGRect, screens: [CandidatePlacement.Screen]) {
+        guard !didCaptureCandidateStart else { return }
+        didCaptureCandidateStart = true
+        candidateStart = CandidateAnchor(rect, screens: screens)
+    }
+
+    mutating func resetCandidateStart() {
+        candidateStart = nil
+        didCaptureCandidateStart = false
+        candidateLineStartUTF16Offset = 0
+    }
+
+    mutating func updateCandidateLine(offset: Int, anchor: CandidateAnchor) {
+        guard let current = candidateStart else { return }
+        if offset != candidateLineStartUTF16Offset || !CandidateAnchor.sameLine(current.rect, anchor.rect) {
+            candidateStart = anchor
+            candidateLineStartUTF16Offset = offset
+        }
     }
 
     mutating func shouldSend(_ text: String, selection: NSRange) -> Bool {
@@ -24,6 +40,8 @@ struct MarkedTextState {
     mutating func reset(preservingCandidateStart: Bool = false) {
         text = nil
         selection = nil
-        if !preservingCandidateStart { candidateStartRect = nil }
+        // Prefix confirmation gives the remainder a new inline coordinate space.
+        candidateLineStartUTF16Offset = 0
+        if !preservingCandidateStart { resetCandidateStart() }
     }
 }

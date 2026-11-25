@@ -13,8 +13,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var markedTextState = MarkedTextState()
     private var presentationRevision: UInt64 = 0
     private var candidatePlacementRevision: UInt64 = 0
-    private let lastCandidateRects = NSMapTable<AnyObject, NSValue>(
-        keyOptions: [.weakMemory, .objectPointerPersonality], valueOptions: .strongMemory)
     private var explicitlyNavigated = false
     private struct AIPrediction {
         let revision: UInt64
@@ -55,7 +53,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         panel.onLosePresentation = { [weak self] in
             guard let self else { return }
             self.presentationRevision &+= 1
-            self.markedTextState.candidateStartRect = nil
+            self.markedTextState.resetCandidateStart()
             self.session.setPrecedingText(nil)
             self.invalidateAICompletion()
         }
@@ -448,11 +446,16 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             candidatePanel.orderOut(nil)
             return
         }
-        candidatePanel.render(selection: selection,
-                              prediction: aiPrediction.map { $0.candidate.text + $0.suffix },
-                              predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil)
-        // Let the host lay out marked text before resolving the composition start. The
-        // preferred panel size will also reflect the rows just rendered above.
+        if let anchor = markedTextState.candidateStart {
+            candidatePanel.fit(selection: &selection, at: anchor,
+                               prediction: aiPrediction.map { $0.candidate.text + $0.suffix },
+                               predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil)
+        } else {
+            candidatePanel.render(selection: selection,
+                                  prediction: aiPrediction.map { $0.candidate.text + $0.suffix },
+                                  predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil)
+        }
+        // Render at the captured start after the current row layout is ready.
         DispatchQueue.main.async { [weak self, weak client] in
             guard let self, let client else { return }
             self.positionCandidatePanel(for: client, revision: revision, placementRevision: placementRevision)
@@ -471,56 +474,57 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         // call before using its result or making another request against the old client.
         guard isCurrent(), let activeClient = self.client(), (activeClient as AnyObject) === clientObject,
               isCurrent() else { return }
-        let marked = client.markedRange()
-        guard isCurrent() else { return }
-        let selected = client.selectedRange()
-        guard isCurrent() else { return }
-        let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
-
         // TEMP-GEOMETRY-LOG
         #if DEBUG
-        let tracesCandidateGeometry = SettingsDefaults.shared.bool(forKey: CandidateGeometryLog.preferenceKey)
-            && !IsSecureEventInputEnabled()
-        var samples: [(index: Int, rect: NSRect)] = []
+        var samples: [(index: Int, rect: CGRect)] = []
+        var selectedIndex: Int?
         #endif
-        var acceptedIndex: Int?
-        let hostAnchor = markedTextState.candidateAnchor(screens: screens) {
-            let probe = CandidateAnchor.query(indices: CandidateAnchor.startIndices(marked: marked), screens: screens) { index in
+        // Ask after marked-text layout. Same-line caret motion never changes the
+        // anchor; a visual-line transition resolves that line's first character.
+        if markedTextState.candidateStart != nil,
+           let text = markedTextState.text, let caret = markedTextState.caretUTF16Offset {
+            let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+            let line = CandidateAnchor.activeLine(inlineText: text, caretUTF16Offset: caret,
+                retainedStart: markedTextState.candidateLineStartUTF16Offset, screens: screens) { index in
                 var rect = NSRect.zero
                 _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
                 guard isCurrent() else { return nil }
                 // TEMP-GEOMETRY-LOG
                 #if DEBUG
-                if tracesCandidateGeometry { samples.append((index, rect)) }
+                if !IsSecureEventInputEnabled() { samples.append((index, rect)) }
                 #endif
                 return rect
             }
-            acceptedIndex = probe?.index
-            return probe?.anchor
-        }
-        guard isCurrent() else { return }
-
-        let anchor = hostAnchor ?? CandidateAnchor.fallback(
-            lastValid: lastCandidateRects.object(forKey: clientObject)?.rectValue,
-            mouseLocation: NSEvent.mouseLocation, screens: screens)
-        if let anchor {
-            let clientLevel = Int(client.windowLevel())
             guard isCurrent() else { return }
-            if let hostAnchor {
-                markedTextState.candidateStartRect = hostAnchor.rect
-                lastCandidateRects.setObject(NSValue(rect: hostAnchor.rect), forKey: clientObject)
+            if let line {
+                markedTextState.updateCandidateLine(offset: line.offset, anchor: line.anchor)
+                // TEMP-GEOMETRY-LOG
+                #if DEBUG
+                selectedIndex = line.offset
+                #endif
             }
-            candidatePanel.show(at: anchor, clientLevel: clientLevel)
-        } else {
-            candidatePanel.orderOut(nil)
         }
+        guard let anchor = markedTextState.candidateStart else {
+            candidatePanel.orderOut(nil)
+            return
+        }
+        let clientLevel = Int(client.windowLevel())
+        guard isCurrent() else { return }
+        candidatePanel.fit(selection: &selection, at: anchor,
+                           prediction: aiPrediction.map { $0.candidate.text + $0.suffix },
+                           predictionStatus: aiPrediction == nil ? aiRowPhase?.message : nil)
+        candidatePanel.show(at: anchor, clientLevel: clientLevel)
         // TEMP-GEOMETRY-LOG
         #if DEBUG
-        if tracesCandidateGeometry, isCurrent(), !IsSecureEventInputEnabled() {
+        if SettingsDefaults.shared.bool(forKey: CandidateGeometryLog.preferenceKey), !IsSecureEventInputEnabled() {
+            let marked = client.markedRange()
+            guard isCurrent() else { return }
+            let selected = client.selectedRange()
+            guard isCurrent(), !IsSecureEventInputEnabled() else { return }
             CandidateGeometryLog.shared.append(.init(
                 time: Date(), bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "unknown",
-                markedRange: marked, selectedRange: selected, samples: samples, selectedIndex: acceptedIndex,
-                screen: anchor?.screen, windowFrame: candidatePanel.isVisible ? candidatePanel.frame : nil
+                markedRange: marked, selectedRange: selected, samples: samples, selectedIndex: selectedIndex,
+                screen: anchor.screen, windowFrame: candidatePanel.isVisible ? candidatePanel.frame : nil
             ))
         }
         #endif
@@ -642,6 +646,16 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         explicitlyNavigated = false
         let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
         let markedSelection = NSRange(location: marked.cursorUTF16Offset, length: 0)
+        if !marked.text.isEmpty, !markedTextState.didCaptureCandidateStart {
+            // Before the first marked-text update, inline zero is the host insertion
+            // point. Keep it within this visual line; later wrapping can start a new line.
+            var rect = NSRect.zero
+            _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
+            guard revision == presentationRevision, candidatePanel.ownsPresentation,
+                  (candidateClient as AnyObject?) === (client as AnyObject) else { return }
+            let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+            markedTextState.captureCandidateStart(rect, screens: screens)
+        }
         if markedTextState.shouldSend(marked.text, selection: markedSelection) {
             // Use the system's thin, unselected underline, like native Pinyin.
             // This is a presentation style; the spelling remains uncommitted.
@@ -874,8 +888,7 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         automaticConfirmationTask?.cancel()
         let keepsStart = continuingComposition && (candidateClient as AnyObject?) === (client as AnyObject)
         if !keepsStart { candidateClient = nil }
-        // Clear the host-text cache so the remainder is marked again, but keep
-        // its client and original panel anchor across every prefix confirmation.
+        // Re-mark the remainder without moving this composition's candidate anchor.
         markedTextState.reset(preservingCandidateStart: keepsStart)
         client.insertText(text, replacementRange: NSRange(location: NSNotFound, length: 0))
         guard revision == presentationRevision else { return false }

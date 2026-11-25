@@ -4,6 +4,7 @@ import os
 
 /// Owns one immutable Rust engine. The C ABI supports simultaneous const queries.
 final class RustConversion: @unchecked Sendable {
+    static let precedingTextUTF16Limit = Int(si_preceding_text_utf16_limit())
     private let engine: OpaquePointer
     private let correctionMode: PinyinCorrectionMode
     private static let ready = OSAllocatedUnfairLock<RustConversion?>(initialState: nil)
@@ -127,6 +128,7 @@ final class RustConversion: @unchecked Sendable {
                     dictionary: UserDictionary = UserDictionary(), includesConfirmation: Bool = false,
                     learning: LearningProfile = LearningProfile(), now: Date = .now,
                     context: CandidateContext? = nil, precedingText: String? = nil,
+                    precedingTextCache: PrecedingTextCache? = nil,
                     correctionMode: PinyinCorrectionMode? = nil, rerankingEnabled: Bool = false) -> [InputCandidate] {
         let mode = correctionMode ?? self.correctionMode
         var mask: UInt8 = 0
@@ -141,19 +143,23 @@ final class RustConversion: @unchecked Sendable {
         let hasPrecedingText = precedingText != nil
         var precedingText = precedingText ?? ""
         var emptyPrefix: UInt8 = 0
-        guard let result = withRows(dictionary.entries, learned, paths, { phrases, tokens, paths in
-            bytes.withUnsafeBufferPointer { input in
-                precedingText.withUTF8 { preceding in
-                    withUnsafePointer(to: &emptyPrefix) { empty in
-                        si_engine_candidates_for_mode(engine, input.baseAddress, input.count,
-                                                      hasPrecedingText ? preceding.baseAddress ?? empty : nil, preceding.count,
-                                                      mask, preview, phrases.baseAddress, phrases.count,
-                                                      tokens.baseAddress, tokens.count, paths.baseAddress, paths.count,
-                                                      mode.rawValue, rerankingEnabled)
+        let result = withExtendedLifetime(precedingTextCache) {
+            withRows(dictionary.entries, learned, paths) { phrases, tokens, paths in
+                bytes.withUnsafeBufferPointer { input in
+                    precedingText.withUTF8 { preceding in
+                        withUnsafePointer(to: &emptyPrefix) { empty in
+                            si_engine_candidates_with_context_cache(
+                                engine, input.baseAddress, input.count,
+                                hasPrecedingText ? preceding.baseAddress ?? empty : nil, preceding.count,
+                                mask, preview, phrases.baseAddress, phrases.count,
+                                tokens.baseAddress, tokens.count, paths.baseAddress, paths.count,
+                                mode.rawValue, rerankingEnabled, precedingTextCache?.handle)
+                        }
                     }
                 }
             }
-        }) else { return [] }
+        }
+        guard let result else { return [] }
         defer { si_candidates_free(result) }
         return (0..<si_candidates_count(result)).compactMap { index in
             var row = SICandidateView()

@@ -7,6 +7,7 @@
 
 typedef struct SIEngine SIEngine;
 typedef struct SICandidates SICandidates;
+typedef struct SIPrecedingTextCache SIPrecedingTextCache;
 
 typedef struct SIUserPhrase {
     const uint8_t *spelling;
@@ -59,6 +60,13 @@ typedef struct SICandidateView {
     double token_bonus;
     double reranking_bonus;
 } SICandidateView;
+
+/* Compile-time si.conf limit, in UTF-16 units. No engine handle or file I/O. */
+size_t si_preceding_text_utf16_limit(void);
+/* One cache per client/session. Queries may share it concurrently; free only
+   after all queries complete. Caches are transient and perform no file I/O. */
+SIPrecedingTextCache *si_preceding_text_cache_new(void);
+void si_preceding_text_cache_free(SIPrecedingTextCache *cache);
 
 /* UTF-8 paths. Grams is optional. NULL indicates resources could not be loaded. */
 SIEngine *si_engine_open(const char *lexicon, const char *grams);
@@ -114,6 +122,15 @@ SICandidates *si_engine_candidates_for_mode(const SIEngine *engine, const uint8_
                                    const SILearnedToken *tokens, size_t token_count,
                                    const SILearnedPath *paths, size_t path_count, uint8_t mode,
                                    bool rerank);
+/* Optional client-owned preceding-text cache. Same inputs/results as for_mode;
+   exact fragment bytes and immutable engine/config identity guard every hit. */
+SICandidates *si_engine_candidates_with_context_cache(const SIEngine *engine, const uint8_t *text,
+                                   size_t length, const uint8_t *preceding_text,
+                                   size_t preceding_length, uint8_t languages, bool preview,
+                                   const SIUserPhrase *phrases, size_t phrase_count,
+                                   const SILearnedToken *tokens, size_t token_count,
+                                   const SILearnedPath *paths, size_t path_count, uint8_t mode,
+                                   bool rerank, const SIPrecedingTextCache *cache);
 bool si_engine_has_english_word_prefix(const SIEngine *engine, const uint8_t *text,
                                        size_t length, size_t minimum);
 size_t si_candidates_count(const SICandidates *results);

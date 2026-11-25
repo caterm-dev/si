@@ -5,6 +5,31 @@ import Testing
 
 @MainActor
 struct CandidatePanelOwnershipTests {
+    @Test func changingRowsAndExpansionKeepThePanelAtTheCapturedStart() throws {
+        _ = NSApplication.shared
+        let panel = CandidatePanel()
+        defer { panel.releasePresentation(); panel.close() }
+        panel.claimPresentation()
+        let screen = CandidatePlacement.Screen(frame: CGRect(x: 0, y: 0, width: 1440, height: 900),
+                                               visibleFrame: CGRect(x: 0, y: 40, width: 1440, height: 835))
+        let anchor = try #require(CandidateAnchor(CGRect(x: 100, y: 80, width: 1, height: 20), screens: [screen]))
+        var selection = CandidateSelection()
+        selection.update([InputCandidate(text: "Synthetic", language: .english, score: 1)])
+        panel.render(selection: selection)
+        panel.show(at: anchor, clientLevel: 0)
+        let compactSize = panel.frame.size
+
+        selection.update((0..<12).map {
+            InputCandidate(text: "Long synthetic candidate \($0)", language: .english, score: 12 - $0,
+                           lexicalTokenCount: 1)
+        })
+        selection.setExpanded(true)
+        panel.render(selection: selection)
+        panel.show(at: anchor, clientLevel: 0)
+        #expect(panel.frame.minX == 100 && panel.frame.maxY == 80)
+        #expect(panel.frame.width > compactSize.width && panel.frame.height > compactSize.height)
+    }
+
     @Test func onlyTheCurrentClientPanelCanOwnPresentation() {
         _ = NSApplication.shared
         let first = CandidatePanel()

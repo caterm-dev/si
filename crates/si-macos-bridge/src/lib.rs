@@ -7,12 +7,12 @@ use std::path::Path;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 
-use si_engine::resources::EngineResources;
 use si_engine::resources::user::{UserLearningConfig, UserModelStore};
+use si_engine::resources::{EngineConfig, EngineResources};
 use si_engine::{
     Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionOptions,
     ConversionPreferences, CorrectionKind, CorrectionSensitivity, EnabledLanguages, PathPreference,
-    PersonalPhrase, SmallReranker, TokenPreference,
+    PersonalPhrase, PrecedingTextCache, SmallReranker, TokenPreference,
 };
 
 struct OwnedResources(NonNull<(Arc<EngineResources>, Option<EngineResources>)>);
@@ -56,6 +56,29 @@ impl SIEngine {
     fn base(&self) -> &Arc<EngineResources> {
         // SAFETY: the resource allocation stays live for the engine's lifetime.
         &unsafe { self.resources.0.as_ref() }.0
+    }
+}
+
+/// Compile-time host-read limit. Frontends cache this before reading client text.
+#[unsafe(no_mangle)]
+pub extern "C" fn si_preceding_text_utf16_limit() -> usize {
+    EngineConfig::default().preceding_text_utf16_limit()
+}
+
+/// Allocate one transient, thread-safe cache for a client/session.
+#[unsafe(no_mangle)]
+pub extern "C" fn si_preceding_text_cache_new() -> *mut PrecedingTextCache {
+    Box::into_raw(Box::default())
+}
+
+/// # Safety
+/// The cache must be null or uniquely owned, with no queries still using it.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_preceding_text_cache_free(cache: *mut PrecedingTextCache) {
+    if !cache.is_null() {
+        unsafe {
+            drop(Box::from_raw(cache));
+        }
     }
 }
 
@@ -459,6 +482,50 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
     mode: u8,
     rerank: bool,
 ) -> *mut SICandidates {
+    // SAFETY: forward the same borrowed buffers without a session cache.
+    unsafe {
+        si_engine_candidates_with_context_cache(
+            engine,
+            text,
+            len,
+            preceding_text,
+            preceding_len,
+            languages,
+            preview,
+            phrases,
+            phrase_count,
+            tokens,
+            token_count,
+            paths,
+            path_count,
+            mode,
+            rerank,
+            ptr::null(),
+        )
+    }
+}
+
+/// # Safety
+/// The engine, optional cache and all borrowed buffers must stay live through this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_candidates_with_context_cache(
+    engine: *const SIEngine,
+    text: *const u8,
+    len: usize,
+    preceding_text: *const u8,
+    preceding_len: usize,
+    languages: u8,
+    preview: bool,
+    phrases: *const SIUserPhrase,
+    phrase_count: usize,
+    tokens: *const SILearnedToken,
+    token_count: usize,
+    paths: *const SILearnedPath,
+    path_count: usize,
+    mode: u8,
+    rerank: bool,
+    cache: *const PrecedingTextCache,
+) -> *mut SICandidates {
     let Some(engine) = (unsafe { engine.as_ref() }) else {
         return ptr::null_mut();
     };
@@ -604,7 +671,7 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
         tokens: &tokens,
         paths: &paths,
     };
-    let rows = engine.decoder.convert_with_options(
+    let rows = engine.decoder.convert_with_cached_context(
         text,
         languages,
         preview,
@@ -615,6 +682,7 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
             correction,
             reranker: engine.reranker.as_deref().filter(|_| rerank),
         },
+        unsafe { cache.as_ref() },
     );
     Box::into_raw(Box::new(SICandidates(rows)))
 }
@@ -812,6 +880,7 @@ mod context_tests {
             bad.context_adjustment > 0.0 && bad.context_adjustment < start[0].context_adjustment
         );
         assert_eq!(start, candidates(Some("我们? ".as_bytes())));
+        assert_eq!(si_preceding_text_utf16_limit(), 96);
         drop(engine);
         std::fs::remove_dir_all(directory)?;
         Ok(())

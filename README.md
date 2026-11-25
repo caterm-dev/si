@@ -60,13 +60,22 @@ acceptance; Return still submits the original spelling.
 **Local model ranking** is on by default and can be turned off under Typing.
 The bundled small character model scores up to 12 eligible whole-input
 candidates in statistical order, without a score-gap cutoff. The setting is independent
-of Pinyin correction. The model runs on-device and can add up to two bits to an
-eligible candidate's statistical score. SI uses the statistical order whenever
+of Pinyin correction. The model runs on-device and compares each scored output
+with the most likely output in that pool. The model gap is capped at 8 bits
+and weighted by 0.8, using a nonnegative reward of up to 6.4 bits.
+SI uses the statistical order whenever
 model scoring is unavailable.
+Set model reward and scoring-pool limits under `[local_model_ranking]` in
+[config/si.conf](config/si.conf). These defaults are embedded in Rust at build
+time; rebuild and reinstall SI to apply changes to the input method.
 [Scoring and bounds](docs/ranking-architecture.md#local-model-ranking)
 
-In compatible macOS text fields, SI passes the full text before the composition
-to the local Rust engine. The engine uses word grams from the fragment after
+In compatible macOS text fields, SI requests at most the last 96 UTF-16 units
+before the composition and passes the host's returned text unchanged to Rust
+for word grams and local model ranking. Swift does not trim spaces or classify
+sentence boundaries. Set `preceding_text_utf16_limit` under `[field_context]` in
+[config/si.conf](config/si.conf), then rebuild and reinstall to change this
+compile-time limit. The Rust engine uses word grams from the fragment after
 the last explicit sentence/fragment delimiter to help rank candidates. A
 confirmed empty prefix or a boundary followed only by whitespace starts a new
 fragment and uses base `<s>` statistics. Openings compete with enabled
@@ -80,6 +89,24 @@ use separate comparison groups so unfinished suffixes cannot change an exact
 prefix's reward. This context stays in memory. Unavailable host text does not
 imply sentence start; conversion uses the composition and local resources as
 usual. Boundary statistics must be present in the paired base resources.
+
+For preceding word-gram scoring, Rust keeps up to three distinct terminal
+word-ID histories from the highest-scoring written-text segmentations of the
+last fragment. Repeated terminal histories keep only their strongest path;
+their weights are not accumulated. With path scores in bits, the weight is
+`2^((score - best_score) / T)`, normalized over retained histories. The default
+`T` is 4. Rust mixes each history's smoothed candidate probability before
+converting back to a log score. Set `segmentation_history_limit` and
+`segmentation_temperature` under `[field_context]` in `config/si.conf`.
+These settings affect field context only; corpus ingestion keeps its single-best
+segmentation. `K=1` restores single-history field scoring.
+
+Each input session owns a transient Rust cache of its latest prepared fragment,
+terminal histories and weights. Typing edits reuse it; different fragment bytes
+or a different dictionary/user-model/configuration instance require preparation
+again. Cancellation and context removal release the session's cache. Cache state
+is neither logged nor saved. The CLI also reuses a request-local cache across
+input lines. This does not cache final candidates or local-model predictions.
 
 The Rust engine owns final candidate merging, ordering and window shortlisting; Swift owns window layout and client-local selection. The window uses one 27-choice ordinary shortlist, including the exact original input, and additionally retains every generated exact Chinese dictionary character. Spelling corrections, constructed sentences, multiword fragments and dictionary completions qualify through the original first four ranked choices, subject to the length-based sentence budget below; statistical leaders have no reserved slots. At most nine exact word choices (including exact prefixes and personal phrases) are retained in engine order, independently of Chinese dictionary characters and punctuation. Completions count as constructed results even when they come from a single dictionary entry. Chinese, English and mixed hypotheses share the same four-choice eligibility without language reservations. Candidates are shortlisted without checking system font coverage; rare characters remain pageable. All retained nonliteral choices keep engine order, without language reservations, and the exact original input stays last. Prefix choices consume only their exact source spelling. For example, choosing `比如` from `biruzhege` leaves `zhege` editable. With `sheguofennudehai`, generated character choices remain pageable, allowing `涉` → `过` → `愤怒` → `的` → `海` to be selected individually. Tooltips and accessibility descriptions retain the exact consumed spelling. Return commits exact remaining spelling. Live host compatibility remains unverified.
 
@@ -113,7 +140,7 @@ The word-gram snapshot is tracked in Git, and `main.silex` is generated locally
 from the maintained CSVs. See [engine resources](Data/Engine/README.md)
 for validation, source notices and maintenance.
 
-Candidate positioning queries the host for the start of the marked spelling after layout. The first usable start position anchors the panel while you type, delete, wrap lines or move the composition caret. Prefix confirmations keep that original anchor until the remaining spelling is fully committed or cancelled. The panel stays within the display's visible area and can flip above the anchor when it needs more room. If the host returns no usable geometry, SI uses the last valid location for that text client or the mouse position while awaiting a usable start. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
+Candidate positioning starts at the host insertion point and stays fixed within the active visual line. After marked-text layout, SI checks the caret's line using inline UTF-16 geometry. When spelling wraps onto another line, SI anchors the panel at that line's first character; deleting or moving back to an earlier line follows that line's start. Typing or moving the caret within the same line does not move the panel horizontally. Unavailable or obsolete line geometry retains the current anchor, without mouse or previous-client fallbacks. Initial placement still requires usable host geometry. The panel keeps that line anchor and measures the width remaining to the display’s visible right edge. It reduces the number of choices per row from six down to one until the row fits, retaining other candidates on later pages. A single oversized candidate is truncated visually, with full text kept in its tooltip and accessibility label. The panel does not flip above the line near the display’s bottom edge. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
 
 Inline spelling uses InputMethodKit's thin, unselected underline style, with display-only spaces between decoded syllables or words. The spelling remains a composition until confirmation, so candidates, caret editing and cancellation remain available. Hosts control the final appearance and any suggestions or autocomplete during composition; live behavior in ChatGPT and browser address bars requires verification. See [inline composition checks](docs/TESTING.md#inline-composition-presentation).
 
@@ -384,9 +411,9 @@ SI reads only the preceding boundary and does not require the host to expose the
 underlined spelling. Native responses covering a larger range are sliced to the
 requested boundary. Unsupported hosts submit without guessing a separator.
 
-Outside composition, control keys and punctuation pass through by default. Enable Show punctuation candidates in Settings → Typing to start common punctuation compositions with language-labeled alternatives for enabled languages. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to six numbered choices. Short candidates such as `a` remain visible beside their numbers. Press Down Arrow or click the chevron to expand to five rows of six candidates, showing up to 30 choices at once. The expanded grid is a continuous list. Numbers 1–6 act on the highlighted row, and every visible candidate can be clicked. Each expanded column is sized for its widest visible candidate, including its number and source symbol; the window grows to show complete text within the available screen width. All rows align their numbers and text with those shared columns. The compact strip also sizes cells to their full text. Narrow screens shrink the columns to fit, with full text retained in tooltips and accessibility labels. Click the top-right chevron to collapse again. The first Down Arrow expands and preserves the selected candidate. The list stays expanded until you collapse it or end the composition. Both layouts use the same shortlist, including matching language identities and the exact original input. All generated Chinese dictionary characters supported by the candidate font remain pageable. Complete-syllable character lookup and character prefixes are exempt from the bounded word and composed-prefix search; other word, initial/completion and sentence search remains bounded.
+Outside composition, control keys and punctuation pass through by default. Enable Show punctuation candidates in Settings → Typing to start common punctuation compositions with language-labeled alternatives for enabled languages. Shift and Caps Lock do not switch language modes. With both languages disabled, SI only offers the original text. SI's nonactivating AppKit candidate panel starts as a horizontal single line with up to six numbered choices. If the full row cannot fit between its fixed anchor and the display's visible right edge, SI tries five, four, three, two, then one choice per row. This changes paging only; all shortlisted choices remain available in order. If one candidate is still too wide, only its displayed label is shortened; tooltips, accessibility labels and submitted text retain its complete contents. Short candidates such as `a` remain visible beside their numbers. Press Down Arrow or click the chevron to expand to up to five rows at the current column count, showing at most 30 choices when six columns fit. The expanded grid is a continuous list. The displayed numbers act on the highlighted row, and every visible candidate can be clicked. Each expanded column is sized for its widest visible candidate, including its number and source symbol. All rows align their numbers and text with those shared columns. Click the top-right chevron to collapse again. The first Down Arrow expands and preserves the selected candidate. The list stays expanded until you collapse it or end the composition. Both layouts use the same shortlist, including matching language identities and the exact original input. All generated Chinese dictionary character choices remain pageable. Complete-syllable character lookup and character prefixes are exempt from the bounded word and composed-prefix search; other word, initial/completion and sentence search remains bounded.
 
-Number shortcuts 1–6 select within the currently highlighted row in both layouts. Other rows use dimmer numbers until they become active. Left/Right selects candidates in the collapsed strip; Down expands it without changing selection. In the expanded grid, Left/Right moves within a row. Up/Down moves between rows, preserving the column where possible and scrolling one row when the selection reaches the edge of the visible list. Page Up/Page Down moves one row when collapsed or up to five rows when expanded. Space confirms the highlighted candidate. Home/End continue editing the composition caret.
+Number shortcuts select the displayed 1–6 choices on the currently highlighted row in both layouts; unavailable columns cannot confirm a candidate. Other rows use dimmer numbers until they become active. Left/Right selects candidates in the collapsed strip; Down expands it without changing selection. In the expanded grid, Left/Right moves within a row. Up/Down moves between rows, preserving the column where possible and scrolling one row when the selection reaches the edge of the visible list. Page Up/Page Down moves one row when collapsed or up to five rows when expanded. Space confirms the highlighted candidate. Home/End continue editing the composition caret.
 
 Each typing or deletion event synchronously runs full conversion, then updates the marked spelling and candidate window with that completed result. The first displayed candidate is highlighted, numbers remain visible, and keyboard, mouse, paging and expansion controls use the same current list. Space confirms the selected candidate. Return and shortcuts preserve the spelling, and Escape cancels it. Search completes before the next event is handled, so long compositions can delay input. Vocabulary resources load once during application startup.
 
@@ -489,9 +516,11 @@ snapshot are not supported. See the
 [resource workflow](docs/ARCHITECTURE.md#rust-resource-workflow) for ID and
 count semantics.
 
-[SI configuration](config/si.conf) contains the base and user learning
-thresholds and separate `max_order` values under `[base]` and `[user]`.
-Both default to `4` and accept `2` through `5`. To apply changes without
+[SI configuration](config/si.conf) contains conversion tuning under
+`[field_context]`, `[local_model_ranking]`, `[statistical_scoring]`, `[spelling_scoring]`,
+`[pinyin_correction]` and `[candidate_search]`, plus learning thresholds and `max_order`
+values under `[base]` and `[user]`. Base imports default to `3`, user imports
+to `5`; both accept `2` through `5`. To apply import changes without
 rebuilding the CLI, pass `--config` before the command:
 
 ```sh
@@ -502,6 +531,34 @@ cargo run --release --locked -p si-cli -- --config config/si.conf corpus add Dat
 the counts already in the snapshot. Higher orders start accumulating when
 enabled, and ranking uses any available saved orders. The CLI uses bundled
 settings when `--config` is omitted.
+
+Each conversion key has a description and allowed numeric range beside it in
+`si.conf`. Explicit settings are validated before loading conversion resources;
+invalid values report the file, section, key and range instead of being clamped.
+Integer limits reject fractional values. Floating-point settings reject NaN and
+infinity. Duplicate/unknown keys and sections, and missing keys within a supplied
+engine section, are errors. Omitted engine sections use the embedded defaults,
+preserving older base/user-only configuration files.
+
+For example, full, preview and correction beams accept `1..64` paths; preview
+cannot exceed full search. Model pools accept `1..64` candidates, context
+`0..128` tokens and candidate length `1..64` tokens. A one-candidate model pool
+does not rerank because it cannot compare alternatives. Word-gram and user
+unigram weights cannot exceed `0.8`; correction edit costs remain positive.
+Higher-recall correction's required lead cannot exceed the conservative lead.
+These limits bound work and preserve scoring assumptions; they are not measured
+host-latency guarantees. Output size, search-unit/probe budgets, cache capacities
+and candidate-window product limits remain fixed in code.
+
+The CLI applies an explicit engine configuration to full and preview conversion
+without rebuilding. Its `candidates` command does not run the local character model:
+
+```sh
+printf '%s\n' 'nihao' | cargo run --release --locked -p si-cli -- --config config/si.conf candidates Data/Engine/main.silex --grams Data/Engine/words.sigram
+```
+
+The app embeds the same defaults when Rust builds. Rebuild/reinstall SI to apply
+source-file changes; there is no live reload or configuration I/O while typing.
 
 Corpus commands report the current file, byte progress, and cumulative record
 and token counts on stderr while they run. The final summary goes to stdout.
@@ -826,7 +883,7 @@ coverage and word quality require separate evaluation.
 ## Model training experiments
 
 The [conversion evals](eval/README.md) include 1,020 authored decoder recall
-queries and 997 fixed-pool ranking queries, with both paired preceding-text
+queries and 989 fixed-pool ranking queries, with both paired preceding-text
 contrasts and context-free examples. Run `python3 scripts/evaluate_conversion.py check`
 to verify the datasets. Recall reports preserve the full returned Rust pool.
 Ranking reports score the frozen candidate text with the character LM. The
