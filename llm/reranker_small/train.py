@@ -47,6 +47,13 @@ def train(config_path, data_path, run_path, device_name='mps', resume=False,
     device = select_device(device_name)
     seed_everything(config['seed'])
     manifest, tokenizer, datasets = load_bundle(data_path, config, ('train', 'validation'))
+    single_pass = settings.get('single_pass', False)
+    if single_pass:
+        batches = math.ceil(len(datasets['train']) / settings['batch_size'])
+        pass_steps = math.ceil(batches / settings['gradient_accumulation'])
+        settings['max_steps'] = min(settings['max_steps'], pass_steps)
+        settings['warmup_steps'] = min(settings['warmup_steps'], max(1, pass_steps - 1))
+        settings['schedule_steps'] = max(pass_steps, settings['warmup_steps'] + 1)
     parent_dataset_id = manifest.get('parent_dataset_id')
     if parent_dataset_id and not resume and init_checkpoint is None:
         raise ValueError('This dataset requires --init-checkpoint from its parent dataset')
@@ -134,7 +141,8 @@ def train(config_path, data_path, run_path, device_name='mps', resume=False,
     if not resume:
         save('last.pt')
     log({'event': 'resume' if resume else 'start', 'step': step, 'tokens_seen': tokens_seen,
-         'target_steps': settings['max_steps'], 'token_budget': settings['max_tokens']})
+         'target_steps': settings['max_steps'], 'token_budget': settings['max_tokens'],
+         'single_pass': single_pass, 'dataset_targets': manifest['splits']['train']['targets']})
     model.train()
     order = None
     training = datasets['train']
@@ -142,6 +150,8 @@ def train(config_path, data_path, run_path, device_name='mps', resume=False,
         batches = []
         for _ in range(settings['gradient_accumulation']):
             if cursor >= len(training):
+                if single_pass:
+                    break
                 epoch += 1
                 cursor = 0
                 order = None

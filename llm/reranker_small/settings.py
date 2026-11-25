@@ -45,6 +45,10 @@ def load_config(path):
     skip = data.get("skip_lccc_records", 0)
     if type(skip) is not int or skip < 0 or (skip and "lccc" not in data["sources"]):
         raise ValueError("LCCC record skip requires a nonnegative count and the LCCC source")
+    if type(data.get('exclude_parent_documents', False)) is not bool:
+        raise ValueError('exclude_parent_documents must be boolean')
+    if type(training.get('single_pass', False)) is not bool:
+        raise ValueError('single_pass must be boolean')
     for key in ("batch_size", "gradient_accumulation", "max_steps", "schedule_steps", "warmup_steps",
                 "validate_every", "save_every", "validation_tokens"):
         if type(training[key]) is not int or training[key] <= 0:

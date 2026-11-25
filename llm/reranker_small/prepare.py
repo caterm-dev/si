@@ -57,6 +57,7 @@ def _select(connection, source, archive, config, converter, train_counts, tokeni
     last_report = time.monotonic()
     quota = config["data"].get("train_target_quotas", {}).get(source["id"])
     subquotas = quota if isinstance(quota, dict) else {}
+    exclude_parent = config['data'].get('exclude_parent_documents', False)
     skip = config["data"].get("skip_lccc_records", 0) if source["id"] == "lccc" else 0
     prepared = source['kind'] == 'prepared-dialogue'
     stream = (prepared_documents(archive, counts) if prepared else
@@ -77,6 +78,10 @@ def _select(connection, source, archive, config, converter, train_counts, tokeni
                 group = document_group(source, origin)
                 split = split_for(source["id"], group, config)
             counts["documents_seen"] += 1
+            if exclude_parent and connection.execute(
+                    'SELECT 1 FROM parent_groups WHERE source=? AND grp=?', (source['id'], group)).fetchone():
+                counts['excluded_parent_group_documents'] += 1
+                continue
             if len(raw) > config["data"]["max_document_characters"]:
                 counts["oversized_documents"] += 1
                 continue
@@ -87,6 +92,10 @@ def _select(connection, source, archive, config, converter, train_counts, tokeni
             canonical = normalized(text)
             digest = hashlib.sha256(canonical.encode()).digest()
             identity = digest.hex()
+            if exclude_parent and connection.execute(
+                    'SELECT 1 FROM parent_documents WHERE digest=?', (digest,)).fetchone():
+                counts['excluded_parent_documents'] += 1
+                continue
             previous_split = parent_splits.get(digest)
             if previous_split is not None and previous_split != split:
                 counts["cross_parent_split_documents"] += 1
@@ -100,6 +109,11 @@ def _select(connection, source, archive, config, converter, train_counts, tokeni
             # Keep a document whole. Reject it if a substantial exact paragraph
             # is already in another split; never move its other paragraphs around.
             paragraphs = {normalized(line) for line in text.splitlines() if len(normalized(line)) >= 32}
+            if exclude_parent and any(connection.execute(
+                    'SELECT 1 FROM parent_paragraphs WHERE digest=?',
+                    (hashlib.sha256(line.encode()).digest(),)).fetchone() for line in paragraphs):
+                counts['excluded_parent_paragraph_documents'] += 1
+                continue
             if any((row := connection.execute('SELECT split FROM paragraphs WHERE text=?', (line,)).fetchone())
                    and row[0] != split for line in paragraphs):
                 counts["cross_split_paragraph_documents"] += 1
@@ -109,7 +123,7 @@ def _select(connection, source, archive, config, converter, train_counts, tokeni
             connection.executemany('INSERT OR IGNORE INTO paragraphs VALUES (?,?)', ((line, split) for line in paragraphs))
             if split == "train" and tokenizer is None:
                 train_counts.update(text)
-            if split == "train" and quota:
+            if split == "train" and tokenizer is not None:
                 targets = len(tokenizer.encode(text)) - 1
                 counts["train_targets"] += targets
                 if prepared:
@@ -168,7 +182,7 @@ def _pack(connection, tokenizer, context, staged, split):
     return dict(stats)
 
 
-def _load_parent_data(path, config):
+def _load_parent_data(path, config, history=None):
     path = Path(path)
     manifest = read_json(path / 'manifest.json')
     if (manifest.get('schema_version') != 1 or manifest.get('kind') != 'si-character-lm'
@@ -186,7 +200,15 @@ def _load_parent_data(path, config):
         if file_hash(path / name) != manifest['files'][name]:
             raise ValueError('Parent document file modified: ' + name)
         for row in read_jsonl(path / name):
-            identities[bytes.fromhex(row['id'])] = split
+            digest = bytes.fromhex(row['id'])
+            if history is None:
+                identities[digest] = split
+            else:
+                history.execute('INSERT OR IGNORE INTO parent_documents VALUES (?)', (digest,))
+                history.execute('INSERT OR IGNORE INTO parent_groups VALUES (?, ?)', (row['source'], row['group']))
+                paragraphs = {normalized(line) for line in row['text'].splitlines() if len(normalized(line)) >= 32}
+                history.executemany('INSERT OR IGNORE INTO parent_paragraphs VALUES (?)',
+                                    ((hashlib.sha256(line.encode()).digest(),) for line in paragraphs))
     return manifest['dataset_id'], tokenizer, identities
 
 
@@ -195,6 +217,8 @@ def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw', par
     config = load_config(config_path)
     if config['data'].get('train_target_quotas') and parent_data is None:
         raise ValueError('Training target quotas require --parent-data')
+    if config['data'].get('exclude_parent_documents') and parent_data is None:
+        raise ValueError('Excluding previously used documents requires --parent-data')
     source_lock = Path(source_lock)
     selected = {source['id']: source for source in load_sources(source_lock, source_lock.parent)}
     source_ids = config["data"]["sources"]
@@ -207,20 +231,26 @@ def prepare(config_path, output, source_lock=LOCK, raw_root=CHINESE / 'raw', par
     from opencc import OpenCC
     converter = OpenCC('t2s')
     with new_directory(output) as staged:
-        parent_id, tokenizer, parent_splits = (None, None, {}) if parent_data is None else _load_parent_data(parent_data, config)
-        ancestor_ids = []
-        for ancestor in ancestor_data:
-            ancestor_id, ancestor_tokenizer, ancestor_splits = _load_parent_data(ancestor, config)
-            if tokenizer is None or ancestor_tokenizer.digest != tokenizer.digest:
-                raise ValueError('Ancestor data requires the same frozen parent tokenizer')
-            ancestor_ids.append(ancestor_id)
-            for identity, split in ancestor_splits.items():
-                previous = parent_splits.get(identity, split)
-                parent_splits[identity] = split if previous == split else 'conflicting-ancestor-splits'
-        sources = [prepared_source(prepared_root, name) if name in COLLECTIONS else
-                   (selected[name], verified_archive(selected[name], raw_root)) for name in source_ids]
         connection = sqlite3.connect(staged / 'selection.sqlite')
         try:
+            history = connection if config['data'].get('exclude_parent_documents') else None
+            if history is not None:
+                history.execute('CREATE TABLE parent_documents (digest BLOB PRIMARY KEY) WITHOUT ROWID')
+                history.execute('CREATE TABLE parent_groups (source TEXT, grp TEXT, PRIMARY KEY(source, grp)) WITHOUT ROWID')
+                history.execute('CREATE TABLE parent_paragraphs (digest BLOB PRIMARY KEY) WITHOUT ROWID')
+            parent_id, tokenizer, parent_splits = ((None, None, {}) if parent_data is None else
+                                                  _load_parent_data(parent_data, config, history))
+            ancestor_ids = []
+            for ancestor in ancestor_data:
+                ancestor_id, ancestor_tokenizer, ancestor_splits = _load_parent_data(ancestor, config, history)
+                if tokenizer is None or ancestor_tokenizer.digest != tokenizer.digest:
+                    raise ValueError('Ancestor data requires the same frozen parent tokenizer')
+                ancestor_ids.append(ancestor_id)
+                for identity, split in ancestor_splits.items():
+                    previous = parent_splits.get(identity, split)
+                    parent_splits[identity] = split if previous == split else 'conflicting-ancestor-splits'
+            sources = [prepared_source(prepared_root, name) if name in COLLECTIONS else
+                       (selected[name], verified_archive(selected[name], raw_root)) for name in source_ids]
             connection.execute('CREATE TABLE docs (ordinal INTEGER PRIMARY KEY, id TEXT UNIQUE, canonical TEXT, '
                                'source TEXT, origin TEXT, grp TEXT, split TEXT, text TEXT)')
             connection.execute('CREATE TABLE paragraphs (text TEXT PRIMARY KEY, split TEXT) WITHOUT ROWID')

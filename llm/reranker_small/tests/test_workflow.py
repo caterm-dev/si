@@ -61,6 +61,30 @@ class WorkflowTests(unittest.TestCase):
             train(self.config, self.data, self.root / 'resumed', 'cpu', max_steps=1, threads=2)
         self.assertEqual(before, file_hash(self.root / 'resumed/last.pt'))
 
+    def test_single_pass_counts_every_target_once_with_partial_final_update_and_resume(self):
+        config = read_json(self.config)
+        config['training'].update(single_pass=True, batch_size=7, gradient_accumulation=3,
+                                  max_steps=1000, max_tokens=0)
+        config_path = self.root / 'single-pass.json'
+        write_json(config_path, config)
+        full_run, resumed_run = self.root / 'single-full', self.root / 'single-resumed'
+        with contextlib.redirect_stdout(io.StringIO()):
+            train(config_path, self.data, full_run, 'cpu', threads=2)
+            train(config_path, self.data, resumed_run, 'cpu', max_steps=1, threads=2)
+            train(config_path, self.data, resumed_run, 'cpu', resume=True, threads=2)
+        manifest = read_json(self.data / 'manifest.json')
+        counts = manifest['splits']['train']
+        full = torch.load(full_run / 'last.pt', weights_only=True)
+        resumed = torch.load(resumed_run / 'last.pt', weights_only=True)
+        self.assertNotEqual(counts['windows'] % 21, 0)
+        self.assertEqual(full['tokens_seen'], counts['targets'])
+        self.assertEqual((full['cursor'], full['epoch']), (counts['windows'], 0))
+        self.assertEqual(full['step'], (counts['windows'] + 20) // 21)
+        for name, value in full['model'].items():
+            self.assertTrue(torch.equal(value, resumed['model'][name]), name)
+        with self.assertRaisesRegex(ValueError, 'reached its budget'):
+            train(config_path, self.data, resumed_run, 'cpu', resume=True, max_steps=2000, threads=2)
+
     def test_training_does_not_open_test_tokens(self):
         path = self.data / 'test.tokens.bin'
         original = path.read_bytes()

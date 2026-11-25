@@ -21,6 +21,32 @@ class ScriptTests(unittest.TestCase):
         return subprocess.run([str(ROOT / 'scripts' / (name + '.sh')), *map(str, args)], cwd=cwd,
                               env=env, text=True, capture_output=True, timeout=90)
 
+    def test_unused_chat_stages_select_v2_parent_and_v1_ancestor(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            recorder = root / 'record-python'
+            recorder.write_text(f'#!{sys.executable}\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n')
+            recorder.chmod(0o755)
+            env = self.environment(SI_RERANKER_SMALL_PYTHON=str(recorder))
+            for stage in ('prepare', 'train', 'resume'):
+                result = self.execute('chat-unused', root, env, stage)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                args = json.loads(result.stdout)
+                self.assertEqual(args[args.index('--config') + 1], str(ROOT / 'configs/chat-unused.json'))
+                if stage == 'prepare':
+                    self.assertEqual(args[:2], ['-m', 'llm.reranker_small.prepare'])
+                    self.assertEqual(args[args.index('--parent-data') + 1], str(ROOT / 'data/prepared/small-chat-v2'))
+                    self.assertEqual(args[args.index('--ancestor-data') + 1], str(ROOT / 'data/prepared/small-character-v1'))
+                    self.assertNotIn('--init-checkpoint', args)
+                elif stage == 'train':
+                    self.assertEqual(args[:2], ['-m', 'llm.reranker_small.train'])
+                    self.assertEqual(args[args.index('--init-checkpoint') + 1], str(ROOT / 'runs/small-chat-v2/best.pt'))
+                else:
+                    self.assertIn('--resume', args)
+                    self.assertNotIn('--init-checkpoint', args)
+            self.assertEqual(list(root.iterdir()), [recorder])
+            self.assertEqual(self.execute('chat-unused', root, env, 'unknown').returncode, 2)
+
     def test_independent_stage_dispatch_ignores_converter_overrides(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

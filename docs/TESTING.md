@@ -736,7 +736,7 @@ publication. Chinese Chatbot Corpus fixtures exercise all eight layouts,
 source splits, attribution and rejection of mismatched Weibo pairs. With the
 local files present, run `corpus/.venv/bin/python corpus/prepare_raw_text.py
 --source chinese-chatbot-corpus` to prepare or verify the bundle. Use the
-separate model guides for training or scoring tests. The local SI continuation uses `llm/reranker_small/scripts/si.sh` with verified TXT conversation extracts and explicit parent/ancestor split checks. Run `./llm/reranker_small/scripts/check.sh` for its synthetic preparation and resume regressions, then compare checkpoints on the same frozen conversion ranking pools. Keep corpus loss, candidate ranking accuracy and host latency measurements separate.
+separate model guides for training or scoring tests. The local SI continuation uses `llm/reranker_small/scripts/si.sh` with verified TXT conversation extracts and explicit parent/ancestor split checks. The public unused-chat continuation uses `llm/reranker_small/scripts/chat-unused.sh`; its synthetic regressions cover parent/ancestor text, conversation and long-paragraph exclusion, stage dispatch, exact single-pass target coverage and CPU resume equivalence through a partial final update. Run `./llm/reranker_small/scripts/check.sh` for these preparation and resume regressions, then compare checkpoints on the same frozen conversion ranking pools. Keep corpus loss, candidate ranking accuracy and host latency measurements separate.
 
 Run `python3 scripts/evaluate_conversion.py check` to verify the separate
 [decoder recall and fixed-pool ranking datasets](../eval/README.md).

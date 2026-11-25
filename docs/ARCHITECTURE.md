@@ -1022,6 +1022,16 @@ audits remain open. [Dataset and commands](../eval/README.md)
 
 The [small reranker chat preset](../llm/reranker_small/README.md#chat-continued-pretraining) sets per-source and per-subcorpus training token quotas, reuses the parent tokenizer and keeps exact parent documents in their original splits. It verifies the local `dialogue` and Chinese Chatbot Corpus extracts, preserves their upstream splits and carries their attribution into the bundle. A new AdamW run starts from compatible model weights and records the parent checkpoint identity. Strict resume still restores optimizer, RNG and cursor within the same run. The local SI continuation also accepts verified SI conversation extracts, applies full-source selection without token quotas, and checks exact split boundaries against the parent and explicit ancestor datasets.
 
+The [unused-chat continuation](../llm/reranker_small/README.md#continue-from-chat-v2-on-unused-public-chat)
+scans the public chat sources without source quotas. An opt-in preparation policy
+excludes parent/ancestor exact texts, source/conversation groups and exact long
+paragraphs from all old splits using a temporary SQLite history index. It starts
+from chat-v2 weights in a separate run. An opt-in single-pass training limit
+derives the update ceiling and schedule from the actual window count, permits a
+partial final update, and prevents wrapping into another epoch. Cumulative token
+budgets allow explicit staged resume within that pass. These overlap checks do
+not establish semantic uniqueness or human-reviewed corpus quality.
+
 `llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented; the large reranker remains planned. Existing converter modules, data/configs, prepared datasets, runs and reports are relocated together, with Python module bytes and checkpoint/data identities preserved. Shared dependencies and `.venv` remain at the workspace root. Compatibility imports plus the `scripts/` and `configs/` links resolve the same conversion implementation; explicit converter commands use `llm.pinyin_to_text.*`. The small reranker's FP32 export supports offline character scoring. Representative ranking quality remains unverified.
 
 The corpus acquisition also supports the latest complete official Chinese Wikipedia current-article dump. Explicit `wikipedia --latest` resolution checks completion metadata, pins a dated URL, verifies the official SHA-1 and records a local SHA-256. The full raw archive retains original simplified/traditional wikitext; streaming preparation selects namespace-0 nonredirect pages and retains page/revision URLs, with Wikipedia's CC BY-SA 4.0 terms kept separate. Existing prepared bundles validate against their own frozen source locks so adding/updating a source does not invalidate historical runs.

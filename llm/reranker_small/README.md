@@ -91,6 +91,62 @@ for experiment in small-character-v1 small-chat-v2; do
 done
 ```
 
+## Continue from chat v2 on unused public chat
+
+The [unused-chat preset](configs/chat-unused.json) scans all eligible records in
+the pinned LCCC-base training archive and the existing Chinese Chatbot Corpus
+and `dialogue` extracts. It has no source token quotas or character caps. It
+initializes a separate `small-chat-unused-v3` run from `small-chat-v2/best.pt`
+and reuses its tokenizer. It does not select the local SI TXT collection, web
+articles or technical documentation.
+
+```sh
+./llm/reranker_small/scripts/chat-unused.sh prepare
+./llm/reranker_small/scripts/chat-unused.sh train
+# Resume after an interruption, retaining the current cumulative token budget:
+./llm/reranker_small/scripts/chat-unused.sh resume
+```
+
+Each command performs only its named stage. Preparation requires the existing
+verified extracts under `corpus/chinese/prepared/si-corpus/`, both old prepared
+bundles and the pinned raw LCCC archive; it does not download. Use the common
+`SI_RERANKER_SMALL_*` overrides or explicit preparation arguments for other
+paths. Existing output directories are refused rather than overwritten.
+
+Preparation excludes exact normalized documents, whole source/conversation
+groups and exact normalized paragraphs of at least 32 characters found in
+**any split of either v1 or v2**. A fresh utterance in a previously selected
+conversation is conservatively excluded with its group. This uses the complete
+prepared histories, including documents that an early checkpoint might not
+have reached. Original upstream splits remain intact. Within the new bundle,
+exact-document deduplication and cross-split long-paragraph exclusion also apply.
+Source and subsource token totals and exclusion counts are in the new manifest.
+This is mechanical overlap filtering, not human quality certification;
+paraphrases and template variants can remain.
+
+The first training stage stops at approximately **20 million cumulative target
+tokens**, checked after an update, or at the end of one data pass. The learning
+rate peaks at `2e-5`; warmup/cosine schedule length and the one-pass update limit
+are derived from the actual training-window count. The final update can have
+fewer microbatches, so it never starts a second pass. The config's million-step
+ceiling is reduced to that derived limit. Start logs show the effective update
+limit and full dataset target count.
+
+Evaluate a stage on the development ranking fixtures before extending it. To
+continue the same shuffled pass with the same optimizer, RNG and cursor:
+
+```sh
+# Raise the cumulative budget to 40 million, not 40 million additional tokens:
+./llm/reranker_small/scripts/chat-unused.sh resume --max-tokens 40000000
+# Alternatively, finish the remaining first pass without a token cap:
+./llm/reranker_small/scripts/chat-unused.sh resume --max-tokens 0
+```
+
+The complete first pass is a hard limit even when increasing `--max-steps`.
+`best.pt` still follows corpus validation loss; ranking quality requires the
+separate candidate evaluation below. Keep final test suites held out from stage
+selection. Formal training starts only when `train` is explicitly executed.
+
 ## Continue from chat v2 on the local SI collection
 
 The `si` stage reads every conversation in the verified

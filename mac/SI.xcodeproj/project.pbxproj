@@ -16,13 +16,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		000000000000000000000211 /* Offline resources */ = {
+		000000000000000000000211 /* Exceptions for "SI" folder in "SI" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-
 				Core/Resources/Chinese,
 				Core/Resources/English,
-
 			);
 			target = 000000000000000100000000 /* SI */;
 		};
@@ -31,7 +29,9 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* SI */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (000000000000000000000211 /* Offline resources */);
+			exceptions = (
+				000000000000000000000211 /* Exceptions for "SI" folder in "SI" target */,
+			);
 			explicitFolders = (
 				Core/Resources/Chinese,
 				Core/Resources/English,
@@ -152,7 +152,10 @@
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
-			files = ();
+			files = (
+			);
+			inputPaths = (
+			);
 			name = "Build Rust conversion";
 			outputPaths = (
 				"$(DERIVED_FILE_DIR)/libsi_macos_bridge.a",
@@ -303,6 +306,7 @@
 		000000000000000111000000 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 24;
@@ -315,20 +319,23 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DERIVED_FILE_DIR)",
+				);
 				MARKETING_VERSION = 0.1.23;
-				LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(DERIVED_FILE_DIR)");
-				SWIFT_INCLUDE_PATHS = ("$(inherited)", "$(SRCROOT)/Bridge/include");
 				PRODUCT_BUNDLE_IDENTIFIER = com.caterm.inputmethod.si;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 				SI_UPDATE_ARCH = universal;
 				SI_UPDATE_FEED_URL = "https://downloads.caterm.com/si/channels/mac/stable-$(SI_UPDATE_ARCH).xml";
-				SDKROOT = macosx;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = macosx;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(inherited) $(SRCROOT)/Bridge/include";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 			};
@@ -337,6 +344,7 @@
 		000000000000000112000000 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 24;
@@ -349,20 +357,23 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(DERIVED_FILE_DIR)",
+				);
 				MARKETING_VERSION = 0.1.23;
-				LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(DERIVED_FILE_DIR)");
-				SWIFT_INCLUDE_PATHS = ("$(inherited)", "$(SRCROOT)/Bridge/include");
 				PRODUCT_BUNDLE_IDENTIFIER = com.caterm.inputmethod.si;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 				SI_UPDATE_ARCH = universal;
 				SI_UPDATE_FEED_URL = "https://downloads.caterm.com/si/channels/mac/stable-$(SI_UPDATE_ARCH).xml";
-				SDKROOT = macosx;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = macosx;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(inherited) $(SRCROOT)/Bridge/include";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 6.0;
 			};
@@ -395,15 +406,20 @@
 		000000000000000000000202 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {kind = exactVersion; version = 2.10.0; };
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.0;
+			};
 		};
 		000000000000000000000208 /* XCRemoteSwiftPackageReference "PermissionFlow" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/jaywcjlove/PermissionFlow.git";
-			requirement = {kind = exactVersion; version = 2.11.4; };
+			requirement = {
+				kind = exactVersion;
+				version = 2.11.4;
+			};
 		};
 /* End XCRemoteSwiftPackageReference section */
-
 
 /* Begin XCSwiftPackageProductDependency section */
 		000000000000000000000203 /* Sparkle */ = {

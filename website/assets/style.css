@@ -26,7 +26,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outlin
 .skip-link:focus { transform: none; }
 .site-header { height: 106px; display: flex; align-items: center; border-bottom: 1px solid var(--line); gap: 36px; }
 .wordmark { display: inline-flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 650; letter-spacing: -1.5px; }
-.logo { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 11px; background: var(--accent); color: #fffaf3; font-size: 23px; letter-spacing: -1.5px; font-weight: 650; padding-right: 2px; }
+.logo { display: block; flex-shrink: 0; width: 40px; height: 40px; object-fit: contain; }
 .wordmark-dot { color: var(--accent); }
 .main-nav { display: flex; gap: 30px; margin-left: auto; font-size: 14px; }
 .main-nav a, .site-footer a, .text-link, .install-link { transition: color 150ms; }
@@ -148,7 +148,7 @@ h3 { font-size: 20px; font-weight: 550; margin: 0 0 11px; letter-spacing: -.5px;
 .download-resources a:hover { color: white; }
 .download-section :focus-visible { outline-color: #f0c7a5; }
 .site-footer { display: flex; align-items: center; gap: 17px; padding-block: 30px; }
-.site-footer .logo { width: 30px; height: 30px; font-size: 17px; border-radius: 8px; }
+.site-footer .logo { width: 30px; height: 30px; }
 .site-footer p { font-size: 11px; color: var(--muted); }
 .site-footer > div { margin-left: auto; display: flex; gap: 24px; font-size: 11px; color: var(--muted); }
 html[lang="zh-CN"] h1 { font-size: clamp(48px, 4.6vw, 68px); letter-spacing: -3px; line-height: 1.2; }
@@ -316,7 +316,7 @@ html[lang="zh-CN"] .eyebrow { letter-spacing: 2px; }
     .wrap { width: calc(100% - 36px); }
     .site-header { gap: 16px; height: 76px; }
     .wordmark { font-size: 25px; gap: 9px; }
-    .logo { width: 33px; height: 33px; font-size: 20px; border-radius: 9px; }
+    .logo { width: 33px; height: 33px; }
     .site-header .wordmark > span:last-child { display: none; }
     .main-nav { gap: 20px; font-size: 11px; }
     .languages { padding-left: 14px; gap: 7px; font-size: 11px; }

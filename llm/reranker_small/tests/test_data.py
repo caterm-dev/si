@@ -15,6 +15,60 @@ from llm.reranker_small.settings import file_hash, load_config, read_json, write
 
 
 class DataTests(unittest.TestCase):
+    def test_unused_excludes_parent_and_ancestor_text_groups_and_long_paragraphs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config_path, lock, raw = fixture(root / 'fixture')
+            ancestor = root / 'ancestor'
+            prepare(config_path, ancestor, lock, raw)
+            archive = raw / 'fixture/source.tar.gz'
+
+            def replace_archive(records):
+                with tarfile.open(archive, 'w:gz') as handle:
+                    for name, text in records:
+                        content = text.encode()
+                        member = tarfile.TarInfo('fixture/' + name)
+                        member.size = len(content)
+                        handle.addfile(member, io.BytesIO(content))
+                declaration = read_json(lock)
+                declaration['sources'][0].update(size=archive.stat().st_size, sha256=file_hash(archive))
+                write_json(lock, declaration)
+
+            def fresh_records(start):
+                return [(f'zh/{i}.md', f'这是新对话编号{i}的完整内容，今天下午我们先去附近的超市买点水果，然后一起回家做饭。')
+                        for i in range(start, start + 80)]
+
+            replace_archive(fresh_records(80))
+            parent = root / 'parent'
+            prepare(config_path, parent, lock, raw, parent_data=ancestor)
+            old_rows = [next(read_jsonl(path / 'train.documents.jsonl')) for path in (parent, ancestor)]
+            records = fresh_records(160)
+            for index, row in enumerate(old_rows):
+                records.extend([
+                    (f'zh/copied-{index}.md', row['text']),
+                    (row['group'], f'来自旧会话的新一句话，编号{index}，应该一起排除。'),
+                    (f'zh/paragraph-{index}.md', '新开头，保留自己的表达。\n\n' +
+                     next(line for line in row['text'].splitlines() if len(normalized(line)) >= 32)),
+                ])
+            replace_archive(records)
+            config = read_json(config_path)
+            config['data']['exclude_parent_documents'] = True
+            write_json(config_path, config)
+            output = root / 'unused'
+            manifest = prepare(config_path, output, lock, raw, parent_data=parent, ancestor_data=[ancestor])
+            counts = manifest['source_counts']['fixture']
+            self.assertEqual(counts['excluded_parent_documents'], 2)
+            self.assertEqual(counts['excluded_parent_group_documents'], 2)
+            self.assertEqual(counts['excluded_parent_paragraph_documents'], 2)
+            self.assertEqual(sum(s['documents'] for s in manifest['splits'].values()), 80)
+            for split in ('train', 'validation', 'test'):
+                for row in read_jsonl(output / f'{split}.documents.jsonl'):
+                    self.assertEqual(split_for('fixture', row['group'], config), split)
+                    self.assertIn('这是新对话编号', row['text'])
+            self.assertEqual(counts['train_targets'], manifest['splits']['train']['targets'])
+            with self.assertRaisesRegex(ValueError, 'requires --parent-data'):
+                prepare(config_path, root / 'no-parent', lock, raw)
+
     def test_si_extract_without_quota_preserves_complete_conversations(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
