@@ -7,7 +7,17 @@ The build copies them to
 | File | Contents |
 | --- | --- |
 | `main.silex` | Locally generated base lexicon, ignored by Git |
-| `words.sigram` | Tracked word-gram counts keyed by the paired lexicon's word IDs |
+| `words.sigram` | Git LFS-tracked word-gram counts keyed by the paired lexicon's word IDs |
+
+Install Git LFS and retrieve the snapshot before building or validating:
+
+```sh
+git lfs install
+git lfs pull
+```
+
+The repository's `.gitattributes` rule stores this file as an LFS pointer in
+Git; the working copy must contain the downloaded binary snapshot.
 
 These snapshots were moved byte-for-byte from the existing local
 `.build/si-data/` resources. Source notices and license texts accompany the

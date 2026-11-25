@@ -136,9 +136,11 @@ Ordinary conversion runs locally. SI has no analytics, raw-keystroke logging, or
 Debug and Release bundle `Data/Engine/main.silex` and
 `Data/Engine/words.sigram`. Xcode validates the paired snapshots before
 staging them, and SI opens them before starting the input-method server.
-The word-gram snapshot is tracked in Git, and `main.silex` is generated locally
-from the maintained CSVs. See [engine resources](Data/Engine/README.md)
-for validation, source notices and maintenance.
+The word-gram snapshot is tracked with Git LFS. Install Git LFS, run
+`git lfs install` once, and run `git lfs pull` after checkout to retrieve it.
+`main.silex` is generated locally from the maintained CSVs. See
+[engine resources](Data/Engine/README.md) for validation, source notices and
+maintenance.
 
 Candidate positioning starts at the host insertion point and stays fixed within the active visual line. After marked-text layout, SI checks the caret's line using inline UTF-16 geometry. When spelling wraps onto another line, SI anchors the panel at that line's first character; deleting or moving back to an earlier line follows that line's start. Typing or moving the caret within the same line does not move the panel horizontally. Unavailable or obsolete line geometry retains the current anchor, without mouse or previous-client fallbacks. Initial placement still requires usable host geometry. The panel keeps that line anchor and measures the width remaining to the display’s visible right edge. It reduces the number of choices per row from six down to one until the row fits, retaining other candidates on later pages. A single oversized candidate is truncated visually, with full text kept in its tooltip and accessibility label. The panel does not flip above the line near the display’s bottom edge. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
 

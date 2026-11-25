@@ -36,7 +36,9 @@ or builds unless requested.
 ## Local corpus and model artifacts
 
 Keep the maintained dictionary CSVs, manifests and attribution in Git.
-Keep the app's base word-gram snapshot under version control in `Data/Engine/`.
+Keep the app's base word-gram snapshot under Git LFS in `Data/Engine/`.
+Install Git LFS and run `git lfs install` once, then `git lfs pull` after
+checkout to retrieve the snapshot. Preserve its `.gitattributes` tracking rule.
 Generate `main.silex` locally from the maintained CSVs. It is ignored by Git.
 Validate the pair with `si-cli check-resources` after updates.
 Review snapshot changes together with their
