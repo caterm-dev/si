@@ -484,6 +484,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         if markedTextState.candidateStart != nil,
            let text = markedTextState.text, let caret = markedTextState.caretUTF16Offset {
             let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+            let marked = client.markedRange()
+            guard isCurrent() else { return }
             let line = CandidateAnchor.activeLine(inlineText: text, caretUTF16Offset: caret,
                 retainedStart: markedTextState.candidateLineStartUTF16Offset, screens: screens) { index in
                 var rect = NSRect.zero
@@ -493,6 +495,24 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                 #if DEBUG
                 if !IsSecureEventInputEnabled() { samples.append((index, rect)) }
                 #endif
+                if CandidateAnchor(rect, screens: screens) == nil,
+                   let range = CandidateAnchor.documentRange(inlineOffset: index, inlineUTF16Count: text.utf16.count,
+                                                              marked: marked) {
+                    // This API uses document-relative ranges, unlike the inline
+                    // attributes API. Accept only geometry for this exact position.
+                    var actual = NSRange(location: NSNotFound, length: 0)
+                    let alternative = client.firstRect(forCharacterRange: range, actualRange: &actual)
+                    guard isCurrent() else { return nil }
+                    let currentMarked = client.markedRange()
+                    guard isCurrent(), currentMarked == marked else { return nil }
+                    // TEMP-GEOMETRY-LOG
+                    #if DEBUG
+                    if !IsSecureEventInputEnabled() { samples.append((range.location, alternative)) }
+                    #endif
+                    if CandidateAnchor.acceptsDocumentGeometry(actual: actual, requested: range, marked: marked) {
+                        return alternative
+                    }
+                }
                 return rect
             }
             guard isCurrent() else { return }

@@ -303,9 +303,25 @@ fn candidates_accept_preceding_text_for_pinyin_correction() -> io::Result<()> {
         "base.sigram",
         "sentences.txt",
     ])?;
+    // A deliberately larger cap exercises correction routing. The default
+    // 3.5-bit bigram ceiling cannot overcome this valid spelling's edit cost.
+    scratch.write(
+        "reward.conf",
+        &include_str!("../../../config/si.conf")
+            .replace(
+                "base_word_gram_reward_cap_bits = 5",
+                "base_word_gram_reward_cap_bits = 32",
+            )
+            .replace(
+                "base_word_gram_backoff_discount = 0.7",
+                "base_word_gram_backoff_discount = 1",
+            ),
+    )?;
     for (preceding, suggest) in [("", false), ("想。找", false), ("找。想", true)] {
         let mut child = scratch
             .command(&[
+                "--config",
+                "reward.conf",
                 "candidates",
                 "base.silex",
                 "--grams",

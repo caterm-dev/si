@@ -1,0 +1,450 @@
+{
+  "schema_version": 2,
+  "extraction_contract": "complete-simplified-text-lines-v2",
+  "source": {
+    "id": "chinese-chatbot-corpus",
+    "kind": "chinese-chatbot-corpus",
+    "repository": "https://github.com/codemayq/chinese-chatbot-corpus",
+    "layout_revision": "3e1aaf381fc971997a585c2571af050660331f48",
+    "datasets": {
+      "chatterbot": [
+        "chatterbot-1k/chinese/ai.yml",
+        "chatterbot-1k/chinese/botprofile.yml",
+        "chatterbot-1k/chinese/conversations.yml",
+        "chatterbot-1k/chinese/emotion.yml",
+        "chatterbot-1k/chinese/food.yml",
+        "chatterbot-1k/chinese/gossip.yml",
+        "chatterbot-1k/chinese/greetings.yml",
+        "chatterbot-1k/chinese/history.yml",
+        "chatterbot-1k/chinese/humor.yml",
+        "chatterbot-1k/chinese/literature.yml",
+        "chatterbot-1k/chinese/money.yml",
+        "chatterbot-1k/chinese/movies.yml",
+        "chatterbot-1k/chinese/politics.yml",
+        "chatterbot-1k/chinese/psychology.yml",
+        "chatterbot-1k/chinese/science.yml",
+        "chatterbot-1k/chinese/sports.yml",
+        "chatterbot-1k/chinese/trivia.yml"
+      ],
+      "douban": [
+        "douban-multiturn-100w/test.txt"
+      ],
+      "ptt": [
+        "ptt-77w/Gossiping-QA-Dataset-2_0.csv"
+      ],
+      "subtitle": [
+        "subtitle-useless/dgk_shooter_min.conv"
+      ],
+      "xiaohuangji": [
+        "xiaohuangji-40w/xiaohuangji50w_nofenci.conv"
+      ]
+    },
+    "missing_datasets": [
+      "qingyun",
+      "tieba",
+      "weibo"
+    ],
+    "missing_douban_splits": [
+      "train",
+      "dev"
+    ],
+    "files": [
+      {
+        "path": "chatterbot-1k/chinese/ai.yml",
+        "size": 4206,
+        "sha256": "2bcf4865be21fe3617cc32bb6f7322e3b976fc367600c28c39f9d666713e26fc"
+      },
+      {
+        "path": "chatterbot-1k/chinese/botprofile.yml",
+        "size": 587,
+        "sha256": "7e036208f4df2a873591c40f973a5c421a1676f9d6d36de2fd8bd3b7fed3f734"
+      },
+      {
+        "path": "chatterbot-1k/chinese/conversations.yml",
+        "size": 3636,
+        "sha256": "b689bacb7b35467c5340f18b32a363a3affb76747c0e6bba78c17bbd15fafb66"
+      },
+      {
+        "path": "chatterbot-1k/chinese/emotion.yml",
+        "size": 2606,
+        "sha256": "b49abd01b2102d187dbb0d83ad989115d641d9b6798fa098adde2e7922ea4dff"
+      },
+      {
+        "path": "chatterbot-1k/chinese/food.yml",
+        "size": 493,
+        "sha256": "3d117953affeb6c62ab10ee2d9b58adabcef7b87e42c75afcb738e80b91ef702"
+      },
+      {
+        "path": "chatterbot-1k/chinese/gossip.yml",
+        "size": 854,
+        "sha256": "5417ed7c694d4202e43be49fb7eb40aba81ec95f90115428adeaab6afe391002"
+      },
+      {
+        "path": "chatterbot-1k/chinese/greetings.yml",
+        "size": 908,
+        "sha256": "3ee79c3f1c35af1022bf46049968ab22435044b3bc9a287d72c1733c05322329"
+      },
+      {
+        "path": "chatterbot-1k/chinese/history.yml",
+        "size": 667,
+        "sha256": "1c54656a5c9054ab783f0f7ff903c0f1bf7d3e2b39f0daaeb0054a41ce24ef99"
+      },
+      {
+        "path": "chatterbot-1k/chinese/humor.yml",
+        "size": 5994,
+        "sha256": "c0b0b7a819d87e22d7ce4af11ffd8545692cfa7632bc66658a537db6ec22dc95"
+      },
+      {
+        "path": "chatterbot-1k/chinese/literature.yml",
+        "size": 2127,
+        "sha256": "823ce961391461ddfbde987f766082d39cee02349fd6adc1e686b761eec9e9e1"
+      },
+      {
+        "path": "chatterbot-1k/chinese/money.yml",
+        "size": 1974,
+        "sha256": "25b942878b8eed6fa3ef6a3cc3400323c5278dc37ee43c1ae31e818af6284574"
+      },
+      {
+        "path": "chatterbot-1k/chinese/movies.yml",
+        "size": 1369,
+        "sha256": "c047762ac4df1ce634efd00346c73076b1f66600f1e7fdabd6d96062eb8976df"
+      },
+      {
+        "path": "chatterbot-1k/chinese/politics.yml",
+        "size": 993,
+        "sha256": "c7b2b23eeacf1bbeeff5ce9a767b76e6c7df81068850b03d79a48f4064f5df97"
+      },
+      {
+        "path": "chatterbot-1k/chinese/psychology.yml",
+        "size": 4938,
+        "sha256": "4ab365ccfc38b078269a75bbc7beb5a88bacad1340ee2cdb008924d8bcb4317e"
+      },
+      {
+        "path": "chatterbot-1k/chinese/science.yml",
+        "size": 2483,
+        "sha256": "5491bac9e5a6deaece06138fc235e9387e26bb73730b32afe43b5f28fb79ba15"
+      },
+      {
+        "path": "chatterbot-1k/chinese/sports.yml",
+        "size": 1559,
+        "sha256": "315658785fdefc6e15579d4c82971073a39dabe0ff9bf0b95ed10530dd206803"
+      },
+      {
+        "path": "chatterbot-1k/chinese/trivia.yml",
+        "size": 916,
+        "sha256": "46c1f8bd45d3d3e0c7f7644e7a1d9f8f23d2ecdf7f57bcb0709b355eabd114f2"
+      },
+      {
+        "path": "douban-multiturn-100w/test.txt",
+        "size": 7312661,
+        "sha256": "dc890b9489bc44b0a6ddcf67c5879d09225cd4973bff745faebb5ba1284468ad"
+      },
+      {
+        "path": "ptt-77w/Gossiping-QA-Dataset-2_0.csv",
+        "size": 61356419,
+        "sha256": "1f3689826277cf6a34e10ff633c6fec9a2cebb5985daec5a37f8a4f87dc87a88"
+      },
+      {
+        "path": "subtitle-useless/dgk_shooter_min.conv",
+        "size": 140186780,
+        "sha256": "d52c785c83094e0af234323588c056045b4e67e43952cb0ca6cad82680500a92"
+      },
+      {
+        "path": "xiaohuangji-40w/xiaohuangji50w_nofenci.conv",
+        "size": 24460519,
+        "sha256": "a680fcf9d3678429245adfcc87dac220bd5c291575a431ba49ecb01b0f4b897d"
+      }
+    ],
+    "notices": [
+      {
+        "path": "licenses/chatterbot-license.md",
+        "size": 1476,
+        "sha256": "a3ef744f9a7ddfb090596aeabe99c145adfe0d14f3eafdfb6a70207caded8aea"
+      },
+      {
+        "path": "licenses/ptt-LICENSE",
+        "size": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "metadata/acquisition.md",
+        "size": 832,
+        "sha256": "04e0d793f0c6b454fd850518a04d28a4f9cd5d0a1a1d6f2546b1a5937d3b8c03"
+      },
+      {
+        "path": "metadata/dialog-corpus-README.md",
+        "size": 2684,
+        "sha256": "03ce341fcaf67bb934c8b28a608f840f98e3b0318e52d4b142bddebb088f247d"
+      },
+      {
+        "path": "metadata/douban-README.md",
+        "size": 2552,
+        "sha256": "37a3b6b6c5499857bbd987a90faf76bdfdb8c47ce90d2b278da8434961378e16"
+      },
+      {
+        "path": "metadata/ptt-README.md",
+        "size": 3420,
+        "sha256": "b4ce834b2f61b388389f21ed3ea75aaa57c772759c20de79120c7ba78724cf63"
+      }
+    ]
+  },
+  "inputs": {
+    "id": "chinese-chatbot-corpus",
+    "kind": "chinese-chatbot-corpus",
+    "repository": "https://github.com/codemayq/chinese-chatbot-corpus",
+    "layout_revision": "3e1aaf381fc971997a585c2571af050660331f48",
+    "datasets": {
+      "chatterbot": [
+        "chatterbot-1k/chinese/ai.yml",
+        "chatterbot-1k/chinese/botprofile.yml",
+        "chatterbot-1k/chinese/conversations.yml",
+        "chatterbot-1k/chinese/emotion.yml",
+        "chatterbot-1k/chinese/food.yml",
+        "chatterbot-1k/chinese/gossip.yml",
+        "chatterbot-1k/chinese/greetings.yml",
+        "chatterbot-1k/chinese/history.yml",
+        "chatterbot-1k/chinese/humor.yml",
+        "chatterbot-1k/chinese/literature.yml",
+        "chatterbot-1k/chinese/money.yml",
+        "chatterbot-1k/chinese/movies.yml",
+        "chatterbot-1k/chinese/politics.yml",
+        "chatterbot-1k/chinese/psychology.yml",
+        "chatterbot-1k/chinese/science.yml",
+        "chatterbot-1k/chinese/sports.yml",
+        "chatterbot-1k/chinese/trivia.yml"
+      ],
+      "douban": [
+        "douban-multiturn-100w/test.txt"
+      ],
+      "ptt": [
+        "ptt-77w/Gossiping-QA-Dataset-2_0.csv"
+      ],
+      "subtitle": [
+        "subtitle-useless/dgk_shooter_min.conv"
+      ],
+      "xiaohuangji": [
+        "xiaohuangji-40w/xiaohuangji50w_nofenci.conv"
+      ]
+    },
+    "missing_datasets": [
+      "qingyun",
+      "tieba",
+      "weibo"
+    ],
+    "missing_douban_splits": [
+      "train",
+      "dev"
+    ],
+    "files": [
+      {
+        "path": "chatterbot-1k/chinese/ai.yml",
+        "size": 4206,
+        "sha256": "2bcf4865be21fe3617cc32bb6f7322e3b976fc367600c28c39f9d666713e26fc"
+      },
+      {
+        "path": "chatterbot-1k/chinese/botprofile.yml",
+        "size": 587,
+        "sha256": "7e036208f4df2a873591c40f973a5c421a1676f9d6d36de2fd8bd3b7fed3f734"
+      },
+      {
+        "path": "chatterbot-1k/chinese/conversations.yml",
+        "size": 3636,
+        "sha256": "b689bacb7b35467c5340f18b32a363a3affb76747c0e6bba78c17bbd15fafb66"
+      },
+      {
+        "path": "chatterbot-1k/chinese/emotion.yml",
+        "size": 2606,
+        "sha256": "b49abd01b2102d187dbb0d83ad989115d641d9b6798fa098adde2e7922ea4dff"
+      },
+      {
+        "path": "chatterbot-1k/chinese/food.yml",
+        "size": 493,
+        "sha256": "3d117953affeb6c62ab10ee2d9b58adabcef7b87e42c75afcb738e80b91ef702"
+      },
+      {
+        "path": "chatterbot-1k/chinese/gossip.yml",
+        "size": 854,
+        "sha256": "5417ed7c694d4202e43be49fb7eb40aba81ec95f90115428adeaab6afe391002"
+      },
+      {
+        "path": "chatterbot-1k/chinese/greetings.yml",
+        "size": 908,
+        "sha256": "3ee79c3f1c35af1022bf46049968ab22435044b3bc9a287d72c1733c05322329"
+      },
+      {
+        "path": "chatterbot-1k/chinese/history.yml",
+        "size": 667,
+        "sha256": "1c54656a5c9054ab783f0f7ff903c0f1bf7d3e2b39f0daaeb0054a41ce24ef99"
+      },
+      {
+        "path": "chatterbot-1k/chinese/humor.yml",
+        "size": 5994,
+        "sha256": "c0b0b7a819d87e22d7ce4af11ffd8545692cfa7632bc66658a537db6ec22dc95"
+      },
+      {
+        "path": "chatterbot-1k/chinese/literature.yml",
+        "size": 2127,
+        "sha256": "823ce961391461ddfbde987f766082d39cee02349fd6adc1e686b761eec9e9e1"
+      },
+      {
+        "path": "chatterbot-1k/chinese/money.yml",
+        "size": 1974,
+        "sha256": "25b942878b8eed6fa3ef6a3cc3400323c5278dc37ee43c1ae31e818af6284574"
+      },
+      {
+        "path": "chatterbot-1k/chinese/movies.yml",
+        "size": 1369,
+        "sha256": "c047762ac4df1ce634efd00346c73076b1f66600f1e7fdabd6d96062eb8976df"
+      },
+      {
+        "path": "chatterbot-1k/chinese/politics.yml",
+        "size": 993,
+        "sha256": "c7b2b23eeacf1bbeeff5ce9a767b76e6c7df81068850b03d79a48f4064f5df97"
+      },
+      {
+        "path": "chatterbot-1k/chinese/psychology.yml",
+        "size": 4938,
+        "sha256": "4ab365ccfc38b078269a75bbc7beb5a88bacad1340ee2cdb008924d8bcb4317e"
+      },
+      {
+        "path": "chatterbot-1k/chinese/science.yml",
+        "size": 2483,
+        "sha256": "5491bac9e5a6deaece06138fc235e9387e26bb73730b32afe43b5f28fb79ba15"
+      },
+      {
+        "path": "chatterbot-1k/chinese/sports.yml",
+        "size": 1559,
+        "sha256": "315658785fdefc6e15579d4c82971073a39dabe0ff9bf0b95ed10530dd206803"
+      },
+      {
+        "path": "chatterbot-1k/chinese/trivia.yml",
+        "size": 916,
+        "sha256": "46c1f8bd45d3d3e0c7f7644e7a1d9f8f23d2ecdf7f57bcb0709b355eabd114f2"
+      },
+      {
+        "path": "douban-multiturn-100w/test.txt",
+        "size": 7312661,
+        "sha256": "dc890b9489bc44b0a6ddcf67c5879d09225cd4973bff745faebb5ba1284468ad"
+      },
+      {
+        "path": "ptt-77w/Gossiping-QA-Dataset-2_0.csv",
+        "size": 61356419,
+        "sha256": "1f3689826277cf6a34e10ff633c6fec9a2cebb5985daec5a37f8a4f87dc87a88"
+      },
+      {
+        "path": "subtitle-useless/dgk_shooter_min.conv",
+        "size": 140186780,
+        "sha256": "d52c785c83094e0af234323588c056045b4e67e43952cb0ca6cad82680500a92"
+      },
+      {
+        "path": "xiaohuangji-40w/xiaohuangji50w_nofenci.conv",
+        "size": 24460519,
+        "sha256": "a680fcf9d3678429245adfcc87dac220bd5c291575a431ba49ecb01b0f4b897d"
+      }
+    ],
+    "notices": [
+      {
+        "path": "licenses/chatterbot-license.md",
+        "size": 1476,
+        "sha256": "a3ef744f9a7ddfb090596aeabe99c145adfe0d14f3eafdfb6a70207caded8aea"
+      },
+      {
+        "path": "licenses/ptt-LICENSE",
+        "size": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "metadata/acquisition.md",
+        "size": 832,
+        "sha256": "04e0d793f0c6b454fd850518a04d28a4f9cd5d0a1a1d6f2546b1a5937d3b8c03"
+      },
+      {
+        "path": "metadata/dialog-corpus-README.md",
+        "size": 2684,
+        "sha256": "03ce341fcaf67bb934c8b28a608f840f98e3b0318e52d4b142bddebb088f247d"
+      },
+      {
+        "path": "metadata/douban-README.md",
+        "size": 2552,
+        "sha256": "37a3b6b6c5499857bbd987a90faf76bdfdb8c47ce90d2b278da8434961378e16"
+      },
+      {
+        "path": "metadata/ptt-README.md",
+        "size": 3420,
+        "sha256": "b4ce834b2f61b388389f21ed3ea75aaa57c772759c20de79120c7ba78724cf63"
+      }
+    ],
+    "attribution_sha256": "39693c3b2de51a72b15cf229827d8c5003163b428f86d1780f1b659b07785e4b"
+  },
+  "normalization": {
+    "opencc": "0.1.7",
+    "config": "t2s"
+  },
+  "counts": {
+    "records_read": 6416938,
+    "documents": 5968980,
+    "surrogates_removed": 0,
+    "lines": 5968823,
+    "characters": 63113645,
+    "excluded_douban_negatives": 8814,
+    "excluded_ptt_placeholders": 1078,
+    "invalid_utf8_lines": 108,
+    "skipped_conv_rows": 1155
+  },
+  "code": {
+    "prepare_raw_text.py": "f15dbe35b9e2d517aaba5ee75229c0690b431abb5744eeec65c3eec472e70658",
+    "readers.py": "db7ed2591a780d7f0c28a64a860bdb81b950f2582800c5007a818c4c521619f2",
+    "local_sources.py": "d9d137c63c4d837f23999e2391014cfb6127783aec1bd3e9e42e443e46cb3b3e",
+    "common.py": "a4e9d8cc52d7393d5785b2d1b8efb3017b58034edaa2589119ca02bd76a2f17a",
+    "clean/chinese.py": "8009c7a9ca11c56045a9050d746c9dab017e871256ea91427386aca680a2cfc0",
+    "clean/wikipedia.py": "0e06f67fff77a4002962b8403a32da3066f3f474811145d139ea946c944a86fd",
+    "chatbot_sources.py": "8275a527aa6dcadfe23209b6bd2d4850500f7ed4dc7aafc8e0716eb15c939a93"
+  },
+  "scope": "All eligible records in the complete pinned local raw archive; no character cap, Han-only filtering, 4-character minimum, 96-character cutting or deduplication. OpenCC t2s applies to extracted text only. Local SI conversation boundaries are preserved; dialogue dataset/split/turn/message/parent identities are retained in document metadata.",
+  "extraction": "JSON text/turns; Markdown prose; namespace-0 nonredirect Wikipedia current wikitext prose with title. Existing markup readers remove code/templates/tables/references. Line endings are LF; invalid surrogate code points are removed for valid UTF-8. LCCC joins only spaces between adjacent Han/CJK punctuation tokens. Chinese Chatbot Corpus emits utterances with subcorpus, record and turn origins.",
+  "files": {
+    "attribution/chinese-chatbot-corpus.md": {
+      "sha256": "39693c3b2de51a72b15cf229827d8c5003163b428f86d1780f1b659b07785e4b",
+      "bytes": 2499
+    },
+    "attribution/licenses/chatterbot-license.md": {
+      "sha256": "a3ef744f9a7ddfb090596aeabe99c145adfe0d14f3eafdfb6a70207caded8aea",
+      "bytes": 1476
+    },
+    "attribution/licenses/ptt-LICENSE": {
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    "attribution/metadata/acquisition.md": {
+      "sha256": "04e0d793f0c6b454fd850518a04d28a4f9cd5d0a1a1d6f2546b1a5937d3b8c03",
+      "bytes": 832
+    },
+    "attribution/metadata/dialog-corpus-README.md": {
+      "sha256": "03ce341fcaf67bb934c8b28a608f840f98e3b0318e52d4b142bddebb088f247d",
+      "bytes": 2684
+    },
+    "attribution/metadata/douban-README.md": {
+      "sha256": "37a3b6b6c5499857bbd987a90faf76bdfdb8c47ce90d2b278da8434961378e16",
+      "bytes": 2552
+    },
+    "attribution/metadata/ptt-README.md": {
+      "sha256": "b4ce834b2f61b388389f21ed3ea75aaa57c772759c20de79120c7ba78724cf63",
+      "bytes": 3420
+    },
+    "documents.jsonl": {
+      "sha256": "e86c63593dfa679ae7175b77c643b094de299deec66d164b2eaa642a835555f8",
+      "bytes": 1380412350
+    },
+    "text.txt": {
+      "sha256": "fe3858f85d67e7cc53bf381ec65a6e8f9fa32f41b46decc0457eb1e2e5bd714b",
+      "bytes": 178370165
+    }
+  },
+  "dataset_documents": {
+    "chatterbot": 1019,
+    "douban": 8432,
+    "ptt": 1546072,
+    "subtitle": 3505195,
+    "xiaohuangji": 908262
+  }
+}

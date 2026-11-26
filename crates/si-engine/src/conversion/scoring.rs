@@ -149,6 +149,7 @@ impl<'a> Scoring<'a> {
             .and_then(|corpus| corpus.grams)
             .and_then(|grams| grams.sizes().iter().rposition(|&size| size != 0))
             .map_or(0, |index| index + 1);
+        let limit = if user { limit } else { limit.min(2) };
         let mut ids = if user { history.user } else { history.base };
         ids.len = ids.len.min(limit);
         ids.ids[ids.len..].fill(WordId(0));
@@ -305,6 +306,13 @@ struct Prepared<'a> {
     mass: f64,
 }
 
+#[derive(Clone, Copy)]
+struct BaseGram {
+    count: f64,
+    mass: f64,
+    order: usize,
+}
+
 // Keys contain only bounded dictionary IDs. Full equality still guards every
 // hit; no output text or canonical candidate identity uses this fast hash.
 type ContextCache<'a> = HashMap<ContextKey, Prepared<'a>, BuildHasherDefault<IdHasher>>;
@@ -418,12 +426,13 @@ impl ScoreSession<'_, '_> {
             .personalized;
         let base = word.word.ids.base.and_then(|id| bounds.base.get(&id));
         let user = word.word.ids.user.and_then(|id| bounds.user.get(&id));
-        // Smoothing and user boosts cannot exceed the larger of their two inputs.
+        // A base reward never exceeds log2(continuation / prior), so the
+        // resulting probability and user boosts stay below their largest input.
         // The personalized unigram is also an upper bound on the base unigram.
         let upper = unigram
             .max(base.copied().unwrap_or_default())
             .max(user.copied().unwrap_or_default());
-        // Allow for accumulated rounding in smoothing and the optimistic score.
+        // Allow for accumulated rounding in rewards and the optimistic score.
         probability_bits(upper) - completion_cost(self.model.config.spelling_scoring, missing)
             + 1e-9
     }
@@ -478,22 +487,24 @@ impl ScoreSession<'_, '_> {
             let mut mixed = Scores::default();
             for row in &self.field.base {
                 let mut probability = priors;
-                for (observed, mass) in continuations(
+                if let Some(gram) = highest_base_gram(
                     &mut self.contexts.base,
                     self.model.base,
                     row.history.base,
                     ids.base,
                 ) {
-                    probability.base = smooth_base_gram(probability.base, observed, mass, config);
+                    probability.base = reward_base_gram(probability.base, gram, config);
                     probability.personalized =
-                        smooth_base_gram(probability.personalized, observed, mass, config);
+                        reward_base_gram(probability.personalized, gram, config);
                 }
                 mixed.base += row.weight * probability.base;
                 mixed.personalized += row.weight * probability.personalized;
             }
+            // Normalized history weights must not turn neutral evidence into a
+            // penalty through accumulated rounding.
             priors = Scores {
-                base: mixed.base.min(1.0),
-                personalized: mixed.personalized.min(1.0),
+                base: priors.base.max(mixed.base.min(1.0)),
+                personalized: priors.personalized.max(mixed.personalized.min(1.0)),
             };
         }
         if let Some(user) = self.model.user.filter(|_| !self.field.user.is_empty()) {
@@ -558,19 +569,14 @@ impl ScoreSession<'_, '_> {
         }
         let base = self.model.base;
         let mut priors = *word_score.unigram.get_or_init(|| self.model.unigram(word));
-        for (observed, mass) in
-            continuations(&mut self.contexts.base, base, previous.base, word.ids.base)
+        if let Some(gram) =
+            highest_base_gram(&mut self.contexts.base, base, previous.base, word.ids.base)
         {
-            priors.base = smooth_base_gram(
-                priors.base,
-                observed,
-                mass,
-                self.model.config.statistical_scoring,
-            );
-            priors.personalized = smooth_base_gram(
+            priors.base =
+                reward_base_gram(priors.base, gram, self.model.config.statistical_scoring);
+            priors.personalized = reward_base_gram(
                 priors.personalized,
-                observed,
-                mass,
+                gram,
                 self.model.config.statistical_scoring,
             );
         }
@@ -638,14 +644,23 @@ fn probability_bits(probability: f64) -> f64 {
     probability.max(f64::MIN_POSITIVE).log2()
 }
 
-fn smooth_base_gram(prior: f64, count: f64, mass: f64, config: StatisticalScoringConfig) -> f64 {
-    let weight = gram_weight(
-        mass,
-        config.base_word_gram_prior_count,
-        config.word_gram_interpolation_weight_limit,
-    );
-    // Missing continuations still retain lower-order evidence, even for frequent histories.
-    (1.0 - weight) * prior + weight * (count / mass)
+fn reward_base_gram(prior: f64, gram: BaseGram, config: StatisticalScoringConfig) -> f64 {
+    let prior_bits = probability_bits(prior);
+    let lift = probability_bits(gram.count / gram.mass) - prior_bits;
+    let confidence = gram.count / (gram.count + config.base_word_gram_confidence_count);
+    let discount = if gram.order == 2 {
+        config.base_word_gram_backoff_discount
+    } else {
+        1.0
+    };
+    let bonus = lift.clamp(0.0, config.base_word_gram_reward_cap_bits) * confidence * discount;
+    if bonus == 0.0 {
+        prior
+    } else {
+        // Keep exact zero-count words finite using the same floor as their base
+        // log score. A reward cannot make an edge's log probability positive.
+        (prior_bits + bonus).exp2().min(1.0)
+    }
 }
 
 fn start_reward(count: u64, maximum: u64, reward_limit: f64) -> f64 {
@@ -711,7 +726,34 @@ where
         })
 }
 
-fn context_keys(history: HistoryIds) -> impl Iterator<Item = ContextKey> {
+fn highest_base_gram<'data>(
+    cache: &mut ContextCache<'data>,
+    corpus: Corpus<'data>,
+    history: HistoryIds,
+    id: Option<WordId>,
+) -> Option<BaseGram> {
+    let grams = corpus.grams?;
+    let id = id?;
+    // Exactly one matching trigram, otherwise one bigram. Higher stored orders
+    // do not change the fixed trigram ceiling or the bigram discount.
+    let history = HistoryIds {
+        len: history.len.min(2),
+        ..history
+    };
+    for key in context_keys(history).rev() {
+        let row = prepare_context(cache, grams, key);
+        if let Some(count) = row.context.count(id).filter(|&count| count > 0) {
+            return Some(BaseGram {
+                count: count as f64,
+                mass: row.mass,
+                order: key.len + 1,
+            });
+        }
+    }
+    None
+}
+
+fn context_keys(history: HistoryIds) -> impl DoubleEndedIterator<Item = ContextKey> {
     (1..=history.len).map(move |len| {
         let mut ids = [WordId(0); HISTORY_WORDS];
         for (destination, &source) in ids.iter_mut().zip(history.ids[..len].iter().rev()) {
@@ -764,8 +806,8 @@ fn prepare_context<'cache, 'data>(
 #[cfg(test)]
 mod tests {
     use super::{
-        Corpus, History, HistoryIds, Scores, StartHistory, boost_user_gram, boost_user_unigram,
-        smooth_base_gram, start_reward,
+        BaseGram, Corpus, History, HistoryIds, Scores, StartHistory, boost_user_gram,
+        boost_user_unigram, probability_bits, reward_base_gram, start_reward,
     };
     use crate::resources::EngineConfig;
     use si_lexicon::Lexicon;
@@ -775,12 +817,26 @@ mod tests {
         let original = EngineConfig::default().statistical_scoring;
         let mut custom = original;
         let prior = 0.01;
-        let baseline = smooth_base_gram(prior, 16.0, 32.0, original);
-        custom.base_word_gram_prior_count = 64.0;
-        assert!(smooth_base_gram(prior, 16.0, 32.0, custom) < baseline);
+        let gram = BaseGram {
+            count: 16.0,
+            mass: 32.0,
+            order: 3,
+        };
+        let baseline = reward_base_gram(prior, gram, original);
+        custom.base_word_gram_confidence_count = 20.0;
+        assert!(reward_base_gram(prior, gram, custom) < baseline);
         custom = original;
-        custom.word_gram_interpolation_weight_limit = 0.25;
-        assert!(smooth_base_gram(prior, 16.0, 32.0, custom) < baseline);
+        custom.base_word_gram_reward_cap_bits = 1.0;
+        assert!(reward_base_gram(prior, gram, custom) < baseline);
+        custom.base_word_gram_reward_cap_bits = 0.0;
+        assert_eq!(reward_base_gram(prior, gram, custom), prior);
+        custom = original;
+        custom.base_word_gram_backoff_discount = 0.0;
+        assert_eq!(
+            reward_base_gram(prior, BaseGram { order: 2, ..gram }, custom),
+            prior
+        );
+        assert_eq!(reward_base_gram(prior, gram, custom), baseline);
         let baseline = boost_user_gram(prior, 16.0, 32.0, original);
         custom = original;
         custom.user_word_gram_prior_count = 64.0;
@@ -803,6 +859,40 @@ mod tests {
         custom = original;
         custom.user_unigram_boost_weight_limit = 0.0;
         assert_eq!(boost_user_unigram(prior, corpus, 16.0, custom), prior);
+    }
+
+    #[test]
+    fn base_gram_rewards_cap_lift_before_joint_count_confidence_and_backoff() {
+        let config = EngineConfig::default().statistical_scoring;
+        let prior = 1.0 / 1_024.0;
+        for count in [1.0, 10.0, 100.0] {
+            let gram = BaseGram {
+                count,
+                mass: count,
+                order: 3,
+            };
+            let gain =
+                |gram| probability_bits(reward_base_gram(prior, gram, config)) - prior.log2();
+            let expected = 5.0 * count / (count + 10.0);
+            assert!((gain(gram) - expected).abs() < 1e-12);
+            assert!((gain(BaseGram { order: 2, ..gram }) - expected * 0.7).abs() < 1e-12);
+        }
+        let weak = BaseGram {
+            count: 1.0,
+            mass: 10_000.0,
+            order: 3,
+        };
+        assert_eq!(reward_base_gram(prior, weak, config), prior);
+        for prior in [0.0, f64::MIN_POSITIVE, 0.1, 0.9, 1.0] {
+            let gram = BaseGram {
+                count: 100.0,
+                mass: 200.0,
+                order: 3,
+            };
+            let result = reward_base_gram(prior, gram, config);
+            assert!(result >= prior && result <= prior.max(0.5));
+            assert!(probability_bits(result).is_finite());
+        }
     }
 
     #[test]

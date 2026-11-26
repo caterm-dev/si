@@ -1,0 +1,717 @@
+{
+  "schema_version": 2,
+  "extraction_contract": "complete-simplified-text-lines-v2",
+  "source": {
+    "id": "dialogue",
+    "kind": "dialogue",
+    "datasets": [
+      {
+        "id": "kdconv",
+        "repository": "https://github.com/thu-coai/KdConv",
+        "revision": "653db76432de09a004ba708a68f8bbd5500e6bec",
+        "license": "Apache-2.0",
+        "files": [
+          {
+            "path": "data/film/dev.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/dev.json",
+            "size": 1363416,
+            "sha256": "2f156d8d34bdd3eac31c196772156d36e017f8cb2255a2c312bd98e367ed363e",
+            "git_blob_sha1": "86ddffa7da07c0e9dcd256a25747e44c0d46580a"
+          },
+          {
+            "path": "data/film/test.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/test.json",
+            "size": 1547354,
+            "sha256": "5ba2b79f9791bedbe5fe8a1bf5d7cbf277697743ee426ecd05459d9e28bcf21b",
+            "git_blob_sha1": "2c7ae53a7506c4555a57bc6a6dbec016b33e7072"
+          },
+          {
+            "path": "data/film/train.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/train.json",
+            "size": 7892763,
+            "sha256": "b48a491c30ace856914c6863679ba5c8ea95d7e3a1734f45177f69afbcd88e74",
+            "git_blob_sha1": "98674bde290888e9bb9246054fe1bf4596f660b0"
+          },
+          {
+            "path": "data/music/dev.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/dev.json",
+            "size": 945559,
+            "sha256": "ee34a4af167195db43fdcc910f8d125956222517f0572d248a069057493d557f",
+            "git_blob_sha1": "72c2ebd51f38c06d81128b4cffee5f0a39d94b3b"
+          },
+          {
+            "path": "data/music/test.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/test.json",
+            "size": 1148564,
+            "sha256": "46f048c5db9dde45127cf6630b2fa06b685be369b71c5bc2dc3022d3f4bbad65",
+            "git_blob_sha1": "ac81a2679a1d902428ef768d0de576a8488f5d64"
+          },
+          {
+            "path": "data/music/train.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/train.json",
+            "size": 4952078,
+            "sha256": "d5835bb6a61da0067ab2d0dc3ba90059f07cfa781a70206a8266ecafd22641ad",
+            "git_blob_sha1": "6e341552529eb3003746c484ea1f30ca9d4070b3"
+          },
+          {
+            "path": "data/travel/dev.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/dev.json",
+            "size": 904751,
+            "sha256": "8d1f31295888cf61eff398bab8aa042f7fccd04a088bd63c939f0b79625a9093",
+            "git_blob_sha1": "16cffe673b72c94b3272fcef0a27c81e6dca71b2"
+          },
+          {
+            "path": "data/travel/test.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/test.json",
+            "size": 1100567,
+            "sha256": "730426b0997b8375c8477c7e658c0ec645fced6ab8d546adda114b21cf30faac",
+            "git_blob_sha1": "47b0df6de215abda654d22cafbc89c2dba611d93"
+          },
+          {
+            "path": "data/travel/train.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/train.json",
+            "size": 5156841,
+            "sha256": "b582a7171f8a7bb6b579bbf8d31a06cebd0966e520c95301a143b1629d20fb2f",
+            "git_blob_sha1": "4ba46df59e88f300d0d6d71664c77a49e8461264"
+          }
+        ],
+        "documents": [
+          {
+            "path": "licenses/kdconv-LICENSE.txt",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/LICENSE",
+            "size": 11357,
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+            "git_blob_sha1": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+          },
+          {
+            "path": "metadata/kdconv-README.md",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/README.md",
+            "size": 4202,
+            "sha256": "367143877472b758f894fe02d312d24f78271e4c26ae283237d0a13c7acee630",
+            "git_blob_sha1": "9274ef2146294f18e823802799bf26eaaf42cd8a"
+          }
+        ],
+        "scope": "All nine original dialogue JSON files."
+      },
+      {
+        "id": "crosswoz",
+        "repository": "https://github.com/thu-coai/CrossWOZ",
+        "revision": "df82c9fdff91b9b130f2d6b89110d3870ba6260e",
+        "license": "Apache-2.0",
+        "files": [
+          {
+            "path": "data/crosswoz/test.json.zip",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/test.json.zip",
+            "size": 1367462,
+            "sha256": "e57703894995211bba8638f130dc7df81e8992b71f3c05c10022ad23d6ca5310",
+            "git_blob_sha1": "5408e20adcc61347533b5ab1fa9ca4e65f269743"
+          },
+          {
+            "path": "data/crosswoz/train.json.zip",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/train.json.zip",
+            "size": 13624132,
+            "sha256": "b81f6a0845011bb4593d21dd58e2d76af4dd5d52e300ecc68cb8dee17ccc3cf8",
+            "git_blob_sha1": "57eb9cbd004a2e59f301f9e1bdc5500ddf2a98ef"
+          },
+          {
+            "path": "data/crosswoz/val.json.zip",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/val.json.zip",
+            "size": 1368203,
+            "sha256": "b2b717990f6f0a1c98daaf5dc465e61d42f7de69c0d31e88e674275b1f34c94c",
+            "git_blob_sha1": "6de13a813f308802dab90d851132a17bc5064a73"
+          }
+        ],
+        "documents": [
+          {
+            "path": "licenses/crosswoz-LICENSE.txt",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/LICENSE",
+            "size": 11357,
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+            "git_blob_sha1": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+          },
+          {
+            "path": "metadata/crosswoz-README.md",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/README.md",
+            "size": 5730,
+            "sha256": "be521315fc7fde65ebc0da70628a70511e11b0d3ff24cf3370210305f60ac97f",
+            "git_blob_sha1": "6edbb651085d6f5f3ed2f0e712bc5493d0e78745"
+          },
+          {
+            "path": "metadata/crosswoz-data-README.md",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/README.md",
+            "size": 1163,
+            "sha256": "0219c68539445bf019a60e721aeee89fff80d4bd44c2983c0eb0c74be006341a",
+            "git_blob_sha1": "f19bdc9204f2bc20bc3de0a9647ccbbb62d3ab92"
+          }
+        ],
+        "scope": "All three original dialogue ZIP files."
+      },
+      {
+        "id": "oasst1",
+        "repository": "https://huggingface.co/datasets/OpenAssistant/oasst1",
+        "revision": "fdf72ae0827c1cda404aff25b6603abec9e3399b",
+        "hub_repository": "OpenAssistant/oasst1",
+        "license": "Apache-2.0",
+        "files": [
+          {
+            "path": "data/train-00000-of-00001-b42a775f407cee45.parquet",
+            "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/data/train-00000-of-00001-b42a775f407cee45.parquet",
+            "size": 39516251,
+            "sha256": "bbfadf5ed1278ba2208c837fdcad865adf65f5df55d80abadab2745db13fcb5e"
+          },
+          {
+            "path": "data/validation-00000-of-00001-134b8fd0c89408b6.parquet",
+            "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/data/validation-00000-of-00001-134b8fd0c89408b6.parquet",
+            "size": 2080179,
+            "sha256": "24002597bb13a7edd42d92f773762f25e285f72c31a70449393d0ded1dc7b416"
+          }
+        ],
+        "documents": [
+          {
+            "path": "licenses/oasst1-LICENSE.txt",
+            "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/LICENSE",
+            "size": 11357,
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+          },
+          {
+            "path": "metadata/oasst1-README.md",
+            "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/README.md",
+            "size": 10168,
+            "sha256": "68483ac2fcc2f3f7779f453352363827678070ef35b6d746ccb2ca6958540fff"
+          }
+        ],
+        "scope": "Both original multilingual Parquet splits; no language or quality filtering."
+      }
+    ],
+    "files": [
+      {
+        "path": "acquisition.json",
+        "size": 6564,
+        "sha256": "14a4b998ac67579a9d5fa9a59ee80964a15acb0157d44653871dc747e4c93cec"
+      },
+      {
+        "path": "crosswoz/data/crosswoz/test.json.zip",
+        "size": 1367462,
+        "sha256": "e57703894995211bba8638f130dc7df81e8992b71f3c05c10022ad23d6ca5310"
+      },
+      {
+        "path": "crosswoz/data/crosswoz/train.json.zip",
+        "size": 13624132,
+        "sha256": "b81f6a0845011bb4593d21dd58e2d76af4dd5d52e300ecc68cb8dee17ccc3cf8"
+      },
+      {
+        "path": "crosswoz/data/crosswoz/val.json.zip",
+        "size": 1368203,
+        "sha256": "b2b717990f6f0a1c98daaf5dc465e61d42f7de69c0d31e88e674275b1f34c94c"
+      },
+      {
+        "path": "download-manifest.json",
+        "size": 10393,
+        "sha256": "189394de073c7cc687499720a45e7f70e570b007d620fac8226a96b36e9d1ce7"
+      },
+      {
+        "path": "kdconv/data/film/dev.json",
+        "size": 1363416,
+        "sha256": "2f156d8d34bdd3eac31c196772156d36e017f8cb2255a2c312bd98e367ed363e"
+      },
+      {
+        "path": "kdconv/data/film/test.json",
+        "size": 1547354,
+        "sha256": "5ba2b79f9791bedbe5fe8a1bf5d7cbf277697743ee426ecd05459d9e28bcf21b"
+      },
+      {
+        "path": "kdconv/data/film/train.json",
+        "size": 7892763,
+        "sha256": "b48a491c30ace856914c6863679ba5c8ea95d7e3a1734f45177f69afbcd88e74"
+      },
+      {
+        "path": "kdconv/data/music/dev.json",
+        "size": 945559,
+        "sha256": "ee34a4af167195db43fdcc910f8d125956222517f0572d248a069057493d557f"
+      },
+      {
+        "path": "kdconv/data/music/test.json",
+        "size": 1148564,
+        "sha256": "46f048c5db9dde45127cf6630b2fa06b685be369b71c5bc2dc3022d3f4bbad65"
+      },
+      {
+        "path": "kdconv/data/music/train.json",
+        "size": 4952078,
+        "sha256": "d5835bb6a61da0067ab2d0dc3ba90059f07cfa781a70206a8266ecafd22641ad"
+      },
+      {
+        "path": "kdconv/data/travel/dev.json",
+        "size": 904751,
+        "sha256": "8d1f31295888cf61eff398bab8aa042f7fccd04a088bd63c939f0b79625a9093"
+      },
+      {
+        "path": "kdconv/data/travel/test.json",
+        "size": 1100567,
+        "sha256": "730426b0997b8375c8477c7e658c0ec645fced6ab8d546adda114b21cf30faac"
+      },
+      {
+        "path": "kdconv/data/travel/train.json",
+        "size": 5156841,
+        "sha256": "b582a7171f8a7bb6b579bbf8d31a06cebd0966e520c95301a143b1629d20fb2f"
+      },
+      {
+        "path": "licenses/crosswoz-LICENSE.txt",
+        "size": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "licenses/kdconv-LICENSE.txt",
+        "size": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "licenses/lccc-LICENSE.txt",
+        "size": 1068,
+        "sha256": "03da0dd5f60f263f146b6e9c8922ddbce716ffb1ddb8cbceacb0a76f1940b366"
+      },
+      {
+        "path": "licenses/oasst1-LICENSE.txt",
+        "size": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "metadata/chinese-source-review.md",
+        "size": 9043,
+        "sha256": "845e7d4e5e2cbd383ebe90c820623595590f75a96fdd726782867ef177923bb5"
+      },
+      {
+        "path": "metadata/crosswoz-README.md",
+        "size": 5730,
+        "sha256": "be521315fc7fde65ebc0da70628a70511e11b0d3ff24cf3370210305f60ac97f"
+      },
+      {
+        "path": "metadata/crosswoz-data-README.md",
+        "size": 1163,
+        "sha256": "0219c68539445bf019a60e721aeee89fff80d4bd44c2983c0eb0c74be006341a"
+      },
+      {
+        "path": "metadata/kdconv-README.md",
+        "size": 4202,
+        "sha256": "367143877472b758f894fe02d312d24f78271e4c26ae283237d0a13c7acee630"
+      },
+      {
+        "path": "metadata/lccc-DATASET_CARD.md",
+        "size": 4924,
+        "sha256": "51d1d953671afc7fd5c0294518372839581c40946f275cabd79e52b3e2ed616e"
+      },
+      {
+        "path": "metadata/oasst1-README.md",
+        "size": 10168,
+        "sha256": "68483ac2fcc2f3f7779f453352363827678070ef35b6d746ccb2ca6958540fff"
+      },
+      {
+        "path": "oasst1/data/train-00000-of-00001-b42a775f407cee45.parquet",
+        "size": 39516251,
+        "sha256": "bbfadf5ed1278ba2208c837fdcad865adf65f5df55d80abadab2745db13fcb5e"
+      },
+      {
+        "path": "oasst1/data/validation-00000-of-00001-134b8fd0c89408b6.parquet",
+        "size": 2080179,
+        "sha256": "24002597bb13a7edd42d92f773762f25e285f72c31a70449393d0ded1dc7b416"
+      }
+    ],
+    "selection": "KdConv/CrossWOZ utterances and OASST1 Chinese-language messages, with original parent IDs. LCCC-base is extracted separately as lccc. No quality filtering or line deduplication."
+  },
+  "inputs": {
+    "id": "dialogue",
+    "kind": "dialogue",
+    "datasets": [
+      {
+        "id": "kdconv",
+        "repository": "https://github.com/thu-coai/KdConv",
+        "revision": "653db76432de09a004ba708a68f8bbd5500e6bec",
+        "license": "Apache-2.0",
+        "files": [
+          {
+            "path": "data/film/dev.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/dev.json",
+            "size": 1363416,
+            "sha256": "2f156d8d34bdd3eac31c196772156d36e017f8cb2255a2c312bd98e367ed363e",
+            "git_blob_sha1": "86ddffa7da07c0e9dcd256a25747e44c0d46580a"
+          },
+          {
+            "path": "data/film/test.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/test.json",
+            "size": 1547354,
+            "sha256": "5ba2b79f9791bedbe5fe8a1bf5d7cbf277697743ee426ecd05459d9e28bcf21b",
+            "git_blob_sha1": "2c7ae53a7506c4555a57bc6a6dbec016b33e7072"
+          },
+          {
+            "path": "data/film/train.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/train.json",
+            "size": 7892763,
+            "sha256": "b48a491c30ace856914c6863679ba5c8ea95d7e3a1734f45177f69afbcd88e74",
+            "git_blob_sha1": "98674bde290888e9bb9246054fe1bf4596f660b0"
+          },
+          {
+            "path": "data/music/dev.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/dev.json",
+            "size": 945559,
+            "sha256": "ee34a4af167195db43fdcc910f8d125956222517f0572d248a069057493d557f",
+            "git_blob_sha1": "72c2ebd51f38c06d81128b4cffee5f0a39d94b3b"
+          },
+          {
+            "path": "data/music/test.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/test.json",
+            "size": 1148564,
+            "sha256": "46f048c5db9dde45127cf6630b2fa06b685be369b71c5bc2dc3022d3f4bbad65",
+            "git_blob_sha1": "ac81a2679a1d902428ef768d0de576a8488f5d64"
+          },
+          {
+            "path": "data/music/train.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/train.json",
+            "size": 4952078,
+            "sha256": "d5835bb6a61da0067ab2d0dc3ba90059f07cfa781a70206a8266ecafd22641ad",
+            "git_blob_sha1": "6e341552529eb3003746c484ea1f30ca9d4070b3"
+          },
+          {
+            "path": "data/travel/dev.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/dev.json",
+            "size": 904751,
+            "sha256": "8d1f31295888cf61eff398bab8aa042f7fccd04a088bd63c939f0b79625a9093",
+            "git_blob_sha1": "16cffe673b72c94b3272fcef0a27c81e6dca71b2"
+          },
+          {
+            "path": "data/travel/test.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/test.json",
+            "size": 1100567,
+            "sha256": "730426b0997b8375c8477c7e658c0ec645fced6ab8d546adda114b21cf30faac",
+            "git_blob_sha1": "47b0df6de215abda654d22cafbc89c2dba611d93"
+          },
+          {
+            "path": "data/travel/train.json",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/train.json",
+            "size": 5156841,
+            "sha256": "b582a7171f8a7bb6b579bbf8d31a06cebd0966e520c95301a143b1629d20fb2f",
+            "git_blob_sha1": "4ba46df59e88f300d0d6d71664c77a49e8461264"
+          }
+        ],
+        "documents": [
+          {
+            "path": "licenses/kdconv-LICENSE.txt",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/LICENSE",
+            "size": 11357,
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+            "git_blob_sha1": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+          },
+          {
+            "path": "metadata/kdconv-README.md",
+            "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/README.md",
+            "size": 4202,
+            "sha256": "367143877472b758f894fe02d312d24f78271e4c26ae283237d0a13c7acee630",
+            "git_blob_sha1": "9274ef2146294f18e823802799bf26eaaf42cd8a"
+          }
+        ],
+        "scope": "All nine original dialogue JSON files."
+      },
+      {
+        "id": "crosswoz",
+        "repository": "https://github.com/thu-coai/CrossWOZ",
+        "revision": "df82c9fdff91b9b130f2d6b89110d3870ba6260e",
+        "license": "Apache-2.0",
+        "files": [
+          {
+            "path": "data/crosswoz/test.json.zip",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/test.json.zip",
+            "size": 1367462,
+            "sha256": "e57703894995211bba8638f130dc7df81e8992b71f3c05c10022ad23d6ca5310",
+            "git_blob_sha1": "5408e20adcc61347533b5ab1fa9ca4e65f269743"
+          },
+          {
+            "path": "data/crosswoz/train.json.zip",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/train.json.zip",
+            "size": 13624132,
+            "sha256": "b81f6a0845011bb4593d21dd58e2d76af4dd5d52e300ecc68cb8dee17ccc3cf8",
+            "git_blob_sha1": "57eb9cbd004a2e59f301f9e1bdc5500ddf2a98ef"
+          },
+          {
+            "path": "data/crosswoz/val.json.zip",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/val.json.zip",
+            "size": 1368203,
+            "sha256": "b2b717990f6f0a1c98daaf5dc465e61d42f7de69c0d31e88e674275b1f34c94c",
+            "git_blob_sha1": "6de13a813f308802dab90d851132a17bc5064a73"
+          }
+        ],
+        "documents": [
+          {
+            "path": "licenses/crosswoz-LICENSE.txt",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/LICENSE",
+            "size": 11357,
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+            "git_blob_sha1": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+          },
+          {
+            "path": "metadata/crosswoz-README.md",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/README.md",
+            "size": 5730,
+            "sha256": "be521315fc7fde65ebc0da70628a70511e11b0d3ff24cf3370210305f60ac97f",
+            "git_blob_sha1": "6edbb651085d6f5f3ed2f0e712bc5493d0e78745"
+          },
+          {
+            "path": "metadata/crosswoz-data-README.md",
+            "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/README.md",
+            "size": 1163,
+            "sha256": "0219c68539445bf019a60e721aeee89fff80d4bd44c2983c0eb0c74be006341a",
+            "git_blob_sha1": "f19bdc9204f2bc20bc3de0a9647ccbbb62d3ab92"
+          }
+        ],
+        "scope": "All three original dialogue ZIP files."
+      },
+      {
+        "id": "oasst1",
+        "repository": "https://huggingface.co/datasets/OpenAssistant/oasst1",
+        "revision": "fdf72ae0827c1cda404aff25b6603abec9e3399b",
+        "hub_repository": "OpenAssistant/oasst1",
+        "license": "Apache-2.0",
+        "files": [
+          {
+            "path": "data/train-00000-of-00001-b42a775f407cee45.parquet",
+            "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/data/train-00000-of-00001-b42a775f407cee45.parquet",
+            "size": 39516251,
+            "sha256": "bbfadf5ed1278ba2208c837fdcad865adf65f5df55d80abadab2745db13fcb5e"
+          },
+          {
+            "path": "data/validation-00000-of-00001-134b8fd0c89408b6.parquet",
+            "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/data/validation-00000-of-00001-134b8fd0c89408b6.parquet",
+            "size": 2080179,
+            "sha256": "24002597bb13a7edd42d92f773762f25e285f72c31a70449393d0ded1dc7b416"
+          }
+        ],
+        "documents": [
+          {
+            "path": "licenses/oasst1-LICENSE.txt",
+            "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/LICENSE",
+            "size": 11357,
+            "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+          },
+          {
+            "path": "metadata/oasst1-README.md",
+            "url": "https://huggingface.co/datasets/OpenAssistant/oasst1/resolve/fdf72ae0827c1cda404aff25b6603abec9e3399b/README.md",
+            "size": 10168,
+            "sha256": "68483ac2fcc2f3f7779f453352363827678070ef35b6d746ccb2ca6958540fff"
+          }
+        ],
+        "scope": "Both original multilingual Parquet splits; no language or quality filtering."
+      }
+    ],
+    "files": [
+      {
+        "path": "acquisition.json",
+        "size": 6564,
+        "sha256": "14a4b998ac67579a9d5fa9a59ee80964a15acb0157d44653871dc747e4c93cec"
+      },
+      {
+        "path": "crosswoz/data/crosswoz/test.json.zip",
+        "size": 1367462,
+        "sha256": "e57703894995211bba8638f130dc7df81e8992b71f3c05c10022ad23d6ca5310"
+      },
+      {
+        "path": "crosswoz/data/crosswoz/train.json.zip",
+        "size": 13624132,
+        "sha256": "b81f6a0845011bb4593d21dd58e2d76af4dd5d52e300ecc68cb8dee17ccc3cf8"
+      },
+      {
+        "path": "crosswoz/data/crosswoz/val.json.zip",
+        "size": 1368203,
+        "sha256": "b2b717990f6f0a1c98daaf5dc465e61d42f7de69c0d31e88e674275b1f34c94c"
+      },
+      {
+        "path": "download-manifest.json",
+        "size": 10393,
+        "sha256": "189394de073c7cc687499720a45e7f70e570b007d620fac8226a96b36e9d1ce7"
+      },
+      {
+        "path": "kdconv/data/film/dev.json",
+        "size": 1363416,
+        "sha256": "2f156d8d34bdd3eac31c196772156d36e017f8cb2255a2c312bd98e367ed363e"
+      },
+      {
+        "path": "kdconv/data/film/test.json",
+        "size": 1547354,
+        "sha256": "5ba2b79f9791bedbe5fe8a1bf5d7cbf277697743ee426ecd05459d9e28bcf21b"
+      },
+      {
+        "path": "kdconv/data/film/train.json",
+        "size": 7892763,
+        "sha256": "b48a491c30ace856914c6863679ba5c8ea95d7e3a1734f45177f69afbcd88e74"
+      },
+      {
+        "path": "kdconv/data/music/dev.json",
+        "size": 945559,
+        "sha256": "ee34a4af167195db43fdcc910f8d125956222517f0572d248a069057493d557f"
+      },
+      {
+        "path": "kdconv/data/music/test.json",
+        "size": 1148564,
+        "sha256": "46f048c5db9dde45127cf6630b2fa06b685be369b71c5bc2dc3022d3f4bbad65"
+      },
+      {
+        "path": "kdconv/data/music/train.json",
+        "size": 4952078,
+        "sha256": "d5835bb6a61da0067ab2d0dc3ba90059f07cfa781a70206a8266ecafd22641ad"
+      },
+      {
+        "path": "kdconv/data/travel/dev.json",
+        "size": 904751,
+        "sha256": "8d1f31295888cf61eff398bab8aa042f7fccd04a088bd63c939f0b79625a9093"
+      },
+      {
+        "path": "kdconv/data/travel/test.json",
+        "size": 1100567,
+        "sha256": "730426b0997b8375c8477c7e658c0ec645fced6ab8d546adda114b21cf30faac"
+      },
+      {
+        "path": "kdconv/data/travel/train.json",
+        "size": 5156841,
+        "sha256": "b582a7171f8a7bb6b579bbf8d31a06cebd0966e520c95301a143b1629d20fb2f"
+      },
+      {
+        "path": "licenses/crosswoz-LICENSE.txt",
+        "size": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "licenses/kdconv-LICENSE.txt",
+        "size": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "licenses/lccc-LICENSE.txt",
+        "size": 1068,
+        "sha256": "03da0dd5f60f263f146b6e9c8922ddbce716ffb1ddb8cbceacb0a76f1940b366"
+      },
+      {
+        "path": "licenses/oasst1-LICENSE.txt",
+        "size": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "path": "metadata/chinese-source-review.md",
+        "size": 9043,
+        "sha256": "845e7d4e5e2cbd383ebe90c820623595590f75a96fdd726782867ef177923bb5"
+      },
+      {
+        "path": "metadata/crosswoz-README.md",
+        "size": 5730,
+        "sha256": "be521315fc7fde65ebc0da70628a70511e11b0d3ff24cf3370210305f60ac97f"
+      },
+      {
+        "path": "metadata/crosswoz-data-README.md",
+        "size": 1163,
+        "sha256": "0219c68539445bf019a60e721aeee89fff80d4bd44c2983c0eb0c74be006341a"
+      },
+      {
+        "path": "metadata/kdconv-README.md",
+        "size": 4202,
+        "sha256": "367143877472b758f894fe02d312d24f78271e4c26ae283237d0a13c7acee630"
+      },
+      {
+        "path": "metadata/lccc-DATASET_CARD.md",
+        "size": 4924,
+        "sha256": "51d1d953671afc7fd5c0294518372839581c40946f275cabd79e52b3e2ed616e"
+      },
+      {
+        "path": "metadata/oasst1-README.md",
+        "size": 10168,
+        "sha256": "68483ac2fcc2f3f7779f453352363827678070ef35b6d746ccb2ca6958540fff"
+      },
+      {
+        "path": "oasst1/data/train-00000-of-00001-b42a775f407cee45.parquet",
+        "size": 39516251,
+        "sha256": "bbfadf5ed1278ba2208c837fdcad865adf65f5df55d80abadab2745db13fcb5e"
+      },
+      {
+        "path": "oasst1/data/validation-00000-of-00001-134b8fd0c89408b6.parquet",
+        "size": 2080179,
+        "sha256": "24002597bb13a7edd42d92f773762f25e285f72c31a70449393d0ded1dc7b416"
+      }
+    ],
+    "selection": "KdConv/CrossWOZ utterances and OASST1 Chinese-language messages, with original parent IDs. LCCC-base is extracted separately as lccc. No quality filtering or line deduplication."
+  },
+  "normalization": {
+    "opencc": "0.1.7",
+    "config": "t2s",
+    "pyarrow": "20.0.0"
+  },
+  "counts": {
+    "records_read": 99350,
+    "documents": 190670,
+    "surrogates_removed": 0,
+    "lines": 203875,
+    "characters": 4986209,
+    "non_chinese_messages": 85390
+  },
+  "code": {
+    "prepare_raw_text.py": "f15dbe35b9e2d517aaba5ee75229c0690b431abb5744eeec65c3eec472e70658",
+    "readers.py": "db7ed2591a780d7f0c28a64a860bdb81b950f2582800c5007a818c4c521619f2",
+    "local_sources.py": "d9d137c63c4d837f23999e2391014cfb6127783aec1bd3e9e42e443e46cb3b3e",
+    "common.py": "a4e9d8cc52d7393d5785b2d1b8efb3017b58034edaa2589119ca02bd76a2f17a",
+    "clean/chinese.py": "8009c7a9ca11c56045a9050d746c9dab017e871256ea91427386aca680a2cfc0",
+    "clean/wikipedia.py": "0e06f67fff77a4002962b8403a32da3066f3f474811145d139ea946c944a86fd"
+  },
+  "scope": "All eligible records in the complete pinned local raw archive; no character cap, Han-only filtering, 4-character minimum, 96-character cutting or deduplication. OpenCC t2s applies to extracted text only. Local SI conversation boundaries are preserved; dialogue dataset/split/turn/message/parent identities are retained in document metadata.",
+  "extraction": "JSON text/turns; Markdown prose; namespace-0 nonredirect Wikipedia current wikitext prose with title. Existing markup readers remove code/templates/tables/references. Line endings are LF; invalid surrogate code points are removed for valid UTF-8. LCCC joins only spaces between adjacent Han/CJK punctuation tokens. Chinese Chatbot Corpus emits utterances with subcorpus, record and turn origins.",
+  "files": {
+    "attribution/acquisition.json": {
+      "sha256": "14a4b998ac67579a9d5fa9a59ee80964a15acb0157d44653871dc747e4c93cec",
+      "bytes": 6564
+    },
+    "attribution/download-manifest.json": {
+      "sha256": "189394de073c7cc687499720a45e7f70e570b007d620fac8226a96b36e9d1ce7",
+      "bytes": 10393
+    },
+    "attribution/licenses/crosswoz-LICENSE.txt": {
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    "attribution/licenses/kdconv-LICENSE.txt": {
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    "attribution/licenses/lccc-LICENSE.txt": {
+      "sha256": "03da0dd5f60f263f146b6e9c8922ddbce716ffb1ddb8cbceacb0a76f1940b366",
+      "bytes": 1068
+    },
+    "attribution/licenses/oasst1-LICENSE.txt": {
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "bytes": 11357
+    },
+    "attribution/metadata/chinese-source-review.md": {
+      "sha256": "845e7d4e5e2cbd383ebe90c820623595590f75a96fdd726782867ef177923bb5",
+      "bytes": 9043
+    },
+    "attribution/metadata/crosswoz-README.md": {
+      "sha256": "be521315fc7fde65ebc0da70628a70511e11b0d3ff24cf3370210305f60ac97f",
+      "bytes": 5730
+    },
+    "attribution/metadata/crosswoz-data-README.md": {
+      "sha256": "0219c68539445bf019a60e721aeee89fff80d4bd44c2983c0eb0c74be006341a",
+      "bytes": 1163
+    },
+    "attribution/metadata/kdconv-README.md": {
+      "sha256": "367143877472b758f894fe02d312d24f78271e4c26ae283237d0a13c7acee630",
+      "bytes": 4202
+    },
+    "attribution/metadata/lccc-DATASET_CARD.md": {
+      "sha256": "51d1d953671afc7fd5c0294518372839581c40946f275cabd79e52b3e2ed616e",
+      "bytes": 4924
+    },
+    "attribution/metadata/oasst1-README.md": {
+      "sha256": "68483ac2fcc2f3f7779f453352363827678070ef35b6d746ccb2ca6958540fff",
+      "bytes": 10168
+    },
+    "documents.jsonl": {
+      "sha256": "66a617984616931b74c5fc9aa69b464e4a2e624816f1161d810df8e8e9ff572f",
+      "bytes": 45131372
+    },
+    "text.txt": {
+      "sha256": "263e433eea099afb9b26fcdde02e50f55432f77ee58c90246d9702dcbfdeacb2",
+      "bytes": 13937543
+    }
+  }
+}

@@ -6,9 +6,12 @@ The Rust engine loads a count-based `.silex` lexicon and can load a paired
 `.sigram` file keyed by that lexicon's word IDs. It scores exact matches,
 completions and constructed paths using word frequencies and spelling costs.
 Frequencies divide each word's count by the total across languages in its
-lexicon. With grams present, the search interpolates continuation frequencies
-with shorter histories and unigram evidence. It retains at least 20% of the
-lower-order probability at each step. Word IDs stay in the same history
+lexicon. Base grams add a capped, joint-count-weighted log-probability-ratio
+reward. Each position uses its highest matching trigram, otherwise a discounted
+bigram, otherwise zero. A matching record with zero reward still blocks lower
+orders. Defaults `k=10`, `cap=5` bits and `d=0.7` live under
+`[statistical_scoring]` in `config/si.conf`. User grams retain their separate
+bounded probability boosts. Word IDs stay in the same history
 through Chinese and English transitions. See [Rust conversion](ARCHITECTURE.md#rust-conversion).
 
 Chinese and English matches share one bounded search, with mixed paths

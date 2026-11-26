@@ -348,7 +348,8 @@ retained as a separate final literal choice; empty input yields no choices.
 The initial scoring pool must already contain complete aligned Chinese candidates
 from a decoder. Pinyin validation, prefix/whole comparison, mixed-language score
 calibration and integration with SI dictionary scores remain separate work.
-This benchmark protocol is offline; the input method does not load this model.
+This benchmark protocol runs the standalone scorer; it does not exercise the
+app's combination of statistical scores and the selected bundled character model.
 
 Benchmark JSONL contains `id`, optional `context`, `candidates`, and `references`
 (accepted exact strings), with a separate origin/license/revision declaration.

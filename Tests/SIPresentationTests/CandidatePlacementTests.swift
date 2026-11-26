@@ -55,6 +55,90 @@ struct CandidatePlacementTests {
         #expect(state.candidateStart?.rect.origin == CGPoint(x: 100, y: 400))
     }
 
+    @Test func overlappingRectsAndMissingIntermediateProbesDoNotKeepThePreviousLine() throws {
+        var state = MarkedTextState()
+        let previous = CGRect(x: 1047, y: 78, width: 1, height: 14)
+        let wrapped = CGRect(x: 587, y: 84, width: 1, height: 16)
+        state.captureCandidateStart(previous, screens: [primary])
+
+        let line = try #require(CandidateAnchor.activeLine(inlineText: "he j", caretUTF16Offset: 4,
+            retainedStart: state.candidateLineStartUTF16Offset, screens: [primary]) { index in
+            switch index {
+            case 0: previous
+            case 3: wrapped
+            default: .zero
+            }
+        })
+        state.updateCandidateLine(offset: line.offset, anchor: line.anchor)
+        #expect(line.offset == 3)
+        #expect(state.candidateStart?.rect == wrapped)
+        #expect(CandidatePlacement.frame(preferredSize: size, anchor: line.anchor)
+                == CGRect(x: 587, y: 48, width: 300, height: 36))
+
+        let continued = try #require(CandidateAnchor.activeLine(inlineText: "he ji su", caretUTF16Offset: 8,
+            retainedStart: state.candidateLineStartUTF16Offset, screens: [primary]) { index in
+            switch index {
+            case 3: wrapped
+            case 7: CGRect(x: 605, y: 84, width: 1, height: 16)
+            default: .zero
+            }
+        })
+        #expect(continued.offset == 3 && continued.anchor.rect == wrapped)
+    }
+
+    @Test func rightToLeftTextCanMoveLeftWithinTheSameLine() throws {
+        let start = CGRect(x: 400, y: 300, width: 1, height: 20)
+        let caret = CGRect(x: 360, y: 300, width: 1, height: 20)
+        let line = try #require(CandidateAnchor.activeLine(inlineText: "אב", caretUTF16Offset: 2,
+            retainedStart: 0, screens: [primary]) { index in
+            index == 0 ? start : caret
+        })
+        #expect(line.offset == 0 && line.anchor.rect == start)
+    }
+
+    @Test func visualWrappingWithOverlappingHeightsAndSparseGeometryFindsTheNewLine() throws {
+        var state = MarkedTextState()
+        let initial = CGRect(x: 1047, y: 78, width: 1, height: 14)
+        state.captureCandidateStart(initial, screens: [primary])
+        let second = CGRect(x: 587, y: 84, width: 1, height: 16)
+        var attempts: [Int] = []
+        let line = try #require(CandidateAnchor.activeLine(inlineText: "abc_12defg", caretUTF16Offset: 10,
+            retainedStart: 0, screens: [primary]) { index in
+            attempts.append(index)
+            switch index {
+            case 0: return initial
+            case 3: return second
+            case 7: return CGRect(x: 605, y: 84, width: 1, height: 16)
+            default: return .zero
+            }
+        })
+        state.updateCandidateLine(offset: line.offset, anchor: line.anchor)
+        #expect(line.offset == 3 && state.candidateStart?.rect == second)
+        #expect(attempts.count <= 32 && Set(attempts).count == attempts.count)
+    }
+
+    @Test func deletingBackToTheFirstVisualLineWorksEvenWithOverlappingHeights() throws {
+        let line = try #require(CandidateAnchor.activeLine(inlineText: "abcdef", caretUTF16Offset: 6,
+            retainedStart: 3, screens: [primary]) { index in
+            CGRect(x: 1047 + Double(index) * 8, y: 78, width: 1, height: 14)
+        })
+        #expect(line.offset == 0 && line.anchor.rect.minX == 1047)
+    }
+
+    @Test func documentGeometryUsesExactValidatedUTF16Positions() throws {
+        let marked = NSRange(location: 2699, length: 8)
+        let range = try #require(CandidateAnchor.documentRange(inlineOffset: 6, inlineUTF16Count: 8, marked: marked))
+        #expect(range == NSRange(location: 2705, length: 0))
+        #expect(CandidateAnchor.acceptsDocumentGeometry(actual: range, requested: range, marked: marked))
+        #expect(!CandidateAnchor.acceptsDocumentGeometry(actual: marked, requested: range, marked: marked))
+        #expect(!CandidateAnchor.acceptsDocumentGeometry(actual: NSRange(location: 2705, length: 3),
+                                                        requested: range, marked: marked))
+        #expect(CandidateAnchor.documentRange(inlineOffset: 6, inlineUTF16Count: 7, marked: marked) == nil)
+        #expect(CandidateAnchor.documentRange(inlineOffset: 9, inlineUTF16Count: 8, marked: marked) == nil)
+        #expect(CandidateAnchor.documentRange(inlineOffset: 1, inlineUTF16Count: 8,
+                                             marked: NSRange(location: Int.max - 1, length: 8)) == nil)
+    }
+
     @Test func sameLineCaretGeometryAndSmallHeightDifferencesDoNotMoveThePanel() throws {
         var state = MarkedTextState()
         let start = CGRect(x: 568, y: 53, width: 1, height: 18)
@@ -94,6 +178,18 @@ struct CandidatePlacementTests {
         let unavailable = CandidateAnchor.activeLine(inlineText: "abcdef", caretUTF16Offset: 6,
             retainedStart: 0, screens: [primary]) { _ in .zero }
         #expect(unavailable == nil && state.candidateStart?.rect == start)
+
+        attempts.removeAll()
+        let obsoleteDuringSearch = CandidateAnchor.activeLine(inlineText: "abcd", caretUTF16Offset: 4,
+            retainedStart: 0, screens: [primary]) { index in
+            attempts.append(index)
+            return switch index {
+            case 4: CGRect(x: 100, y: 380, width: 1, height: 20)
+            case 0: CGRect(x: 950, y: 400, width: 1, height: 20)
+            default: nil
+            }
+        }
+        #expect(obsoleteDuringSearch == nil && attempts == [4, 0, 2])
     }
 
     @Test func prefixRemaindersKeepTheStartAndANewCompositionCapturesANewStart() throws {

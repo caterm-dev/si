@@ -36,7 +36,9 @@ settings_group!(RerankerConfig, "local_model_ranking", {
 
 settings_group!(StatisticalScoringConfig, "statistical_scoring", {
     sentence_start_reward_limit_bits: f64 = (0.000, 8.000),
-    base_word_gram_prior_count: f64 = (0.001, 1000000.000),
+    base_word_gram_confidence_count: f64 = (0.001, 1000000.000),
+    base_word_gram_reward_cap_bits: f64 = (0.000, 32.000),
+    base_word_gram_backoff_discount: f64 = (0.000, 1.000),
     user_word_gram_prior_count: f64 = (0.001, 1000000.000),
     word_gram_interpolation_weight_limit: f64 = (0.000, 0.800),
     user_unigram_prior_count: f64 = (0.001, 1000000.000),
@@ -354,11 +356,27 @@ mod tests {
                 false,
             ),
             (
-                "base_word_gram_prior_count",
+                "base_word_gram_confidence_count",
                 "0.001",
                 "1000000",
                 "0.0005",
                 "1000001",
+                false,
+            ),
+            (
+                "base_word_gram_reward_cap_bits",
+                "0",
+                "32",
+                "-0.01",
+                "33",
+                false,
+            ),
+            (
+                "base_word_gram_backoff_discount",
+                "0",
+                "1",
+                "-0.01",
+                "1.01",
                 false,
             ),
             (

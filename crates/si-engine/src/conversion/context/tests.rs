@@ -216,7 +216,7 @@ fn base_and_user_deduplicate_by_their_own_saved_gram_orders() {
 #[test]
 fn exhausted_search_uses_the_complete_single_best_history_and_large_keys_are_not_retained() {
     let mut lexicon = Lexicon::new();
-    for length in 1..=7 {
+    for length in 1..=20 {
         let reading = std::iter::repeat_n("jia", length)
             .collect::<Vec<_>>()
             .join("'");

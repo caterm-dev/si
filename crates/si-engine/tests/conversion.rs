@@ -723,9 +723,12 @@ fn gram_history_and_continuation_mass_span_languages() -> io::Result<()> {
     let engine = CandidateEngine::new(&resources, None);
 
     let unigram = 0.25_f64;
-    let mixed_bigram = (64.0 + 32.0 * unigram) / 128.0;
-    let same_language_bigram = (32.0 + 32.0 * unigram) / 128.0;
-    let mixed_trigram = (1.0 - 0.8) * unigram + 0.8;
+    let reward = |count: f64, mass: f64, discount: f64| {
+        (count / mass / unigram).log2().clamp(0.0, 5.0) * count / (count + 10.0) * discount
+    };
+    let mixed_bigram = reward(64.0, 96.0, 0.7);
+    let same_language_bigram = reward(32.0, 96.0, 0.7);
+    let mixed_trigram = reward(512.0, 512.0, 1.0);
     for preview in [false, true] {
         let convert = |source, preceding| {
             engine.convert_with_context(
@@ -738,28 +741,113 @@ fn gram_history_and_continuation_mass_span_languages() -> io::Result<()> {
             )
         };
         let rows = convert("tryyou", "");
-        assert_eq!(
-            find(&rows, "try 有", CandidateLanguage::Mixed, 6).score_bits,
-            Some(unigram.log2() + mixed_bigram.log2()),
+        assert!(
+            (find(&rows, "try 有", CandidateLanguage::Mixed, 6)
+                .score_bits
+                .unwrap()
+                - (2.0 * unigram.log2() + mixed_bigram))
+                .abs()
+                < 1e-12
         );
-        assert_eq!(
-            find(&rows, "try you", CandidateLanguage::English, 6).score_bits,
-            Some(unigram.log2() + same_language_bigram.log2()),
+        assert!(
+            (find(&rows, "try you", CandidateLanguage::English, 6)
+                .score_bits
+                .unwrap()
+                - (2.0 * unigram.log2() + same_language_bigram))
+                .abs()
+                < 1e-12
         );
         let rows = convert("you", "Try ");
         assert_eq!(rows[0].text, "有");
-        assert_eq!(
-            rows[0].context_adjustment,
-            mixed_bigram.log2() - unigram.log2()
-        );
+        assert!((rows[0].context_adjustment - mixed_bigram).abs() < 1e-12);
         let rows = convert("shu", "Try 有");
-        assert_eq!(
-            rows[0].context_adjustment,
-            mixed_trigram.log2() - unigram.log2()
-        );
+        assert!((rows[0].context_adjustment - mixed_trigram).abs() < 1e-12);
         let rows = convert("you", "Try 有");
         let absent = find(&rows, "you", CandidateLanguage::English, 3);
-        assert!((absent.context_adjustment - (1.0_f64 - 0.8).log2()).abs() < 1e-12);
+        assert_eq!(absent.context_adjustment, 0.0);
+    }
+    Ok(())
+}
+
+#[test]
+fn base_grams_use_one_trigram_or_discounted_bigram_and_missing_matches_are_neutral()
+-> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let first = add(&mut lexicon, ZH, "xian", "先", 100);
+    let look = add(&mut lexicon, ZH, "kan", "看", 100);
+    let book = add(&mut lexicon, ZH, "shu", "书", 100);
+    let tree = add(&mut lexicon, ZH, "shu", "树", 100);
+    let again = add(&mut lexicon, ZH, "zai", "再", 100);
+    let mut grams = GramBuilder::new();
+    grams.add(&[look, book], 900).unwrap();
+    grams.add(&[look, tree], 100).unwrap();
+    grams.add(&[first, look, book], 1).unwrap();
+    grams.add(&[first, look, tree], 999).unwrap();
+    // Higher stored orders must not change the fixed trigram ceiling.
+    grams.add(&[again, first, look, book], 10_000).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let config = engine_config(&directory, &[("segmentation_history_limit", "1")])?;
+    let engine = CandidateEngine::new_with_config(&resources, None, config);
+    let base = 0.2_f64.log2();
+    let bigram = (0.9_f64 / 0.2).log2() * 900.0 / 910.0 * 0.7;
+    let trigram = (0.999_f64 / 0.2).log2() * 999.0 / 1_009.0;
+    for preview in [false, true] {
+        let convert = |input| {
+            engine.convert(
+                input,
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+            )
+        };
+        for (input, text, expected) in [
+            ("kanshu", "看书", 2.0 * base + bigram),
+            ("xiankanshu", "先看书", 3.0 * base),
+            ("xiankanshu", "先看树", 3.0 * base + trigram),
+            ("zaikanshu", "再看书", 3.0 * base + bigram),
+            ("zaixiankanshu", "再先看书", 4.0 * base),
+            ("xiankansh", "先看树", 3.0 * base + trigram - 5.0),
+        ] {
+            let rows = convert(input);
+            let candidate = find(&rows, text, CandidateLanguage::Chinese, input.len());
+            assert!(
+                (candidate.score_bits.unwrap() - expected).abs() < 1e-12,
+                "{input}: {text}"
+            );
+            assert_literal(rows.last().unwrap(), input);
+        }
+        let rows = convert("xiankanshuzai");
+        assert!(
+            (find(&rows, "先看树", CandidateLanguage::Chinese, 10)
+                .score_bits
+                .unwrap()
+                - (3.0 * base + trigram))
+                .abs()
+                < 1e-12
+        );
+        for (preceding, text, expected) in [
+            ("先看", "书", 0.0),
+            ("先看", "树", trigram),
+            ("再看", "书", bigram),
+            ("再", "书", 0.0),
+        ] {
+            let rows = engine.convert_with_context(
+                "shu",
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                preceding,
+            );
+            assert!(
+                (find(&rows, text, CandidateLanguage::Chinese, 3).context_adjustment - expected)
+                    .abs()
+                    < 1e-12,
+                "{preceding}: {text}"
+            );
+        }
     }
     Ok(())
 }
@@ -770,7 +858,7 @@ fn preceding_field_uses_only_the_last_fragment_and_resets_at_punctuation() -> io
     let mut lexicon = Lexicon::new();
     let previous = add(&mut lexicon, ZH, "he'shui", "喝水", 20);
     let terminal = add(&mut lexicon, ZH, "guo", "过", 10);
-    let river = add(&mut lexicon, ZH, "he", "河", 4);
+    let river = add(&mut lexicon, ZH, "he", "河", 5);
     let together = add(&mut lexicon, ZH, "he", "和", 40);
     let the = add(&mut lexicon, EN, "the", "the", 15);
     let english = add(&mut lexicon, EN, "he", "he", 15);
@@ -780,7 +868,8 @@ fn preceding_field_uses_only_the_last_fragment_and_resets_at_punctuation() -> io
     grams.add(&[previous, terminal, river], 1_000).unwrap();
     grams.add(&[the, english], 1_000).unwrap();
     let resources = directory.resources(&mut lexicon, Some(grams))?;
-    let engine = CandidateEngine::new(&resources, None);
+    let config = engine_config(&directory, &[("segmentation_history_limit", "1")])?;
+    let engine = CandidateEngine::new_with_config(&resources, None, config);
     let convert = |text, context, preview| {
         engine.convert_with_context(
             text,
@@ -810,7 +899,10 @@ fn preceding_field_uses_only_the_last_fragment_and_resets_at_punctuation() -> io
         };
         assert_eq!(first_chinese(&baseline), "和");
         assert_eq!(first_chinese(&latest), "河");
-        assert!(find(&latest, "he", CandidateLanguage::English, 2).context_adjustment < 0.0);
+        assert_eq!(
+            find(&latest, "he", CandidateLanguage::English, 2).context_adjustment,
+            0.0
+        );
         assert!(
             find(
                 &convert("he", "The ", preview),
@@ -1101,13 +1193,7 @@ fn gram_scores_select_a_rare_path_before_the_terminal_limit() -> io::Result<()> 
     add(&mut lexicon, ZH, "shou'shi", "首饰", 200);
     let luggage = add(&mut lexicon, ZH, "xing'li", "行李", 1);
     for index in 0..40 {
-        add(
-            &mut lexicon,
-            ZH,
-            "xing'li",
-            &format!("行李{index:02}"),
-            1000,
-        );
+        add(&mut lexicon, ZH, "xing'li", &format!("行李{index:02}"), 4);
     }
     let mut grams = GramBuilder::new();
     grams.add(&[pick_up, luggage], u64::MAX).unwrap();
@@ -1148,19 +1234,18 @@ fn gram_scores_select_a_rare_path_before_the_terminal_limit() -> io::Result<()> 
 fn longer_gram_histories_refine_the_bigram_ranking() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
-    let me = add(&mut lexicon, ZH, "wo", "我", 100);
+    add(&mut lexicon, ZH, "wo", "我", 100);
     let want = add(&mut lexicon, ZH, "xiang", "想", 100);
     let look = add(&mut lexicon, ZH, "kan", "看", 100);
     let book = add(&mut lexicon, ZH, "shu", "书", 100);
     let tree = add(&mut lexicon, ZH, "shu", "树", 100);
     let mut grams = GramBuilder::new();
     grams.add(&[look, tree], 200).unwrap();
-    grams.add(&[want, look, tree], 200).unwrap();
-    grams.add(&[me, want, look, book], 2000).unwrap();
+    grams.add(&[want, look, book], 2000).unwrap();
     let resources = directory.resources(&mut lexicon, Some(grams))?;
     let engine = CandidateEngine::new(&resources, None);
     assert_eq!(engine.candidates("kanshu", CHINESE)[0].text, "看树");
-    assert_eq!(engine.candidates("xiangkanshu", CHINESE)[0].text, "想看树");
+    assert_eq!(engine.candidates("xiangkanshu", CHINESE)[0].text, "想看书");
     assert_eq!(
         engine.candidates("woxiangkanshu", CHINESE)[0].text,
         "我想看书"
@@ -1521,7 +1606,7 @@ fn terminal_completion_keeps_base_and_user_gram_winners() -> io::Result<()> {
         let word = format!("sa{}", char::from(letter));
         add(&mut base_lexicon, EN, &word, &word, 100);
     }
-    let star = add(&mut base_lexicon, EN, "star", "star", 1);
+    let star = add(&mut base_lexicon, EN, "star", "star", 20);
     let mut base_grams = GramBuilder::new();
     base_grams.add(&[go, star], 1_000).unwrap();
     let base = base_dir.resources(&mut base_lexicon, Some(base_grams))?;
@@ -1685,7 +1770,7 @@ fn user_word_and_gram_evidence_follow_lexeme_identity_across_files() -> io::Resu
 }
 
 #[test]
-fn fivegram_evidence_can_change_candidate_order() -> io::Result<()> {
+fn base_trigram_ceiling_does_not_limit_user_fivegram_evidence() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
     let words = [
@@ -1708,7 +1793,7 @@ fn fivegram_evidence_can_change_candidate_order() -> io::Result<()> {
     );
     assert_eq!(
         CandidateEngine::new(&contextual, None).candidates(spelling, CHINESE)[0].text,
-        "今天我喝茶"
+        "今天我喝查"
     );
     assert_eq!(
         CandidateEngine::new(&plain, Some(&contextual)).candidates(spelling, CHINESE)[0].text,
@@ -2446,33 +2531,47 @@ fn pinyin_correction_requires_strong_context_to_challenge_a_valid_spelling() -> 
     grams.add(&[want, target], 100_000).unwrap();
     grams.add(&[find_name, literal_reading], 100_000).unwrap();
     let resources = directory.resources(&mut lexicon, Some(grams))?;
-    let ordinary = CandidateEngine::new(&resources, None);
-    let correction = CandidateEngine::new(&resources, None).with_pinyin_correction(true);
+    for amplified in [false, true] {
+        let changes: &[(&str, &str)] = if amplified {
+            &[
+                ("base_word_gram_reward_cap_bits", "32"),
+                ("base_word_gram_backoff_discount", "1"),
+            ]
+        } else {
+            &[]
+        };
+        let config = engine_config(&directory, changes)?;
+        let ordinary = CandidateEngine::new_with_config(&resources, None, config);
+        let correction =
+            CandidateEngine::new_with_config(&resources, None, config).with_pinyin_correction(true);
 
-    for preview in [false, true] {
-        for (context, should_suggest) in [("", false), ("想。找", false), ("找。想", true)] {
-            let convert = |engine: &CandidateEngine<'_>| {
-                engine.convert_with_context(
-                    "gaoxu",
-                    CHINESE,
-                    preview,
-                    &[],
-                    ConversionPreferences::default(),
-                    context,
-                )
-            };
-            let rows = convert(&correction);
-            assert_eq!(rows[0].text, if should_suggest { "告诉" } else { "高旭" });
-            assert!(
-                convert(&ordinary)
+        for preview in [false, true] {
+            for (context, should_suggest) in [("", false), ("想。找", false), ("找。想", true)]
+            {
+                let should_suggest = amplified && should_suggest;
+                let convert = |engine: &CandidateEngine<'_>| {
+                    engine.convert_with_context(
+                        "gaoxu",
+                        CHINESE,
+                        preview,
+                        &[],
+                        ConversionPreferences::default(),
+                        context,
+                    )
+                };
+                let rows = convert(&correction);
+                assert_eq!(rows[0].text, if should_suggest { "告诉" } else { "高旭" });
+                assert!(
+                    convert(&ordinary)
+                        .iter()
+                        .eq(rows.iter().filter(|row| !row.is_corrected()))
+                );
+                let suggested = rows
                     .iter()
-                    .eq(rows.iter().filter(|row| !row.is_corrected()))
-            );
-            let suggested = rows
-                .iter()
-                .find(|row| row.text == "告诉" && row.is_corrected());
-            assert_eq!(suggested.is_some(), should_suggest, "{context:?}");
-            assert_literal(rows.last().unwrap(), "gaoxu");
+                    .find(|row| row.text == "告诉" && row.is_corrected());
+                assert_eq!(suggested.is_some(), should_suggest, "{context:?}");
+                assert_literal(rows.last().unwrap(), "gaoxu");
+            }
         }
     }
     Ok(())
@@ -2648,12 +2747,12 @@ fn pinyin_correction_admission_compares_both_paths_with_context() -> io::Result<
     let want = add(&mut lexicon, ZH, "xiang", "想", 100);
     let unrelated = add(&mut lexicon, ZH, "chang'jian", "常见", 100);
     for text in ["你号", "你好", "你毫", "你好啊"] {
-        add(&mut lexicon, ZH, "ni'hao", text, 10_000);
+        add(&mut lexicon, ZH, "ni'hao", text, 100);
     }
-    let target = add(&mut lexicon, ZH, "ni'hao", "拟好", 1);
+    let target = add(&mut lexicon, ZH, "ni'hao", "拟好", 20);
     add(&mut lexicon, ZH, "shi'jie", "世界", 100);
     let mut grams = GramBuilder::new();
-    grams.add(&[want, unrelated], 1_000_000).unwrap();
+    grams.add(&[want, unrelated], 100_000).unwrap();
     grams.add(&[want, target], 200_000).unwrap();
     let resources = directory.resources(&mut lexicon, Some(grams))?;
     let engine = CandidateEngine::new(&resources, None).with_pinyin_correction(true);
@@ -2835,7 +2934,7 @@ fn pinyin_correction_protects_a_strong_exact_path_without_context() -> io::Resul
 }
 
 #[test]
-fn higher_recall_backs_off_negative_context_for_corrections() -> io::Result<()> {
+fn missing_gram_records_are_neutral_in_both_correction_modes() -> io::Result<()> {
     use si_engine::CorrectionSensitivity::{Conservative, HigherRecall};
 
     let directory = Scratch::new()?;
@@ -2867,8 +2966,8 @@ fn higher_recall_backs_off_negative_context_for_corrections() -> io::Result<()> 
             assert!(row.is_corrected());
             row.context_adjustment
         };
-        assert!(corrected(&conservative) < corrected(&recall));
-        assert_eq!(corrected(&recall), -2.0);
+        assert_eq!(corrected(&conservative), 0.0);
+        assert_eq!(corrected(&recall), 0.0);
         assert!(
             conservative
                 .iter()
@@ -2970,7 +3069,7 @@ fn corrected_completion_uses_its_own_history_and_preserves_bounded_alternatives(
         let output = char::from_u32(0x4e00 + i).unwrap().to_string();
         add(&mut lexicon, ZH, "xin", &output, 1_000);
     }
-    let rare = add(&mut lexicon, ZH, "xin", "新", 1);
+    let rare = add(&mut lexicon, ZH, "xin", "新", 50);
     let mut grams = GramBuilder::new();
     grams.add(&[first, previous, rare], 10_000).unwrap();
     let base = directory.resources(&mut lexicon, Some(grams))?;
@@ -3880,8 +3979,8 @@ fn preceding_top_k_mixes_probabilities_and_temperature_changes_homophone_ranking
         ("几", "ji", 90),
         ("棵", "ke", 90),
         ("树", "shu", 10),
-        ("数", "shu", 1_000),
-        ("书", "shu", 800),
+        ("数", "shu", 11),
+        ("书", "shu", 9),
         ("大树", "da'shu", 10),
     ] {
         add(&mut lexicon, ZH, reading, text, count);
@@ -3949,14 +4048,17 @@ fn preceding_top_k_mixes_probabilities_and_temperature_changes_homophone_ranking
                     "数"
                 }
             );
-            for (text, count) in [("树", 10.0), ("数", 1_000.0), ("书", 800.0)] {
+            for (text, count) in [("树", 10.0), ("数", 11.0), ("书", 9.0)] {
                 let prior = count / total;
-                // A: missing continuation after 几棵, then after 多种/几棵.
-                // B: missing continuation after 几棵. C: observed 树 after 棵 and 几/棵.
-                let a = 0.5 * (16.0 / 17.0 * prior);
-                let b = 16.0 / 17.0 * prior;
-                let c = 0.5 * (16.0 / 17.0 * prior + if text == "树" { 1.0 / 17.0 } else { 0.0 })
-                    + if text == "树" { 0.5 } else { 0.0 };
+                // A/B have no matching record. C uses only the observed trigram,
+                // capped before its joint-count confidence; no bigram is added.
+                let a = prior;
+                let b = prior;
+                let c = if text == "树" {
+                    prior * (5.0_f64 * 32.0 / 42.0).exp2()
+                } else {
+                    prior
+                };
                 let expected = (weights[0] * a + weights[1] * c + weights[2] * b).log2();
                 let row = find(&rows, text, CandidateLanguage::Chinese, 3);
                 assert!(

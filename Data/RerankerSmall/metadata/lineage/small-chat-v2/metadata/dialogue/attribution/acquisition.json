@@ -1,0 +1,155 @@
+[
+  {
+    "id": "kdconv",
+    "category": "document",
+    "path": "licenses/kdconv-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/LICENSE",
+    "size": 11357,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "git_blob_sha1": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+  },
+  {
+    "id": "kdconv",
+    "category": "document",
+    "path": "metadata/kdconv-README.md",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/README.md",
+    "size": 4202,
+    "sha256": "367143877472b758f894fe02d312d24f78271e4c26ae283237d0a13c7acee630",
+    "git_blob_sha1": "9274ef2146294f18e823802799bf26eaaf42cd8a"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/film/dev.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/dev.json",
+    "size": 1363416,
+    "sha256": "2f156d8d34bdd3eac31c196772156d36e017f8cb2255a2c312bd98e367ed363e",
+    "git_blob_sha1": "86ddffa7da07c0e9dcd256a25747e44c0d46580a"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/film/test.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/test.json",
+    "size": 1547354,
+    "sha256": "5ba2b79f9791bedbe5fe8a1bf5d7cbf277697743ee426ecd05459d9e28bcf21b",
+    "git_blob_sha1": "2c7ae53a7506c4555a57bc6a6dbec016b33e7072"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/film/train.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/film/train.json",
+    "size": 7892763,
+    "sha256": "b48a491c30ace856914c6863679ba5c8ea95d7e3a1734f45177f69afbcd88e74",
+    "git_blob_sha1": "98674bde290888e9bb9246054fe1bf4596f660b0"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/music/dev.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/dev.json",
+    "size": 945559,
+    "sha256": "ee34a4af167195db43fdcc910f8d125956222517f0572d248a069057493d557f",
+    "git_blob_sha1": "72c2ebd51f38c06d81128b4cffee5f0a39d94b3b"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/music/test.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/test.json",
+    "size": 1148564,
+    "sha256": "46f048c5db9dde45127cf6630b2fa06b685be369b71c5bc2dc3022d3f4bbad65",
+    "git_blob_sha1": "ac81a2679a1d902428ef768d0de576a8488f5d64"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/music/train.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/music/train.json",
+    "size": 4952078,
+    "sha256": "d5835bb6a61da0067ab2d0dc3ba90059f07cfa781a70206a8266ecafd22641ad",
+    "git_blob_sha1": "6e341552529eb3003746c484ea1f30ca9d4070b3"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/travel/dev.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/dev.json",
+    "size": 904751,
+    "sha256": "8d1f31295888cf61eff398bab8aa042f7fccd04a088bd63c939f0b79625a9093",
+    "git_blob_sha1": "16cffe673b72c94b3272fcef0a27c81e6dca71b2"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/travel/test.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/test.json",
+    "size": 1100567,
+    "sha256": "730426b0997b8375c8477c7e658c0ec645fced6ab8d546adda114b21cf30faac",
+    "git_blob_sha1": "47b0df6de215abda654d22cafbc89c2dba611d93"
+  },
+  {
+    "id": "kdconv",
+    "category": "file",
+    "path": "data/travel/train.json",
+    "url": "https://raw.githubusercontent.com/thu-coai/KdConv/653db76432de09a004ba708a68f8bbd5500e6bec/data/travel/train.json",
+    "size": 5156841,
+    "sha256": "b582a7171f8a7bb6b579bbf8d31a06cebd0966e520c95301a143b1629d20fb2f",
+    "git_blob_sha1": "4ba46df59e88f300d0d6d71664c77a49e8461264"
+  },
+  {
+    "id": "crosswoz",
+    "category": "document",
+    "path": "licenses/crosswoz-LICENSE.txt",
+    "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/LICENSE",
+    "size": 11357,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "git_blob_sha1": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+  },
+  {
+    "id": "crosswoz",
+    "category": "document",
+    "path": "metadata/crosswoz-README.md",
+    "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/README.md",
+    "size": 5730,
+    "sha256": "be521315fc7fde65ebc0da70628a70511e11b0d3ff24cf3370210305f60ac97f",
+    "git_blob_sha1": "6edbb651085d6f5f3ed2f0e712bc5493d0e78745"
+  },
+  {
+    "id": "crosswoz",
+    "category": "document",
+    "path": "metadata/crosswoz-data-README.md",
+    "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/README.md",
+    "size": 1163,
+    "sha256": "0219c68539445bf019a60e721aeee89fff80d4bd44c2983c0eb0c74be006341a",
+    "git_blob_sha1": "f19bdc9204f2bc20bc3de0a9647ccbbb62d3ab92"
+  },
+  {
+    "id": "crosswoz",
+    "category": "file",
+    "path": "data/crosswoz/test.json.zip",
+    "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/test.json.zip",
+    "size": 1367462,
+    "sha256": "e57703894995211bba8638f130dc7df81e8992b71f3c05c10022ad23d6ca5310",
+    "git_blob_sha1": "5408e20adcc61347533b5ab1fa9ca4e65f269743"
+  },
+  {
+    "id": "crosswoz",
+    "category": "file",
+    "path": "data/crosswoz/train.json.zip",
+    "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/train.json.zip",
+    "size": 13624132,
+    "sha256": "b81f6a0845011bb4593d21dd58e2d76af4dd5d52e300ecc68cb8dee17ccc3cf8",
+    "git_blob_sha1": "57eb9cbd004a2e59f301f9e1bdc5500ddf2a98ef"
+  },
+  {
+    "id": "crosswoz",
+    "category": "file",
+    "path": "data/crosswoz/val.json.zip",
+    "url": "https://raw.githubusercontent.com/thu-coai/CrossWOZ/df82c9fdff91b9b130f2d6b89110d3870ba6260e/data/crosswoz/val.json.zip",
+    "size": 1368203,
+    "sha256": "b2b717990f6f0a1c98daaf5dc465e61d42f7de69c0d31e88e674275b1f34c94c",
+    "git_blob_sha1": "6de13a813f308802dab90d851132a17bc5064a73"
+  }
+]

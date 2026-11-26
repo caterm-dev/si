@@ -26,8 +26,12 @@ constrain Pinyin syllable boundaries. Prefix choices consume the exact
 original spelling, including umlaut aliases and trailing separators. The
 engine calculates word frequency as the word's count divided by the total
 count across the dictionary, including Chinese and English. Word grams score
-continuations across languages using the same rule. At each gram order, the
-score retains at least 20% of the lower-order probability. Spelling costs
+continuations across languages using the same rule. At each word position, the
+base model uses the highest matching trigram, otherwise a discounted bigram;
+missing records add zero. Its nonnegative log-probability-ratio reward is capped
+at 5 bits and weighted by the joint count `c/(c+10)`. Bigram rewards are multiplied
+by 0.7. Set these defaults under `[statistical_scoring]` in `config/si.conf`.
+Spelling costs
 apply to incomplete or edited matches. Complete candidates precede prefixes.
 Prefixes sort by decreasing consumed length, then by score within the same
 range. The exact original input stays available for every nonempty
@@ -58,7 +62,8 @@ confidence margin. They keep exact typed source spans and require explicit
 acceptance; Return still submits the original spelling.
 
 **Local model ranking** is on by default and can be turned off under Typing.
-The bundled small character model scores up to 12 eligible whole-input
+The [bundled small character model](Data/RerankerSmall/README.md) is the step-11,000
+checkpoint from the first 20-million-target chat continuation stage. It scores up to 12 eligible whole-input
 candidates in statistical order, without a score-gap cutoff. The setting is independent
 of Pinyin correction. The model runs on-device and compares each scored output
 with the most likely output in that pool. The model gap is capped at 8 bits
@@ -95,7 +100,7 @@ word-ID histories from the highest-scoring written-text segmentations of the
 last fragment. Repeated terminal histories keep only their strongest path;
 their weights are not accumulated. With path scores in bits, the weight is
 `2^((score - best_score) / T)`, normalized over retained histories. The default
-`T` is 4. Rust mixes each history's smoothed candidate probability before
+`T` is 4. Rust mixes each history's gram-rewarded candidate probability before
 converting back to a log score. Set `segmentation_history_limit` and
 `segmentation_temperature` under `[field_context]` in `config/si.conf`.
 These settings affect field context only; corpus ingestion keeps its single-best
@@ -142,7 +147,7 @@ The word-gram snapshot is tracked with Git LFS. Install Git LFS, run
 [engine resources](Data/Engine/README.md) for validation, source notices and
 maintenance.
 
-Candidate positioning starts at the host insertion point and stays fixed within the active visual line. After marked-text layout, SI checks the caret's line using inline UTF-16 geometry. When spelling wraps onto another line, SI anchors the panel at that line's first character; deleting or moving back to an earlier line follows that line's start. Typing or moving the caret within the same line does not move the panel horizontally. Unavailable or obsolete line geometry retains the current anchor, without mouse or previous-client fallbacks. Initial placement still requires usable host geometry. The panel keeps that line anchor and measures the width remaining to the display’s visible right edge. It reduces the number of choices per row from six down to one until the row fits, retaining other candidates on later pages. A single oversized candidate is truncated visually, with full text kept in its tooltip and accessibility label. The panel does not flip above the line near the display’s bottom edge. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
+Candidate positioning starts at the host insertion point and stays fixed within the active visual line. After marked-text layout, SI checks the caret's visual line using UTF-16 geometry; this includes automatic field wrapping without a newline in the spelling. If inline geometry is unavailable, it can request the same exact position through a validated document-relative range. When spelling wraps onto another line, SI anchors the panel at that line's earliest verified position; deleting or moving back to an earlier line follows that line's start. Typing or moving the caret within the same line keeps the panel anchored. Unavailable or obsolete line geometry retains the current anchor, without mouse or previous-client fallbacks. Initial placement still requires usable host geometry. The panel has a 480-point minimum preferred width (capped by available screen space), keeps that line anchor and measures the width remaining to the display’s visible right edge. It reduces the number of choices per row from six down to one until the row fits, retaining other candidates on later pages. A single oversized candidate is truncated visually, with full text kept in its tooltip and accessibility label. The panel does not flip above the line near the display’s bottom edge. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
 
 Inline spelling uses InputMethodKit's thin, unselected underline style, with display-only spaces between decoded syllables or words. The spelling remains a composition until confirmation, so candidates, caret editing and cancellation remain available. Hosts control the final appearance and any suggestions or autocomplete during composition; live behavior in ChatGPT and browser address bars requires verification. See [inline composition checks](docs/TESTING.md#inline-composition-presentation).
 
@@ -531,7 +536,8 @@ cargo run --release --locked -p si-cli -- --config config/si.conf corpus add Dat
 
 `max_order` controls which orders the next import counts. Changing it retains
 the counts already in the snapshot. Higher orders start accumulating when
-enabled, and ranking uses any available saved orders. The CLI uses bundled
+enabled. Base word rewards use only trigrams and bigrams; user-model scoring
+can use its higher saved orders. The CLI uses bundled
 settings when `--config` is omitted.
 
 Each conversion key has a description and allowed numeric range beside it in
@@ -545,8 +551,9 @@ preserving older base/user-only configuration files.
 For example, full, preview and correction beams accept `1..64` paths; preview
 cannot exceed full search. Model pools accept `1..64` candidates, context
 `0..128` tokens and candidate length `1..64` tokens. A one-candidate model pool
-does not rerank because it cannot compare alternatives. Word-gram and user
-unigram weights cannot exceed `0.8`; correction edit costs remain positive.
+does not rerank because it cannot compare alternatives. Base gram rewards accept
+`0..32` bits and backoff discounts `0..1`; user gram and unigram weights cannot
+exceed `0.8`. Correction edit costs remain positive.
 Higher-recall correction's required lead cannot exceed the conservative lead.
 These limits bound work and preserve scoring assumptions; they are not measured
 host-latency guarantees. Output size, search-unit/probe budgets, cache capacities

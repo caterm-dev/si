@@ -56,6 +56,10 @@ inference. Missing or invalid weights, an unscorable pool or inference errors
 use the statistical results. All scoring runs locally and transiently.
 [Model provenance](../Data/RerankerSmall/README.md)
 
+The historical measurements below used the original v1 checkpoint. The current
+bundled selection and its isolated fixed-pool results are recorded in the
+[model provenance](../Data/RerankerSmall/README.md).
+
 An in-process Release comparison on macOS 27.0.1 arm64 used the original
 four-candidate limit, two-bit margin and 0.5 model weight, with empty personal
 state and correction off. The paired
@@ -78,6 +82,18 @@ First-choice hits went from 211 to 210 on the contextual queries and remained
 in-process p95 went from 32.3 to 32.2 ms.
 
 ## Statistical score and presentation
+
+Ordinary base grams reward each word position using exactly one matching record:
+the last-two-word trigram, otherwise the last-word bigram, otherwise zero.
+With `p = P(word)`, `q = count(history, word) / sum_next count(history, next)`
+and `c = count(history, word)`, the bit reward is
+`clamp(log2(q/p), 0, cap) * c/(c+k)`; bigrams also multiply by `d`.
+The defaults are `k=10`, `cap=5`, `d=0.7` under `[statistical_scoring]` in
+`config/si.conf`. The cap applies before confidence and discount. A matched
+trigram with zero reward still prevents bigram fallback. Higher stored orders
+do not change the three-word ceiling, and short histories still discount
+bigrams. User-boosted priors use the same reward formula in the personalized
+lane; the separate user-model gram interpolation retains its existing policy.
 
 Confirmed fragment starts use the base `<s>` grams. Fragment boundaries match
 offline ingestion: explicit delimiters and line endings start a new fragment;
@@ -135,7 +151,7 @@ Field scoring retains the best K distinct terminal histories (default 3), not
 the first K raw segmentation paths. Duplicate histories retain only their best
 path. Weights are proportional to `2^((s_i - s_max) / T)` with T=4 by default;
 `[field_context]` in `config/si.conf` owns both settings. The engine averages
-smoothed conditional probabilities, then takes log2. Ingestion remains single-best.
+gram-rewarded conditional probabilities, then takes log2. Ingestion remains single-best.
 Caller-owned Rust caches reuse immutable preparation for the same final fragment
 and resource/configuration instance. They do not cache candidates or model scores.
 See [field-context architecture](ARCHITECTURE.md#rust-conversion) for search bounds,
@@ -145,8 +161,9 @@ base/user histories, lifecycle and privacy.
 
 - `1de758e` bounds a word's probability by the larger of its unigram prior
   and its largest observed continuation fraction across active histories.
-  Each base smoothing step is a convex combination of the previous prior
-  and the continuation fraction. The bound includes the completion cost
+  The base gram reward cannot exceed `log2(continuation/prior)`, so the
+  resulting probability stays below the larger input; user boosts have the
+  same upper bound. The bound includes the completion cost
   and rounds conservatively. A descending bound scan identifies completions that can
   never enter any relevant full beam. A candidate-level check uses the live
   beam and the same contextual and token bonuses as the ordinary gate.
@@ -161,8 +178,8 @@ base/user histories, lifecycle and privacy.
 
 Output-sensitive terminal preferences retain the ordinary scoring checks.
 User-corpus interpolation uses the original completion traversal.
-Beam widths, candidate limits, dictionary branches, score formulas and
-selection behavior are unchanged.
+These pruning optimizations do not change beam widths, candidate limits,
+dictionary branches, score formulas or selection behavior.
 
 ## Historical evaluation and performance
 

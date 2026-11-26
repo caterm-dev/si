@@ -155,9 +155,11 @@ final class CandidateListView: NSView {
         preferredSize(constrainedTo: .greatestFiniteMagnitude)
     }
 
+    var candidateContentWidth: CGFloat { naturalColumnWidths.reduce(0, +) + 38 }
+
     func preferredSize(constrainedTo maximumWidth: CGFloat) -> NSSize {
         let predictionWidth = predictionButton.isHidden ? 0 : min(540, predictionButton.fittingSize.width + 22)
-        let naturalWidth = max(160, naturalColumnWidths.reduce(0, +) + 38, predictionWidth)
+        let naturalWidth = max(480, candidateContentWidth, predictionWidth)
         let width = min(max(1, maximumWidth), naturalWidth)
         let lines = isExpanded ? max(1, (rows.count + columnsPerRow - 1) / columnsPerRow) : 1
         let contentHeight = CGFloat(lines) * (rowHeight + 4) + 4

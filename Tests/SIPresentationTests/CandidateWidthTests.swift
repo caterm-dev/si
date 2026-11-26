@@ -18,7 +18,7 @@ struct CandidateWidthTests {
             var trial = selection
             trial.setPageSize(count)
             measure.render(trial)
-            let available = measure.preferredSize.width.rounded(.up)
+            let available = measure.candidateContentWidth.rounded(.up)
             let anchor = try makeAnchor(availableWidth: available)
             panel.fit(selection: &selection, at: anchor)
             panel.show(at: anchor, clientLevel: 0)
@@ -54,7 +54,7 @@ struct CandidateWidthTests {
         trial.setPageSize(3)
         let measure = CandidateListView()
         measure.render(trial)
-        let anchor = try makeAnchor(availableWidth: measure.preferredSize.width.rounded(.up))
+        let anchor = try makeAnchor(availableWidth: measure.candidateContentWidth.rounded(.up))
         panel.fit(selection: &selection, at: anchor)
         panel.show(at: anchor, clientLevel: 0)
         #expect(selection.visiblePageSize == 3 && selection.selected == chosen)
@@ -98,6 +98,23 @@ struct CandidateWidthTests {
         #expect(row.toolTip?.contains(text) == true && row.accessibilityLabel()?.contains(text) == true)
         #expect(selection.candidate(number: 1)?.text == text)
         try snapshot(panel.list, name: "oversized-1")
+    }
+
+    @Test func aShortCandidateUsesTheTripledMinimumWhileRespectingScreenSpace() throws {
+        _ = NSApplication.shared
+        let panel = CandidatePanel()
+        defer { panel.releasePresentation(); panel.close() }
+        panel.claimPresentation()
+        var selection = CandidateSelection()
+        selection.update([InputCandidate(text: "一", language: .simplifiedChinese, score: 1, lexicalTokenCount: 1)])
+        for (available, expected) in [(900.0, 480.0), (300.0, 300.0)] {
+            let anchor = try makeAnchor(availableWidth: available)
+            panel.fit(selection: &selection, at: anchor)
+            panel.show(at: anchor, clientLevel: 0)
+            #expect(abs(panel.frame.width - CGFloat(expected)) < 0.001)
+            #expect(panel.frame.minX == 100)
+            if expected == 480 { try snapshot(panel.list, name: "minimum-480") }
+        }
     }
 
     @Test func aShortSingleCandidateDoesNotReserveFiveEmptyColumns() {

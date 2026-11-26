@@ -27,6 +27,18 @@ SwiftPM uses a separate dictionary generated from the tracked CSVs.
 The Release build and its package check use the locally generated lexicon
 and tracked word grams under `Data/Engine/`. The verifier checks the packaged
 small reranker and rejects obsolete LambdaRank resources in incremental builds.
+The selected scorer is the step-11,000 checkpoint from the first 20-million-target
+chat continuation stage. Its manifest includes current and inherited attribution;
+resource checks verify every declared file. See the
+[selected model identity](../Data/RerankerSmall/README.md).
+
+For the selected chat checkpoint, resource checks and seven Rust/PyTorch
+scoring parity cases pass. Three of the four focused `small_reranker` engine
+tests pass; `small_reranker_preserves_model_gaps_across_large_statistical_gaps`
+retains an unresolved model-dependent failure. Its synthetic frequency gap
+exceeds the new checkpoint's weighted model preference for `原始拼写` over
+`元是拼写`. The test expectation and ranking policy were not changed to
+accommodate the artifact. See the selected-model README for measured gaps.
 
 Run the synchronous selection and window regression tests with the app's paired snapshots.
 
@@ -66,7 +78,13 @@ files, and concurrent imports.
 
 Scoring fixtures verify shared Chinese and English unigram totals, equal
 unigram scores at equal counts, cross-language word histories and continuation
-totals, lower-order fallback, and ranking with preceding text. Sentence-start
+totals, trigram-first reward scoring, and ranking with preceding text. Base gram
+fixtures check joint-count confidence, the cap before weighting, discounted
+bigram fallback, neutral absent/weaker records and a matched zero-reward
+trigram blocking fallback. Exact, completion, prefix and preceding-field cases
+keep the same consumed spans; stored four-grams do not bypass the trigram limit.
+Configuration fixtures validate all three reward parameters and disabled rewards.
+Sentence-start
 fixtures verify the nonnegative relative reward `2*r*r*(3-2*r)`, where
 `r = c/max(c_competitors)` within the same consumed source span. Cases cover
 zero and full rewards, ties, probability ratios, corpus-scale invariance,
@@ -431,15 +449,16 @@ highlighted for each edited composition.
 
 ## Candidate positioning
 
-`CandidatePlacementTests` covers fixed placement within a line; transitions across
-multiple wrapped lines and deletion back; growing fields with unchanged caret
-screen height; UTF-16 grapheme probes; unavailable and obsolete geometry; prefix
-remainders, capture reset, resizing, and global display coordinates.
+`CandidatePlacementTests` covers fixed placement within a line, wrapping and
+deleting across multiple lines, and growing fields with unchanged caret screen
+height. It also covers overlapping rectangles, sparse wrap geometry, UTF-16
+grapheme probes, unavailable and obsolete geometry, prefix remainders, capture
+reset, resizing, and global display coordinates.
 `CandidatePanelOwnershipTests` covers a focus switch between rendering and display,
 and actual AppKit panel placement while candidate widths and expansion change.
 `CandidateWidthTests` covers each reduction from six columns to one, expansion
 at a reduced count, restored width, unchanged candidate order/selection, mouse
-and digit agreement, fractional remaining width, and exact oversized text.
+and digit agreement, fractional remaining width, exact oversized text, and the 480-point preferred minimum with a smaller-screen cap.
 `CandidateSelectionTests` covers paging through every choice, including literal
 input, at each column count in both layouts.
 
@@ -449,11 +468,18 @@ web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Check
 that the panel first appears at the composition start. In Chrome and Codex, place the
 caret within a long line of synthetic text. Type until the marked spelling wraps,
 delete back across the wrap, and move the caret with Home and End. Verify that
-the panel moves to the new visual line's start when spelling wraps, stays fixed
-while typing within that line, and returns to the earlier line's start on deletion
-or caret movement back across the wrap. In an expanding bottom-aligned composer,
+the panel moves to the earliest available position on the new visual line when
+spelling wraps. It should stay fixed while typing within that line and return to
+the earlier line on deletion or caret movement back across the wrap. In an
+expanding bottom-aligned composer,
 verify this also works when adding a line moves existing text upward while the
-caret's screen height stays unchanged.
+caret's screen height stays unchanged. Type continuously without Return: a visual
+wrap must work even when the spelling itself contains no newline. Repeat with
+ASCII digits and underscores, and when geometry is available only for occasional
+characters. The geometry log can include validated document-relative range probes
+when the inline API returns zero rectangles. In the geometry log, check whether a
+leftward caret rectangle and an older, farther-right rectangle overlap. The
+panel should move to the caret's line even when intermediate probes are zero.
 In each host, try rapid typing, a new line,
 the end of existing text, and starting another composition after moving the
 window. Confirm several prefixes with Space, numbers and mouse. Check that
@@ -469,6 +495,8 @@ The panel must stay at the same line anchor and within the visible right edge.
 Confirm each displayed digit and mouse choice, page through the entire shortlist
 including literal input, expand/collapse, and move to a new line with more width.
 The count can grow again when space permits; all choices retain engine order.
+A short candidate should use a 480-point panel when there is room, and a narrower
+panel when fewer than 480 points remain on the screen.
 Check light/dark appearance, keyboard focus and VoiceOver row/column descriptions.
 Near the bottom edge the panel still does not flip above the line. Moving the mouse, moving
 the host window or disconnecting a display must not introduce mouse or previous-
