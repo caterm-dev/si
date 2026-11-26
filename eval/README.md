@@ -3,8 +3,8 @@
 | Task | Dataset | Unit under test |
 | --- | --- | --- |
 | Recall | [1,020 queries](recall/test.jsonl) | Full Rust decoding before model or window filtering |
-| Ranking with preceding text | [458 queries in 229 paired contrasts](ranking/context.jsonl) | Character scorer on an identical ordered pool for each pair |
-| Ranking at the start of a field | [531 queries](ranking/context-free.jsonl) | Character scorer on fixed, phonetically compatible alternatives |
+| Ranking with preceding text | [442 queries in 221 paired contrasts](ranking/context.jsonl) | Character scorer on an identical ordered pool for each pair |
+| Ranking at the start of a field | [543 queries](ranking/context-free.jsonl) | Character scorer on fixed, phonetically compatible alternatives |
 | Window regressions | [17 product fixtures](regression/README.md) | Candidate selection and presentation using App policy |
 
 ### Recall
@@ -37,9 +37,10 @@ For example, an e-mail can require a new `登录`, while a boat needs a place to
 reports individual Top-1 and MRR, and how many pairs place both context-specific
 references first.
 
-The context-free suite contains 381 utterances with localized homophonic
+The context-free suite contains 364 utterances with localized homophonic
 distractors from a pinned, correction-off Rust export, three explicitly marked
-repairs of unnatural source wording, and 147 authored orthography contrasts. Candidate order is frozen independently of
+repairs of unnatural source wording, 145 authored orthography contrasts and 31
+recent input regressions/controls. Candidate order is frozen independently of
 gold status and model scores. Acceptable alternate outputs identified in
 review are carried as additional references. A ranking reference is in its
 fixed pool by design, including when the original engine did not return it.
@@ -56,9 +57,65 @@ maintained Pinyin training fixtures. Exact context-plus-reference text was
 also audited against three frozen character-LM training bundles, with matches
 recorded below. Semantic overlap and unsnapshotted corpora remain unverified.
 Independent human annotation and representative typing samples are unavailable. Keep these
-test suites outside training and model selection.
+test suites outside training and model selection. The new regression additions
+have not had the earlier LM training-text overlap audit; its recorded hashes
+apply to the historical revision only.
 
-### Ranking review on 2026-11-24
+### Ranking replacement on 2026-11-26
+
+The current identity is `conversion-v4-creatine-regression-20261126` with
+**985 ranking queries**. The initial v3 replacement had 984 queries. At the user's request, all 27 Qwen mismatches from the
+previous revision were retired, including genuine model failures as well as
+ambiguous or defective items. Their eight contextual partners were also
+retired to preserve complete pairs. Thirty new context-free cases replace
+those 35 rows. A follow-up adds `chijisuan → 吃肌酸` with the four user-supplied
+candidates 吃肌酸, 吃计算, 迟计算 and 池计算, in their supplied order. Its empty
+context and three-syllable readings are explicit. The review records the
+preceding v3 hash; existing 30-case reports still describe v3, not v4. The recall
+suite and historical 220-query suite are unchanged.
+
+[The review archive](ranking/review-20261126.json) preserves every retired row,
+its original line and old dataset hashes, and all new cases with provenance.
+The exact old ranking files can be reconstructed and verified against their
+original SHA-256 values. Earlier model reports continue to describe that old
+revision and must not be relabeled as results for the new suite.
+
+The additions include the current report `bazhegezuowan → 把这个做完`, fifteen
+adaptations of earlier project/window cases, one adaptation of a reviewed
+cache-removal failure and thirteen new synthetic project controls. They cover
+做完/昨晚, 按照, 字幕, 语料, page ordinals, 候选池, 二倍做多, 伤感情,
+continuous-spelling boundaries and input-method actions. Only the first is
+claimed as the exact current user report. Families have at most two additions;
+these are not slot- or number-expanded series.
+
+Each new pool uses actual whole Chinese candidates from a pinned local
+statistical Rust export, with linguistic review of the selected distractors
+before inspecting new model scores. A final text-only QA pass replaced two
+potentially plausible distractors and removed two more before the final uniform
+evaluation; preliminary reports use superseded hashes. The follow-up
+`chijisuan` pool is supplied directly by the user rather than exported from Rust.
+References are inserted when absent, as in
+the existing isolated-ranking protocol. Three targets were missing from that
+export (cases 06, 10 and 11); their scoring results cannot establish decoder
+recall. Candidate order uses a deterministic hash independent of reference
+position and model scores. Per-candidate syllables preserve alternative
+segmentation such as `qie` versus `qi'e`; additional fluent outputs, including
+行李箱/行李厢, are accepted explicitly.
+
+The new cases evaluate ordinary literal **complete compositions**, without
+inventing unstated names, missing punctuation or trailing words to justify a
+distractor. The archive records the local binary/resource hashes and each
+candidate's origin. Existing token/character checks remain necessary but do
+not prove contextual pronunciation correctness or linguistic uniqueness.
+
+This is a **post-evaluation regression revision**, not a new independent
+held-out test: Qwen's observed errors helped choose which old rows to retire.
+Report the thirty additions separately and compare all models on the same
+new hashes. A higher aggregate score after removing observed errors is not
+evidence of model improvement. Independent human review and representative
+typing coverage remain open.
+
+### Historical ranking review on 2026-11-24
 
 The reviewed identity is `conversion-v2-reviewed-20261124`. Review covered all
 229 context pairs, all 539 original context-free pools, and the separate

@@ -892,7 +892,7 @@ coverage and word quality require separate evaluation.
 ## Model training experiments
 
 The [conversion evals](eval/README.md) include 1,020 authored decoder recall
-queries and 989 fixed-pool ranking queries, with both paired preceding-text
+queries and 985 fixed-pool ranking queries, with both paired preceding-text
 contrasts and context-free examples. Run `python3 scripts/evaluate_conversion.py check`
 to verify the datasets. Recall reports preserve the full returned Rust pool.
 Ranking reports score the frozen candidate text with the character LM. The

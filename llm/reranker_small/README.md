@@ -183,8 +183,8 @@ preserved as provenance, and it does not assign redistribution rights.
 ## Evaluate a checkpoint
 
 Use the [conversion evaluation suites](../../eval/README.md) for fixed-pool
-candidate accuracy. The contextual suite has 458 queries in 229 paired
-contrasts, and the context-free suite has 531 queries. Compare Top-1, MRR,
+candidate accuracy. The contextual suite has 442 queries in 221 paired
+contrasts, and the context-free suite has 543 queries. Compare Top-1, MRR,
 both-correct context pairs, and per-category results on identical candidate
 pools. Evaluate the decoder separately with its 1,020-query recall suite.
 

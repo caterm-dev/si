@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "suite": "conversion-v2-reviewed-20261124",
+  "suite": "conversion-v4-creatine-regression-20261126",
   "source": "SI-authored synthetic reference outputs and context contrasts. Context-free distractors are frozen from an offline Rust exact candidate export.",
   "license": "GPL-3.0-only",
   "files": {
@@ -46,36 +46,37 @@
       "sha256": "39dfcec6e69b67d703ef0efab8f87458a0b2f1c53e9de33003dbf26a7084d781"
     },
     "ranking/context.jsonl": {
-      "rows": 458,
+      "rows": 442,
       "categories": {
-        "additional-controls": 62,
+        "additional-controls": 54,
         "closed-class-and-common": 40,
-        "commerce-and-work": 28,
+        "commerce-and-work": 26,
         "common-contrasts": 48,
         "concrete-disambiguation": 38,
-        "daily-homophones": 52,
+        "daily-homophones": 50,
         "homophone-words": 44,
-        "lexical-contrasts": 26,
+        "lexical-contrasts": 24,
         "natural-boundary-contrasts": 34,
-        "services-and-actions": 44,
+        "services-and-actions": 42,
         "short-homophones": 42
       },
-      "sha256": "a21a9c1cf9e358789384cca511a01463bfc92ff17128775a8cef45dce4606b36"
+      "sha256": "9b555d90e099b851a7df376f8496c0aa35bd2af37c39edda628c5bbd4ed580aa"
     },
     "ranking/context-free.jsonl": {
-      "rows": 531,
+      "rows": 543,
       "categories": {
-        "cooking-and-shopping": 68,
-        "daily-collocations": 68,
+        "cooking-and-shopping": 65,
+        "daily-collocations": 67,
         "grammatical-contrasts": 40,
-        "hard-phrasing": 62,
-        "idioms": 64,
-        "institutions-and-technical": 62,
-        "places-and-people": 66,
-        "requests-and-decisions": 58,
+        "hard-phrasing": 60,
+        "idioms": 62,
+        "institutions-and-technical": 59,
+        "places-and-people": 63,
+        "recent-input-regressions": 31,
+        "requests-and-decisions": 53,
         "standard-terms": 43
       },
-      "sha256": "2031936c649d0651d6f35f1af1b3511c003f1ddef561481317a8856619cee115"
+      "sha256": "bd6502f43b5d0aacc6fce24326ea39f2da9def997ab50e48def1689877ce4834"
     }
   },
   "context_free_distractor_snapshot": {
@@ -280,6 +281,21 @@
           ]
         }
       }
-    }
+    },
+    "status": "Historical review of conversion-v2-reviewed-20261124; its text-audit hashes do not cover the newly added regressions."
+  },
+  "replacement_review": {
+    "date": "2026-11-26",
+    "file": "ranking/review-20261126.json",
+    "sha256": "a7308d188325f2bc7273099031552fbd3e79c896ba2b076612848ddab567f782",
+    "requested_retirements": 27,
+    "paired_controls_retired": 8,
+    "new_queries": 31,
+    "current_context_pairs": 221,
+    "current_context_queries": 442,
+    "current_context_free_queries": 543,
+    "status": "User-directed regression revision after model errors were observed; not a newly independent test set.",
+    "original_replacement_queries": 30,
+    "follow_up_queries": 1
   }
 }

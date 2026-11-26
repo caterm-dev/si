@@ -1,0 +1,4267 @@
+{
+  "date": "2026-11-26",
+  "previous_suite": "conversion-v2-reviewed-20261124",
+  "previous_hashes": {
+    "ranking/context.jsonl": "a21a9c1cf9e358789384cca511a01463bfc92ff17128775a8cef45dce4606b36",
+    "ranking/context-free.jsonl": "2031936c649d0651d6f35f1af1b3511c003f1ddef561481317a8856619cee115"
+  },
+  "method": "User requested retirement of all 27 Qwen mismatches after linguistic review. Also retire their 8 contextual partners. Author and review 30 complete-composition controls without consulting new model scores, finish text-only QA, and freeze the final pools before the final uniform evaluation.",
+  "selection_bias": "Post-evaluation, user-directed regression revision; not an independent held-out benchmark. Retired rows include genuine model failures, not only annotation defects.",
+  "requested_error_ids": [
+    "ctx-050-b",
+    "ctx-079-b",
+    "ctx-126-b",
+    "ctx-130-b",
+    "ctx-184-b",
+    "ctx-188-b",
+    "ctx-190-b",
+    "ctx-201-b",
+    "free-015",
+    "free-082",
+    "free-121",
+    "free-131",
+    "free-143",
+    "free-163",
+    "free-175",
+    "free-211",
+    "free-217",
+    "free-220",
+    "free-222",
+    "free-231",
+    "free-268",
+    "free-270",
+    "free-307",
+    "free-348",
+    "free-366",
+    "free-426",
+    "free-452"
+  ],
+  "retired_pairs": [
+    "ctx-050",
+    "ctx-079",
+    "ctx-126",
+    "ctx-130",
+    "ctx-184",
+    "ctx-188",
+    "ctx-190",
+    "ctx-201"
+  ],
+  "retired_rows": [
+    {
+      "source": "ranking/context.jsonl",
+      "line": 99,
+      "reason": "paired-control-retirement",
+      "row": {
+        "id": "ctx-050-a",
+        "pair": "ctx-050",
+        "input": "shouquan",
+        "context": "财务系统只认管理员发出的临时",
+        "candidates": [
+          "授权",
+          "收全"
+        ],
+        "syllables": [
+          [
+            "shou",
+            "quan"
+          ],
+          [
+            "shou",
+            "quan"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "授权"
+        ],
+        "category": "commerce-and-work"
+      },
+      "original_line": "{\"id\":\"ctx-050-a\",\"pair\":\"ctx-050\",\"input\":\"shouquan\",\"context\":\"财务系统只认管理员发出的临时\",\"candidates\":[\"授权\",\"收全\"],\"syllables\":[[\"shou\",\"quan\"],[\"shou\",\"quan\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"授权\"],\"category\":\"commerce-and-work\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 100,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "ctx-050-b",
+        "pair": "ctx-050",
+        "input": "shouquan",
+        "context": "外地回来的签字页还没到，等把所有原件",
+        "candidates": [
+          "授权",
+          "收全"
+        ],
+        "syllables": [
+          [
+            "shou",
+            "quan"
+          ],
+          [
+            "shou",
+            "quan"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "收全"
+        ],
+        "category": "commerce-and-work"
+      },
+      "original_line": "{\"id\":\"ctx-050-b\",\"pair\":\"ctx-050\",\"input\":\"shouquan\",\"context\":\"外地回来的签字页还没到，等把所有原件\",\"candidates\":[\"授权\",\"收全\"],\"syllables\":[[\"shou\",\"quan\"],[\"shou\",\"quan\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"收全\"],\"category\":\"commerce-and-work\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 157,
+      "reason": "paired-control-retirement",
+      "row": {
+        "id": "ctx-079-a",
+        "pair": "ctx-079",
+        "input": "shai",
+        "context": "把毯子拿到阳台上再",
+        "candidates": [
+          "筛",
+          "晒"
+        ],
+        "syllables": [
+          [
+            "shai"
+          ],
+          [
+            "shai"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "晒"
+        ],
+        "category": "daily-homophones"
+      },
+      "original_line": "{\"id\":\"ctx-079-a\",\"pair\":\"ctx-079\",\"input\":\"shai\",\"context\":\"把毯子拿到阳台上再\",\"candidates\":[\"筛\",\"晒\"],\"syllables\":[[\"shai\"],[\"shai\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"晒\"],\"category\":\"daily-homophones\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 158,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "ctx-079-b",
+        "pair": "ctx-079",
+        "input": "shai",
+        "context": "面粉买回来以后最好先",
+        "candidates": [
+          "筛",
+          "晒"
+        ],
+        "syllables": [
+          [
+            "shai"
+          ],
+          [
+            "shai"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "筛"
+        ],
+        "category": "daily-homophones"
+      },
+      "original_line": "{\"id\":\"ctx-079-b\",\"pair\":\"ctx-079\",\"input\":\"shai\",\"context\":\"面粉买回来以后最好先\",\"candidates\":[\"筛\",\"晒\"],\"syllables\":[[\"shai\"],[\"shai\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"筛\"],\"category\":\"daily-homophones\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 251,
+      "reason": "paired-control-retirement",
+      "row": {
+        "id": "ctx-126-a",
+        "pair": "ctx-126",
+        "input": "jieshou",
+        "context": "卫星发出的信号可以用这台天线",
+        "candidates": [
+          "解手",
+          "接收"
+        ],
+        "syllables": [
+          [
+            "jie",
+            "shou"
+          ],
+          [
+            "jie",
+            "shou"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "接收"
+        ],
+        "category": "services-and-actions"
+      },
+      "original_line": "{\"id\":\"ctx-126-a\",\"pair\":\"ctx-126\",\"input\":\"jieshou\",\"context\":\"卫星发出的信号可以用这台天线\",\"candidates\":[\"解手\",\"接收\"],\"syllables\":[[\"jie\",\"shou\"],[\"jie\",\"shou\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"接收\"],\"category\":\"services-and-actions\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 252,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "ctx-126-b",
+        "pair": "ctx-126",
+        "input": "jieshou",
+        "context": "孩子到服务区说想下车去",
+        "candidates": [
+          "解手",
+          "接收"
+        ],
+        "syllables": [
+          [
+            "jie",
+            "shou"
+          ],
+          [
+            "jie",
+            "shou"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "解手"
+        ],
+        "category": "services-and-actions"
+      },
+      "original_line": "{\"id\":\"ctx-126-b\",\"pair\":\"ctx-126\",\"input\":\"jieshou\",\"context\":\"孩子到服务区说想下车去\",\"candidates\":[\"解手\",\"接收\"],\"syllables\":[[\"jie\",\"shou\"],[\"jie\",\"shou\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"解手\"],\"category\":\"services-and-actions\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 259,
+      "reason": "paired-control-retirement",
+      "row": {
+        "id": "ctx-130-a",
+        "pair": "ctx-130",
+        "input": "quanyi",
+        "context": "公司未按时发工资，这可能侵害员工的合法",
+        "candidates": [
+          "权益",
+          "权宜"
+        ],
+        "syllables": [
+          [
+            "quan",
+            "yi"
+          ],
+          [
+            "quan",
+            "yi"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "权益"
+        ],
+        "category": "lexical-contrasts"
+      },
+      "original_line": "{\"id\":\"ctx-130-a\",\"pair\":\"ctx-130\",\"input\":\"quanyi\",\"context\":\"公司未按时发工资，这可能侵害员工的合法\",\"candidates\":[\"权益\",\"权宜\"],\"syllables\":[[\"quan\",\"yi\"],[\"quan\",\"yi\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"权益\"],\"category\":\"lexical-contrasts\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 260,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "ctx-130-b",
+        "pair": "ctx-130",
+        "input": "quanyi",
+        "context": "通风管破了，先拿胶带堵住只能算",
+        "candidates": [
+          "权益",
+          "权宜"
+        ],
+        "syllables": [
+          [
+            "quan",
+            "yi"
+          ],
+          [
+            "quan",
+            "yi"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "权宜"
+        ],
+        "category": "lexical-contrasts"
+      },
+      "original_line": "{\"id\":\"ctx-130-b\",\"pair\":\"ctx-130\",\"input\":\"quanyi\",\"context\":\"通风管破了，先拿胶带堵住只能算\",\"candidates\":[\"权益\",\"权宜\"],\"syllables\":[[\"quan\",\"yi\"],[\"quan\",\"yi\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"权宜\"],\"category\":\"lexical-contrasts\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 367,
+      "reason": "paired-control-retirement",
+      "row": {
+        "id": "ctx-184-a",
+        "pair": "ctx-184",
+        "input": "chuli",
+        "context": "漏掉的数据先填进同一张表，今天集中",
+        "candidates": [
+          "出力",
+          "处理"
+        ],
+        "syllables": [
+          [
+            "chu",
+            "li"
+          ],
+          [
+            "chu",
+            "li"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "处理"
+        ],
+        "category": "additional-controls"
+      },
+      "original_line": "{\"id\":\"ctx-184-a\",\"pair\":\"ctx-184\",\"input\":\"chuli\",\"context\":\"漏掉的数据先填进同一张表，今天集中\",\"candidates\":[\"出力\",\"处理\"],\"syllables\":[[\"chu\",\"li\"],[\"chu\",\"li\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"处理\"],\"category\":\"additional-controls\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 368,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "ctx-184-b",
+        "pair": "ctx-184",
+        "input": "chuli",
+        "context": "水已经涨过门槛了，大家必须一起",
+        "candidates": [
+          "出力",
+          "处理"
+        ],
+        "syllables": [
+          [
+            "chu",
+            "li"
+          ],
+          [
+            "chu",
+            "li"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "出力"
+        ],
+        "category": "additional-controls"
+      },
+      "original_line": "{\"id\":\"ctx-184-b\",\"pair\":\"ctx-184\",\"input\":\"chuli\",\"context\":\"水已经涨过门槛了，大家必须一起\",\"candidates\":[\"出力\",\"处理\"],\"syllables\":[[\"chu\",\"li\"],[\"chu\",\"li\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"出力\"],\"category\":\"additional-controls\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 375,
+      "reason": "paired-control-retirement",
+      "row": {
+        "id": "ctx-188-a",
+        "pair": "ctx-188",
+        "input": "shangpin",
+        "context": "这间连锁店月底盘点所有库存",
+        "candidates": [
+          "上品",
+          "商品"
+        ],
+        "syllables": [
+          [
+            "shang",
+            "pin"
+          ],
+          [
+            "shang",
+            "pin"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "商品"
+        ],
+        "category": "additional-controls"
+      },
+      "original_line": "{\"id\":\"ctx-188-a\",\"pair\":\"ctx-188\",\"input\":\"shangpin\",\"context\":\"这间连锁店月底盘点所有库存\",\"candidates\":[\"上品\",\"商品\"],\"syllables\":[[\"shang\",\"pin\"],[\"shang\",\"pin\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"商品\"],\"category\":\"additional-controls\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 376,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "ctx-188-b",
+        "pair": "ctx-188",
+        "input": "shangpin",
+        "context": "师傅评估床垫里挑的棉花，说这批确实是",
+        "candidates": [
+          "上品",
+          "商品"
+        ],
+        "syllables": [
+          [
+            "shang",
+            "pin"
+          ],
+          [
+            "shang",
+            "pin"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "上品"
+        ],
+        "category": "additional-controls"
+      },
+      "original_line": "{\"id\":\"ctx-188-b\",\"pair\":\"ctx-188\",\"input\":\"shangpin\",\"context\":\"师傅评估床垫里挑的棉花，说这批确实是\",\"candidates\":[\"上品\",\"商品\"],\"syllables\":[[\"shang\",\"pin\"],[\"shang\",\"pin\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"上品\"],\"category\":\"additional-controls\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 379,
+      "reason": "paired-control-retirement",
+      "row": {
+        "id": "ctx-190-a",
+        "pair": "ctx-190",
+        "input": "changjing",
+        "context": "测试员每天都要重跑进入洞穴的那个",
+        "candidates": [
+          "场景",
+          "长镜"
+        ],
+        "syllables": [
+          [
+            "chang",
+            "jing"
+          ],
+          [
+            "chang",
+            "jing"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "场景"
+        ],
+        "category": "additional-controls"
+      },
+      "original_line": "{\"id\":\"ctx-190-a\",\"pair\":\"ctx-190\",\"input\":\"changjing\",\"context\":\"测试员每天都要重跑进入洞穴的那个\",\"candidates\":[\"场景\",\"长镜\"],\"syllables\":[[\"chang\",\"jing\"],[\"chang\",\"jing\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"场景\"],\"category\":\"additional-controls\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 380,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "ctx-190-b",
+        "pair": "ctx-190",
+        "input": "changjing",
+        "context": "导演想让这个动作从上楼到出门一次拍完，也就是用一个",
+        "candidates": [
+          "场景",
+          "长镜"
+        ],
+        "syllables": [
+          [
+            "chang",
+            "jing"
+          ],
+          [
+            "chang",
+            "jing"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "长镜"
+        ],
+        "category": "additional-controls"
+      },
+      "original_line": "{\"id\":\"ctx-190-b\",\"pair\":\"ctx-190\",\"input\":\"changjing\",\"context\":\"导演想让这个动作从上楼到出门一次拍完，也就是用一个\",\"candidates\":[\"场景\",\"长镜\"],\"syllables\":[[\"chang\",\"jing\"],[\"chang\",\"jing\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"长镜\"],\"category\":\"additional-controls\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 401,
+      "reason": "paired-control-retirement",
+      "row": {
+        "id": "ctx-201-a",
+        "pair": "ctx-201",
+        "input": "zhengshi",
+        "context": "这次典礼要求西装领带，着装必须十分",
+        "candidates": [
+          "正式",
+          "证实"
+        ],
+        "syllables": [
+          [
+            "zheng",
+            "shi"
+          ],
+          [
+            "zheng",
+            "shi"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "正式"
+        ],
+        "category": "additional-controls",
+        "review_note": "2026-11-24: Strengthened the preceding evidence or repaired phrasing; pool and labels unchanged."
+      },
+      "original_line": "{\"id\":\"ctx-201-a\",\"pair\":\"ctx-201\",\"input\":\"zhengshi\",\"context\":\"这次典礼要求西装领带，着装必须十分\",\"candidates\":[\"正式\",\"证实\"],\"syllables\":[[\"zheng\",\"shi\"],[\"zheng\",\"shi\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"正式\"],\"category\":\"additional-controls\",\"review_note\":\"2026-11-24: Strengthened the preceding evidence or repaired phrasing; pool and labels unchanged.\"}"
+    },
+    {
+      "source": "ranking/context.jsonl",
+      "line": 402,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "ctx-201-b",
+        "pair": "ctx-201",
+        "input": "zhengshi",
+        "context": "有一张图传得很广，目前还没有权威渠道",
+        "candidates": [
+          "正式",
+          "证实"
+        ],
+        "syllables": [
+          [
+            "zheng",
+            "shi"
+          ],
+          [
+            "zheng",
+            "shi"
+          ]
+        ],
+        "pool_origin": "authored-context-pair",
+        "references": [
+          "证实"
+        ],
+        "category": "additional-controls"
+      },
+      "original_line": "{\"id\":\"ctx-201-b\",\"pair\":\"ctx-201\",\"input\":\"zhengshi\",\"context\":\"有一张图传得很广，目前还没有权威渠道\",\"candidates\":[\"正式\",\"证实\"],\"syllables\":[[\"zheng\",\"shi\"],[\"zheng\",\"shi\"]],\"pool_origin\":\"authored-context-pair\",\"references\":[\"证实\"],\"category\":\"additional-controls\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 15,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-015",
+        "input": "niuyixiajiunengdakai",
+        "context": "",
+        "candidates": [
+          "钮一下就能打开",
+          "妞一下就能打开",
+          "牛一下就能打开",
+          "扭一下就能打开"
+        ],
+        "syllables": [
+          [
+            "niu",
+            "yi",
+            "xia",
+            "jiu",
+            "neng",
+            "da",
+            "kai"
+          ],
+          [
+            "niu",
+            "yi",
+            "xia",
+            "jiu",
+            "neng",
+            "da",
+            "kai"
+          ],
+          [
+            "niu",
+            "yi",
+            "xia",
+            "jiu",
+            "neng",
+            "da",
+            "kai"
+          ],
+          [
+            "niu",
+            "yi",
+            "xia",
+            "jiu",
+            "neng",
+            "da",
+            "kai"
+          ]
+        ],
+        "references": [
+          "扭一下就能打开"
+        ],
+        "category": "daily-collocations",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-015\",\"input\":\"niuyixiajiunengdakai\",\"context\":\"\",\"candidates\":[\"钮一下就能打开\",\"妞一下就能打开\",\"牛一下就能打开\",\"扭一下就能打开\"],\"syllables\":[[\"niu\",\"yi\",\"xia\",\"jiu\",\"neng\",\"da\",\"kai\"],[\"niu\",\"yi\",\"xia\",\"jiu\",\"neng\",\"da\",\"kai\"],[\"niu\",\"yi\",\"xia\",\"jiu\",\"neng\",\"da\",\"kai\"],[\"niu\",\"yi\",\"xia\",\"jiu\",\"neng\",\"da\",\"kai\"]],\"references\":[\"扭一下就能打开\"],\"category\":\"daily-collocations\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 82,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-082",
+        "input": "yongdoufudaitiyibanrouxian",
+        "context": "",
+        "candidates": [
+          "用豆腐代替一版肉馅",
+          "用豆腐代替一般肉馅",
+          "用豆腐代替一半肉馅",
+          "用豆腐代替一班肉馅"
+        ],
+        "syllables": [
+          [
+            "yong",
+            "dou",
+            "fu",
+            "dai",
+            "ti",
+            "yi",
+            "ban",
+            "rou",
+            "xian"
+          ],
+          [
+            "yong",
+            "dou",
+            "fu",
+            "dai",
+            "ti",
+            "yi",
+            "ban",
+            "rou",
+            "xian"
+          ],
+          [
+            "yong",
+            "dou",
+            "fu",
+            "dai",
+            "ti",
+            "yi",
+            "ban",
+            "rou",
+            "xian"
+          ],
+          [
+            "yong",
+            "dou",
+            "fu",
+            "dai",
+            "ti",
+            "yi",
+            "ban",
+            "rou",
+            "xian"
+          ]
+        ],
+        "references": [
+          "用豆腐代替一半肉馅"
+        ],
+        "category": "cooking-and-shopping",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-082\",\"input\":\"yongdoufudaitiyibanrouxian\",\"context\":\"\",\"candidates\":[\"用豆腐代替一版肉馅\",\"用豆腐代替一般肉馅\",\"用豆腐代替一半肉馅\",\"用豆腐代替一班肉馅\"],\"syllables\":[[\"yong\",\"dou\",\"fu\",\"dai\",\"ti\",\"yi\",\"ban\",\"rou\",\"xian\"],[\"yong\",\"dou\",\"fu\",\"dai\",\"ti\",\"yi\",\"ban\",\"rou\",\"xian\"],[\"yong\",\"dou\",\"fu\",\"dai\",\"ti\",\"yi\",\"ban\",\"rou\",\"xian\"],[\"yong\",\"dou\",\"fu\",\"dai\",\"ti\",\"yi\",\"ban\",\"rou\",\"xian\"]],\"references\":[\"用豆腐代替一半肉馅\"],\"category\":\"cooking-and-shopping\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 121,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-121",
+        "input": "xianbazhetiaokuzidediaopailiuzhe",
+        "context": "",
+        "candidates": [
+          "先吧这条裤子的吊牌留着",
+          "先把这条裤子地吊牌留着",
+          "线把这条裤子的吊牌留着",
+          "先把这条裤子的吊牌留着"
+        ],
+        "syllables": [
+          [
+            "xian",
+            "ba",
+            "zhe",
+            "tiao",
+            "ku",
+            "zi",
+            "de",
+            "diao",
+            "pai",
+            "liu",
+            "zhe"
+          ],
+          [
+            "xian",
+            "ba",
+            "zhe",
+            "tiao",
+            "ku",
+            "zi",
+            "de",
+            "diao",
+            "pai",
+            "liu",
+            "zhe"
+          ],
+          [
+            "xian",
+            "ba",
+            "zhe",
+            "tiao",
+            "ku",
+            "zi",
+            "de",
+            "diao",
+            "pai",
+            "liu",
+            "zhe"
+          ],
+          [
+            "xian",
+            "ba",
+            "zhe",
+            "tiao",
+            "ku",
+            "zi",
+            "de",
+            "diao",
+            "pai",
+            "liu",
+            "zhe"
+          ]
+        ],
+        "references": [
+          "先把这条裤子的吊牌留着"
+        ],
+        "category": "cooking-and-shopping",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-121\",\"input\":\"xianbazhetiaokuzidediaopailiuzhe\",\"context\":\"\",\"candidates\":[\"先吧这条裤子的吊牌留着\",\"先把这条裤子地吊牌留着\",\"线把这条裤子的吊牌留着\",\"先把这条裤子的吊牌留着\"],\"syllables\":[[\"xian\",\"ba\",\"zhe\",\"tiao\",\"ku\",\"zi\",\"de\",\"diao\",\"pai\",\"liu\",\"zhe\"],[\"xian\",\"ba\",\"zhe\",\"tiao\",\"ku\",\"zi\",\"de\",\"diao\",\"pai\",\"liu\",\"zhe\"],[\"xian\",\"ba\",\"zhe\",\"tiao\",\"ku\",\"zi\",\"de\",\"diao\",\"pai\",\"liu\",\"zhe\"],[\"xian\",\"ba\",\"zhe\",\"tiao\",\"ku\",\"zi\",\"de\",\"diao\",\"pai\",\"liu\",\"zhe\"]],\"references\":[\"先把这条裤子的吊牌留着\"],\"category\":\"cooking-and-shopping\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 131,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-131",
+        "input": "jiazizuiyoubianguazheyangpin",
+        "context": "",
+        "candidates": [
+          "架子最右边挂着样品",
+          "甲子最右边挂着样品",
+          "家子最右边挂着样品",
+          "夹子最右边挂着样品"
+        ],
+        "syllables": [
+          [
+            "jia",
+            "zi",
+            "zui",
+            "you",
+            "bian",
+            "gua",
+            "zhe",
+            "yang",
+            "pin"
+          ],
+          [
+            "jia",
+            "zi",
+            "zui",
+            "you",
+            "bian",
+            "gua",
+            "zhe",
+            "yang",
+            "pin"
+          ],
+          [
+            "jia",
+            "zi",
+            "zui",
+            "you",
+            "bian",
+            "gua",
+            "zhe",
+            "yang",
+            "pin"
+          ],
+          [
+            "jia",
+            "zi",
+            "zui",
+            "you",
+            "bian",
+            "gua",
+            "zhe",
+            "yang",
+            "pin"
+          ]
+        ],
+        "references": [
+          "架子最右边挂着样品"
+        ],
+        "category": "cooking-and-shopping",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-131\",\"input\":\"jiazizuiyoubianguazheyangpin\",\"context\":\"\",\"candidates\":[\"架子最右边挂着样品\",\"甲子最右边挂着样品\",\"家子最右边挂着样品\",\"夹子最右边挂着样品\"],\"syllables\":[[\"jia\",\"zi\",\"zui\",\"you\",\"bian\",\"gua\",\"zhe\",\"yang\",\"pin\"],[\"jia\",\"zi\",\"zui\",\"you\",\"bian\",\"gua\",\"zhe\",\"yang\",\"pin\"],[\"jia\",\"zi\",\"zui\",\"you\",\"bian\",\"gua\",\"zhe\",\"yang\",\"pin\"],[\"jia\",\"zi\",\"zui\",\"you\",\"bian\",\"gua\",\"zhe\",\"yang\",\"pin\"]],\"references\":[\"架子最右边挂着样品\"],\"category\":\"cooking-and-shopping\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 143,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-143",
+        "input": "natiaogoumaochangdedangzhuyanjing",
+        "context": "",
+        "candidates": [
+          "那条狗猫长的挡住眼睛",
+          "哪条狗毛长的挡住眼睛",
+          "那条狗毛长得挡住眼睛",
+          "那条狗毛长的挡住眼睛"
+        ],
+        "syllables": [
+          [
+            "na",
+            "tiao",
+            "gou",
+            "mao",
+            "chang",
+            "de",
+            "dang",
+            "zhu",
+            "yan",
+            "jing"
+          ],
+          [
+            "na",
+            "tiao",
+            "gou",
+            "mao",
+            "chang",
+            "de",
+            "dang",
+            "zhu",
+            "yan",
+            "jing"
+          ],
+          [
+            "na",
+            "tiao",
+            "gou",
+            "mao",
+            "chang",
+            "de",
+            "dang",
+            "zhu",
+            "yan",
+            "jing"
+          ],
+          [
+            "na",
+            "tiao",
+            "gou",
+            "mao",
+            "chang",
+            "de",
+            "dang",
+            "zhu",
+            "yan",
+            "jing"
+          ]
+        ],
+        "references": [
+          "那条狗毛长得挡住眼睛"
+        ],
+        "category": "places-and-people",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-143\",\"input\":\"natiaogoumaochangdedangzhuyanjing\",\"context\":\"\",\"candidates\":[\"那条狗猫长的挡住眼睛\",\"哪条狗毛长的挡住眼睛\",\"那条狗毛长得挡住眼睛\",\"那条狗毛长的挡住眼睛\"],\"syllables\":[[\"na\",\"tiao\",\"gou\",\"mao\",\"chang\",\"de\",\"dang\",\"zhu\",\"yan\",\"jing\"],[\"na\",\"tiao\",\"gou\",\"mao\",\"chang\",\"de\",\"dang\",\"zhu\",\"yan\",\"jing\"],[\"na\",\"tiao\",\"gou\",\"mao\",\"chang\",\"de\",\"dang\",\"zhu\",\"yan\",\"jing\"],[\"na\",\"tiao\",\"gou\",\"mao\",\"chang\",\"de\",\"dang\",\"zhu\",\"yan\",\"jing\"]],\"references\":[\"那条狗毛长得挡住眼睛\"],\"category\":\"places-and-people\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 162,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-163",
+        "input": "zaiyouzhuanchujiansurangxing",
+        "context": "",
+        "candidates": [
+          "在右转出减速让行",
+          "在右转储减速让行",
+          "再右转处减速让行",
+          "在右转处减速让行"
+        ],
+        "syllables": [
+          [
+            "zai",
+            "you",
+            "zhuan",
+            "chu",
+            "jian",
+            "su",
+            "rang",
+            "xing"
+          ],
+          [
+            "zai",
+            "you",
+            "zhuan",
+            "chu",
+            "jian",
+            "su",
+            "rang",
+            "xing"
+          ],
+          [
+            "zai",
+            "you",
+            "zhuan",
+            "chu",
+            "jian",
+            "su",
+            "rang",
+            "xing"
+          ],
+          [
+            "zai",
+            "you",
+            "zhuan",
+            "chu",
+            "jian",
+            "su",
+            "rang",
+            "xing"
+          ]
+        ],
+        "references": [
+          "在右转处减速让行"
+        ],
+        "category": "places-and-people",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-163\",\"input\":\"zaiyouzhuanchujiansurangxing\",\"context\":\"\",\"candidates\":[\"在右转出减速让行\",\"在右转储减速让行\",\"再右转处减速让行\",\"在右转处减速让行\"],\"syllables\":[[\"zai\",\"you\",\"zhuan\",\"chu\",\"jian\",\"su\",\"rang\",\"xing\"],[\"zai\",\"you\",\"zhuan\",\"chu\",\"jian\",\"su\",\"rang\",\"xing\"],[\"zai\",\"you\",\"zhuan\",\"chu\",\"jian\",\"su\",\"rang\",\"xing\"],[\"zai\",\"you\",\"zhuan\",\"chu\",\"jian\",\"su\",\"rang\",\"xing\"]],\"references\":[\"在右转处减速让行\"],\"category\":\"places-and-people\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 174,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-175",
+        "input": "zhishengqianpaiyoulianggekongwei",
+        "context": "",
+        "candidates": [
+          "吱声前排有两个空位",
+          "只剩前排有两个孔位",
+          "直升前排有两个空位",
+          "只剩前排有两个空位"
+        ],
+        "syllables": [
+          [
+            "zhi",
+            "sheng",
+            "qian",
+            "pai",
+            "you",
+            "liang",
+            "ge",
+            "kong",
+            "wei"
+          ],
+          [
+            "zhi",
+            "sheng",
+            "qian",
+            "pai",
+            "you",
+            "liang",
+            "ge",
+            "kong",
+            "wei"
+          ],
+          [
+            "zhi",
+            "sheng",
+            "qian",
+            "pai",
+            "you",
+            "liang",
+            "ge",
+            "kong",
+            "wei"
+          ],
+          [
+            "zhi",
+            "sheng",
+            "qian",
+            "pai",
+            "you",
+            "liang",
+            "ge",
+            "kong",
+            "wei"
+          ]
+        ],
+        "references": [
+          "只剩前排有两个空位"
+        ],
+        "category": "places-and-people",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-175\",\"input\":\"zhishengqianpaiyoulianggekongwei\",\"context\":\"\",\"candidates\":[\"吱声前排有两个空位\",\"只剩前排有两个孔位\",\"直升前排有两个空位\",\"只剩前排有两个空位\"],\"syllables\":[[\"zhi\",\"sheng\",\"qian\",\"pai\",\"you\",\"liang\",\"ge\",\"kong\",\"wei\"],[\"zhi\",\"sheng\",\"qian\",\"pai\",\"you\",\"liang\",\"ge\",\"kong\",\"wei\"],[\"zhi\",\"sheng\",\"qian\",\"pai\",\"you\",\"liang\",\"ge\",\"kong\",\"wei\"],[\"zhi\",\"sheng\",\"qian\",\"pai\",\"you\",\"liang\",\"ge\",\"kong\",\"wei\"]],\"references\":[\"只剩前排有两个空位\"],\"category\":\"places-and-people\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 209,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-211",
+        "input": "najiuannishuodeshiyici",
+        "context": "",
+        "candidates": [
+          "那就按你说的是一次",
+          "那就按你说的试一次",
+          "那就按你说的事一次",
+          "哪就按你说的试一次"
+        ],
+        "syllables": [
+          [
+            "na",
+            "jiu",
+            "an",
+            "ni",
+            "shuo",
+            "de",
+            "shi",
+            "yi",
+            "ci"
+          ],
+          [
+            "na",
+            "jiu",
+            "an",
+            "ni",
+            "shuo",
+            "de",
+            "shi",
+            "yi",
+            "ci"
+          ],
+          [
+            "na",
+            "jiu",
+            "an",
+            "ni",
+            "shuo",
+            "de",
+            "shi",
+            "yi",
+            "ci"
+          ],
+          [
+            "na",
+            "jiu",
+            "an",
+            "ni",
+            "shuo",
+            "de",
+            "shi",
+            "yi",
+            "ci"
+          ]
+        ],
+        "references": [
+          "那就按你说的试一次"
+        ],
+        "category": "requests-and-decisions",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-211\",\"input\":\"najiuannishuodeshiyici\",\"context\":\"\",\"candidates\":[\"那就按你说的是一次\",\"那就按你说的试一次\",\"那就按你说的事一次\",\"哪就按你说的试一次\"],\"syllables\":[[\"na\",\"jiu\",\"an\",\"ni\",\"shuo\",\"de\",\"shi\",\"yi\",\"ci\"],[\"na\",\"jiu\",\"an\",\"ni\",\"shuo\",\"de\",\"shi\",\"yi\",\"ci\"],[\"na\",\"jiu\",\"an\",\"ni\",\"shuo\",\"de\",\"shi\",\"yi\",\"ci\"],[\"na\",\"jiu\",\"an\",\"ni\",\"shuo\",\"de\",\"shi\",\"yi\",\"ci\"]],\"references\":[\"那就按你说的试一次\"],\"category\":\"requests-and-decisions\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 215,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-217",
+        "input": "nixianzhannaerbiedangzhumen",
+        "context": "",
+        "candidates": [
+          "你先站哪儿别挡住门",
+          "你闲站那儿别挡住门",
+          "你先站那儿别挡住们",
+          "你先站那儿别挡住门"
+        ],
+        "syllables": [
+          [
+            "ni",
+            "xian",
+            "zhan",
+            "na",
+            "er",
+            "bie",
+            "dang",
+            "zhu",
+            "men"
+          ],
+          [
+            "ni",
+            "xian",
+            "zhan",
+            "na",
+            "er",
+            "bie",
+            "dang",
+            "zhu",
+            "men"
+          ],
+          [
+            "ni",
+            "xian",
+            "zhan",
+            "na",
+            "er",
+            "bie",
+            "dang",
+            "zhu",
+            "men"
+          ],
+          [
+            "ni",
+            "xian",
+            "zhan",
+            "na",
+            "er",
+            "bie",
+            "dang",
+            "zhu",
+            "men"
+          ]
+        ],
+        "references": [
+          "你先站那儿别挡住门"
+        ],
+        "category": "requests-and-decisions",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-217\",\"input\":\"nixianzhannaerbiedangzhumen\",\"context\":\"\",\"candidates\":[\"你先站哪儿别挡住门\",\"你闲站那儿别挡住门\",\"你先站那儿别挡住们\",\"你先站那儿别挡住门\"],\"syllables\":[[\"ni\",\"xian\",\"zhan\",\"na\",\"er\",\"bie\",\"dang\",\"zhu\",\"men\"],[\"ni\",\"xian\",\"zhan\",\"na\",\"er\",\"bie\",\"dang\",\"zhu\",\"men\"],[\"ni\",\"xian\",\"zhan\",\"na\",\"er\",\"bie\",\"dang\",\"zhu\",\"men\"],[\"ni\",\"xian\",\"zhan\",\"na\",\"er\",\"bie\",\"dang\",\"zhu\",\"men\"]],\"references\":[\"你先站那儿别挡住门\"],\"category\":\"requests-and-decisions\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 218,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-220",
+        "input": "zhouyiwomenzaishangliangzheshi",
+        "context": "",
+        "candidates": [
+          "周毅我们再商量这事",
+          "周一我们再商量这事",
+          "周易我们再商量这事",
+          "周一我们在商量这事"
+        ],
+        "syllables": [
+          [
+            "zhou",
+            "yi",
+            "wo",
+            "men",
+            "zai",
+            "shang",
+            "liang",
+            "zhe",
+            "shi"
+          ],
+          [
+            "zhou",
+            "yi",
+            "wo",
+            "men",
+            "zai",
+            "shang",
+            "liang",
+            "zhe",
+            "shi"
+          ],
+          [
+            "zhou",
+            "yi",
+            "wo",
+            "men",
+            "zai",
+            "shang",
+            "liang",
+            "zhe",
+            "shi"
+          ],
+          [
+            "zhou",
+            "yi",
+            "wo",
+            "men",
+            "zai",
+            "shang",
+            "liang",
+            "zhe",
+            "shi"
+          ]
+        ],
+        "references": [
+          "周一我们再商量这事"
+        ],
+        "category": "requests-and-decisions",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-220\",\"input\":\"zhouyiwomenzaishangliangzheshi\",\"context\":\"\",\"candidates\":[\"周毅我们再商量这事\",\"周一我们再商量这事\",\"周易我们再商量这事\",\"周一我们在商量这事\"],\"syllables\":[[\"zhou\",\"yi\",\"wo\",\"men\",\"zai\",\"shang\",\"liang\",\"zhe\",\"shi\"],[\"zhou\",\"yi\",\"wo\",\"men\",\"zai\",\"shang\",\"liang\",\"zhe\",\"shi\"],[\"zhou\",\"yi\",\"wo\",\"men\",\"zai\",\"shang\",\"liang\",\"zhe\",\"shi\"],[\"zhou\",\"yi\",\"wo\",\"men\",\"zai\",\"shang\",\"liang\",\"zhe\",\"shi\"]],\"references\":[\"周一我们再商量这事\"],\"category\":\"requests-and-decisions\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 220,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-222",
+        "input": "bafukuanfangshishuodejutiyidian",
+        "context": "",
+        "candidates": [
+          "把付款方式说的具体一点",
+          "把付款方式说得具体一点",
+          "吧付款方式说得具体一点",
+          "捌付款方式说得具体一点"
+        ],
+        "syllables": [
+          [
+            "ba",
+            "fu",
+            "kuan",
+            "fang",
+            "shi",
+            "shuo",
+            "de",
+            "ju",
+            "ti",
+            "yi",
+            "dian"
+          ],
+          [
+            "ba",
+            "fu",
+            "kuan",
+            "fang",
+            "shi",
+            "shuo",
+            "de",
+            "ju",
+            "ti",
+            "yi",
+            "dian"
+          ],
+          [
+            "ba",
+            "fu",
+            "kuan",
+            "fang",
+            "shi",
+            "shuo",
+            "de",
+            "ju",
+            "ti",
+            "yi",
+            "dian"
+          ],
+          [
+            "ba",
+            "fu",
+            "kuan",
+            "fang",
+            "shi",
+            "shuo",
+            "de",
+            "ju",
+            "ti",
+            "yi",
+            "dian"
+          ]
+        ],
+        "references": [
+          "把付款方式说得具体一点"
+        ],
+        "category": "requests-and-decisions",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-222\",\"input\":\"bafukuanfangshishuodejutiyidian\",\"context\":\"\",\"candidates\":[\"把付款方式说的具体一点\",\"把付款方式说得具体一点\",\"吧付款方式说得具体一点\",\"捌付款方式说得具体一点\"],\"syllables\":[[\"ba\",\"fu\",\"kuan\",\"fang\",\"shi\",\"shuo\",\"de\",\"ju\",\"ti\",\"yi\",\"dian\"],[\"ba\",\"fu\",\"kuan\",\"fang\",\"shi\",\"shuo\",\"de\",\"ju\",\"ti\",\"yi\",\"dian\"],[\"ba\",\"fu\",\"kuan\",\"fang\",\"shi\",\"shuo\",\"de\",\"ju\",\"ti\",\"yi\",\"dian\"],[\"ba\",\"fu\",\"kuan\",\"fang\",\"shi\",\"shuo\",\"de\",\"ju\",\"ti\",\"yi\",\"dian\"]],\"references\":[\"把付款方式说得具体一点\"],\"category\":\"requests-and-decisions\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 228,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-231",
+        "input": "sheixiandaodoukeyixiannahao",
+        "context": "",
+        "candidates": [
+          "谁先刀豆可以先拿号",
+          "谁先导都可以先拿号",
+          "谁先到都可以先拿号",
+          "谁先到都可以先拿好"
+        ],
+        "syllables": [
+          [
+            "shei",
+            "xian",
+            "dao",
+            "dou",
+            "ke",
+            "yi",
+            "xian",
+            "na",
+            "hao"
+          ],
+          [
+            "shei",
+            "xian",
+            "dao",
+            "dou",
+            "ke",
+            "yi",
+            "xian",
+            "na",
+            "hao"
+          ],
+          [
+            "shei",
+            "xian",
+            "dao",
+            "dou",
+            "ke",
+            "yi",
+            "xian",
+            "na",
+            "hao"
+          ],
+          [
+            "shei",
+            "xian",
+            "dao",
+            "dou",
+            "ke",
+            "yi",
+            "xian",
+            "na",
+            "hao"
+          ]
+        ],
+        "references": [
+          "谁先到都可以先拿号"
+        ],
+        "category": "requests-and-decisions",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-231\",\"input\":\"sheixiandaodoukeyixiannahao\",\"context\":\"\",\"candidates\":[\"谁先刀豆可以先拿号\",\"谁先导都可以先拿号\",\"谁先到都可以先拿号\",\"谁先到都可以先拿好\"],\"syllables\":[[\"shei\",\"xian\",\"dao\",\"dou\",\"ke\",\"yi\",\"xian\",\"na\",\"hao\"],[\"shei\",\"xian\",\"dao\",\"dou\",\"ke\",\"yi\",\"xian\",\"na\",\"hao\"],[\"shei\",\"xian\",\"dao\",\"dou\",\"ke\",\"yi\",\"xian\",\"na\",\"hao\"],[\"shei\",\"xian\",\"dao\",\"dou\",\"ke\",\"yi\",\"xian\",\"na\",\"hao\"]],\"references\":[\"谁先到都可以先拿号\"],\"category\":\"requests-and-decisions\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 263,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-268",
+        "input": "keyipinggoupiaojiluhuanhuizhi",
+        "context": "",
+        "candidates": [
+          "可以凭购票记录换回只",
+          "可以凭购票记录还回执",
+          "可以凭购票记录换回至",
+          "可以凭购票记录换回执"
+        ],
+        "syllables": [
+          [
+            "ke",
+            "yi",
+            "ping",
+            "gou",
+            "piao",
+            "ji",
+            "lu",
+            "huan",
+            "hui",
+            "zhi"
+          ],
+          [
+            "ke",
+            "yi",
+            "ping",
+            "gou",
+            "piao",
+            "ji",
+            "lu",
+            "huan",
+            "hui",
+            "zhi"
+          ],
+          [
+            "ke",
+            "yi",
+            "ping",
+            "gou",
+            "piao",
+            "ji",
+            "lu",
+            "huan",
+            "hui",
+            "zhi"
+          ],
+          [
+            "ke",
+            "yi",
+            "ping",
+            "gou",
+            "piao",
+            "ji",
+            "lu",
+            "huan",
+            "hui",
+            "zhi"
+          ]
+        ],
+        "references": [
+          "可以凭购票记录换回执"
+        ],
+        "category": "institutions-and-technical",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-268\",\"input\":\"keyipinggoupiaojiluhuanhuizhi\",\"context\":\"\",\"candidates\":[\"可以凭购票记录换回只\",\"可以凭购票记录还回执\",\"可以凭购票记录换回至\",\"可以凭购票记录换回执\"],\"syllables\":[[\"ke\",\"yi\",\"ping\",\"gou\",\"piao\",\"ji\",\"lu\",\"huan\",\"hui\",\"zhi\"],[\"ke\",\"yi\",\"ping\",\"gou\",\"piao\",\"ji\",\"lu\",\"huan\",\"hui\",\"zhi\"],[\"ke\",\"yi\",\"ping\",\"gou\",\"piao\",\"ji\",\"lu\",\"huan\",\"hui\",\"zhi\"],[\"ke\",\"yi\",\"ping\",\"gou\",\"piao\",\"ji\",\"lu\",\"huan\",\"hui\",\"zhi\"]],\"references\":[\"可以凭购票记录换回执\"],\"category\":\"institutions-and-technical\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 265,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-270",
+        "input": "shegongzaidengjimeijiadexuqiu",
+        "context": "",
+        "candidates": [
+          "社工在登记没嫁的需求",
+          "社工在登机每家的需求",
+          "社工在登记美甲的需求",
+          "社工在登记每家的需求"
+        ],
+        "syllables": [
+          [
+            "she",
+            "gong",
+            "zai",
+            "deng",
+            "ji",
+            "mei",
+            "jia",
+            "de",
+            "xu",
+            "qiu"
+          ],
+          [
+            "she",
+            "gong",
+            "zai",
+            "deng",
+            "ji",
+            "mei",
+            "jia",
+            "de",
+            "xu",
+            "qiu"
+          ],
+          [
+            "she",
+            "gong",
+            "zai",
+            "deng",
+            "ji",
+            "mei",
+            "jia",
+            "de",
+            "xu",
+            "qiu"
+          ],
+          [
+            "she",
+            "gong",
+            "zai",
+            "deng",
+            "ji",
+            "mei",
+            "jia",
+            "de",
+            "xu",
+            "qiu"
+          ]
+        ],
+        "references": [
+          "社工在登记每家的需求"
+        ],
+        "category": "institutions-and-technical",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-270\",\"input\":\"shegongzaidengjimeijiadexuqiu\",\"context\":\"\",\"candidates\":[\"社工在登记没嫁的需求\",\"社工在登机每家的需求\",\"社工在登记美甲的需求\",\"社工在登记每家的需求\"],\"syllables\":[[\"she\",\"gong\",\"zai\",\"deng\",\"ji\",\"mei\",\"jia\",\"de\",\"xu\",\"qiu\"],[\"she\",\"gong\",\"zai\",\"deng\",\"ji\",\"mei\",\"jia\",\"de\",\"xu\",\"qiu\"],[\"she\",\"gong\",\"zai\",\"deng\",\"ji\",\"mei\",\"jia\",\"de\",\"xu\",\"qiu\"],[\"she\",\"gong\",\"zai\",\"deng\",\"ji\",\"mei\",\"jia\",\"de\",\"xu\",\"qiu\"]],\"references\":[\"社工在登记每家的需求\"],\"category\":\"institutions-and-technical\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 302,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-307",
+        "input": "shanhuancunbingmeiyouyingxiangpeizhi",
+        "context": "",
+        "candidates": [
+          "扇缓存并没有影响配置",
+          "删缓存并没有影响配置",
+          "陕缓存并没有影响配置",
+          "单缓存并没有影响配置"
+        ],
+        "syllables": [
+          [
+            "shan",
+            "huan",
+            "cun",
+            "bing",
+            "mei",
+            "you",
+            "ying",
+            "xiang",
+            "pei",
+            "zhi"
+          ],
+          [
+            "shan",
+            "huan",
+            "cun",
+            "bing",
+            "mei",
+            "you",
+            "ying",
+            "xiang",
+            "pei",
+            "zhi"
+          ],
+          [
+            "shan",
+            "huan",
+            "cun",
+            "bing",
+            "mei",
+            "you",
+            "ying",
+            "xiang",
+            "pei",
+            "zhi"
+          ],
+          [
+            "shan",
+            "huan",
+            "cun",
+            "bing",
+            "mei",
+            "you",
+            "ying",
+            "xiang",
+            "pei",
+            "zhi"
+          ]
+        ],
+        "references": [
+          "删缓存并没有影响配置"
+        ],
+        "category": "institutions-and-technical",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-307\",\"input\":\"shanhuancunbingmeiyouyingxiangpeizhi\",\"context\":\"\",\"candidates\":[\"扇缓存并没有影响配置\",\"删缓存并没有影响配置\",\"陕缓存并没有影响配置\",\"单缓存并没有影响配置\"],\"syllables\":[[\"shan\",\"huan\",\"cun\",\"bing\",\"mei\",\"you\",\"ying\",\"xiang\",\"pei\",\"zhi\"],[\"shan\",\"huan\",\"cun\",\"bing\",\"mei\",\"you\",\"ying\",\"xiang\",\"pei\",\"zhi\"],[\"shan\",\"huan\",\"cun\",\"bing\",\"mei\",\"you\",\"ying\",\"xiang\",\"pei\",\"zhi\"],[\"shan\",\"huan\",\"cun\",\"bing\",\"mei\",\"you\",\"ying\",\"xiang\",\"pei\",\"zhi\"]],\"references\":[\"删缓存并没有影响配置\"],\"category\":\"institutions-and-technical\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 342,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-348",
+        "input": "dengjiuzhenderennengzaiwaimianzuo",
+        "context": "",
+        "candidates": [
+          "等就诊的人能在外面坐",
+          "等就真的人能在外面做",
+          "邓就诊的人能在外面做",
+          "等就诊的人能在外面做"
+        ],
+        "syllables": [
+          [
+            "deng",
+            "jiu",
+            "zhen",
+            "de",
+            "ren",
+            "neng",
+            "zai",
+            "wai",
+            "mian",
+            "zuo"
+          ],
+          [
+            "deng",
+            "jiu",
+            "zhen",
+            "de",
+            "ren",
+            "neng",
+            "zai",
+            "wai",
+            "mian",
+            "zuo"
+          ],
+          [
+            "deng",
+            "jiu",
+            "zhen",
+            "de",
+            "ren",
+            "neng",
+            "zai",
+            "wai",
+            "mian",
+            "zuo"
+          ],
+          [
+            "deng",
+            "jiu",
+            "zhen",
+            "de",
+            "ren",
+            "neng",
+            "zai",
+            "wai",
+            "mian",
+            "zuo"
+          ]
+        ],
+        "references": [
+          "等就诊的人能在外面坐"
+        ],
+        "category": "hard-phrasing",
+        "pool_origin": "rust-hard-negatives"
+      },
+      "original_line": "{\"id\":\"free-348\",\"input\":\"dengjiuzhenderennengzaiwaimianzuo\",\"context\":\"\",\"candidates\":[\"等就诊的人能在外面坐\",\"等就真的人能在外面做\",\"邓就诊的人能在外面做\",\"等就诊的人能在外面做\"],\"syllables\":[[\"deng\",\"jiu\",\"zhen\",\"de\",\"ren\",\"neng\",\"zai\",\"wai\",\"mian\",\"zuo\"],[\"deng\",\"jiu\",\"zhen\",\"de\",\"ren\",\"neng\",\"zai\",\"wai\",\"mian\",\"zuo\"],[\"deng\",\"jiu\",\"zhen\",\"de\",\"ren\",\"neng\",\"zai\",\"wai\",\"mian\",\"zuo\"],[\"deng\",\"jiu\",\"zhen\",\"de\",\"ren\",\"neng\",\"zai\",\"wai\",\"mian\",\"zuo\"]],\"references\":[\"等就诊的人能在外面坐\"],\"category\":\"hard-phrasing\",\"pool_origin\":\"rust-hard-negatives\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 360,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-366",
+        "input": "shouyinjixuanniuyouyigedangweisongle",
+        "context": "",
+        "candidates": [
+          "收音机旋钮又一个档位松了",
+          "收音机旋钮有一个档位松了",
+          "收音机旋钮有一个档位送了",
+          "收银机旋钮有一个档位松了"
+        ],
+        "syllables": [
+          [
+            "shou",
+            "yin",
+            "ji",
+            "xuan",
+            "niu",
+            "you",
+            "yi",
+            "ge",
+            "dang",
+            "wei",
+            "song",
+            "le"
+          ],
+          [
+            "shou",
+            "yin",
+            "ji",
+            "xuan",
+            "niu",
+            "you",
+            "yi",
+            "ge",
+            "dang",
+            "wei",
+            "song",
+            "le"
+          ],
+          [
+            "shou",
+            "yin",
+            "ji",
+            "xuan",
+            "niu",
+            "you",
+            "yi",
+            "ge",
+            "dang",
+            "wei",
+            "song",
+            "le"
+          ],
+          [
+            "shou",
+            "yin",
+            "ji",
+            "xuan",
+            "niu",
+            "you",
+            "yi",
+            "ge",
+            "dang",
+            "wei",
+            "song",
+            "le"
+          ]
+        ],
+        "references": [
+          "收音机旋钮有一个档位松了",
+          "收银机旋钮有一个档位松了"
+        ],
+        "category": "hard-phrasing",
+        "pool_origin": "rust-hard-negatives",
+        "review_note": "2026-11-24: Additional fluent reading accepted without preceding text; candidate order unchanged."
+      },
+      "original_line": "{\"id\":\"free-366\",\"input\":\"shouyinjixuanniuyouyigedangweisongle\",\"context\":\"\",\"candidates\":[\"收音机旋钮又一个档位松了\",\"收音机旋钮有一个档位松了\",\"收音机旋钮有一个档位送了\",\"收银机旋钮有一个档位松了\"],\"syllables\":[[\"shou\",\"yin\",\"ji\",\"xuan\",\"niu\",\"you\",\"yi\",\"ge\",\"dang\",\"wei\",\"song\",\"le\"],[\"shou\",\"yin\",\"ji\",\"xuan\",\"niu\",\"you\",\"yi\",\"ge\",\"dang\",\"wei\",\"song\",\"le\"],[\"shou\",\"yin\",\"ji\",\"xuan\",\"niu\",\"you\",\"yi\",\"ge\",\"dang\",\"wei\",\"song\",\"le\"],[\"shou\",\"yin\",\"ji\",\"xuan\",\"niu\",\"you\",\"yi\",\"ge\",\"dang\",\"wei\",\"song\",\"le\"]],\"references\":[\"收音机旋钮有一个档位松了\",\"收银机旋钮有一个档位松了\"],\"category\":\"hard-phrasing\",\"pool_origin\":\"rust-hard-negatives\",\"review_note\":\"2026-11-24: Additional fluent reading accepted without preceding text; candidate order unchanged.\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 419,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-426",
+        "input": "gexingqishi",
+        "context": "",
+        "candidates": [
+          "各行其事",
+          "各行其是"
+        ],
+        "syllables": [
+          [
+            "ge",
+            "xing",
+            "qi",
+            "shi"
+          ],
+          [
+            "ge",
+            "xing",
+            "qi",
+            "shi"
+          ]
+        ],
+        "references": [
+          "各行其是"
+        ],
+        "category": "idioms",
+        "pool_origin": "authored-spelling-contrast"
+      },
+      "original_line": "{\"id\":\"free-426\",\"input\":\"gexingqishi\",\"context\":\"\",\"candidates\":[\"各行其事\",\"各行其是\"],\"syllables\":[[\"ge\",\"xing\",\"qi\",\"shi\"],[\"ge\",\"xing\",\"qi\",\"shi\"]],\"references\":[\"各行其是\"],\"category\":\"idioms\",\"pool_origin\":\"authored-spelling-contrast\"}"
+    },
+    {
+      "source": "ranking/context-free.jsonl",
+      "line": 445,
+      "reason": "requested-error-retirement",
+      "row": {
+        "id": "free-452",
+        "input": "xiaozangmieji",
+        "context": "",
+        "candidates": [
+          "销赃灭迹",
+          "消赃灭迹"
+        ],
+        "syllables": [
+          [
+            "xiao",
+            "zang",
+            "mie",
+            "ji"
+          ],
+          [
+            "xiao",
+            "zang",
+            "mie",
+            "ji"
+          ]
+        ],
+        "references": [
+          "销赃灭迹"
+        ],
+        "category": "idioms",
+        "pool_origin": "authored-spelling-contrast"
+      },
+      "original_line": "{\"id\":\"free-452\",\"input\":\"xiaozangmieji\",\"context\":\"\",\"candidates\":[\"销赃灭迹\",\"消赃灭迹\"],\"syllables\":[[\"xiao\",\"zang\",\"mie\",\"ji\"],[\"xiao\",\"zang\",\"mie\",\"ji\"]],\"references\":[\"销赃灭迹\"],\"category\":\"idioms\",\"pool_origin\":\"authored-spelling-contrast\"}"
+    }
+  ],
+  "added_ids": [
+    "recent-20261126-01",
+    "recent-20261126-02",
+    "recent-20261126-03",
+    "recent-20261126-04",
+    "recent-20261126-05",
+    "recent-20261126-06",
+    "recent-20261126-07",
+    "recent-20261126-08",
+    "recent-20261126-09",
+    "recent-20261126-10",
+    "recent-20261126-11",
+    "recent-20261126-12",
+    "recent-20261126-13",
+    "recent-20261126-14",
+    "recent-20261126-15",
+    "recent-20261126-16",
+    "recent-20261126-17",
+    "recent-20261126-18",
+    "recent-20261126-19",
+    "recent-20261126-20",
+    "recent-20261126-21",
+    "recent-20261126-22",
+    "recent-20261126-23",
+    "recent-20261126-24",
+    "recent-20261126-25",
+    "recent-20261126-26",
+    "recent-20261126-27",
+    "recent-20261126-28",
+    "recent-20261126-29",
+    "recent-20261126-30",
+    "recent-20261126-31"
+  ],
+  "new_case_policy": "Ordinary literal complete compositions; do not invent unstated personal names, future words or missing punctuation. Accept additional fluent references when they are present in the frozen pool.",
+  "source_policy": "Cases 01 and 31 are exact user-supplied reports/pools. Other cases are explicitly adapted documented/window regressions, a reviewed cache-removal case, or synthetic project controls. No claim that every row was user-reported.",
+  "source_paths": {
+    "adapted-documented-regression": [
+      "eval/ranking/test.jsonl",
+      "docs/TESTING.md"
+    ],
+    "adapted-window-regression": [
+      "eval/regression/window-ranking.jsonl"
+    ],
+    "authored-project-control": [
+      "AGENTS.md"
+    ]
+  },
+  "decoder_snapshot": {
+    "command": [
+      "target/release/si-cli",
+      "candidates",
+      "Data/Engine/main.silex",
+      "--grams",
+      "Data/Engine/words.sigram",
+      "--languages",
+      "zh-Hans",
+      "--search",
+      "full",
+      "--pinyin-correction",
+      "off",
+      "--preceding",
+      ""
+    ],
+    "sha256": {
+      "target/release/si-cli": "36e20fe27c189daf2ce1a4dc122a6e0bdfebb708d244882d42d0bde563c34036",
+      "Data/Engine/main.silex": "70a591eec23967b300401978da3461483b74d00ef2ae05d70fc428a8ec445c4d",
+      "Data/Engine/words.sigram": "0d64b40a1ee2b8e719d6da8695e86bd0d5b904be4ca9b7e72d71a9595b566ecc"
+    },
+    "note": "Existing local binary, statistical full search, empty preceding text and user profile, correction off. Binary/source commit equivalence is not inferred. No model score was used to select the new pools."
+  },
+  "ordering": "Initial 30 pools: ascending SHA-256(id + vertical-bar + candidate UTF-8), independent of gold position and model scores. Follow-up case 31 preserves the four candidates in the order supplied by the user.",
+  "alignment": "Per-candidate reading paths, including changed syllable boundaries. Whole-word/context readings additionally reviewed; a single-character dictionary match alone is not a contextual pronunciation guarantee.",
+  "training_overlap": "Maintained supervised Pinyin training separation is checked by evaluate_conversion.py. Added rows have not had an LM training-text substring or semantic-overlap audit.",
+  "additions": [
+    {
+      "id": "recent-20261126-01",
+      "input": "bazhegezuowan",
+      "context": "",
+      "candidates": [
+        "把这个做完",
+        "把这个昨晚",
+        "吧这个做完",
+        "吧这个昨晚"
+      ],
+      "syllables": [
+        [
+          "ba",
+          "zhe",
+          "ge",
+          "zuo",
+          "wan"
+        ],
+        [
+          "ba",
+          "zhe",
+          "ge",
+          "zuo",
+          "wan"
+        ],
+        [
+          "ba",
+          "zhe",
+          "ge",
+          "zuo",
+          "wan"
+        ],
+        [
+          "ba",
+          "zhe",
+          "ge",
+          "zuo",
+          "wan"
+        ]
+      ],
+      "references": [
+        "把这个做完"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "completion",
+      "origin": "user-reported-20261126",
+      "completion_scope": "complete-composition",
+      "source_note": "Explicit current report: 把这个昨晚 was shown first.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-02",
+      "input": "woxianganzhaozhegebuzhoulai",
+      "context": "",
+      "candidates": [
+        "我想按照这个步骤来",
+        "我想按照这个不周来",
+        "我向按照这个步骤来",
+        "我像按照这个步骤来"
+      ],
+      "syllables": [
+        [
+          "wo",
+          "xiang",
+          "an",
+          "zhao",
+          "zhe",
+          "ge",
+          "bu",
+          "zhou",
+          "lai"
+        ],
+        [
+          "wo",
+          "xiang",
+          "an",
+          "zhao",
+          "zhe",
+          "ge",
+          "bu",
+          "zhou",
+          "lai"
+        ],
+        [
+          "wo",
+          "xiang",
+          "an",
+          "zhao",
+          "zhe",
+          "ge",
+          "bu",
+          "zhou",
+          "lai"
+        ],
+        [
+          "wo",
+          "xiang",
+          "an",
+          "zhao",
+          "zhe",
+          "ge",
+          "bu",
+          "zhou",
+          "lai"
+        ]
+      ],
+      "references": [
+        "我想按照这个步骤来"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "syllable-boundary",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Extends 我想按照 with a complete instruction to disambiguate 按照.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-03",
+      "input": "heshangcibizhegebanbenkuaile",
+      "context": "",
+      "candidates": [
+        "和上次比这个板本快乐",
+        "和上次比这个版本快乐",
+        "和上次比这个版本快了",
+        "和上次比这个版本块了"
+      ],
+      "syllables": [
+        [
+          "he",
+          "shang",
+          "ci",
+          "bi",
+          "zhe",
+          "ge",
+          "ban",
+          "ben",
+          "kuai",
+          "le"
+        ],
+        [
+          "he",
+          "shang",
+          "ci",
+          "bi",
+          "zhe",
+          "ge",
+          "ban",
+          "ben",
+          "kuai",
+          "le"
+        ],
+        [
+          "he",
+          "shang",
+          "ci",
+          "bi",
+          "zhe",
+          "ge",
+          "ban",
+          "ben",
+          "kuai",
+          "le"
+        ],
+        [
+          "he",
+          "shang",
+          "ci",
+          "bi",
+          "zhe",
+          "ge",
+          "ban",
+          "ben",
+          "kuai",
+          "le"
+        ]
+      ],
+      "references": [
+        "和上次比这个版本快了"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "comparison",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Extends 和上次比 with an explicit comparison predicate.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-04",
+      "input": "tingbuqingduibaijiudakaizimu",
+      "context": "",
+      "candidates": [
+        "听不清对白就打开字母",
+        "听不清对白酒打开字幕",
+        "听不清对白就打开字幕",
+        "听不清对白酒打开字母"
+      ],
+      "syllables": [
+        [
+          "ting",
+          "bu",
+          "qing",
+          "dui",
+          "bai",
+          "jiu",
+          "da",
+          "kai",
+          "zi",
+          "mu"
+        ],
+        [
+          "ting",
+          "bu",
+          "qing",
+          "dui",
+          "bai",
+          "jiu",
+          "da",
+          "kai",
+          "zi",
+          "mu"
+        ],
+        [
+          "ting",
+          "bu",
+          "qing",
+          "dui",
+          "bai",
+          "jiu",
+          "da",
+          "kai",
+          "zi",
+          "mu"
+        ],
+        [
+          "ting",
+          "bu",
+          "qing",
+          "dui",
+          "bai",
+          "jiu",
+          "da",
+          "kai",
+          "zi",
+          "mu"
+        ]
+      ],
+      "references": [
+        "听不清对白就打开字幕"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "subtitles",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Adds audible-dialogue evidence to the earlier 字幕 case.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-05",
+      "input": "zhepizhongwenyuliaoyonglaixunlianmoxing",
+      "context": "",
+      "candidates": [
+        "这批中文与了用来训练模型",
+        "这批中文羽獠用来训练模型",
+        "这批中文预料用来训练模型",
+        "这批中文语料用来训练模型"
+      ],
+      "syllables": [
+        [
+          "zhe",
+          "pi",
+          "zhong",
+          "wen",
+          "yu",
+          "liao",
+          "yong",
+          "lai",
+          "xun",
+          "lian",
+          "mo",
+          "xing"
+        ],
+        [
+          "zhe",
+          "pi",
+          "zhong",
+          "wen",
+          "yu",
+          "liao",
+          "yong",
+          "lai",
+          "xun",
+          "lian",
+          "mo",
+          "xing"
+        ],
+        [
+          "zhe",
+          "pi",
+          "zhong",
+          "wen",
+          "yu",
+          "liao",
+          "yong",
+          "lai",
+          "xun",
+          "lian",
+          "mo",
+          "xing"
+        ],
+        [
+          "zhe",
+          "pi",
+          "zhong",
+          "wen",
+          "yu",
+          "liao",
+          "yong",
+          "lai",
+          "xun",
+          "lian",
+          "mo",
+          "xing"
+        ]
+      ],
+      "references": [
+        "这批中文语料用来训练模型"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "corpus",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Adds Chinese-language and model-training evidence to the 语料 regression.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-06",
+      "input": "fandaodiqiyejixuyuedu",
+      "context": "",
+      "candidates": [
+        "饭到底企业继续阅读",
+        "翻到第七页继续阅读",
+        "反到第七页继续阅读",
+        "翻到第企业继续阅读"
+      ],
+      "syllables": [
+        [
+          "fan",
+          "dao",
+          "di",
+          "qi",
+          "ye",
+          "ji",
+          "xu",
+          "yue",
+          "du"
+        ],
+        [
+          "fan",
+          "dao",
+          "di",
+          "qi",
+          "ye",
+          "ji",
+          "xu",
+          "yue",
+          "du"
+        ],
+        [
+          "fan",
+          "dao",
+          "di",
+          "qi",
+          "ye",
+          "ji",
+          "xu",
+          "yue",
+          "du"
+        ],
+        [
+          "fan",
+          "dao",
+          "di",
+          "qi",
+          "ye",
+          "ji",
+          "xu",
+          "yue",
+          "du"
+        ]
+      ],
+      "references": [
+        "翻到第七页继续阅读"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "page-ordinal",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Places 第七页 in a page-turning action.",
+      "candidate_origins": [
+        "rust-exact",
+        "authored-reference",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        false
+      ]
+    },
+    {
+      "id": "recent-20261126-07",
+      "input": "dieryeshaoleyiduanwenzi",
+      "context": "",
+      "candidates": [
+        "第二页稍了一段文字",
+        "第二页邵了一段文字",
+        "第二页勺了一段文字",
+        "第二页少了一段文字"
+      ],
+      "syllables": [
+        [
+          "di",
+          "er",
+          "ye",
+          "shao",
+          "le",
+          "yi",
+          "duan",
+          "wen",
+          "zi"
+        ],
+        [
+          "di",
+          "er",
+          "ye",
+          "shao",
+          "le",
+          "yi",
+          "duan",
+          "wen",
+          "zi"
+        ],
+        [
+          "di",
+          "er",
+          "ye",
+          "shao",
+          "le",
+          "yi",
+          "duan",
+          "wen",
+          "zi"
+        ],
+        [
+          "di",
+          "er",
+          "ye",
+          "shao",
+          "le",
+          "yi",
+          "duan",
+          "wen",
+          "zi"
+        ]
+      ],
+      "references": [
+        "第二页少了一段文字"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "page-ordinal",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Places 第二页 in missing-text inspection.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-08",
+      "input": "houxuanchilimeiyouzhengquedaan",
+      "context": "",
+      "candidates": [
+        "候选吃梨没有正确答案",
+        "候选吃力没有正确答案",
+        "候选池里没有正确答案",
+        "候选吃里没有正确答案"
+      ],
+      "syllables": [
+        [
+          "hou",
+          "xuan",
+          "chi",
+          "li",
+          "mei",
+          "you",
+          "zheng",
+          "que",
+          "da",
+          "an"
+        ],
+        [
+          "hou",
+          "xuan",
+          "chi",
+          "li",
+          "mei",
+          "you",
+          "zheng",
+          "que",
+          "da",
+          "an"
+        ],
+        [
+          "hou",
+          "xuan",
+          "chi",
+          "li",
+          "mei",
+          "you",
+          "zheng",
+          "que",
+          "da",
+          "an"
+        ],
+        [
+          "hou",
+          "xuan",
+          "chi",
+          "li",
+          "mei",
+          "you",
+          "zheng",
+          "que",
+          "da",
+          "an"
+        ]
+      ],
+      "references": [
+        "候选池里没有正确答案"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "candidate-pool",
+      "origin": "adapted-user-requested-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Expands the previously requested 候选池 term into a complete composition.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-09",
+      "input": "zhegepinyinxuyaochongxinqiefen",
+      "context": "",
+      "candidates": [
+        "这个拼音需要重新且分",
+        "这个拼音需要重新企鹅粉",
+        "这个拼音需要重新切分",
+        "这个拼音需要重新且份"
+      ],
+      "syllables": [
+        [
+          "zhe",
+          "ge",
+          "pin",
+          "yin",
+          "xu",
+          "yao",
+          "chong",
+          "xin",
+          "qie",
+          "fen"
+        ],
+        [
+          "zhe",
+          "ge",
+          "pin",
+          "yin",
+          "xu",
+          "yao",
+          "chong",
+          "xin",
+          "qi",
+          "e",
+          "fen"
+        ],
+        [
+          "zhe",
+          "ge",
+          "pin",
+          "yin",
+          "xu",
+          "yao",
+          "chong",
+          "xin",
+          "qie",
+          "fen"
+        ],
+        [
+          "zhe",
+          "ge",
+          "pin",
+          "yin",
+          "xu",
+          "yao",
+          "chong",
+          "xin",
+          "qie",
+          "fen"
+        ]
+      ],
+      "references": [
+        "这个拼音需要重新切分"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "segmentation",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic continuous-Pinyin segmentation control.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-10",
+      "input": "cihecizhijianyaoliukongge",
+      "context": "",
+      "candidates": [
+        "词和辞职简要留空个",
+        "词和词之间要留空格",
+        "次核磁之间要留空个",
+        "次和辞职简要留空个"
+      ],
+      "syllables": [
+        [
+          "ci",
+          "he",
+          "ci",
+          "zhi",
+          "jian",
+          "yao",
+          "liu",
+          "kong",
+          "ge"
+        ],
+        [
+          "ci",
+          "he",
+          "ci",
+          "zhi",
+          "jian",
+          "yao",
+          "liu",
+          "kong",
+          "ge"
+        ],
+        [
+          "ci",
+          "he",
+          "ci",
+          "zhi",
+          "jian",
+          "yao",
+          "liu",
+          "kong",
+          "ge"
+        ],
+        [
+          "ci",
+          "he",
+          "ci",
+          "zhi",
+          "jian",
+          "yao",
+          "liu",
+          "kong",
+          "ge"
+        ]
+      ],
+      "references": [
+        "词和词之间要留空格"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "word-boundary",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic explicit word-boundary instruction.",
+      "candidate_origins": [
+        "rust-exact",
+        "authored-reference",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        false
+      ]
+    },
+    {
+      "id": "recent-20261126-11",
+      "input": "zaishurukuanglianxiahuiche",
+      "context": "",
+      "candidates": [
+        "在输入框联系啊回车",
+        "在输入框联系啊回撤",
+        "再输入框联系啊回车",
+        "在输入框里按下回车"
+      ],
+      "syllables": [
+        [
+          "zai",
+          "shu",
+          "ru",
+          "kuang",
+          "lian",
+          "xi",
+          "a",
+          "hui",
+          "che"
+        ],
+        [
+          "zai",
+          "shu",
+          "ru",
+          "kuang",
+          "lian",
+          "xi",
+          "a",
+          "hui",
+          "che"
+        ],
+        [
+          "zai",
+          "shu",
+          "ru",
+          "kuang",
+          "lian",
+          "xi",
+          "a",
+          "hui",
+          "che"
+        ],
+        [
+          "zai",
+          "shu",
+          "ru",
+          "kuang",
+          "li",
+          "an",
+          "xia",
+          "hui",
+          "che"
+        ]
+      ],
+      "references": [
+        "在输入框里按下回车"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "return-key",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic vowel-boundary and input-method key instruction.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "authored-reference"
+      ],
+      "reference_in_decoder_pool": [
+        false
+      ]
+    },
+    {
+      "id": "recent-20261126-12",
+      "input": "xianbaocunwenjianzaiguanbichuangkou",
+      "context": "",
+      "candidates": [
+        "线保存文件在关闭窗口",
+        "先保存文件再关闭窗口",
+        "先保存文件在关闭窗口",
+        "现保存文件在关闭窗口"
+      ],
+      "syllables": [
+        [
+          "xian",
+          "bao",
+          "cun",
+          "wen",
+          "jian",
+          "zai",
+          "guan",
+          "bi",
+          "chuang",
+          "kou"
+        ],
+        [
+          "xian",
+          "bao",
+          "cun",
+          "wen",
+          "jian",
+          "zai",
+          "guan",
+          "bi",
+          "chuang",
+          "kou"
+        ],
+        [
+          "xian",
+          "bao",
+          "cun",
+          "wen",
+          "jian",
+          "zai",
+          "guan",
+          "bi",
+          "chuang",
+          "kou"
+        ],
+        [
+          "xian",
+          "bao",
+          "cun",
+          "wen",
+          "jian",
+          "zai",
+          "guan",
+          "bi",
+          "chuang",
+          "kou"
+        ]
+      ],
+      "references": [
+        "先保存文件再关闭窗口"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "ordered-actions",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Complete sequence constrains 再 as a subsequent action.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-13",
+      "input": "shandiaohuancunbuhuishanchupeizhi",
+      "context": "",
+      "candidates": [
+        "删掉缓存不回删除配置",
+        "删掉缓存不会善处配置",
+        "删掉缓存不会删除配制",
+        "删掉缓存不会删除配置"
+      ],
+      "syllables": [
+        [
+          "shan",
+          "diao",
+          "huan",
+          "cun",
+          "bu",
+          "hui",
+          "shan",
+          "chu",
+          "pei",
+          "zhi"
+        ],
+        [
+          "shan",
+          "diao",
+          "huan",
+          "cun",
+          "bu",
+          "hui",
+          "shan",
+          "chu",
+          "pei",
+          "zhi"
+        ],
+        [
+          "shan",
+          "diao",
+          "huan",
+          "cun",
+          "bu",
+          "hui",
+          "shan",
+          "chu",
+          "pei",
+          "zhi"
+        ],
+        [
+          "shan",
+          "diao",
+          "huan",
+          "cun",
+          "bu",
+          "hui",
+          "shan",
+          "chu",
+          "pei",
+          "zhi"
+        ]
+      ],
+      "references": [
+        "删掉缓存不会删除配置"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "cache-removal",
+      "origin": "adapted-reviewed-failure",
+      "completion_scope": "complete-composition",
+      "source_note": "Replaces the ambiguous 单缓存 pool with an explicit deletion action.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-14",
+      "input": "zhezhijijinshierbeizuoduode",
+      "context": "",
+      "candidates": [
+        "这只基金是二倍做多的",
+        "这只基金是而被做多的",
+        "这只基金事儿呗做多的",
+        "这只基金是二碑做多的"
+      ],
+      "syllables": [
+        [
+          "zhe",
+          "zhi",
+          "ji",
+          "jin",
+          "shi",
+          "er",
+          "bei",
+          "zuo",
+          "duo",
+          "de"
+        ],
+        [
+          "zhe",
+          "zhi",
+          "ji",
+          "jin",
+          "shi",
+          "er",
+          "bei",
+          "zuo",
+          "duo",
+          "de"
+        ],
+        [
+          "zhe",
+          "zhi",
+          "ji",
+          "jin",
+          "shi",
+          "er",
+          "bei",
+          "zuo",
+          "duo",
+          "de"
+        ],
+        [
+          "zhe",
+          "zhi",
+          "ji",
+          "jin",
+          "shi",
+          "er",
+          "bei",
+          "zuo",
+          "duo",
+          "de"
+        ]
+      ],
+      "references": [
+        "这只基金是二倍做多的"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "leveraged-term",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Reuses the documented 二倍做多 spelling in a complete financial-term sentence; synthetic, not advice.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-15",
+      "input": "xiugaishezhihoulijishengxiao",
+      "context": "",
+      "candidates": [
+        "修改射之后立即生效",
+        "修改设置后立即生效",
+        "修改设置厚立即生效",
+        "修改设置后立即生肖"
+      ],
+      "syllables": [
+        [
+          "xiu",
+          "gai",
+          "she",
+          "zhi",
+          "hou",
+          "li",
+          "ji",
+          "sheng",
+          "xiao"
+        ],
+        [
+          "xiu",
+          "gai",
+          "she",
+          "zhi",
+          "hou",
+          "li",
+          "ji",
+          "sheng",
+          "xiao"
+        ],
+        [
+          "xiu",
+          "gai",
+          "she",
+          "zhi",
+          "hou",
+          "li",
+          "ji",
+          "sheng",
+          "xiao"
+        ],
+        [
+          "xiu",
+          "gai",
+          "she",
+          "zhi",
+          "hou",
+          "li",
+          "ji",
+          "sheng",
+          "xiao"
+        ]
+      ],
+      "references": [
+        "修改设置后立即生效"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "settings",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic settings outcome.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-16",
+      "input": "disiweihoumianhaiyousangeren",
+      "context": "",
+      "candidates": [
+        "第思维后面还有三个人",
+        "第四位后面还有三个人",
+        "第四维后面还有三个人",
+        "第四为后面还有三个人"
+      ],
+      "syllables": [
+        [
+          "di",
+          "si",
+          "wei",
+          "hou",
+          "mian",
+          "hai",
+          "you",
+          "san",
+          "ge",
+          "ren"
+        ],
+        [
+          "di",
+          "si",
+          "wei",
+          "hou",
+          "mian",
+          "hai",
+          "you",
+          "san",
+          "ge",
+          "ren"
+        ],
+        [
+          "di",
+          "si",
+          "wei",
+          "hou",
+          "mian",
+          "hai",
+          "you",
+          "san",
+          "ge",
+          "ren"
+        ],
+        [
+          "di",
+          "si",
+          "wei",
+          "hou",
+          "mian",
+          "hai",
+          "you",
+          "san",
+          "ge",
+          "ren"
+        ]
+      ],
+      "references": [
+        "第四位后面还有三个人"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "queue-position",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "A single representative of the previously discussed 第四位 ranking family.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-17",
+      "input": "zheyangshuohuishangganqing",
+      "context": "",
+      "candidates": [
+        "这样说徽商感情",
+        "这样说会上感情",
+        "这样说会伤感情",
+        "这样说回伤感情"
+      ],
+      "syllables": [
+        [
+          "zhe",
+          "yang",
+          "shuo",
+          "hui",
+          "shang",
+          "gan",
+          "qing"
+        ],
+        [
+          "zhe",
+          "yang",
+          "shuo",
+          "hui",
+          "shang",
+          "gan",
+          "qing"
+        ],
+        [
+          "zhe",
+          "yang",
+          "shuo",
+          "hui",
+          "shang",
+          "gan",
+          "qing"
+        ],
+        [
+          "zhe",
+          "yang",
+          "shuo",
+          "hui",
+          "shang",
+          "gan",
+          "qing"
+        ]
+      ],
+      "references": [
+        "这样说会伤感情"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "relationships",
+      "origin": "adapted-window-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Expands the reported shangganqing window failure into a complete ordinary sentence.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-18",
+      "input": "zhaochujuzilidecuobiezi",
+      "context": "",
+      "candidates": [
+        "找出具资历的错别字",
+        "找出句子里的错别字",
+        "找出具自理的错别字",
+        "找出具自离的错别字"
+      ],
+      "syllables": [
+        [
+          "zhao",
+          "chu",
+          "ju",
+          "zi",
+          "li",
+          "de",
+          "cuo",
+          "bie",
+          "zi"
+        ],
+        [
+          "zhao",
+          "chu",
+          "ju",
+          "zi",
+          "li",
+          "de",
+          "cuo",
+          "bie",
+          "zi"
+        ],
+        [
+          "zhao",
+          "chu",
+          "ju",
+          "zi",
+          "li",
+          "de",
+          "cuo",
+          "bie",
+          "zi"
+        ],
+        [
+          "zhao",
+          "chu",
+          "ju",
+          "zi",
+          "li",
+          "de",
+          "cuo",
+          "bie",
+          "zi"
+        ]
+      ],
+      "references": [
+        "找出句子里的错别字"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "sentence-editing",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Rephrases the earlier 找几处句子 intent as natural error-finding text.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-19",
+      "input": "zhegecichuxiandecishugengduo",
+      "context": "",
+      "candidates": [
+        "这个次出现的次数更多",
+        "这个词出现的次数更多",
+        "这个词出现的词数更多",
+        "这个词出现得次数更多",
+        "这歌词出现的次数更多"
+      ],
+      "syllables": [
+        [
+          "zhe",
+          "ge",
+          "ci",
+          "chu",
+          "xian",
+          "de",
+          "ci",
+          "shu",
+          "geng",
+          "duo"
+        ],
+        [
+          "zhe",
+          "ge",
+          "ci",
+          "chu",
+          "xian",
+          "de",
+          "ci",
+          "shu",
+          "geng",
+          "duo"
+        ],
+        [
+          "zhe",
+          "ge",
+          "ci",
+          "chu",
+          "xian",
+          "de",
+          "ci",
+          "shu",
+          "geng",
+          "duo"
+        ],
+        [
+          "zhe",
+          "ge",
+          "ci",
+          "chu",
+          "xian",
+          "de",
+          "ci",
+          "shu",
+          "geng",
+          "duo"
+        ],
+        [
+          "zhe",
+          "ge",
+          "ci",
+          "chu",
+          "xian",
+          "de",
+          "ci",
+          "shu",
+          "geng",
+          "duo"
+        ]
+      ],
+      "references": [
+        "这个词出现的次数更多",
+        "这歌词出现的次数更多"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "word-occurrences",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Disambiguates the documented 词出现的 / 此处显得 boundary case with a word-count predicate.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true,
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-20",
+      "input": "zhegeanniuxuyaodianliangci",
+      "context": "",
+      "candidates": [
+        "这个按钮需要电量此",
+        "这个按钮需要店两次",
+        "这个按钮需要电量词",
+        "这个按钮需要点两次"
+      ],
+      "syllables": [
+        [
+          "zhe",
+          "ge",
+          "an",
+          "niu",
+          "xu",
+          "yao",
+          "dian",
+          "liang",
+          "ci"
+        ],
+        [
+          "zhe",
+          "ge",
+          "an",
+          "niu",
+          "xu",
+          "yao",
+          "dian",
+          "liang",
+          "ci"
+        ],
+        [
+          "zhe",
+          "ge",
+          "an",
+          "niu",
+          "xu",
+          "yao",
+          "dian",
+          "liang",
+          "ci"
+        ],
+        [
+          "zhe",
+          "ge",
+          "an",
+          "niu",
+          "xu",
+          "yao",
+          "dian",
+          "liang",
+          "ci"
+        ]
+      ],
+      "references": [
+        "这个按钮需要点两次"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "button",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic button-action instruction.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-21",
+      "input": "zhegemokuaixuyaozuoheiheceshi",
+      "context": "",
+      "candidates": [
+        "这个模块需要做黑河测试",
+        "这个模块需要坐黑盒测试",
+        "这个模块需要做黑盒测试",
+        "这各模块需要做黑盒测试"
+      ],
+      "syllables": [
+        [
+          "zhe",
+          "ge",
+          "mo",
+          "kuai",
+          "xu",
+          "yao",
+          "zuo",
+          "hei",
+          "he",
+          "ce",
+          "shi"
+        ],
+        [
+          "zhe",
+          "ge",
+          "mo",
+          "kuai",
+          "xu",
+          "yao",
+          "zuo",
+          "hei",
+          "he",
+          "ce",
+          "shi"
+        ],
+        [
+          "zhe",
+          "ge",
+          "mo",
+          "kuai",
+          "xu",
+          "yao",
+          "zuo",
+          "hei",
+          "he",
+          "ce",
+          "shi"
+        ],
+        [
+          "zhe",
+          "ge",
+          "mo",
+          "kuai",
+          "xu",
+          "yao",
+          "zuo",
+          "hei",
+          "he",
+          "ce",
+          "shi"
+        ]
+      ],
+      "references": [
+        "这个模块需要做黑盒测试"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "black-box",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Uses the recently inspected heihe spelling in an explicit software-testing phrase.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-22",
+      "input": "zhezhangbiaoxuyaoanliepaixu",
+      "context": "",
+      "candidates": [
+        "这张表需要案例额排序",
+        "这张表需要案咧排序",
+        "这张表需要案列排序",
+        "这张表需要按列排序"
+      ],
+      "syllables": [
+        [
+          "zhe",
+          "zhang",
+          "biao",
+          "xu",
+          "yao",
+          "an",
+          "li",
+          "e",
+          "pai",
+          "xu"
+        ],
+        [
+          "zhe",
+          "zhang",
+          "biao",
+          "xu",
+          "yao",
+          "an",
+          "lie",
+          "pai",
+          "xu"
+        ],
+        [
+          "zhe",
+          "zhang",
+          "biao",
+          "xu",
+          "yao",
+          "an",
+          "lie",
+          "pai",
+          "xu"
+        ],
+        [
+          "zhe",
+          "zhang",
+          "biao",
+          "xu",
+          "yao",
+          "an",
+          "lie",
+          "pai",
+          "xu"
+        ]
+      ],
+      "references": [
+        "这张表需要按列排序"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "sort-columns",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic table-operation instruction.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-23",
+      "input": "liulanqidizhilanlishuruwangzhi",
+      "context": "",
+      "candidates": [
+        "浏览器地址栏丽输入网址",
+        "浏览器地址栏里输入网址",
+        "浏览器地址栏力输入网址",
+        "浏览器地址栏李输入网址"
+      ],
+      "syllables": [
+        [
+          "liu",
+          "lan",
+          "qi",
+          "di",
+          "zhi",
+          "lan",
+          "li",
+          "shu",
+          "ru",
+          "wang",
+          "zhi"
+        ],
+        [
+          "liu",
+          "lan",
+          "qi",
+          "di",
+          "zhi",
+          "lan",
+          "li",
+          "shu",
+          "ru",
+          "wang",
+          "zhi"
+        ],
+        [
+          "liu",
+          "lan",
+          "qi",
+          "di",
+          "zhi",
+          "lan",
+          "li",
+          "shu",
+          "ru",
+          "wang",
+          "zhi"
+        ],
+        [
+          "liu",
+          "lan",
+          "qi",
+          "di",
+          "zhi",
+          "lan",
+          "li",
+          "shu",
+          "ru",
+          "wang",
+          "zhi"
+        ]
+      ],
+      "references": [
+        "浏览器地址栏里输入网址"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "browser-address",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Explicit address-bar and URL context.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-24",
+      "input": "lvxingzhiqianjianchahuzhao",
+      "context": "",
+      "candidates": [
+        "旅行之前检查护照",
+        "旅行之前煎茶护照"
+      ],
+      "syllables": [
+        [
+          "lv",
+          "xing",
+          "zhi",
+          "qian",
+          "jian",
+          "cha",
+          "hu",
+          "zhao"
+        ],
+        [
+          "lv",
+          "xing",
+          "zhi",
+          "qian",
+          "jian",
+          "cha",
+          "hu",
+          "zhao"
+        ]
+      ],
+      "references": [
+        "旅行之前检查护照"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "umlaut",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic normalized-v reading in a travel instruction.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-25",
+      "input": "xinglixianglihaiyouyibayusan",
+      "context": "",
+      "candidates": [
+        "行李箱里还有一把雨伞",
+        "行李箱李还有一把雨伞",
+        "行李箱里还有已把雨伞",
+        "行李厢里还有一把雨伞",
+        "行李箱利还有一把雨伞"
+      ],
+      "syllables": [
+        [
+          "xing",
+          "li",
+          "xiang",
+          "li",
+          "hai",
+          "you",
+          "yi",
+          "ba",
+          "yu",
+          "san"
+        ],
+        [
+          "xing",
+          "li",
+          "xiang",
+          "li",
+          "hai",
+          "you",
+          "yi",
+          "ba",
+          "yu",
+          "san"
+        ],
+        [
+          "xing",
+          "li",
+          "xiang",
+          "li",
+          "hai",
+          "you",
+          "yi",
+          "ba",
+          "yu",
+          "san"
+        ],
+        [
+          "xing",
+          "li",
+          "xiang",
+          "li",
+          "hai",
+          "you",
+          "yi",
+          "ba",
+          "yu",
+          "san"
+        ],
+        [
+          "xing",
+          "li",
+          "xiang",
+          "li",
+          "hai",
+          "you",
+          "yi",
+          "ba",
+          "yu",
+          "san"
+        ]
+      ],
+      "references": [
+        "行李箱里还有一把雨伞",
+        "行李厢里还有一把雨伞"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "luggage",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic 行李 reading and umbrella sentence.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true,
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-26",
+      "input": "qingbaluosiningjinyidian",
+      "context": "",
+      "candidates": [
+        "清吧螺丝拧紧一点",
+        "请吧螺丝拧紧一点",
+        "请拔螺丝拧紧一点",
+        "请把螺丝拧紧一点"
+      ],
+      "syllables": [
+        [
+          "qing",
+          "ba",
+          "luo",
+          "si",
+          "ning",
+          "jin",
+          "yi",
+          "dian"
+        ],
+        [
+          "qing",
+          "ba",
+          "luo",
+          "si",
+          "ning",
+          "jin",
+          "yi",
+          "dian"
+        ],
+        [
+          "qing",
+          "ba",
+          "luo",
+          "si",
+          "ning",
+          "jin",
+          "yi",
+          "dian"
+        ],
+        [
+          "qing",
+          "ba",
+          "luo",
+          "si",
+          "ning",
+          "jin",
+          "yi",
+          "dian"
+        ]
+      ],
+      "references": [
+        "请把螺丝拧紧一点"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "tighten",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic concrete repair action.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-27",
+      "input": "nengxiangbanfayouhuaxingneng",
+      "context": "",
+      "candidates": [
+        "能想办法优化行能",
+        "能想办法有话性能",
+        "能想办法优化性能",
+        "能想办法油画性能"
+      ],
+      "syllables": [
+        [
+          "neng",
+          "xiang",
+          "ban",
+          "fa",
+          "you",
+          "hua",
+          "xing",
+          "neng"
+        ],
+        [
+          "neng",
+          "xiang",
+          "ban",
+          "fa",
+          "you",
+          "hua",
+          "xing",
+          "neng"
+        ],
+        [
+          "neng",
+          "xiang",
+          "ban",
+          "fa",
+          "you",
+          "hua",
+          "xing",
+          "neng"
+        ],
+        [
+          "neng",
+          "xiang",
+          "ban",
+          "fa",
+          "you",
+          "hua",
+          "xing",
+          "neng"
+        ]
+      ],
+      "references": [
+        "能想办法优化性能"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "optimization",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Adapts the documented 能想办法优化吗 request without an ambiguous sentence-final particle.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-28",
+      "input": "womenxiazhouqutaiguolvyou",
+      "context": "",
+      "candidates": [
+        "我们下周去泰国旅游",
+        "我们下咒去泰国旅游",
+        "我门下周去泰国旅游",
+        "我们虾粥去泰国旅游"
+      ],
+      "syllables": [
+        [
+          "wo",
+          "men",
+          "xia",
+          "zhou",
+          "qu",
+          "tai",
+          "guo",
+          "lv",
+          "you"
+        ],
+        [
+          "wo",
+          "men",
+          "xia",
+          "zhou",
+          "qu",
+          "tai",
+          "guo",
+          "lv",
+          "you"
+        ],
+        [
+          "wo",
+          "men",
+          "xia",
+          "zhou",
+          "qu",
+          "tai",
+          "guo",
+          "lv",
+          "you"
+        ],
+        [
+          "wo",
+          "men",
+          "xia",
+          "zhou",
+          "qu",
+          "tai",
+          "guo",
+          "lv",
+          "you"
+        ]
+      ],
+      "references": [
+        "我们下周去泰国旅游"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "country",
+      "origin": "adapted-documented-regression",
+      "completion_scope": "complete-composition",
+      "source_note": "Adds explicit travel context to the earlier 泰国 case.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-29",
+      "input": "woyijingbayoujianfachuqule",
+      "context": "",
+      "candidates": [
+        "我已经爸邮件发出去了",
+        "我已经吧邮件发出去了",
+        "我已经把有件发出去了",
+        "我已经把邮件发出去了"
+      ],
+      "syllables": [
+        [
+          "wo",
+          "yi",
+          "jing",
+          "ba",
+          "you",
+          "jian",
+          "fa",
+          "chu",
+          "qu",
+          "le"
+        ],
+        [
+          "wo",
+          "yi",
+          "jing",
+          "ba",
+          "you",
+          "jian",
+          "fa",
+          "chu",
+          "qu",
+          "le"
+        ],
+        [
+          "wo",
+          "yi",
+          "jing",
+          "ba",
+          "you",
+          "jian",
+          "fa",
+          "chu",
+          "qu",
+          "le"
+        ],
+        [
+          "wo",
+          "yi",
+          "jing",
+          "ba",
+          "you",
+          "jian",
+          "fa",
+          "chu",
+          "qu",
+          "le"
+        ]
+      ],
+      "references": [
+        "我已经把邮件发出去了"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "mail",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic completed mail-sending action.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-30",
+      "input": "shuruwanchenghouanhuichequeren",
+      "context": "",
+      "candidates": [
+        "输入完成后按回撤确认",
+        "输入完成后安徽车确认",
+        "输入完成后安回车确认",
+        "输入完成后按回车确认"
+      ],
+      "syllables": [
+        [
+          "shu",
+          "ru",
+          "wan",
+          "cheng",
+          "hou",
+          "an",
+          "hui",
+          "che",
+          "que",
+          "ren"
+        ],
+        [
+          "shu",
+          "ru",
+          "wan",
+          "cheng",
+          "hou",
+          "an",
+          "hui",
+          "che",
+          "que",
+          "ren"
+        ],
+        [
+          "shu",
+          "ru",
+          "wan",
+          "cheng",
+          "hou",
+          "an",
+          "hui",
+          "che",
+          "que",
+          "ren"
+        ],
+        [
+          "shu",
+          "ru",
+          "wan",
+          "cheng",
+          "hou",
+          "an",
+          "hui",
+          "che",
+          "que",
+          "ren"
+        ]
+      ],
+      "references": [
+        "输入完成后按回车确认"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "recent-rust-hard-negatives",
+      "family": "return-key",
+      "origin": "authored-project-control",
+      "completion_scope": "complete-composition",
+      "source_note": "Synthetic input-method confirmation sequence.",
+      "candidate_origins": [
+        "rust-exact",
+        "rust-exact",
+        "rust-exact",
+        "rust-exact"
+      ],
+      "reference_in_decoder_pool": [
+        true
+      ]
+    },
+    {
+      "id": "recent-20261126-31",
+      "input": "chijisuan",
+      "context": "",
+      "candidates": [
+        "吃肌酸",
+        "吃计算",
+        "迟计算",
+        "池计算"
+      ],
+      "syllables": [
+        [
+          "chi",
+          "ji",
+          "suan"
+        ],
+        [
+          "chi",
+          "ji",
+          "suan"
+        ],
+        [
+          "chi",
+          "ji",
+          "suan"
+        ],
+        [
+          "chi",
+          "ji",
+          "suan"
+        ]
+      ],
+      "references": [
+        "吃肌酸"
+      ],
+      "category": "recent-input-regressions",
+      "pool_origin": "user-supplied-fixed-pool",
+      "family": "creatine-homophones",
+      "origin": "user-reported-20261126",
+      "completion_scope": "complete-composition",
+      "source_note": "User supplied chijisuan and all four candidates in this order; the intended ordinary phrase is 吃肌酸. This is a spelling/ranking fixture, not health guidance.",
+      "candidate_origins": [
+        "user-supplied",
+        "user-supplied",
+        "user-supplied",
+        "user-supplied"
+      ]
+    }
+  ],
+  "final_text_qa": {
+    "model_scores_consulted": false,
+    "changes": {
+      "recent-20261126-05": {
+        "remove": [
+          "这批中文余料用来训练模型"
+        ],
+        "add": [
+          "这批中文羽獠用来训练模型"
+        ]
+      },
+      "recent-20261126-18": {
+        "remove": [
+          "找出局子里的错别字"
+        ],
+        "add": [
+          "找出具自离的错别字"
+        ]
+      },
+      "recent-20261126-24": {
+        "remove": [
+          "旅行之前检查呼召",
+          "旅行之前检察护照"
+        ],
+        "add": []
+      }
+    },
+    "reason": "Removed potentially plausible police-station wording, leftover language material and broad checking/calling interpretations during text-only QA. Replacement strings were already present in the pinned decoder export. Preliminary reports use superseded hashes and are quarantined; the final evaluation is rerun uniformly."
+  },
+  "follow_up_additions": [
+    {
+      "date": "2026-11-26",
+      "previous_suite": "conversion-v3-recent-regressions-20261126",
+      "previous_context_free_sha256": "c073eca35f0de50846307c39ee4f9a714f563ed5a35e8f71e1ffa78dc03ac6c5",
+      "id": "recent-20261126-31",
+      "reason": "User requested the exact chijisuan four-candidate context-free regression. Candidate order is preserved as supplied, rather than hash shuffled."
+    }
+  ]
+}

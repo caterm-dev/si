@@ -1,3 +1,5 @@
+from collections import Counter
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -5,10 +7,37 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts'))
-from evaluate_conversion import paired_top1, ranking_eval, recall_eval, recall_metrics
+from evaluate_conversion import DATA, load_data, paired_top1, ranking_eval, recall_eval, recall_metrics, sha256
 
 
 class ConversionEvalTests(unittest.TestCase):
+    def test_recent_replacements_preserve_the_reported_failure_and_reconstruct_the_old_suite(self):
+        suites, manifest = load_data()
+        revision = manifest['replacement_review']
+        path = DATA / revision['file']
+        self.assertEqual(sha256(path), revision['sha256'])
+        review = json.loads(path.read_text())
+        added = {row['id']: row for row in review['additions']}
+        self.assertEqual(len(added), 31)
+        self.assertLessEqual(max(Counter(row['family'] for row in added.values()).values()), 2)
+        actual = {row['id']: row for row in suites['ranking/context-free.jsonl'] if row['id'] in added}
+        self.assertEqual(actual, added)
+        completion = next(row for row in actual.values() if row['input'] == 'bazhegezuowan')
+        self.assertEqual(completion['references'], ['把这个做完'])
+        self.assertIn('把这个昨晚', completion['candidates'])
+        retired_ids = {row['row']['id'] for row in review['retired_rows']}
+        self.assertEqual(len(retired_ids), 35)
+        self.assertTrue(set(review['requested_error_ids']) <= retired_ids)
+        self.assertTrue(retired_ids.isdisjoint(row['id'] for rows in suites.values() for row in rows))
+        for name, expected_hash in review['previous_hashes'].items():
+            removed = {row['line']: row['original_line'] for row in review['retired_rows'] if row['source'] == name}
+            remaining = [line for line in (DATA / name).read_text().splitlines()
+                         if json.loads(line)['id'] not in added]
+            iterator = iter(remaining)
+            reconstructed = [removed[i] if i in removed else next(iterator)
+                             for i in range(1, len(remaining) + len(removed) + 1)]
+            self.assertEqual(hashlib.sha256(('\n'.join(reconstructed) + '\n').encode()).hexdigest(), expected_hash)
+
     def test_recall_requires_a_whole_exact_candidate_in_the_requested_language(self):
         query = {'id': 'one', 'input': 'he', 'context': '', 'languages': ['zh-Hans', 'en'],
                  'category': 'fixture', 'reference_language': 'zh-Hans', 'references': ['河']}

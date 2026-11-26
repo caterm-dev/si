@@ -1018,6 +1018,16 @@ candidate pools for separate character-LM evaluation. Context contrasts keep
 the input and candidate order identical while reversing the preferred output.
 The [eval guide](../eval/README.md) documents the execution and provenance.
 
+The 2026-11-26 regression revision archives 27 observed Qwen mismatches and
+their eight contextual partners, then adds 30 reviewed complete-composition
+cases, including `bazhegezuowan → 把这个做完`. The resulting ranking suites have
+442 contextual and 543 context-free queries after the follow-up `chijisuan`
+four-candidate addition. The pinned review archive can
+reconstruct the previous dataset bytes; scores remain tied to their revision.
+The additions record actual decoder alternatives and explicit reference
+injection, so their isolated-scoring results do not establish decoder recall.
+This user-directed post-evaluation revision is not an independent held-out test.
+
 `eval/ranking/test.jsonl` preserves the historical 220-query suite. It stores authored exact
 source/target pairs, category/template families and bilingual configuration,
 without candidate snapshots or a train/dev split. The reproducible standard-library
