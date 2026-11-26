@@ -33,6 +33,12 @@ pub struct Ranking {
     pub context_tokens_used: usize,
 }
 
+/// Whole-candidate natural-log probabilities, without length normalization.
+pub struct SequenceScores {
+    pub scores: Vec<f64>,
+    pub context_tokens_used: usize,
+}
+
 pub struct Reranker {
     checkpoint_sha256: String,
     tokenizer: Tokenizer,
@@ -141,14 +147,38 @@ impl Reranker {
         context_tokens: usize,
         candidate_tokens: usize,
     ) -> Result<Option<Vec<f64>>> {
+        Ok(self
+            .bounded_sequence_scores(context, candidates, context_tokens, candidate_tokens)?
+            .map(|pool| {
+                pool.scores
+                    .into_iter()
+                    .zip(candidates)
+                    .map(|(score, text)| score / text.chars().count() as f64)
+                    .collect()
+            }))
+    }
+
+    /// Score complete candidate sequences under the same token bounds as mean
+    /// scoring. The reported context length distinguishes a truncated-away
+    /// context from an informative prefix, without exposing tokenizer internals.
+    pub fn bounded_sequence_scores(
+        &self,
+        context: &str,
+        candidates: &[&str],
+        context_tokens: usize,
+        candidate_tokens: usize,
+    ) -> Result<Option<SequenceScores>> {
         let pool = self.score_pool(context, candidates, context_tokens, candidate_tokens)?;
-        Ok(pool.context_tokens_used.map(|_| {
-            pool.scores
-                .into_iter()
-                .zip(candidates)
-                .map(|(score, text)| score.expect("scored pool") / text.chars().count() as f64)
-                .collect()
-        }))
+        Ok(pool
+            .context_tokens_used
+            .map(|context_tokens_used| SequenceScores {
+                scores: pool
+                    .scores
+                    .into_iter()
+                    .map(|score| score.expect("scored pool"))
+                    .collect(),
+                context_tokens_used,
+            }))
     }
 
     fn score_pool(
@@ -313,6 +343,33 @@ mod tests {
             .bounded_mean_scores("前缀甲", &texts, 1, 3)
             .unwrap()
             .unwrap();
+        let sequence = model
+            .bounded_sequence_scores("前缀甲", &texts, 1, 3)
+            .unwrap()
+            .unwrap();
+        assert_eq!(sequence.context_tokens_used, 1);
+        for ((text, mean), total) in texts.iter().zip(&bounded).zip(&sequence.scores) {
+            assert_eq!(*mean, total / text.chars().count() as f64);
+        }
+        assert!(
+            model
+                .bounded_sequence_scores("", &texts, 0, 2)
+                .unwrap()
+                .is_none()
+        );
+        let unavailable = model
+            .bounded_sequence_scores("🙂", &texts, 1, 3)
+            .unwrap()
+            .unwrap();
+        assert_eq!(unavailable.context_tokens_used, 0);
+        assert_eq!(
+            unavailable.scores,
+            model
+                .bounded_sequence_scores("", &texts, 0, 3)
+                .unwrap()
+                .unwrap()
+                .scores
+        );
         assert_eq!(
             bounded,
             model

@@ -60,7 +60,7 @@ enum SettingsPage: Hashable {
     private var searchKeys: [String] {
         switch self {
         case .typing:
-            ["Languages", "English", "Chinese (Simplified)", "Automatically confirm stable prefixes",
+            ["Languages", "English", "Chinese (Simplified)",
              "Show punctuation candidates", "Punctuation during composition"] + PunctuationBehavior.allCases.map(\.displayName)
         case .aiCompletion: ["Enable AI Completion", "Codex CLI", "Claude Code", "OpenAI API Key", "Accessibility"]
         case .directInput: ["Manage Direct Input…", "Applications", "Terminal", "Toggle Direct Input Shortcut", "Record Shortcut…"]

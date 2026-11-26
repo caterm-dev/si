@@ -9,7 +9,7 @@ struct InputHistoryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(history.sectionTitle).font(.title2.bold())
-            Text("Each row is one SI submission. Prefix selections and automatic confirmations appear separately; text typed outside SI is not included.")
+            Text("Each row is one SI submission. Prefix selections appear separately; text typed outside SI is not included.")
                 .font(.callout).foregroundStyle(.secondary)
             TextField("Search history spelling or text", text: $search)
                 .textFieldStyle(.roundedBorder)

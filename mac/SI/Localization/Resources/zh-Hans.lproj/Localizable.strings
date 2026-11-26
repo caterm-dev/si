@@ -11,8 +11,6 @@
 "Application" = "应用";
 "Applications using direct input: %ld" = "直接输入的应用数：%ld";
 "As Typed" = "原样输入";
-"Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train Personal Learning. Return and shortcuts keep the remaining original spelling." = "在连续输入或暂停时，自动确认开头已稳定的中文词语，并保留可编辑的结尾。编辑或选择候选后会暂停，直到再次输入。此功能不会学习个人学习。回车键和快捷键会保留剩余的原始拼写。";
-"Automatically confirm stable prefixes" = "自动确认稳定前缀";
 "Cancel" = "取消";
 "Candidate language" = "候选语言";
 "Check for Updates…" = "检查更新…";
@@ -157,7 +155,7 @@
 "Clear all input history?" = "清空所有输入历史？";
 "Clear Input History" = "清空输入历史";
 "Permanently deletes saved input history and pending unsaved history. Personal Learning and personal phrases are kept." = "永久删除已保存的输入历史及尚未保存的历史。保留个人学习数据和个人短语。";
-"Each row is one SI submission. Prefix selections and automatic confirmations appear separately; text typed outside SI is not included." = "每条记录对应一次 SI 提交。前缀选择和自动确认会分别记录，不包含绕过 SI 输入的文字。";
+"Each row is one SI submission. Prefix selections appear separately; text typed outside SI is not included." = "每行是一条通过 SI 提交的记录。前缀选择分别记录；在 SI 之外输入的文字不会包含在内。";
 "Search history spelling or text" = "搜索历史拼写或文字";
 "No Input History" = "暂无输入历史";
 "Enable Save Input History to record future SI submissions." = "启用“保存输入历史”后记录今后通过 SI 提交的内容。";
@@ -206,7 +204,6 @@
 "Permissions" = "权限";
 "About SI" = "关于 SI";
 "Composition" = "组字";
-"Confirm stable leading Chinese words as you type or pause, keeping the ending editable." = "继续键入或暂停时，确认开头稳定的中文词语，末尾仍可编辑。";
 "Offer English or Chinese symbols for common punctuation keys." = "为常用标点键提供英文或中文符号候选。";
 "Applications" = "应用";
 "Dictionary" = "词典";
@@ -347,5 +344,5 @@
 "Spelling correction · %@" = "拼写纠错 · %@";
 "Pinyin correction" = "拼音纠错";
 "Local model ranking" = "本地模型排序";
-"Use the on-device model to reorder close whole-input candidates." = "用本机模型重排分数接近的整段输入候选。";
+"Use preceding text to help rank whole-input candidates on this Mac." = "利用前文在本机辅助排列完整输入候选。";
 "Offer spelling suggestions. Press Space to accept a correction highlighted in first place." = "提供拼写建议。按空格确认高亮的首位纠错候选。";

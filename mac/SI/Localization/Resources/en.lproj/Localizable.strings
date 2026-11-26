@@ -11,8 +11,6 @@
 "Application" = "Application";
 "Applications using direct input: %ld" = "Applications using direct input: %ld";
 "As Typed" = "As Typed";
-"Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train Personal Learning. Return and shortcuts keep the remaining original spelling." = "Automatic confirmation commits stable leading Chinese words as you continue typing or pause, keeping the ending editable. Editing or choosing candidates pauses it until you type again. It does not train Personal Learning. Return and shortcuts keep the remaining original spelling.";
-"Automatically confirm stable prefixes" = "Automatically confirm stable prefixes";
 "Cancel" = "Cancel";
 "Candidate language" = "Candidate language";
 "Check for Updates…" = "Check for Updates…";
@@ -157,7 +155,7 @@
 "Clear all input history?" = "Clear all input history?";
 "Clear Input History" = "Clear Input History";
 "Permanently deletes saved input history and pending unsaved history. Personal Learning and personal phrases are kept." = "Permanently deletes saved input history and pending unsaved history. Personal Learning and personal phrases are kept.";
-"Each row is one SI submission. Prefix selections and automatic confirmations appear separately; text typed outside SI is not included." = "Each row is one SI submission. Prefix selections and automatic confirmations appear separately; text typed outside SI is not included.";
+"Each row is one SI submission. Prefix selections appear separately; text typed outside SI is not included." = "Each row is one SI submission. Prefix selections appear separately; text typed outside SI is not included.";
 "Search history spelling or text" = "Search history spelling or text";
 "No Input History" = "No Input History";
 "Enable Save Input History to record future SI submissions." = "Enable Save Input History to record future SI submissions.";
@@ -206,7 +204,6 @@
 "Permissions" = "Permissions";
 "About SI" = "About SI";
 "Composition" = "Composition";
-"Confirm stable leading Chinese words as you type or pause, keeping the ending editable." = "Confirm stable leading Chinese words as you type or pause, keeping the ending editable.";
 "Offer English or Chinese symbols for common punctuation keys." = "Offer English or Chinese symbols for common punctuation keys.";
 "Applications" = "Applications";
 "Dictionary" = "Dictionary";
@@ -347,5 +344,5 @@
 "Spelling correction · %@" = "Spelling correction · %@";
 "Pinyin correction" = "Pinyin correction";
 "Local model ranking" = "Local model ranking";
-"Use the on-device model to reorder close whole-input candidates." = "Use the on-device model to reorder close whole-input candidates.";
+"Use preceding text to help rank whole-input candidates on this Mac." = "Use preceding text to help rank whole-input candidates on this Mac.";
 "Offer spelling suggestions. Press Space to accept a correction highlighted in first place." = "Offer spelling suggestions. Press Space to accept a correction highlighted in first place.";

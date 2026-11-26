@@ -15,7 +15,7 @@ use serde_json::Value;
 
 #[cfg(feature = "pinyin-generation")]
 pub use pinyin::{Generation, Pinyin};
-pub use reranker::{Ranking, Reranker};
+pub use reranker::{Ranking, Reranker, SequenceScores};
 use tensor::{Matrix, Weights};
 
 pub type Result<T> = io::Result<T>;

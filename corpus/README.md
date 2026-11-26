@@ -132,6 +132,14 @@ completed bundle.
 
 ## Downstream tools
 
+The [15.6M student](../llm/reranker_large/README.md#prepare-existing-raw-text-v2-snapshots)
+has an explicit `llm/reranker_large/scripts/prepare-data.sh` stage that reads
+existing `raw-text-v2` snapshots and retained source notices directly. It
+verifies hashes/ranges, groups and samples the selected Chinese sources,
+then freezes a train-only 8K vocabulary and 64-token LM windows. It never
+re-extracts raw archives or starts training. Defaults and actual token-share
+reports are documented in the student guide.
+
 The [unigram tokenizer](UNIGRAM_TOKENIZER.md), historical
 [HanLP word review](HANLP_WORDS.md), [English conversation collection](english/README.md)
 and [whole-document reranker](../llm/reranker_small/README.md) remain separate.

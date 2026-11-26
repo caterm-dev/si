@@ -10,13 +10,13 @@ token-loss evaluation and supplied-candidate scoring live here.
 | Directory | Purpose | Current status |
 | --- | --- | --- |
 | [reranker_small/](reranker_small/README.md) | Small candidate language-model scorer. | Offline 7.4M baseline training, standalone scoring and export are implemented. Independent quality review remains pending. |
-| [reranker_large/](reranker_large/README.md) | Candidate scoring after a typing pause, and a larger comparison model. | Reserved; training/inference implementation and weights are not created. |
+| [reranker_large/](reranker_large/README.md) | 15.6M character student with offline Qwen 0.5B candidate-level distillation. | Includes verified raw-text-v2 adaptation/sampling, explicit document/pool preparation, pretraining, teacher cache, distillation/resume and Python/Rust export; synthetic checks only. Formal data/training and app integration remain separate. |
 | [pinyin_to_text/](pinyin_to_text/README.md) | Pinyin-to-text conversion from explicit syllables and optional preceding text. | Offline encoder-decoder framework with a 19.7M preset and 100,000 dictionary-derived examples. |
 
 ```text
 llm/
   reranker_small/       Small LM, document preparation, scripts, tests and ignored training outputs
-  reranker_large/       Large candidate reranker
+  reranker_large/       15.6M student configurations, training/distillation stages and synthetic tests
   pinyin_to_text/
     configs/           Model and smoke configurations
     data/              Maintained CSVs and ignored immutable prepared datasets

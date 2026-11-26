@@ -10,7 +10,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public private(set) var presentationScore: Double?
     /// Transient Rust gram adjustment from the preceding field text.
     var fieldContextAdjustment = 0.0
-    /// Ephemeral whole-input reward from the local character model.
+    /// Ephemeral nonpositive sequence-lift adjustment from the local character model.
     var rerankingBonus = 0.0
     /// Exact-spelling correction priority is separate from statistical score units.
     public private(set) var isRememberedChoice = false
@@ -40,7 +40,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public let confirmationBoundaries: [ConfirmationBoundary]
 
     /// Exact source-character cuts for displaying Chinese syllables and English words.
-    /// This is presentation metadata, independent of commit/automatic-confirmation evidence.
+    /// This is presentation metadata, independent of commit alignment evidence.
     public var sourceSegmentBoundaries: [Int] {
         var result = displaySourceBoundaries
         return Array(Set(result)).sorted()

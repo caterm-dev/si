@@ -24,7 +24,7 @@ struct TypingSettingsPage: View {
         SettingsGroup("Composition") {
             SettingsRow(
                 title: Text("Local model ranking"),
-                detail: Text("Use the on-device model to reorder close whole-input candidates.")
+                detail: Text("Use preceding text to help rank whole-input candidates on this Mac.")
             ) {
                 Toggle("Local model ranking", isOn: $settings.localModelRankingEnabled)
                     .labelsHidden()
@@ -35,14 +35,6 @@ struct TypingSettingsPage: View {
                 detail: Text("Offer spelling suggestions. Press Space to accept a correction highlighted in first place.")
             ) {
                 Toggle("Pinyin correction", isOn: $settings.pinyinCorrectionEnabled)
-                    .labelsHidden()
-            }
-            Divider()
-            SettingsRow(
-                title: Text("Automatically confirm stable prefixes"),
-                detail: Text("Confirm stable leading Chinese words as you type or pause, keeping the ending editable.")
-            ) {
-                Toggle("Automatically confirm stable prefixes", isOn: $settings.automaticConfirmationEnabled)
                     .labelsHidden()
             }
             Divider()

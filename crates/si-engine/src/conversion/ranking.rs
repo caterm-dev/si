@@ -182,12 +182,12 @@ fn rerank(rows: &mut [Row], model: &SmallReranker, context: &str, full_span: usi
     let Some(bonuses) = model.bonuses(context, &texts) else {
         return;
     };
-    let last = pool.last().expect("scored candidates").0;
     for (index, slot) in pool {
         rows[index].1.reranking_bonus = bonuses[slot];
     }
-    // Bonuses are nonnegative. Nothing after the last scored position can move up.
-    rows[..=last].sort_unstable_by(compare);
+    // Signed adjustments can put previously lower unscored whole results ahead
+    // of scored candidates. Re-sort with the same span and preference policy.
+    rows.sort_unstable_by(compare);
 }
 
 /// Direct completions from one language at the whole input span.

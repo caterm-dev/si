@@ -31,7 +31,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
     private var aiRowPhase: AICompletionActivity.Phase?
     private var aiTask: Task<Void, Never>?
     private var aiPrediction: AIPrediction?
-    private var automaticConfirmationTask: Task<Void, Never>?
     private weak var memoryClient: (any IMKTextInput)?
     private var applicationID: String?
     private var memoryGeneration: UInt64?
@@ -370,7 +369,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           learning: memory.learning,
                           dictionary: UserDictionary(),
                           contextGeneration: sessionContextGeneration,
-                          automaticConfirmationEnabled: languages.automaticConfirmationEnabled && !secureInput,
                           configurationGeneration: languages.configurationGeneration,
                           applicationMemory: memory,
                           compositionLearningEnabled: !secureInput,
@@ -385,7 +383,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         invalidateAICompletion()
         let spelling = session.buffer
         session.reset()
-        automaticConfirmationTask?.cancel()
         candidateClient = nil
         selection.update([])
         explicitlyNavigated = false
@@ -421,8 +418,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func setCandidateListExpanded(_ expanded: Bool, to client: any IMKTextInput) {
         guard !session.buffer.isEmpty, candidatePanel.ownsPresentation else { return }
-        session.suspendAutomaticConfirmation()
-        automaticConfirmationTask?.cancel()
         explicitlyNavigated = true
         selection.setExpanded(expanded)
         updateAISelection(to: client)
@@ -430,8 +425,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
 
     private func moveCandidateSelection(_ navigation: CandidateSelection.Navigation, to client: any IMKTextInput) {
         guard !session.buffer.isEmpty, configureSession(for: client) else { return }
-        session.suspendAutomaticConfirmation()
-        automaticConfirmationTask?.cancel()
         selection.navigate(navigation)
         explicitlyNavigated = true
         updateAISelection(to: client)
@@ -486,36 +479,34 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
             let marked = client.markedRange()
             guard isCurrent() else { return }
+            var rangesAreCurrent = true
             let line = CandidateAnchor.activeLine(inlineText: text, caretUTF16Offset: caret,
                 retainedStart: markedTextState.candidateLineStartUTF16Offset, screens: screens) { index in
-                var rect = NSRect.zero
-                _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
-                guard isCurrent() else { return nil }
-                // TEMP-GEOMETRY-LOG
-                #if DEBUG
-                if !IsSecureEventInputEnabled() { samples.append((index, rect)) }
-                #endif
-                if CandidateAnchor(rect, screens: screens) == nil,
-                   let range = CandidateAnchor.documentRange(inlineOffset: index, inlineUTF16Count: text.utf16.count,
-                                                              marked: marked) {
-                    // This API uses document-relative ranges, unlike the inline
-                    // attributes API. Accept only geometry for this exact position.
-                    var actual = NSRange(location: NSNotFound, length: 0)
-                    let alternative = client.firstRect(forCharacterRange: range, actualRange: &actual)
-                    guard isCurrent() else { return nil }
-                    let currentMarked = client.markedRange()
-                    guard isCurrent(), currentMarked == marked else { return nil }
-                    // TEMP-GEOMETRY-LOG
-                    #if DEBUG
-                    if !IsSecureEventInputEnabled() { samples.append((range.location, alternative)) }
-                    #endif
-                    if CandidateAnchor.acceptsDocumentGeometry(actual: actual, requested: range, marked: marked) {
-                        return alternative
-                    }
-                }
-                return rect
+                CandidateGeometryReader.read(inlineOffset: index,
+                    documentBounds: marked.length == text.utf16.count ? marked : nil, screens: screens,
+                    isCurrent: { isCurrent() && rangesAreCurrent }, documentRectangle: { range in
+                        var actual = NSRange(location: NSNotFound, length: 0)
+                        let rect = client.firstRect(forCharacterRange: range, actualRange: &actual)
+                        guard isCurrent() else { return nil }
+                        let currentMarked = client.markedRange()
+                        rangesAreCurrent = currentMarked == marked
+                        guard isCurrent(), rangesAreCurrent else { return nil }
+                        // TEMP-GEOMETRY-LOG
+                        #if DEBUG
+                        if !IsSecureEventInputEnabled() { samples.append((range.location, rect)) }
+                        #endif
+                        return (rect, actual)
+                    }, inlineRectangle: { index in
+                        var rect = NSRect.zero
+                        _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
+                        // TEMP-GEOMETRY-LOG
+                        #if DEBUG
+                        if !IsSecureEventInputEnabled() { samples.append((index, rect)) }
+                        #endif
+                        return rect
+                    })
             }
-            guard isCurrent() else { return }
+            guard isCurrent(), rangesAreCurrent else { return }
             if let line {
                 markedTextState.updateCandidateLine(offset: line.offset, anchor: line.anchor)
                 // TEMP-GEOMETRY-LOG
@@ -581,7 +572,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
             presentationRevision &+= 1
             invalidateAICompletion()
             session.breakContext()
-            automaticConfirmationTask?.cancel()
             candidateClient = nil
             markedTextState.reset()
             candidatePanel.releasePresentation()
@@ -652,28 +642,41 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         presentationRevision &+= 1
         let revision = presentationRevision
         invalidateAICompletion()
-        automaticConfirmationTask?.cancel()
         let sameClient = candidateClient.map { ($0 as AnyObject) === (client as AnyObject) } ?? false
         if !sameClient {
             markedTextState.reset()
         }
         candidateClient = client
-        if let commit = session.automaticallyConfirm() {
-            apply(commit, to: client)
-            return
-        }
+
         selection.update(session.candidates)
         explicitlyNavigated = false
         let marked = MarkedTextPresentation(buffer: session.buffer, cursor: session.cursor, candidates: session.candidates)
         let markedSelection = NSRange(location: marked.cursorUTF16Offset, length: 0)
         if !marked.text.isEmpty, !markedTextState.didCaptureCandidateStart {
-            // Before the first marked-text update, inline zero is the host insertion
-            // point. Keep it within this visual line; later wrapping can start a new line.
-            var rect = NSRect.zero
-            _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
-            guard revision == presentationRevision, candidatePanel.ownsPresentation,
-                  (candidateClient as AnyObject?) === (client as AnyObject) else { return }
             let screens = NSScreen.screens.map { CandidatePlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+            var rangesAreCurrent = true
+            func isCurrent() -> Bool {
+                revision == presentationRevision && candidatePanel.ownsPresentation && rangesAreCurrent
+                    && (candidateClient as AnyObject?) === (client as AnyObject)
+            }
+            let insertion = client.selectedRange()
+            guard isCurrent() else { return }
+            // Before marking, document selection and inline zero both refer to
+            // the insertion point. Prefer a verified document rectangle when available.
+            guard let rect = CandidateGeometryReader.read(inlineOffset: 0, documentBounds: insertion, screens: screens,
+                isCurrent: isCurrent, documentRectangle: { range in
+                    var actual = NSRange(location: NSNotFound, length: 0)
+                    let rect = client.firstRect(forCharacterRange: range, actualRange: &actual)
+                    guard isCurrent() else { return nil }
+                    let currentInsertion = client.selectedRange()
+                    rangesAreCurrent = currentInsertion == insertion
+                    guard isCurrent() else { return nil }
+                    return (rect, actual)
+                }, inlineRectangle: { index in
+                    var rect = NSRect.zero
+                    _ = client.attributes(forCharacterIndex: index, lineHeightRectangle: &rect)
+                    return rect
+                }) else { return }
             markedTextState.captureCandidateStart(rect, screens: screens)
         }
         if markedTextState.shouldSend(marked.text, selection: markedSelection) {
@@ -695,7 +698,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         } else {
             refreshCandidatePanel(to: client)
             guard revision == presentationRevision, candidatePanel.ownsPresentation else { return }
-            scheduleAutomaticConfirmation()
         }
     }
 
@@ -760,8 +762,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
               let app = applicationID, let front = NSWorkspace.shared.frontmostApplication,
               front.bundleIdentifier == app, !LanguageSettings.shared.usesPassthrough(in: app) else { return false }
         guard configureSession(for: client), !session.buffer.isEmpty else { return false }
-        session.suspendAutomaticConfirmation()
-        automaticConfirmationTask?.cancel()
         let activity = AICompletionActivity.shared
         let requestID = activity.begin(.readingContext)
         aiRequestID = requestID
@@ -876,24 +876,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         return true
     }
 
-    private func scheduleAutomaticConfirmation() {
-        guard session.hasAutomaticPauseCandidate else { return }
-        let revision = session.automaticConfirmationRevision
-        automaticConfirmationTask = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(InputSession.automaticConfirmationPause)) } catch { return }
-            guard !Task.isCancelled, let self,
-                  self.candidatePanel.ownsPresentation,
-                  self.session.automaticConfirmationRevision == revision,
-                  let client = self.candidateClient, let currentClient = self.client(),
-                  (client as AnyObject) === (currentClient as AnyObject) else { return }
-            // A timer is another commit boundary: recheck settings, secure input and request revision.
-            guard self.configureSession() else { return }
-            guard self.session.automaticConfirmationRevision == revision else { self.update(client); return }
-            guard let commit = self.session.automaticallyConfirm(afterPause: true) else { return }
-            self.apply(commit, to: client)
-        }
-    }
-
     private func commitLiteral(to client: any IMKTextInput) {
         defer { session.breakContext() }
         guard !session.buffer.isEmpty else { return }
@@ -905,7 +887,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         presentationRevision &+= 1
         let revision = presentationRevision
         invalidateAICompletion()
-        automaticConfirmationTask?.cancel()
         let keepsStart = continuingComposition && (candidateClient as AnyObject?) === (client as AnyObject)
         if !keepsStart { candidateClient = nil }
         // Re-mark the remainder without moving this composition's candidate anchor.

@@ -1,6 +1,7 @@
 public enum CommitReason: String, Sendable {
     case explicitSelection
     case defaultAcceptance
+    /// Retained for historical Input History records; no input path emits this reason.
     case automaticConfirmation
     case aiCompletion
     case literal

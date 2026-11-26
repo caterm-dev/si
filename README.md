@@ -65,14 +65,23 @@ acceptance; Return still submits the original spelling.
 The [bundled small character model](Data/RerankerSmall/README.md) is the step-11,000
 checkpoint from the first 20-million-target chat continuation stage. It scores up to 12 eligible whole-input
 candidates in statistical order, without a score-gap cutoff. The setting is independent
-of Pinyin correction. The model runs on-device and compares each scored output
-with the most likely output in that pool. The model gap is capped at 8 bits
-and weighted by 0.8, using a nonnegative reward of up to 6.4 bits.
-SI uses the statistical order whenever
-model scoring is unavailable.
-Set model reward and scoring-pool limits under `[local_model_ranking]` in
+of Pinyin correction. It compares each complete candidate's log probability with
+and without the preceding field fragment, preserving the candidate's internal
+dependencies in both passes. Sequence-level lift is compared with the highest
+lift in the pool; relative adjustments are clipped to `[-8, 0]` bits and weighted
+by 1.0. Empty or unavailable context contributes zero and skips inference.
+SI uses the statistical order whenever model scoring is unavailable.
+Set model adjustment and scoring-pool limits under `[local_model_ranking]` in
 [config/si.conf](config/si.conf). These defaults are embedded in Rust at build
 time; rebuild and reinstall SI to apply changes to the input method.
+
+The separate [15.6M student workspace](llm/reranker_large/README.md) prepares
+offline pretraining and Qwen 0.5B candidate-level distillation. Only synthetic
+checks are verified; formal data preparation/training and app replacement
+are separate explicit work.
+Its [distillation sample generator](llm/reranker_large/README.md#source-linked-candidate-pools)
+accepts frozen corpus documents and a pinned local SI dialogue inventory,
+and reports context-free, short/long-context, partial-input and typo cases.
 [Scoring and bounds](docs/ranking-architecture.md#local-model-ranking)
 
 In compatible macOS text fields, SI requests at most the last 96 UTF-16 units
@@ -147,7 +156,7 @@ The word-gram snapshot is tracked with Git LFS. Install Git LFS, run
 [engine resources](Data/Engine/README.md) for validation, source notices and
 maintenance.
 
-Candidate positioning starts at the host insertion point and stays fixed within the active visual line. After marked-text layout, SI checks the caret's visual line using UTF-16 geometry; this includes automatic field wrapping without a newline in the spelling. If inline geometry is unavailable, it can request the same exact position through a validated document-relative range. When spelling wraps onto another line, SI anchors the panel at that line's earliest verified position; deleting or moving back to an earlier line follows that line's start. Typing or moving the caret within the same line keeps the panel anchored. Unavailable or obsolete line geometry retains the current anchor, without mouse or previous-client fallbacks. Initial placement still requires usable host geometry. The panel has a 480-point minimum preferred width (capped by available screen space), keeps that line anchor and measures the width remaining to the display’s visible right edge. It reduces the number of choices per row from six down to one until the row fits, retaining other candidates on later pages. A single oversized candidate is truncated visually, with full text kept in its tooltip and accessibility label. The panel does not flip above the line near the display’s bottom edge. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
+Candidate positioning starts at the host insertion point and stays fixed within the active visual line. After marked-text layout, SI checks the caret's visual line using UTF-16 geometry; this includes automatic field wrapping without a newline in the spelling. For both initial placement and later line checks, SI prefers validated document-relative geometry over inline geometry, which some hosts can report at an unrelated on-screen position. Unsupported or invalid document geometry falls back to the inline API. When spelling wraps onto another line, SI anchors the panel at that line's earliest verified position; deleting or moving back to an earlier line follows that line's start. Typing or moving the caret within the same line keeps the panel anchored. Unavailable or obsolete line geometry retains the current anchor, without mouse or previous-client fallbacks. Initial placement still requires usable host geometry. The panel has a 480-point minimum preferred width (capped by available screen space), keeps that line anchor and measures the width remaining to the display’s visible right edge. It reduces the number of choices per row from six down to one until the row fits, retaining other candidates on later pages. A single oversized candidate is truncated visually, with full text kept in its tooltip and accessibility label. Candidates containing unconverted text have no ellipsis source icon. Visible candidate text and panel size update together at the retained line anchor, before deferred host-position checks. The panel does not flip above the line near the display’s bottom edge. See the [native positioning checks](docs/TESTING.md#candidate-positioning) for host verification.
 
 Inline spelling uses InputMethodKit's thin, unselected underline style, with display-only spaces between decoded syllables or words. The spelling remains a composition until confirmation, so candidates, caret editing and cancellation remain available. Hosts control the final appearance and any suggestions or autocomplete during composition; live behavior in ChatGPT and browser address bars requires verification. See [inline composition checks](docs/TESTING.md#inline-composition-presentation).
 
@@ -197,13 +206,14 @@ to package an offline snapshot change; already loaded engines do not reload it.
 To remove entries, build a fresh lexicon at a new path and regenerate its
 paired word grams from the selected corpus before using them in the app.
 
-## Automatic prefix confirmation
+## Manual prefix confirmation
 
-Enable **Automatically confirm stable prefixes** in **SI Settings → Typing** to let SI confirm leading Chinese words while you continue typing or pause. It is off by default. SI keeps at least four output characters editable during continuous typing, or two after a pause of at least 1.8 seconds; complete-word boundaries can leave a longer ending. Only the confirmed source spelling is consumed, and the remaining exact spelling stays marked and editable without an extra space.
-
-Automatic confirmation requires matching source/output boundaries across nearby full-search alternatives. Continued typing must also preserve the prefix across multiple results with additional input. A pause relaxes the ending length, but requires a prefix of at least two characters and does not override disagreement between candidates. Ambiguous input can remain entirely editable. English/mixed leaders, uppercase/code-like spelling, personal phrases and unrecognized spans are excluded. These are conservative local heuristics, not a guarantee of sentence meaning or a way to predict whether later typing will turn a spelling into an identifier.
-
-Editing, moving the caret, navigating/expanding candidates, or crossing a host boundary cancels automatic confirmation; fresh typing at the composition end starts new evidence. Settings changes, secure input, cancellation and obsolete confirmation evidence cannot authorize a pending confirmation. Each pause can confirm at most once until more input arrives. Automatic confirmation does not train Personal Learning. If separately enabled, Input History records its submitted prefix like other SI commits. Return and shortcuts preserve only the remaining spelling once a prefix has been committed; editing already committed text uses the host application's normal editing tools. Native timer/focus behavior still requires the checks in [testing](docs/TESTING.md#automatic-prefix-confirmation).
+Typing and pauses keep the entire composition marked and editable until an
+explicit confirmation. Select a prefix with Space, a displayed number or a
+mouse click to commit only its exact source spelling and leave the remainder
+editable without an extra English space. Return submits the exact remaining
+spelling. Automatic stable-prefix confirmation has been removed; the retired
+preference is discarded without changing language or learning consent.
 
 ## Direct input by application
 
@@ -211,7 +221,7 @@ Open **SI Settings → Direct Input → Manage Direct Input…** and turn on dir
 
 While SI is selected, press **Control + Shift + I** to toggle Direct Input for the current IMK client application, including turning conversion back on. The same app rule is saved and synchronized with Settings. Change the shortcut with **Direct Input → Record Shortcut…**, or restore the default with **Reset Shortcut**. Shortcuts use a physical key and exact Control/Option/Shift/Command modifiers; Caps Lock does not affect matching. Hold-to-repeat toggles only once. No global keyboard monitor or additional permission is used; system or host-reserved shortcuts may take precedence.
 
-In a selected app, SI passes key events to the host without composition, candidates, punctuation conversion or automatic spacing. Space, Tab, Return, navigation and shortcuts belong to the host. If the rule takes effect during composition, SI inserts only the exact pending spelling once and rejects old candidate results and automatic-confirmation tasks. SI does not learn vocabulary while direct input is enabled; existing saved data remains until deleted. Turning direct input off restores ordinary conversion and the app's independently configured learning consent.
+In a selected app, SI passes key events to the host without composition, candidates, punctuation conversion or automatic spacing. Space, Tab, Return, navigation and shortcuts belong to the host. If the rule takes effect during composition, SI inserts only the exact pending spelling once and rejects old candidate results. SI does not learn vocabulary while direct input is enabled; existing saved data remains until deleted. Turning direct input off restores ordinary conversion and the app's independently configured learning consent.
 
 Rules use the InputMethodKit client's application identity, not the foreground process. A browser rule applies to every tab and input field; an editor rule includes its embedded terminal. It cannot distinguish an address from a search in a combined address bar. Application-wide rules need no Accessibility or Input Monitoring permission, and SI remains the selected system input source. Native host behavior still requires the [direct-input manual checks](docs/TESTING.md#direct-input-by-application).
 
@@ -239,7 +249,7 @@ Open **SI Settings → Personal Learning** and enable **Enable Personal Learning
 
 When you manually select successive prefixes from one unchanged composition, SI also learns the completed combination after every part has been successfully submitted. For example, selecting `锁` then `成` from `suocheng` retains the individual `suo`/`cheng` entries and adds `suocheng` → `锁成`. Any nonfirst correction in the sequence makes the whole spelling a remembered choice; a sequence of only first choices remains usage-only. Editing the remaining spelling, cancellation, focus/configuration/consent changes, failed insertion, or an excluded fragment interrupts aggregation. Only confirmed fragments are retained transiently in the current client session, within the existing learning size limits. Input History still records the actual separate submissions and receives no synthetic combined row.
 
-For candidate-choice learning, accepting the displayed first candidate by Space, number or mouse only updates usage; it does not increase ranking strength or change the remembered choice. Every three deliberate nonfirst selections also add one frequency-ranking point, up to 32, for whole/prefix and eligible internal-token ranking. This gradual bonus is separate from immediate exact-match placement. Neither strength nor records decay or expire with age. At most 5,000 entries are kept; capacity eviction removes the least recently used entries with deterministic identity ties. Candidate-choice learning retains the selected output as one entry. Literal, personal/verbatim, punctuation, delimiter and automatic-confirmation commits do not train vocabulary. Existing spelling/output size limits remain 128/512 bytes.
+For candidate-choice learning, accepting the displayed first candidate by Space, number or mouse only updates usage; it does not increase ranking strength or change the remembered choice. Every three deliberate nonfirst selections also add one frequency-ranking point, up to 32, for whole/prefix and eligible internal-token ranking. This gradual bonus is separate from immediate exact-match placement. Neither strength nor records decay or expire with age. At most 5,000 entries are kept; capacity eviction removes the least recently used entries with deterministic identity ties. Candidate-choice learning retains the selected output as one entry. Literal, personal/verbatim, punctuation, delimiter and legacy automatic-confirmation commits do not train vocabulary. Existing spelling/output size limits remain 128/512 bytes.
 
 **Manage Learning Data…** supports global search and Forget for candidate-choice preferences. **Clear Personal Learning Data…** removes candidate-choice preferences. Forgetting the remembered choice removes its forced placement. Personal Learning has one global switch, with no per-app pause, filter, deletion or clear controls. Turning learning off, secure input and the separate direct-input rules suppress learned ranking and saved suggestions. Candidate-choice learning uses SI submissions.
 
@@ -255,7 +265,7 @@ SI batches learning text in memory and reuses the Rust ingestion and word discov
 
 ## Input History
 
-Open **SI Settings → Input History** and enable **Save Input History**. It is independently off by default; enabling Personal Learning or a language does not enable history. Each successful SI composition submission keeps the exact consumed spelling, submitted text, timestamp, language/mixed identity and commit reason. Examples include `nihao` → `你好`, English conversion and original English/code committed with Return. SI-inserted spaces/punctuation are retained in the submitted output. Repeated submissions remain separate rows. Prefix selection and automatic confirmation each save only their submitted portion, leaving the pending remainder unrecorded until it is committed.
+Open **SI Settings → Input History** and enable **Save Input History**. It is independently off by default; enabling Personal Learning or a language does not enable history. Each successful SI composition submission keeps the exact consumed spelling, submitted text, timestamp, language/mixed identity and commit reason. Examples include `nihao` → `你好`, English conversion and original English/code committed with Return. SI-inserted spaces/punctuation are retained in the submitted output. Repeated submissions remain separate rows. Prefix selections save only their submitted portion, leaving the pending remainder unrecorded until it is committed. Historical automatic-confirmation records remain readable.
 
 **History has no automatic expiry or record-count limit.** It stays on this Mac until you explicitly delete it. The 5,000-entry Personal Learning cap does not apply. History does not affect ranking, create completions or enter model training automatically. **View Input History…** offers spelling/text search and newest-first pages of up to 100 records, with individual Delete and **Clear Input History…**. Clearing learning/phrases/history affects only the chosen data category. Disabling history stops new recording while keeping saved records; accepted pending writes still finish.
 

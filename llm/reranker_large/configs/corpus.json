@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "train_target_tokens": 100000000,
+  "calibration_characters": 5000000,
+  "validation_fraction": 0.02,
+  "test_fraction": 0.01,
+  "shares": {
+    "dialogue": 0.6,
+    "wikipedia": 0.35,
+    "technical": 0.05
+  }
+}

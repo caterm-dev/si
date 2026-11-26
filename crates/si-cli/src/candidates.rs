@@ -21,6 +21,7 @@ pub(super) fn run(base: &Path, args: &[OsString], config: &SiConfig) -> Option<i
     let mut preview = None;
     let mut preceding = None;
     let mut window = None;
+    let mut context_tsv = None;
     for [flag, value] in options {
         match flag.to_str()? {
             "--grams" if grams.is_none() => grams = Some(Path::new(value)),
@@ -29,6 +30,13 @@ pub(super) fn run(base: &Path, args: &[OsString], config: &SiConfig) -> Option<i
                 languages = Some(parse_languages(value.to_str()?)?)
             }
             "--preceding" if preceding.is_none() => preceding = Some(value.to_str()?),
+            "--request-format" if context_tsv.is_none() => {
+                context_tsv = Some(match value.to_str()? {
+                    "spelling" => false,
+                    "context-tsv" => true,
+                    _ => return None,
+                });
+            }
             "--list" if window.is_none() => {
                 window = Some(match value.to_str()? {
                     "full" => false,
@@ -54,6 +62,9 @@ pub(super) fn run(base: &Path, args: &[OsString], config: &SiConfig) -> Option<i
             _ => return None,
         }
     }
+    if context_tsv == Some(true) && preceding.is_some() {
+        return None;
+    }
     Some((|| {
         let base = EngineResources::open(base, grams)?;
         let user = profile
@@ -67,14 +78,28 @@ pub(super) fn run(base: &Path, args: &[OsString], config: &SiConfig) -> Option<i
         let context_cache = PrecedingTextCache::default();
         for line in io::stdin().lock().lines() {
             let line = line?;
+            let (spelling, request_context) = if context_tsv.unwrap_or_default() {
+                let (spelling, context) = line.split_once('\t').ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "Expected spelling<TAB>context")
+                })?;
+                if context.contains('\t') {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "Context must not contain tabs",
+                    ));
+                }
+                (spelling, (!context.is_empty()).then_some(context))
+            } else {
+                (line.as_str(), preceding)
+            };
             let languages = languages.unwrap_or_default();
             let rows = engine.convert_with_cached_context(
-                &line,
+                spelling,
                 languages,
                 preview.unwrap_or_default(),
                 &[],
                 ConversionPreferences::default(),
-                preceding,
+                request_context,
                 ConversionOptions {
                     correction: pinyin_correction.flatten(),
                     reranker: None,
@@ -82,12 +107,13 @@ pub(super) fn run(base: &Path, args: &[OsString], config: &SiConfig) -> Option<i
                 Some(&context_cache),
             );
             if window.unwrap_or_default() {
-                for index in si_engine::presentation::conversion_window(&line, languages, &rows) {
-                    write_candidate(&mut output, &rows[index], line.len())?;
+                for index in si_engine::presentation::conversion_window(spelling, languages, &rows)
+                {
+                    write_candidate(&mut output, &rows[index], spelling.len())?;
                 }
             } else {
                 for candidate in rows {
-                    write_candidate(&mut output, &candidate, line.len())?;
+                    write_candidate(&mut output, &candidate, spelling.len())?;
                 }
             }
             writeln!(output)?;

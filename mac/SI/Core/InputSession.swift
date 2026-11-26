@@ -12,18 +12,14 @@ public struct CandidateRequest: Sendable {
     fileprivate let context: CandidateContext?
     fileprivate let precedingText: String?
     fileprivate let precedingTextCache: PrecedingTextCache?
-    fileprivate let automaticConfirmationEnabled: Bool
     fileprivate let applicationMemory: ApplicationMemorySnapshot
 
     public func generate() -> CandidateResult {
         let candidates = engine.candidates(for: input, languages: languages, learning: learning, dictionary: dictionary,
-                                           now: now, context: context, includesConfirmationEvidence: automaticConfirmationEnabled,
+                                           now: now, context: context,
                                            applicationMemory: applicationMemory, precedingText: precedingText,
                                            precedingTextCache: precedingTextCache)
-        return CandidateResult(requestID: id, candidates: candidates,
-                               confirmationPrefixes: automaticConfirmationEnabled
-                                ? AutomaticConfirmation.prefixes(for: candidates, input: input, learning: learning,
-                                                                 now: now, context: context) : [])
+        return CandidateResult(requestID: id, candidates: candidates)
     }
 
     public func generatePreview() -> CandidateResult {
@@ -38,14 +34,11 @@ public struct CandidateResult: Sendable {
     fileprivate let requestID: UUID
     public let candidates: [InputCandidate]
     public let isPreview: Bool
-    fileprivate let confirmationPrefixes: [AutomaticConfirmation.Prefix]
 
-    fileprivate init(requestID: UUID, candidates: [InputCandidate], isPreview: Bool = false,
-                     confirmationPrefixes: [AutomaticConfirmation.Prefix] = []) {
+    fileprivate init(requestID: UUID, candidates: [InputCandidate], isPreview: Bool = false) {
         self.requestID = requestID
         self.candidates = candidates
         self.isPreview = isPreview
-        self.confirmationPrefixes = confirmationPrefixes
     }
 }
 
@@ -62,8 +55,6 @@ public struct InputSession: Sendable {
     public private(set) var candidates: [InputCandidate] = []
     public private(set) var pendingCandidateRequest: CandidateRequest?
     public private(set) var hasCandidatePreview = false
-    public static let automaticConfirmationPause = AutomaticConfirmation.pauseDelay
-    public private(set) var automaticConfirmationRevision: UInt64 = 0
     private var languages: Set<InputLanguage> = Set(InputLanguage.allCases)
     private var engine: CandidateEngine
     private let candidateGeneration: CandidateGeneration
@@ -75,9 +66,7 @@ public struct InputSession: Sendable {
     private var precedingText: String?
     private var precedingTextCache: PrecedingTextCache?
     private var contextGeneration: UInt64 = 0
-    private var automaticConfirmationEnabled = false
     private var configurationGeneration: UInt64 = 0
-    private var automaticConfirmation = AutomaticConfirmation()
     private var compositionLearning = CompositionLearning()
     private var compositionLearningEnabled = false
 
@@ -88,7 +77,7 @@ public struct InputSession: Sendable {
 
     public mutating func configure(languages: Set<InputLanguage>, learning: LearningProfile = LearningProfile(),
                                    dictionary: UserDictionary = UserDictionary(), usesContext: Bool = false,
-                                   contextGeneration: UInt64 = 0, automaticConfirmationEnabled: Bool = false,
+                                   contextGeneration: UInt64 = 0,
                                    configurationGeneration: UInt64 = 0, now: Date = .now,
                                    applicationMemory: ApplicationMemorySnapshot = .empty,
                                    compositionLearningEnabled: Bool = false,
@@ -107,7 +96,6 @@ public struct InputSession: Sendable {
         if expired { recentContext = nil }
         guard self.languages != languages || self.learning != learning || self.dictionary != dictionary
                 || self.usesContext != usesContext || contextChanged || expired
-                || self.automaticConfirmationEnabled != automaticConfirmationEnabled
                 || self.configurationGeneration != configurationGeneration
                 || engine.punctuationCandidatesEnabled != punctuationCandidatesEnabled
                 || engine.pinyinCorrectionMode != pinyinCorrectionMode
@@ -119,12 +107,10 @@ public struct InputSession: Sendable {
         self.applicationMemory = applicationMemory
         self.usesContext = usesContext
         self.contextGeneration = contextGeneration
-        self.automaticConfirmationEnabled = automaticConfirmationEnabled
         self.configurationGeneration = configurationGeneration
         engine.punctuationCandidatesEnabled = punctuationCandidatesEnabled
         engine.pinyinCorrectionMode = pinyinCorrectionMode
         engine.rerankingEnabled = rerankingEnabled
-        automaticConfirmation = AutomaticConfirmation()
         if !usesContext || languagesChanged || contextChanged { recentContext = nil }
         refresh(now: now)
     }
@@ -133,7 +119,6 @@ public struct InputSession: Sendable {
         guard !text.isEmpty else { return }
         if buffer.isEmpty { compositionLearning = CompositionLearning() }
         else { compositionLearning.edited() }
-        let wasAtEnd = cursor == buffer.count
         let insertionEnd = cursorUTF16Offset + text.utf16.count
         let index = buffer.index(buffer.startIndex, offsetBy: cursor)
         buffer.insert(contentsOf: text, at: index)
@@ -146,7 +131,6 @@ public struct InputSession: Sendable {
             utf16Offset += String(character).utf16.count
             cursor += 1
         }
-        automaticConfirmation.appended(input: buffer, atEnd: wasAtEnd, now: now)
         refresh(now: now)
     }
 
@@ -155,13 +139,11 @@ public struct InputSession: Sendable {
         if precedingText == nil && text == nil { return }
         precedingText = text
         precedingTextCache = text.map { _ in precedingTextCache ?? PrecedingTextCache() }
-        automaticConfirmation = AutomaticConfirmation()
         if !buffer.isEmpty { refresh() }
     }
 
     public mutating func deleteBackward() {
         compositionLearning.edited()
-        suspendAutomaticConfirmation()
         guard cursor > 0 else { return }
         let index = buffer.index(buffer.startIndex, offsetBy: cursor - 1)
         buffer.remove(at: index)
@@ -171,19 +153,17 @@ public struct InputSession: Sendable {
 
     public mutating func deleteForward() {
         compositionLearning.edited()
-        suspendAutomaticConfirmation()
         guard cursor < buffer.count else { return }
         buffer.remove(at: buffer.index(buffer.startIndex, offsetBy: cursor))
         refresh()
     }
 
     public mutating func moveCursor(by offset: Int) {
-        suspendAutomaticConfirmation()
         cursor += max(-cursor, min(offset, buffer.count - cursor))
     }
 
-    public mutating func moveToStart() { suspendAutomaticConfirmation(); cursor = 0 }
-    public mutating func moveToEnd() { suspendAutomaticConfirmation(); cursor = buffer.count }
+    public mutating func moveToStart() { cursor = 0 }
+    public mutating func moveToEnd() { cursor = buffer.count }
 
     @discardableResult
     public mutating func commit(_ candidate: InputCandidate? = nil) -> String {
@@ -220,28 +200,8 @@ public struct InputSession: Sendable {
         return result
     }
 
-    /// Never resolves a pending search synchronously. The timer and result callback share this path.
-    public mutating func automaticallyConfirm(now: Date = .now, afterPause: Bool = false) -> InputCommit? {
-        guard automaticConfirmationEnabled, pendingCandidateRequest == nil, !hasCandidatePreview,
-              cursor == buffer.count, let candidate = automaticConfirmation.candidate(now: now, afterPause: afterPause)
-        else { return nil }
-        return commitValidated(candidate, reason: .automaticConfirmation, now: now)
-    }
-
-    public var hasAutomaticPauseCandidate: Bool {
-        automaticConfirmationEnabled && pendingCandidateRequest == nil && !hasCandidatePreview
-            && cursor == buffer.count && automaticConfirmation.hasPauseCandidate
-    }
-
-    public mutating func suspendAutomaticConfirmation() {
-        automaticConfirmation.suspend()
-        automaticConfirmationRevision &+= 1
-    }
-
     public mutating func reset() {
         compositionLearning = CompositionLearning()
-        automaticConfirmation = AutomaticConfirmation()
-        automaticConfirmationRevision &+= 1
         buffer = ""
         cursor = 0
         candidates = []
@@ -254,7 +214,6 @@ public struct InputSession: Sendable {
 
     public mutating func breakContext() {
         compositionLearning.invalidate()
-        suspendAutomaticConfirmation()
         let hadContext = recentContext != nil
         guard hadContext else { return }
         recentContext = nil
@@ -291,7 +250,6 @@ public struct InputSession: Sendable {
     }
 
     private mutating func refresh(now: Date = .now) {
-        automaticConfirmationRevision &+= 1
         guard !buffer.isEmpty else {
             precedingText = nil
             precedingTextCache = nil
@@ -304,7 +262,6 @@ public struct InputSession: Sendable {
                                        dictionary: dictionary, now: now, context: currentContext(now: now),
                                        precedingText: precedingText,
                                        precedingTextCache: precedingTextCache,
-                                       automaticConfirmationEnabled: automaticConfirmationEnabled,
                                        applicationMemory: applicationMemory)
         pendingCandidateRequest = request
         hasCandidatePreview = false
@@ -324,7 +281,6 @@ public struct InputSession: Sendable {
         hasCandidatePreview = result.isPreview
         if !result.isPreview {
             pendingCandidateRequest = nil
-            if automaticConfirmationEnabled { automaticConfirmation.observe(result.confirmationPrefixes, input: buffer, now: now) }
         }
         return true
     }

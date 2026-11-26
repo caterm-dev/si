@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "stage": "pretrain",
+  "model": {
+    "vocab_size": 8192,
+    "layers": 7,
+    "width": 384,
+    "heads": 6,
+    "feedforward": 1536,
+    "context": 64,
+    "dropout": 0.1
+  },
+  "data": {
+    "format": "reviewed-documents-v1",
+    "max_document_characters": 2000000
+  },
+  "training": {
+    "batch_size": 16,
+    "gradient_accumulation": 8,
+    "max_steps": 15000,
+    "schedule_steps": 15000,
+    "max_tokens": 200000000,
+    "warmup_steps": 300,
+    "learning_rate": 0.0003,
+    "weight_decay": 0.1,
+    "gradient_clip": 1.0,
+    "validate_every": 250,
+    "save_every": 250,
+    "validation_tokens": 65536
+  },
+  "scoring": {
+    "batch_size": 12,
+    "max_candidates": 12,
+    "length_penalty": 1.0,
+    "context_tokens": 16,
+    "candidate_tokens": 12
+  },
+  "distillation": {
+    "temperature": 2.0,
+    "kd_weight": 1.0,
+    "lm_weight": 0.2,
+    "label_weight": 0.0,
+    "validation_pools": 512
+  }
+}

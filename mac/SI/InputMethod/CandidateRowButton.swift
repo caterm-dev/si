@@ -79,7 +79,6 @@ final class CandidateRowButton: NSButton {
         else if candidate.isPinyinCorrection { symbol = "pencil" }
         else if candidate.isLiteral { symbol = "textformat" }
         else if candidate.isUserPhrase { symbol = "pin.fill" }
-        else if candidate.hasLiteralSegments { symbol = "ellipsis" }
         else { symbol = nil }
         sourceIndicator.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
         hasSourceIndicator = compact && symbol != nil && detailLabel.isHidden

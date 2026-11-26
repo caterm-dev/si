@@ -261,6 +261,60 @@ fn candidates_stream_queries_with_optional_base_grams_and_user_profile() -> io::
 }
 
 #[test]
+fn candidates_stream_independent_contexts_without_changing_plain_requests() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "zh.csv",
+        "text,reading,weight\n和,he,15\n喝,he,10\n好,hao,10\n",
+    )?;
+    scratch.run(&["lexicon", "build", "base.silex", "0", "zh.csv"])?;
+    let query = |args: &[&str], input: &str| -> io::Result<Output> {
+        let mut child = scratch
+            .command(args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        child.stdin.take().unwrap().write_all(input.as_bytes())?;
+        child.wait_with_output()
+    };
+    let mut expected = Vec::new();
+    for context in [None, Some("你好"), Some("想喝"), None] {
+        let mut args = vec!["candidates", "base.silex"];
+        if let Some(context) = context {
+            args.extend(["--preceding", context]);
+        }
+        let result = query(&args, "he\n")?;
+        assert!(result.status.success());
+        expected.extend(result.stdout);
+    }
+    let args = [
+        "candidates",
+        "base.silex",
+        "--request-format",
+        "context-tsv",
+    ];
+    let result = query(&args, "he\t\nhe\t你好\nhe\t想喝\nhe\t\n")?;
+    assert!(result.status.success());
+    assert_eq!(result.stdout, expected);
+    let malformed = query(&args, "he\n")?;
+    assert!(!malformed.status.success());
+    let conflicting = query(
+        &[
+            "candidates",
+            "base.silex",
+            "--request-format",
+            "context-tsv",
+            "--preceding",
+            "你好",
+        ],
+        "",
+    )?;
+    assert!(!conflicting.status.success());
+    Ok(())
+}
+
+#[test]
 fn window_candidates_use_the_shared_policy_without_truncating_full_results() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     let mut csv = String::from("text,reading,weight\n");
@@ -354,6 +408,38 @@ fn candidates_accept_preceding_text_for_pinyin_correction() -> io::Result<()> {
         );
         assert!(stdout.ends_with("literal\t5\tliteral\t\tgaoxu\n\n"));
     }
+    let mut streamed = scratch
+        .command(&[
+            "--config",
+            "reward.conf",
+            "candidates",
+            "base.silex",
+            "--grams",
+            "base.sigram",
+            "--search",
+            "preview",
+            "--pinyin-correction",
+            "on",
+            "--request-format",
+            "context-tsv",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()?;
+    streamed
+        .stdin
+        .take()
+        .unwrap()
+        .write_all("gaoxu\t想。找\ngaoxu\t找。想\ngaoxu\t想。找\n".as_bytes())?;
+    let output = streamed.wait_with_output()?;
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).map_err(io::Error::other)?;
+    let winners: Vec<_> = stdout
+        .trim_end()
+        .split("\n\n")
+        .map(|pool| pool.lines().next().unwrap().rsplit('\t').next().unwrap())
+        .collect();
+    assert_eq!(winners, ["高旭", "告诉", "高旭"]);
     Ok(())
 }
 

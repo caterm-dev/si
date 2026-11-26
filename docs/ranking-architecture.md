@@ -14,41 +14,42 @@ keys through.
 
 **Local model ranking** is a separate Typing option enabled by default. With it on,
 Rust evaluates the first 12 eligible ordinary whole-input candidates in statistical
-order, without a score-gap cutoff. Completions, literal segments,
-personal phrases and spelling corrections receive no model reward. Each
-candidate can use up to 12 model tokens, sharing up to 16 trailing context
-tokens from the current punctuation-delimited fragment. A terminal boundary
-clears the previous fragment for model ranking too. Empty context works at
-the start of a field.
+order, without a score-gap cutoff. Completions, literal segments, personal phrases
+and spelling corrections receive no model adjustment. Candidates use at most
+12 model tokens and share up to 16 trailing context tokens from the current
+punctuation-delimited fragment. A terminal boundary clears the previous fragment.
 
-Let `r_i` be the character model's mean natural-log probability per output
-scalar, and `r_max` the highest score in the scored pool. The model gap is
-`d_i = (r_i - r_max) / ln(2)` bits. With `lambda = 0.8` and `C = 8`, Rust
-adds the nonnegative reward `lambda * (C + max(d_i, -C))` after statistical
-search. The strongest model result receives 6.4 bits; results at least 8
-model bits behind it receive zero. Differences within that range are preserved,
-and adding a worse model outlier cannot change existing rewards. This is a
-common 6.4-bit offset from the signed adjustment `lambda * max(d_i, -C)`
-within the scored pool. Unscored candidates retain zero reward, so the two
-forms are equivalent only when comparing scored candidates with one another.
-Rust preserves deterministic ties. The shared Rust presentation policy carries
-the reward into final ordering and retains the original statistical scores
-for the shortlist.
-The defaults come from `[local_model_ranking]` in [config/si.conf](../config/si.conf):
-`model_score_weight = 0.8` and `model_score_gap_limit_bits = 8`. Rust embeds this file at build time;
-`SmallReranker::open` captures the validated parameters when the model loads.
-Changing the source configuration requires rebuilding and reinstalling the app.
-Library callers can read an explicit `SiConfig` and pass its `engine.local_model_ranking` to
-`SmallReranker::open_with_config` without recompiling. Pool size, context tokens
-and candidate tokens also come from that section. The limits are 1..64 candidates,
-0..128 context tokens and 1..64 candidate tokens. Pools with fewer than two
-eligible distinct outputs skip scoring. The CLI's `candidates` command still
-does not run the character model. Omitted engine sections retain bundled defaults;
-an explicitly supplied section requires all its keys. Reward weight accepts
-0..4 and gap limit 0..32 bits; either can be zero to disable model rewards.
-No configuration files are read during conversion.
-An exact remembered choice retains priority. If the model changes the
-leading whole candidate, that result cannot trigger prefix auto-confirmation.
+For the whole candidate string `c`, let
+`lift(c) = (log P(c | context) - log P(c | empty)) / ln(2)` bits. Both passes
+retain all dependencies inside the candidate; lexical segmentation does not enter
+this calculation. Scores are sums over model tokens, without per-character
+averaging. The final adjustment is
+`w * clamp(lift(c) - max_pool_lift, -B, 0)`. Defaults are `w=1.0` and `B=8`.
+The highest lift gets zero; other scored candidates can lose at most eight bits.
+Unscored candidates keep zero adjustment, so the engine re-sorts the complete
+result set after scoring, including whole results below the original pool.
+Base statistical scores, deterministic ties and explicit pin/remembered-choice
+priority are preserved. Empty/unavailable context or a zero context budget
+skips inference; a context truncated to zero model tokens also supplies zero.
+Pools with fewer than two distinct eligible outputs skip scoring.
+
+A model-owned 4,096-entry LRU caches unconditional sequence log probabilities
+by exact candidate bytes. It never stores host context, typed source, preferences
+or final candidate lists, and cannot inject candidates. No cache lock spans
+inference; contention computes request-local baselines without waiting.
+The cache stays in memory with the immutable model, is not persisted and is
+released with that model. Reloading a model creates a separate cache.
+
+Defaults come from `[local_model_ranking]` in [config/si.conf](../config/si.conf):
+`model_score_weight = 1.0` and `model_score_gap_limit_bits = 8`. Rust embeds
+this file at build time; rebuild and reinstall the input method to apply edits.
+Library callers can read a validated `SiConfig` and use
+`SmallReranker::open_with_config` without rebuilding. The section also controls
+pool size (1..64), context tokens (0..128) and candidate tokens (1..64).
+Weight accepts 0..4 and the gap limit 0..32 bits; either can be zero to disable
+adjustments. Missing whole engine sections retain bundled defaults; explicitly
+supplied sections require every current key. Conversion reads no configuration
+files. The CLI's `candidates` command still does not run the character model.
 
 The app loads the packaged small FP32 model once at startup and shares it
 with user-dictionary snapshots. Secure input and provisional preview skip

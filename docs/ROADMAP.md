@@ -59,8 +59,8 @@ and [bridge checks](TESTING.md#automated-checks).
 - [x] Language-specific word/syllable spelling channels and bounded full-spelling search protection.
 - [ ] Broader sentence-level context scoring and representative independent input-quality evaluation.
 - [x] Composition-caret movement and whole-character forward/backward deletion with UTF-16 marked offsets.
-- [x] Optional automatic stable-prefix confirmation from continued typing or a pause, retaining an editable ending and excluding implicit learning.
-- [ ] Native automatic-confirmation timer/focus verification and broader independent false-confirmation evaluation.
+- [x] Manual-only prefix confirmation; automatic stable-prefix confirmation and its setting/timer have been retired.
+- [ ] Native manual-prefix, focus and marked-remainder verification across representative hosts.
 - [x] Editable punctuation/symbols by default, opt-in, default-off language-labeled common punctuation candidates, optional punctuation confirmation, and no-learning delimiter commits.
 - [ ] Real-host verification of punctuation, numbers, URLs, identifiers, and code entry.
 - [x] Opt-in direct key passthrough by client application, with searchable application discovery and persistent app rules.
@@ -97,6 +97,8 @@ Ordinary conversion is local. Optional AI Completion has its own consent and an 
 ## Offline model experiments
 
 - [x] Independent 7.4M causal character-LM baseline with whole-document corpus preparation, train-only vocabulary, grouped splits, strict resume, held-out token-loss and standalone supplied-candidate scoring, plus inference-only export.
+- [x] Offline 15.6M character-student configuration, explicit source-linked document/pool preparation, local Qwen 0.5B scoring, candidate-level distillation, strict CPU-tested resume and Python/Rust export; only tiny synthetic workflows are verified.
+- [ ] Reviewed 15.6M student datasets, formal pretraining/distillation, device validation and independent ranking/typing-latency evidence.
 - [x] Local 30,000-step small checkpoint and explicit offline FP32 Core ML conversion.
 - [x] Optional bounded small-model reranking during macOS conversion, independent of Pinyin correction.
 - [ ] Redesign native AI integration; the former original/AI comparison is removed.

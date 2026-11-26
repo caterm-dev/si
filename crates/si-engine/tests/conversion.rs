@@ -68,14 +68,6 @@ fn configured_model_pool_context_and_candidate_token_limits_are_used() -> io::Re
     let resources = directory.resources(&mut lexicon, None)?;
     let engine = CandidateEngine::new(&resources, None);
     let model_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
-    let config = engine_config(
-        &directory,
-        &[
-            ("model_candidate_limit", "2"),
-            ("model_context_token_limit", "0"),
-        ],
-    )?;
-    let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
     let convert = |input: &str, preceding: Option<&str>, model: &SmallReranker| {
         engine.convert_with_options(
             input,
@@ -90,23 +82,32 @@ fn configured_model_pool_context_and_candidate_token_limits_are_used() -> io::Re
             },
         )
     };
+    let config = engine_config(
+        &directory,
+        &[
+            ("model_candidate_limit", "2"),
+            ("model_context_token_limit", "0"),
+        ],
+    )?;
+    let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
     let baseline = engine.candidates("shu", CHINESE);
-    let rows = convert("shu", None, &model);
-    assert_eq!(rows, convert("shu", Some("院子里种几棵"), &model));
+    assert_eq!(baseline, convert("shu", Some("院子里种几棵"), &model));
+    assert_eq!(baseline, convert("shu", None, &model));
+
+    let config = engine_config(&directory, &[("model_candidate_limit", "2")])?;
+    let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
+    let rows = convert("shu", Some("院子里种几棵"), &model);
+    assert!(rows.iter().any(|row| row.reranking_bonus < 0.0));
     for row in &rows {
         if !baseline[..2].iter().any(|base| base.text == row.text) {
             assert_eq!(row.reranking_bonus, 0.0);
         }
     }
-    assert!(
-        rows.iter()
-            .any(|row| (row.reranking_bonus - 6.4).abs() < 1e-12)
-    );
-    for (tokens, rewarded) in [("1", false), ("2", true)] {
+    for (tokens, adjusted) in [("1", false), ("2", true)] {
         let config = engine_config(&directory, &[("model_candidate_token_limit", tokens)])?;
         let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
-        let rows = convert("nihao", None, &model);
-        assert_eq!(rows.iter().any(|row| row.reranking_bonus > 0.0), rewarded);
+        let rows = convert("nihao", Some("朋友见面先说"), &model);
+        assert_eq!(rows.iter().any(|row| row.reranking_bonus < 0.0), adjusted);
         assert_literal(rows.last().unwrap(), "nihao");
     }
     Ok(())
@@ -307,7 +308,7 @@ fn small_reranker_uses_loaded_configuration_without_reading_it_during_conversion
             &config_path,
             bundled
                 .replace(
-                    "model_score_weight = 0.8",
+                    "model_score_weight = 1.0",
                     &format!("model_score_weight = {model_score_weight}"),
                 )
                 .replace(
@@ -324,18 +325,19 @@ fn small_reranker_uses_loaded_configuration_without_reading_it_during_conversion
             false,
             &[],
             ConversionPreferences::default(),
-            None,
+            Some("院子里种几棵"),
             ConversionOptions {
                 correction: None,
                 reranker: Some(&reranker),
             },
         );
-        let maximum = ranked
+        let minimum = ranked
             .iter()
             .map(|row| row.reranking_bonus)
-            .reduce(f64::max)
+            .reduce(f64::min)
             .unwrap();
-        assert_eq!(maximum, model_score_weight * 4.0);
+        assert_eq!(minimum, -model_score_weight * 4.0);
+        assert!(ranked.iter().all(|row| row.reranking_bonus <= 0.0));
         if model_score_weight == 0.0 {
             assert_eq!(ranked, baseline);
         }
@@ -357,13 +359,14 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
     let baseline = engine.candidates("shi", CHINESE);
     let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
     let reranker = SmallReranker::open(&model)?;
+    let context = "你说的这个人就";
     let ranked = engine.convert_with_options(
         "shi",
         CHINESE,
         false,
         &[],
         ConversionPreferences::default(),
-        None,
+        Some(context),
         ConversionOptions {
             correction: None,
             reranker: Some(&reranker),
@@ -372,24 +375,37 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
     assert_eq!(baseline.len(), 14);
     assert_eq!(ranked.len(), baseline.len());
     let texts: Vec<_> = baseline[..12].iter().map(|row| row.text.as_str()).collect();
-    let scores = si_neural::Reranker::open(&model)?
-        .bounded_mean_scores("", &texts, 16, 12)?
-        .unwrap();
-    let highest = scores.iter().copied().reduce(f64::max).unwrap();
-    for (text, score) in texts.iter().zip(scores) {
-        let expected = 0.8 * (8.0 + ((score - highest) * std::f64::consts::LOG2_E).max(-8.0));
+    let neural = si_neural::Reranker::open(&model)?;
+    let with = neural
+        .bounded_sequence_scores(context, &texts, 16, 12)?
+        .unwrap()
+        .scores;
+    let without = neural
+        .bounded_sequence_scores("", &texts, 0, 12)?
+        .unwrap()
+        .scores;
+    let lifts: Vec<_> = with
+        .iter()
+        .zip(without)
+        .map(|(a, b)| (a - b) * std::f64::consts::LOG2_E)
+        .collect();
+    let highest = lifts.iter().copied().reduce(f64::max).unwrap();
+    for (text, lift) in texts.iter().zip(lifts) {
+        let expected = (lift - highest).max(-8.0);
         let row = ranked.iter().find(|row| row.text == *text).unwrap();
         assert!((row.reranking_bonus - expected).abs() < 1e-6);
     }
-    assert_eq!(
-        ranked
+    let unscored = ranked
+        .iter()
+        .position(|row| row.text == baseline[12].text)
+        .unwrap();
+    assert_eq!(ranked[unscored].reranking_bonus, 0.0);
+    // Signed penalties must also re-sort results outside the scored pool.
+    assert!(
+        ranked[unscored + 1..]
             .iter()
-            .find(|row| row.text == baseline[12].text)
-            .unwrap()
-            .reranking_bonus,
-        0.0
+            .any(|row| row.reranking_bonus < 0.0)
     );
-    // The result order includes unscored alternatives as well as the model pool.
     for pair in ranked[..ranked.len() - 1].windows(2) {
         let score = |row: &Candidate| {
             row.score_bits.unwrap() + row.context_adjustment + row.reranking_bonus
@@ -401,49 +417,42 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
 }
 
 #[test]
-fn small_reranker_preserves_model_gaps_across_large_statistical_gaps() -> io::Result<()> {
+fn small_reranker_limits_contextual_lift_and_skips_empty_fragments() -> io::Result<()> {
     let directory = Scratch::new()?;
     let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
     let reranker = SmallReranker::open(&model)?;
-
-    // Model evidence can overcome the former two-bit limit, but remains bounded.
-    for (leader_count, expected_first) in [
-        (390, "原始拼写"),
-        (410, "原始拼写"),
-        (1_000_000, "元是拼写"),
-    ] {
+    for (leader_count, expected_first) in [(390, "树"), (410, "树"), (1_000_000, "数")] {
         let mut lexicon = Lexicon::new();
-        add(
-            &mut lexicon,
-            ZH,
-            "yuan'shi'pin'xie",
-            "元是拼写",
-            leader_count,
-        );
-        add(&mut lexicon, ZH, "yuan'shi'pin'xie", "原始拼写", 100);
+        add(&mut lexicon, ZH, "shu", "数", leader_count);
+        add(&mut lexicon, ZH, "shu", "树", 100);
         let resources = directory.resources(&mut lexicon, None)?;
         let engine = CandidateEngine::new(&resources, None);
-        let baseline = engine.candidates("yuanshipinxie", CHINESE);
-        assert_eq!(baseline[0].text, "元是拼写");
-
-        let ranked = engine.convert_with_options(
-            "yuanshipinxie",
-            CHINESE,
-            false,
-            &[],
-            ConversionPreferences::default(),
-            None,
-            ConversionOptions {
-                correction: None,
-                reranker: Some(&reranker),
-            },
-        );
-        let expected = ranked.iter().find(|row| row.text == "原始拼写").unwrap();
+        let baseline = engine.candidates("shu", CHINESE);
+        assert_eq!(baseline[0].text, "数");
+        let convert = |context| {
+            engine.convert_with_options(
+                "shu",
+                CHINESE,
+                false,
+                &[],
+                ConversionPreferences::default(),
+                context,
+                ConversionOptions {
+                    correction: None,
+                    reranker: Some(&reranker),
+                },
+            )
+        };
+        for context in [None, Some(""), Some("上一句话。")] {
+            assert_eq!(convert(context), baseline);
+        }
+        let ranked = convert(Some("院子里种几棵"));
         assert_eq!(ranked[0].text, expected_first);
-        assert_eq!(expected.score_bits, baseline[1].score_bits);
-        assert!((expected.reranking_bonus - 6.4).abs() < 1e-12);
-        let other = ranked.iter().find(|row| row.text == "元是拼写").unwrap();
-        assert!(expected.reranking_bonus - other.reranking_bonus > 2.0);
+        let tree = ranked.iter().find(|row| row.text == "树").unwrap();
+        assert_eq!(tree.score_bits, baseline[1].score_bits);
+        assert_eq!(tree.reranking_bonus, 0.0);
+        let other = ranked.iter().find(|row| row.text == "数").unwrap();
+        assert!(other.reranking_bonus < -2.0 && other.reranking_bonus >= -8.0);
     }
     Ok(())
 }

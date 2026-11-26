@@ -6,8 +6,8 @@ help:
 	@printf '%s\n' 'Model directories:' \
 	  '  pinyin_to_text  Existing spelling-to-text training framework' \
 	  '  reranker_small Offline 7.4M LM training, scoring, evaluation and export' \
-	  '  reranker_large Reserved for pause-time candidate reranking; not implemented' \
-	  'Use: make -C llm/pinyin_to_text <target> or make -C llm/reranker_small <target>'
+	  '  reranker_large Offline 15.6M student pretraining and Qwen candidate distillation' \
+	  'Use: make -C llm/<model-directory> <target>'
 
 setup check smoke size data prepare run train resume validation evaluate test infer predict export:
 	$(MAKE) -C pinyin_to_text $@

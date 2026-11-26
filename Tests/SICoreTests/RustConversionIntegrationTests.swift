@@ -9,6 +9,7 @@ struct RustConversionIntegrationTests {
         let spelling = "xianzaitianjiazimu"
         var session = InputSession(engine: CandidateEngine(usesCoverageAdjustedOrder: false), candidateGeneration: .deferred)
         session.configure(languages: languages)
+        session.setPrecedingText("视频里面只有声音没有文字所以我想")
         session.append(spelling)
         let baseline = try #require(session.pendingCandidateRequest).generate()
         #expect(baseline.candidates.first?.text == "现在添加字母")
@@ -21,15 +22,16 @@ struct RustConversionIntegrationTests {
         let ranked = request.generate()
         let promoted = try #require(ranked.candidates.first)
         #expect(promoted.text == "现在添加字幕")
-        #expect(promoted.rerankingBonus > 0 && promoted.rerankingBonus <= 6.4 + 1e-12)
+        #expect(promoted.rerankingBonus >= -8 && promoted.rerankingBonus <= 0)
         #expect(Set(ranked.candidates.map(\.id)) == Set(baseline.candidates.map(\.id)))
         let baselineScores = Dictionary(uniqueKeysWithValues: baseline.candidates.map { ($0.id, $0.statisticalScore) })
         #expect(ranked.candidates.allSatisfy { baselineScores[$0.id] == .some($0.statisticalScore) })
-        #expect(ranked.candidates.allSatisfy { $0.rerankingBonus >= 0 })
-        #expect(ranked.candidates.filter { $0.rerankingBonus > 0 }.count <= 12)
+        #expect(ranked.candidates.allSatisfy { $0.rerankingBonus >= -8 && $0.rerankingBonus <= 0 })
+        #expect(ranked.candidates.filter { $0.rerankingBonus < 0 }.count <= 12)
         for row in ranked.candidates where row.isPartial || row.isLiteral || row.hasCompletion || row.hasLiteralSegments {
             #expect(row.rerankingBonus == 0)
         }
+        #expect(ranked.candidates.contains { $0.rerankingBonus < 0 })
         let shortlist = CandidateShortlist.candidates(from: ranked.candidates)
         #expect(shortlist.first?.id == promoted.id)
         #expect(shortlist.contains { $0.text == "现在添加字母" && !$0.isPartial })
@@ -45,6 +47,19 @@ struct RustConversionIntegrationTests {
         let commit = session.commitResult(promoted, reason: .defaultAcceptance)
         #expect(commit.text.utf8.elementsEqual("现在添加字幕".utf8))
         #expect(commit.input == spelling && commit.remainingInput.isEmpty)
+    }
+
+
+    @Test func localModelWithNoEffectiveContextPreservesStatisticalCandidates() throws {
+        let engine = try #require(RustConversion.shared)
+        let spelling = "xianzaitianjiazimu"
+        for context: String? in [nil, "", "上一句话。"] {
+            let baseline = engine.candidates(for: spelling, languages: [.simplifiedChinese], precedingText: context)
+            let ranked = engine.candidates(for: spelling, languages: [.simplifiedChinese], precedingText: context,
+                                           rerankingEnabled: true)
+            #expect(ranked == baseline)
+            #expect(ranked.allSatisfy { $0.rerankingBonus == 0 })
+        }
     }
 
     @Test func missingLocalModelFallsBackToStatisticalCandidates() throws {

@@ -211,7 +211,7 @@ correction followed by an incomplete final word, full/preview continuation,
 ordinary-result preservation, dense context-conditioned completion pools,
 completion confidence rejection, and atomic umlaut/explicit-separator spans.
 Corrected completions must preserve the single-edit marker and raw consumption,
-have no automatic-confirmation evidence or spelling-preference reward, and leave
+have no spelling-preference reward, and leave
 literal/default acceptance available. Malformed separators and non-Pinyin input
 must not admit the new continuation.
 
@@ -366,36 +366,28 @@ office app. Include ordinary and secure fields, using dummy input.
 
 ### Local model ranking in a host
 
-With fresh preferences, verify Local model ranking starts on in Typing Settings.
-Turn it off, restart SI and verify that the choice persists. Compare
-`xianzaitianjiazimu` in an empty TextEdit field with the option off and on.
-With the bundled snapshots, the model can move `现在添加字幕` ahead of
-`现在添加字母`; both should remain selectable. Repeat with Pinyin correction
-enabled, then type `nihoa` with each option enabled independently. Check
-keyboard and mouse selection, Return's exact spelling, focus changes, and a
-second host such as Safari. Repeat in an eligible field with preceding text,
-then verify direct and secure input suppress model use. Check VoiceOver's
-setting label and value. The automated integration test covers the two
-correction modes and the separation between model and statistical scores.
-The Rust regression `small_reranker_preserves_model_gaps_across_large_statistical_gaps`
-uses `yuanshipinxie` to verify scoring across statistical gaps above two bits,
-the 6.4-bit reward cap, and preservation of the original statistical score.
-`small_reranker_promotes_tree_after_planting_context` uses a synthetic dictionary
-of exact homophones and verifies `shu` ranks
-`树` first after `院子太晒，最好沿着围墙多种几棵`, preserves candidate identities
-and lexical scores, and returns the same order on repeated requests and in
-the window. Unit checks cover clipping the model gap at 8 bits before the
-0.8 weight, ties, invariance to worse outliers and shared score offsets,
-and fallback for unusable scores. Repeat the planting example in a host with
-Local model ranking off/on; automated checks do not establish host context reads.
-`small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth` verifies
-the 12-candidate pool limit and preservation of the exact original spelling.
-`small_reranker_uses_loaded_configuration_without_reading_it_during_conversion`
-loads custom reward parameters, removes the configuration file before conversion,
-and checks the requested reward cap and zero-weight statistical fallback.
-Configuration unit checks reject negative/nonfinite values, overflowing rewards,
-missing/duplicate fields, duplicate sections and unknown settings, while retaining
-compatibility with older base/user-only configurations.
+With fresh preferences, verify Local model ranking starts on and its saved
+Typing choice survives restart. Empty or unavailable preceding context must
+produce exactly the statistical candidate order. With an isolated synthetic
+field, compare `shu` after `院子太晒最好沿着围墙多种几棵` with ranking off/on.
+Check candidate selection by Space, digits and mouse, Return's exact spelling,
+Escape, focus changes, secure/direct input and an unsupported context reader.
+A trailing sentence boundary must clear LM context. No typing or pause may
+commit a prefix automatically. Native host behavior remains a manual check.
+
+Rust tests compare whole-sequence conditional/unconditional probabilities,
+relative eight-bit clipping before the 1.0 weight, negative adjustments,
+unscored candidates moving above penalized pool members, zero-context/budget
+fallback, deterministic repeated scoring and bounded exact-byte LRU eviction.
+Cache contention must not wait or change scores; no inference holds its lock.
+The shared Swift integration verifies both correction modes, unchanged lexical
+scores/identities, signed bridge values and zero adjustment for excluded paths.
+`small_reranker_limits_contextual_lift_and_skips_empty_fragments` verifies that
+context can overcome moderate statistical gaps but not the configured bound.
+The pool-limit test retains all thirteen homophones while scoring only twelve.
+Configuration tests load custom parameters, remove the file before conversion,
+and cover zero weight, invalid/nonfinite values and missing/unknown fields.
+These checks do not establish native keystroke latency or representative accuracy.
 
 ### Engine tuning configuration
 
@@ -454,17 +446,24 @@ deleting across multiple lines, and growing fields with unchanged caret screen
 height. It also covers overlapping rectangles, sparse wrap geometry, UTF-16
 grapheme probes, unavailable and obsolete geometry, prefix remainders, capture
 reset, resizing, and global display coordinates.
+`CandidateGeometryReaderTests` covers an on-screen inline placeholder being
+overridden by verified document geometry, initial selection and marked UTF-16
+positions, unsupported/mismatched document responses, and obsolete host calls.
 `CandidatePanelOwnershipTests` covers a focus switch between rendering and display,
 and actual AppKit panel placement while candidate widths and expansion change.
 `CandidateWidthTests` covers each reduction from six columns to one, expansion
 at a reduced count, restored width, unchanged candidate order/selection, mouse
-and digit agreement, fractional remaining width, exact oversized text, and the 480-point preferred minimum with a smaller-screen cap.
+and digit agreement, fractional remaining width, exact oversized text, and the 480-point preferred minimum with a smaller-screen cap. Visible-refresh cases alternate candidate lengths in compact and expanded layouts, checking that the current text fits before deferred host positioning.
 `CandidateSelectionTests` covers paging through every choice, including literal
 input, at each column count in both layouts.
 
 On an intentionally installed Debug build, type synthetic Pinyin such as
 `dangqian` in a new Claude Desktop composer, the Chrome address bar, a Chrome
-web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Check
+web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Separately
+check a WeChat Moments reply field near the bottom of its window: the first
+candidate panel and subsequent edits must stay below that reply's visual line,
+without jumping to the top of the window. Repeat after closing/reopening the reply
+and switching between replies and the normal chat composer. Check
 that the panel first appears at the composition start. In Chrome and Codex, place the
 caret within a long line of synthetic text. Type until the marked spelling wraps,
 delete back across the wrap, and move the caret with Home and End. Verify that
@@ -476,8 +475,8 @@ verify this also works when adding a line moves existing text upward while the
 caret's screen height stays unchanged. Type continuously without Return: a visual
 wrap must work even when the spelling itself contains no newline. Repeat with
 ASCII digits and underscores, and when geometry is available only for occasional
-characters. The geometry log can include validated document-relative range probes
-when the inline API returns zero rectangles. In the geometry log, check whether a
+characters. The geometry log includes document-relative range probes before inline
+fallback probes when the host exposes a matching marked range. In the geometry log, check whether a
 leftward caret rectangle and an older, farther-right rectangle overlap. The
 panel should move to the caret's line even when intermediate probes are zero.
 In each host, try rapid typing, a new line,
@@ -485,7 +484,7 @@ the end of existing text, and starting another composition after moving the
 window. Confirm several prefixes with Space, numbers and mouse. Check that
 the panel stays fixed within the remainder's current line and follows subsequent
 wraps to the next line's start.
-Repeat with automatic prefix confirmation enabled. Finish or cancel the remainder, then start a new
+Finish or cancel the manually confirmed remainder, then start a new
 composition and verify its new position. Repeat on a connected external
 display. Check that expand/collapse, paging and changing candidate widths keep
 the same top-left below the current line start, including near the bottom and right
@@ -497,7 +496,7 @@ including literal input, expand/collapse, and move to a new line with more width
 The count can grow again when space permits; all choices retain engine order.
 A short candidate should use a 480-point panel when there is room, and a narrower
 panel when fewer than 480 points remain on the screen.
-Check light/dark appearance, keyboard focus and VoiceOver row/column descriptions.
+Type and delete rapidly while candidates grow and shrink. With sufficient screen space, the first choice must not briefly truncate in the previous window width before placement catches up. Repeat in compact and expanded layouts. Check light/dark appearance, keyboard focus and VoiceOver row/column descriptions.
 Near the bottom edge the panel still does not flip above the line. Moving the mouse, moving
 the host window or disconnecting a display must not introduce mouse or previous-
 client fallback positions. An unavailable initial host rectangle must leave the panel hidden
@@ -562,7 +561,7 @@ not establish live ChatGPT, browser or other host compatibility.
 
 Run `./scripts/test.sh` and `./scripts/build.sh`. `LanguageSettingsTests` covers independent language persistence, configuration invalidation, unchanged direct-input rules and recording consent. `DeferredCandidateTests.languageChangesKeepCompositionAndCaretWhileRejectingOldCandidates` covers language changes through English-only, neither, Chinese-only and both, retaining exact input/caret, rejecting obsolete preview/final results and restoring ambiguous bilingual candidates.
 
-On an intentionally installed build, select SI and open the macOS input-source menu. Check that English and Chinese (Simplified) reflect Settings, toggle independently, persist after a normal restart and have no keyboard shortcuts. With both enabled, `he` must retain English and Chinese choices; with neither enabled, exact original spelling must remain available. During composition, move the caret and toggle a language: preserve marked spelling/caret, refresh choices, and prevent an old candidate click or automatic-confirmation timer from committing a stale choice. Repeat in TextEdit, a browser field, an editor and Terminal, including focus changes and host shortcuts. In an app with direct input enabled, language checkmarks must not override passthrough; disable that app rule in Settings before testing conversion. Check menu keyboard navigation, VoiceOver checkmark announcements and English/Chinese UI labels in light/dark appearance. Automated tests/builds do not establish native menu routing or host compatibility; these checks require a login-session verification.
+On an intentionally installed build, select SI and open the macOS input-source menu. Check that English and Chinese (Simplified) reflect Settings, toggle independently, persist after a normal restart and have no keyboard shortcuts. With both enabled, `he` must retain English and Chinese choices; with neither enabled, exact original spelling must remain available. During composition, move the caret and toggle a language: preserve marked spelling/caret, refresh choices, and prevent an old candidate click from committing a stale choice. Repeat in TextEdit, a browser field, an editor and Terminal, including focus changes and host shortcuts. In an app with direct input enabled, language checkmarks must not override passthrough; disable that app rule in Settings before testing conversion. Check menu keyboard navigation, VoiceOver checkmark announcements and English/Chinese UI labels in light/dark appearance. Automated tests/builds do not establish native menu routing or host compatibility; these checks require a login-session verification.
 
 ## Segmented marked spelling
 
@@ -596,9 +595,9 @@ Check that discovered and manually added apps show their system icons, missing a
 
 On an intentionally installed build, open **Direct Input → Manage Direct Input…**. Search for Terminal by name and bundle identifier, enable its switch, close/reopen Settings and restart SI normally to check persistence. Confirm standard-folder and running apps appear, Refresh picks up changes, Add Application accepts an app elsewhere, and an enabled missing app remains removable by its identifier. Check the search, switches, file picker and Done button using the keyboard and VoiceOver, in light/dark appearance and Increased Contrast.
 
-In a selected Terminal app, type synthetic `echo SI_TEST_42`, use Space, digits, Tab completion, Return, arrows, Home/End, Delete, Escape and Control shortcuts. Every key must reach the host once, without candidates, automatic spacing or an extra Return to finish composition. Repeat with punctuation candidates and automatic confirmation enabled. Switch to TextEdit and verify ordinary Chinese/English candidates, selection and literal Return still work. A browser rule must apply to both its address bar and page inputs; an editor rule must apply to both editor and embedded terminal. No system input-source selection or Accessibility/Input Monitoring prompt should occur.
+In a selected Terminal app, type synthetic `echo SI_TEST_42`, use Space, digits, Tab completion, Return, arrows, Home/End, Delete, Escape and Control shortcuts. Every key must reach the host once, without candidates, automatic spacing or an extra Return to finish composition. Repeat with punctuation candidates enabled. Switch to TextEdit and verify ordinary Chinese/English candidates, selection and literal Return still work. A browser rule must apply to both its address bar and page inputs; an editor rule must apply to both editor and embedded terminal. No system input-source selection or Accessibility/Input Monitoring prompt should occur.
 
-Toggle direct input across an active composition or pause timer, then return to the host, use candidate mouse/page/expansion controls if still visible and change focus rapidly. Only the exact pending source spelling may be inserted, once, with no extra space; obsolete candidates/timers must not convert or restore it. Turn direct input off and verify fresh conversion, without stale selection or history. With vocabulary/history independently opted in, confirm direct input adds no app records or incomplete history suffix, including after Return; existing records must remain deletable. Inspect data only with synthetic input. Native host, reentry, VoiceOver and appearance checks remain unverified until performed in a login session.
+Toggle direct input across an active composition or pending candidate search, then return to the host, use candidate mouse/page/expansion controls if still visible and change focus rapidly. Only the exact pending source spelling may be inserted, once, with no extra space; obsolete candidate results must not convert or restore it. Turn direct input off and verify fresh conversion, without stale selection or history. With vocabulary/history independently opted in, confirm direct input adds no app records or incomplete history suffix, including after Return; existing records must remain deletable. Inspect data only with synthetic input. Native host, reentry, VoiceOver and appearance checks remain unverified until performed in a login session.
 
 Verify the default **Control + Shift + I** in TextEdit, a browser, an editor and Terminal with SI selected: toggle on/off with an empty composition and with synthetic pending spelling. Confirm the rule affects only the IMK client app, persists across restart, and matches the Settings manager. Hold the shortcut: only one toggle occurs and no letter/control text reaches the host. Add Option or Command, or release Shift: the default must not match. Caps Lock must not prevent a match. Test focus changes, a pending candidate search and AI prediction; entering direct input inserts exact remaining spelling once, with no suffix or stale candidate/prediction. Secure fields and clients without an identifier must not change rules.
 
@@ -644,7 +643,7 @@ Use a dedicated synthetic profile on an intentionally installed copy. Settings c
 
 With Personal Learning enabled, type synthetic `suocheng` and select `锁` then `成`, using Space, number and mouse selection in TextEdit and a browser. Confirm the remainder stays editable after `锁`, the host receives `锁成` once, individual learning entries remain, and a nonfirst correction makes `锁成` the first ordinary candidate on the next exact spelling. An all-first sequence must not gain correction priority. If Input History is independently enabled, confirm it contains the two actual submissions and no synthetic `suocheng` row.
 
-Repeat with an edited remainder, Escape, shortcut/literal commit, automatic confirmation, personal/verbatim/punctuation choices, focus/client changes, consent off/on, learning deletion/clear and secure/direct input. No interrupted sequence may create the combined entry. Check exact apostrophes and ü/u: aliases, delayed candidates, and ordinary Return/Tab routing. These native host, reentry and keyboard/mouse checks remain manual; `CompositionLearningTests` covers the shared state and ranking behavior with synthetic fixtures.
+Repeat with an edited remainder, Escape, shortcut/literal commit, personal/verbatim/punctuation choices, focus/client changes, consent off/on, learning deletion/clear and secure/direct input. No interrupted sequence may create the combined entry. Check exact apostrophes and ü/u: aliases, delayed candidates, and ordinary Return/Tab routing. These native host, reentry and keyboard/mouse checks remain manual; `CompositionLearningTests` covers the shared state and ranking behavior with synthetic fixtures.
 
 ## Input History
 
@@ -685,21 +684,22 @@ Export with a search hiding all rows and on a later page: the file must contain 
 
 Run `python3 -m unittest discover -s Tests/InputHistoryToolsTests -v` in addition to the shared suite. The receiver commands in [INPUT_HISTORY_EXPORT.md](INPUT_HISTORY_EXPORT.md) must refuse existing output paths, restore the ordinary export exactly and accept that same file for candidate preparation. Preparation produces only unsplit/unreviewed candidate CSV plus hashes/filter provenance. Automatic confirmations and literal tasks are excluded by default; an explicit flag admits ASCII literal/copy observations. Do not collect real data, print private text, alter maintained CSVs or start a training run as validation.
 
-## Automatic prefix confirmation
+## Manual-only prefix confirmation
 
-Run `./scripts/test.sh --filter AutomaticConfirmation` and `./scripts/benchmark.sh --automatic-confirmation`. The benchmark emits paired Release full-search timings with/without evidence, caller-side edit/delivery timings excluding decoding, invariant checks for candidate order/scores/bytes, and fixed synthetic typing traces. It evaluates one-result-per-character, coalesced three-character deliveries and final-only delivery in Chinese-only and bilingual settings. Existing ranking fixtures, including the already inspected historical holdout, are development/regression evidence rather than an independent accuracy estimate. A correct committed prefix with an empty output counts as abstention, not successful conversion; inspect activation and false confirmations separately. Timings are in-process and do not establish native event latency.
+`InputSessionTests.typingAndDelayedResultsKeepTheEntireCompositionUntilManualConfirmation`
+checks continuous typing, delayed/stale results, explicit prefix consumption
+and the editable remainder. Settings tests seed the retired automatic-prefix
+preference and verify removal without changing language or learning consent.
+The old switch, timer, observation state and automatic-confirmation benchmark
+are removed. Historical Input History records with that reason stay readable.
 
-On an intentionally installed build, verify the following in TextEdit, a browser text field, a code editor and Terminal. Installation is not incidental setup for this check.
-
-- The Typing toggle is initially off, keyboard/VoiceOver accessible, and survives restart. Ordinary manual Space/number/mouse selection, Return, Escape, focus and shortcuts keep their existing behavior while off.
-- Enable the option and gradually type `nihaopengyouxuexizhongwen`. Leading stable words should commit without a space while the ending remains marked, editable and represented by current candidates. Repeat with rapid typing; no dropped/duplicated letters or synchronous full search should be introduced on append or timer delivery.
-- Type `nihaopengyou` and wait: `你好` may confirm after at least 1.8 seconds, leaving `pengyou`. Continuing to wait must not drain the rest. Type more to permit another confirmation. `shi`, `he`, `nihao`, short `dishiye`, English and mixed leaders, uppercase identifiers, unknown text and symbol-bearing input must not be forced into a prefix conversion. A pause must not confirm an isolated single-character prefix. Nearby homophones that disagree on the beginning must remain editable regardless of pause length. Repeat `nihaotitle` and `nihaotitlezhongwen` with English disabled; their English spans must still suppress automatic conversion.
-- Before a pause fires, delete, move the caret, navigate/page candidates, expand/collapse the panel, press Escape, Return, a shortcut, or change focus. The old task must not insert text or restore candidates. Start a new composition, including the same spelling, and switch between clients; old work must remain invalid. End-of-buffer typing after an edit builds fresh evidence, while middle-of-composition edits remain manual.
-- Change languages, punctuation, automatic confirmation, personal phrases, learning consent/clear and secure input during composition or while a pause timer is pending. Also toggle a typing setting away and back without another keystroke. Results and timers from the prior configuration must not commit. No language selection or enabled language alone enables learning.
-- With a dedicated synthetic learning profile, verify automatic commits neither change saved record count/strength/timestamps nor supply previous-word context. Deliberate selections must still train under the existing opt-in rules.
-- After automatic confirmation, Return/shortcuts preserve the remaining original spelling. Confirm Space/number/mouse prefix selection and candidate paging still agree with the displayed rows. Edit already committed text using the host's ordinary controls; automatic restoration of its original Pinyin is not implemented. Check marked UTF-16 selection, candidate positioning, both appearances and VoiceOver after a prefix is inserted.
-
-Core regression tests and a successful build do not establish these native host checks. Record actual host/version, input, committed prefix, editable remainder, timing and any unexpected confirmation using synthetic text only.
+After an intentionally requested install, type a long synthetic composition and
+pause in TextEdit, a browser field, an editor and Terminal. Text must remain
+marked until explicit confirmation. Repeat Space/number/mouse prefix selection,
+Return, Escape, edits, candidate navigation and focus changes, checking exact
+UTF-16 marked ranges and no dropped/duplicated text. Confirm the retired switch
+is absent in both interface languages and from Settings search. These host,
+keyboard, VoiceOver and appearance checks are not established by unit tests.
 
 ## Personal phrase checks
 
@@ -713,9 +713,9 @@ Run `cargo test --locked -p si-engine --test presentation`,
 `cargo test --locked -p si-macos-bridge` and
 `cargo test --locked -p si-cli --test workflow` for the platform-independent
 merge/shortlist API, malformed ABI input and CLI `--list window` behavior.
-Run `./scripts/test.sh --filter 'RustCandidatePresentationTests|CandidateEngineTests|CandidateShortlistLimitTests|AutomaticConfirmationTests|CandidateSelectionTests|CandidateViewTests|WindowRankingRegressionTests'`
+Run `./scripts/test.sh --filter 'RustCandidatePresentationTests|CandidateEngineTests|CandidateShortlistLimitTests|CandidateSelectionTests|CandidateViewTests|WindowRankingRegressionTests'`
 for Swift translation, exact Unicode/NUL bytes, original source spans, model-independent
-statistical leader comparison for automatic confirmation, pins, prefixes, shortlisting and existing event/view regressions.
+statistical score translation, pins, prefixes, shortlisting and existing event/view regressions.
 The full engine result remains available before window shortlisting.
 
 Presentation tests cover the 5/6/7/8/9-character output boundaries, grapheme and
@@ -756,6 +756,41 @@ Finish composition/save work before choosing Install. Check pending learning/phr
 For the independent static landing page, use the build, browser, localization, accessibility, and deployment checks in [WEBSITE.md](WEBSITE.md). These checks do not install or exercise the input method.
 
 ## Offline corpus and ranking checks
+
+The [15.6M student workspace](../llm/reranker_large/README.md) has explicit
+`./llm/reranker_large/scripts/size.sh`, `check.sh` and `smoke.sh` commands.
+Its `tests/test_distillation_data.py` uses authored synthetic conversations to
+check pinned source selection/tamper rejection, ambiguous readings, reproducible
+context/target/input variants, template grouping, idempotent generation resume,
+independent SI document provenance, teacher-cache compatibility and one tiny
+CPU distillation update. No real corpus/Qwen scoring is part of these checks.
+The Rust CLI suite compares streamed per-request TSV contexts against ordinary
+requests and rejects malformed/conflicting options. Formal output case shares,
+pronunciation quality, source rights and semantic near-duplicates require review
+of the generated report and selected samples.
+Regressions use only SI-authored synthetic documents, a tiny CPU student and
+a synthetic teacher. They check the production parameter count, train-only
+vocabulary, group/query split isolation, scalar-safe token budgets,
+language-aware candidate identities, listwise KL gradients, teacher-cache
+binding, source-span validation, exact pretraining/distillation CPU resume,
+held-out evaluation and provenance-preserving Python/Rust exports. When the
+Release `si-neural` binary is present, the suite also checks score/order and
+abstention parity, including a full-size randomly initialized student export
+without training. No formal corpus/Qwen data or training is started by these
+checks. MPS/CUDA training, actual teacher inference, representative ranking
+quality and native host latency require separate explicit checks.
+
+`llm.reranker_large.tests.test_corpus` exercises the `prepare-data.sh` adapter
+with small authored raw-text-v2 snapshots only. Checks cover complete-file
+hashes, line ranges, retained notices, deterministic sampling/final bundle
+identity, grouped turns and original splits, exclusion of duplicate LCCC and
+OASST1 data, held-out duplicate priority, train-only final vocabulary,
+reported actual source-token counts and explicit quota-shortfall handling.
+An explicit complete dialogue-directory override is checked through the CLI;
+manually pruned text with stale metadata/checksums is rejected, and selecting
+a matching alternate snapshot retains full verification and provenance.
+The CLI test supplies temporary source/notices roots and creates no model
+checkpoints. No real corpus preparation is run by this test suite.
 
 Use the [corpus guide](../corpus/README.md) for the pinned Python environment.
 Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests` for

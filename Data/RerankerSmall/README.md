@@ -56,22 +56,26 @@ The app packaging script copies this directory into
 SI.app/Contents/Resources/SIEngine/RerankerSmall/. Rebuild the app to
 package a changed bundle; these source files do not update an installed app.
 
-## Integration checks and known difference
+## Integration checks
 
 The packaged files reproduce the selected checkpoint's complete fixed-pool
 ranking report exactly. Resource-manifest verification and seven Rust/PyTorch
-scoring parity cases pass; maximum absolute score difference is 0.000515.
+absolute-scoring parity cases passed for the resource replacement; those
+historical measurements do not evaluate the current sequence-lift policy.
 
-Three of the four focused engine reranker tests pass. The existing
-small_reranker_preserves_model_gaps_across_large_statistical_gaps test fails
-for its synthetic word-frequency contrast. The scorer still prefers
-原始拼写 to 元是拼写, but its mean model gap is 2.350 bits versus the
-previous v1 model's 2.582 bits. At the configured 0.8 reward weight, the
-new 1.880-bit advantage cannot overcome the fixture's 1.963-bit frequency
-gap (390 versus 100 occurrences). The original regression expectation and
-ranking configuration are retained. This model-dependent integration
-difference remains unresolved. Native host-app checks were not run for
-this resource replacement.
+Production Local model ranking now uses whole-candidate conditional minus
+unconditional sequence log probabilities, pool-relative clipping at eight bits
+and a default weight of 1.0. Empty context keeps the statistical order.
+The unconditional baseline has a bounded in-memory exact-string LRU.
+See the [runtime policy](../../docs/ranking-architecture.md#local-model-ranking)
+and [integration checks](../../docs/TESTING.md#local-model-ranking-in-a-host).
+
+The former absolute-score regression for `原始拼写` versus `元是拼写`
+recorded a 2.350-bit mean-model gap for this checkpoint versus v1's 2.582 bits.
+That difference belonged to the old 0.8-weight absolute-score policy. It is
+not a model-weight fix or evidence for the sequence-lift policy; current tests
+instead verify contextual lift, empty-context identity and bounded penalties.
+Native host behavior remains unverified for the new runtime policy.
 
 Build the standalone scorer and submit a synthetic candidate pool:
 

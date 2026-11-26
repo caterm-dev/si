@@ -1,0 +1,5 @@
+-r requirements.txt
+transformers==4.51.3
+safetensors==0.5.3
+huggingface-hub==0.31.2
+tokenizers==0.21.1

@@ -159,19 +159,16 @@ struct LanguageSettingsTests {
         #expect(!appMemory.vocabularyEnabled)
     }
 
-    @Test func automaticConfirmationIsOptInAndPersistsWithoutEnablingLearning() throws {
-        let name = "SI.AutomaticConfirmationTests.\(UUID().uuidString)"
+    @Test func retiredAutomaticConfirmationPreferenceIsRemovedWithoutChangingConsent() throws {
+        let name = "SI.RetiredPrefixTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(true, forKey: "typing.automaticConfirmation")
+        defaults.set(false, forKey: LanguageSettings.chineseKey)
+        defaults.set(true, forKey: LanguageSettings.englishKey)
         let settings = LanguageSettings(defaults: defaults)
-        #expect(!settings.automaticConfirmationEnabled)
-        settings.automaticConfirmationEnabled = true
-        let generation = settings.configurationGeneration
-        settings.automaticConfirmationEnabled = false
-        settings.automaticConfirmationEnabled = true
-        #expect(settings.configurationGeneration == generation + 2)
-        let restarted = LanguageSettings(defaults: defaults)
-        #expect(restarted.automaticConfirmationEnabled)
+        #expect(defaults.object(forKey: "typing.automaticConfirmation") == nil)
+        #expect(settings.enabledLanguages == [.english])
         let appMemory = ApplicationMemorySettings(defaults: defaults, isPreview: true)
         #expect(!appMemory.vocabularyEnabled)
     }

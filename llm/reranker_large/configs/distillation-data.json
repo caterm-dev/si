@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "pools": {"train": 100000, "validation": 5000, "test": 5000},
+  "source_shares": {
+    "si_dialogues": 0.25,
+    "si_workbuddy": 0.15,
+    "public_dialogue": 0.20,
+    "wikipedia": 0.35,
+    "technical": 0.05
+  },
+  "context_buckets": {
+    "none": {"tokens": [0, 0], "share": 0.30},
+    "short": {"tokens": [1, 4], "share": 0.25},
+    "medium": {"tokens": [5, 8], "share": 0.20},
+    "long": {"tokens": [9, 16], "share": 0.25}
+  },
+  "target_buckets": {
+    "single": {"characters": [1, 1], "share": 0.15},
+    "word": {"characters": [2, 3], "share": 0.30},
+    "phrase": {"characters": [4, 6], "share": 0.30},
+    "long": {"characters": [7, 10], "share": 0.15},
+    "very_long": {"characters": [11, 16], "share": 0.10}
+  },
+  "input_shares": {"complete": 0.45, "partial": 0.35, "early": 0.15, "typo": 0.05},
+  "si_split_shares": {"train": 0.90, "validation": 0.05, "test": 0.05},
+  "excluded_si_files": ["dialogues/synthetic-fourth-position-20261123.txt"],
+  "proposals_per_document": 32,
+  "max_si_file_share": 0.20,
+  "pinyin_correction": "on",
+  "languages": "zh-Hans,en",
+  "notes": [
+    "Shares are proposal targets, not a promise of accepted-pool distributions; the report records actual cases and exclusions.",
+    "Context is a contiguous suffix of the current utterance, never another speaker's utterance.",
+    "Student distillation uses 16 context tokens and 16 candidate tokens; the installed app is unchanged.",
+    "Readings are dictionary-derived and unreviewed; ambiguous longest dictionary matches are skipped.",
+    "No target injection, automatic reference labels, pure English targets or training on eval/ files."
+  ]
+}

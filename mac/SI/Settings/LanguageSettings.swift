@@ -12,7 +12,6 @@ final class LanguageSettings {
     static let chineseKey = "languages.simplifiedChinese"
     static let punctuationKey = "typing.punctuationBehavior"
     static let punctuationCandidatesKey = "typing.punctuationCandidates"
-    static let automaticConfirmationKey = "typing.automaticConfirmation"
     static let pinyinCorrectionKey = "typing.pinyinCorrection"
     static let localModelRankingKey = "typing.localModelRanking"
     static let passthroughApplicationsKey = "typing.passthroughApplications"
@@ -69,13 +68,6 @@ final class LanguageSettings {
         }
     }
 
-    var automaticConfirmationEnabled: Bool {
-        didSet {
-            defaults.set(automaticConfirmationEnabled, forKey: Self.automaticConfirmationKey)
-            if oldValue != automaticConfirmationEnabled { configurationGeneration &+= 1 }
-        }
-    }
-
     var punctuationBehavior: PunctuationBehavior {
         didSet {
             defaults.set(punctuationBehavior.rawValue, forKey: Self.punctuationKey)
@@ -122,12 +114,11 @@ final class LanguageSettings {
             Self.localModelRankingKey: true,
         ])
         for key in ["typing.aiComparison", "typing.aiContext", "typing.aiWeight",
-                    "development.kenLMRanking", "development.fullCoverageFirst"] {
+                    "development.kenLMRanking", "development.fullCoverageFirst", "typing.automaticConfirmation"] {
             defaults.removeObject(forKey: key)
         }
         englishEnabled = defaults.bool(forKey: Self.englishKey)
         chineseEnabled = defaults.bool(forKey: Self.chineseKey)
-        automaticConfirmationEnabled = defaults.bool(forKey: Self.automaticConfirmationKey)
         // Both legacy enabled modes map to the single switch.
         let savedCorrection = defaults.integer(forKey: Self.pinyinCorrectionKey)
         pinyinCorrectionEnabled = savedCorrection == 1 || savedCorrection == 2

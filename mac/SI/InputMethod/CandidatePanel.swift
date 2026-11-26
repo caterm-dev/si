@@ -52,20 +52,28 @@ final class CandidatePanel: NSPanel {
         let count = list.fittingPageSize(for: selection, maximumWidth: CandidatePlacement.availableWidth(at: anchor))
         selection.setPageSize(count)
         render(selection: selection, prediction: prediction, predictionStatus: predictionStatus)
+        // A visible panel can repaint before deferred host geometry arrives. Fit
+        // its new text at the retained anchor instead of using the old width.
+        if isVisible { _ = updateLayout(at: anchor) }
     }
 
     func show(at anchor: CandidateAnchor, clientLevel: Int) {
         guard ownsPresentation, !list.rows.isEmpty else { return }
+        level = NSWindow.Level(rawValue: max(NSWindow.Level.popUpMenu.rawValue, clientLevel))
+        guard updateLayout(at: anchor) else { return }
+        if !isVisible { orderFrontRegardless() }
+    }
+
+    private func updateLayout(at anchor: CandidateAnchor) -> Bool {
         let size = list.preferredSize(constrainedTo: CandidatePlacement.availableWidth(at: anchor))
         guard let frame = CandidatePlacement.frame(preferredSize: size, anchor: anchor) else {
             orderOut(nil)
-            return
+            return false
         }
-        level = NSWindow.Level(rawValue: max(NSWindow.Level.popUpMenu.rawValue, clientLevel))
         if self.frame != frame { setFrame(frame, display: false) }
         // Finish row layout at the new size before making the card visible. Painting
         // the resized window synchronously can expose the old row geometry for a frame.
         list.layoutSubtreeIfNeeded()
-        if !isVisible { orderFrontRegardless() }
+        return true
     }
 }

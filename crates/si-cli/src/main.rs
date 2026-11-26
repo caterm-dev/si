@@ -29,7 +29,7 @@ Usage:
   si-cli corpus ingest <lexicon.silex> <grams.sigram> <source.txt> [<source.txt> ...]
   si-cli corpus clear-grams <lexicon.silex> <grams.sigram>
   si-cli corpus prune  --order <2|3|4|5> --min-count <count> <lexicon.silex> <grams.sigram>
-  si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--languages <zh-Hans,en|zh-Hans|en|none>] [--pinyin-correction <on|higher-recall|off>] [--search <full|preview>] [--list <full|window>] [--preceding <text>]
+  si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--languages <zh-Hans,en|zh-Hans|en|none>] [--pinyin-correction <on|higher-recall|off>] [--search <full|preview>] [--list <full|window>] [--preceding <text>] [--request-format <spelling|context-tsv>]
   si-cli user ingest <profile.si-user> <base.silex> <batch-id> <sentences.txt|->
   si-cli user learn  <profile.si-user> <base.silex> [<si.conf>]
   si-cli user status <profile.si-user>

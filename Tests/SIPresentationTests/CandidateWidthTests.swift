@@ -5,6 +5,43 @@ import SICore
 
 @MainActor
 struct CandidateWidthTests {
+    @Test(arguments: [false, true])
+    func visibleRefreshFitsCurrentTextBeforeDeferredPositioning(expanded: Bool) throws {
+        _ = NSApplication.shared
+        let panel = CandidatePanel()
+        defer { panel.releasePresentation(); panel.close() }
+        panel.claimPresentation()
+        let anchor = try makeAnchor(availableWidth: 1300)
+        var selection = CandidateSelection()
+        selection.update([InputCandidate(text: "我", language: .simplifiedChinese, score: 100, lexicalTokenCount: 1)])
+        selection.setExpanded(expanded)
+        panel.fit(selection: &selection, at: anchor)
+        #expect(!panel.isVisible)
+        panel.show(at: anchor, clientLevel: 0)
+        #expect(panel.frame.width == 480)
+
+        for length in [3, 2, 1, 3] {
+            let candidates = (0..<9).map {
+                InputCandidate(text: String(repeating: "我知道", count: length) + String($0),
+                               language: .simplifiedChinese, score: 100 - $0, lexicalTokenCount: 1)
+            }
+            selection.update(candidates)
+            selection.setExpanded(expanded)
+            // Host caret geometry is resolved later. AppKit can paint the visible
+            // panel between this synchronous refresh and the deferred show call.
+            panel.fit(selection: &selection, at: anchor)
+            panel.list.layoutSubtreeIfNeeded()
+            #expect(panel.isVisible)
+            #expect(panel.frame.minX == 100 && panel.frame.maxY == 400)
+            #expect(panel.frame.maxX <= anchor.screen.visibleFrame.maxX)
+            #expect(panel.frame.width >= panel.list.candidateContentWidth)
+            for row in panel.list.rows {
+                #expect(row.candidateLabel.frame.width >= row.candidateLabel.intrinsicContentSize.width)
+            }
+            try snapshot(panel.list, name: "refresh-\(expanded ? "expanded" : "compact")-\(length)")
+        }
+    }
+
     @Test func thePanelReducesSixChoicesDownToOneBeforeTruncating() throws {
         _ = NSApplication.shared
         let panel = CandidatePanel()

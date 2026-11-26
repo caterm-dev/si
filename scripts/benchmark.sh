@@ -23,11 +23,8 @@ case "${1:-}" in
     --previews)
         swift run "${swift_args[@]}" SIBenchmark --previews
         ;;
-    --automatic-confirmation)
-        swift run "${swift_args[@]}" SIBenchmark --automatic-confirmation
-        ;;
     *)
-        printf 'Usage: %s [--resources|--previews|--quality|--automatic-confirmation]\n' "$0" >&2
+        printf 'Usage: %s [--resources|--previews|--quality]\n' "$0" >&2
         exit 2
         ;;
 esac

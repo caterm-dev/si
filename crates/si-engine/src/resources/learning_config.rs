@@ -333,7 +333,7 @@ mod tests {
             config.engine.local_model_ranking,
             reloaded.engine.local_model_ranking
         );
-        assert_eq!(config.engine.local_model_ranking.model_score_weight, 0.8);
+        assert_eq!(config.engine.local_model_ranking.model_score_weight, 1.0);
         assert_eq!(
             config.engine.local_model_ranking.model_score_gap_limit_bits,
             8.0
@@ -345,7 +345,7 @@ mod tests {
         let path = std::path::Path::new("custom.conf");
         let bundled = include_str!("../../../../config/si.conf");
         let custom = bundled
-            .replace("model_score_weight = 0.8", "model_score_weight = 0.5")
+            .replace("model_score_weight = 1.0", "model_score_weight = 0.5")
             .replace(
                 "model_score_gap_limit_bits = 8",
                 "model_score_gap_limit_bits = 4",
@@ -365,7 +365,7 @@ mod tests {
             RerankerConfig::default()
         );
         for (key, value) in [
-            ("model_score_weight = 0.8", "model_score_weight = 0"),
+            ("model_score_weight = 1.0", "model_score_weight = 0"),
             (
                 "model_score_gap_limit_bits = 8",
                 "model_score_gap_limit_bits = 0",
@@ -380,15 +380,15 @@ mod tests {
         let path = std::path::Path::new("invalid.conf");
         let bundled = include_str!("../../../../config/si.conf");
         for (key, replacement) in [
-            ("model_score_weight = 0.8", "model_score_weight = -0.1"),
-            ("model_score_weight = 0.8", "model_score_weight = NaN"),
-            ("model_score_weight = 0.8", "model_score_weight = inf"),
-            ("model_score_weight = 0.8", "model_score_weight = wrong"),
+            ("model_score_weight = 1.0", "model_score_weight = -0.1"),
+            ("model_score_weight = 1.0", "model_score_weight = NaN"),
+            ("model_score_weight = 1.0", "model_score_weight = inf"),
+            ("model_score_weight = 1.0", "model_score_weight = wrong"),
             (
-                "model_score_weight = 0.8",
-                "model_score_weight = 0.8\nmodel_score_weight = 0.5",
+                "model_score_weight = 1.0",
+                "model_score_weight = 1.0\nmodel_score_weight = 0.5",
             ),
-            ("model_score_weight = 0.8", ""),
+            ("model_score_weight = 1.0", ""),
             (
                 "model_score_gap_limit_bits = 8",
                 "model_score_gap_limit_bits = -1",
@@ -419,7 +419,7 @@ mod tests {
             );
         }
         let overflow = bundled
-            .replace("model_score_weight = 0.8", "model_score_weight = 1e308")
+            .replace("model_score_weight = 1.0", "model_score_weight = 1e308")
             .replace(
                 "model_score_gap_limit_bits = 8",
                 "model_score_gap_limit_bits = 1e308",

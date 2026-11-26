@@ -366,7 +366,9 @@ requires the prepared dataset to verify provenance and assigns no blanket model
 weight license. Training data, runs, reports and experimental exports are
 ignored by Git. The selected Rust inference export and its source notices
 are tracked in [Data/RerankerSmall](../../Data/RerankerSmall/README.md).
-The [large reranker](../reranker_large/README.md) remains a separate planned model.
+The [large reranker](../reranker_large/README.md) is a separate 15.6M offline
+student pretraining/distillation framework. Formal data/training and app
+integration remain separate work.
 
 ## Offline inference
 
