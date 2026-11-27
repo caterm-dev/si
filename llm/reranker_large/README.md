@@ -210,6 +210,118 @@ final bundle. The script reports progress counts, never source text. A smaller
 token quota reduces selected output, not the complete snapshot verification
 scan. No formal preparation run is performed by tests.
 
+## Prepare an additional unused batch
+
+Do not rerun ordinary preparation with only a new output or seed: it can
+select old text again and fits another tokenizer. For another approximately
+100 million **training target tokens**, run from the repository root:
+
+```sh
+./llm/reranker_large/scripts/prepare-extra-data.sh \
+  --parent-data llm/reranker_large/data/prepared/student-15m-v1/lm \
+  --dialogue-root corpus/chinese/prepared/si-corpus/dialogue \
+  --train-tokens 100000000 \
+  --allow-heldout-shortfall \
+  --output llm/reranker_large/data/prepared/student-15m-extra-v1/lm
+```
+
+This separate entry point keeps the parent's exact tokenizer bytes and the
+existing seed/split policy. It excludes normalized whole documents,
+source/conversation/page groups, and exact normalized paragraphs of at least
+32 characters from **every split** of the parent bundle. Newly selected
+validation/test groups remain disjoint from training. Semantic near-duplicates
+are not detected. It uses the same verified public snapshots, notices and
+60% dialogue / 35% Chinese Wikipedia / 5% technical mixture, without a
+standalone English corpus or personal data. No download, model execution or
+training is performed.
+
+Quotas use the frozen tokenizer, including document EOS targets;
+complete groups can slightly exceed the requested counts. Additional validation
+and test targets follow the configured 2/97 and 1/97 ratios. Inspect actual
+counts, exclusion statistics and shares in `sampling-report.json`. Training
+category quotas remain strict. The explicit `--allow-heldout-shortfall` option
+retains available validation/test category text when old-data exclusions leave
+a shortage; each deficit is logged and recorded as `shortfall_targets`, and
+the actual held-out mixture is reported. For example, the current unused
+technical test slice has 37,532 targets rather than the requested 51,546.
+Without the option, held-out deficits still fail. Empty complete splits always
+fail. Neither mode reuses old text, moves held-out groups into training, or
+backfills a shortage from another category. Existing outputs are refused, and cancelled or
+failed staging is removed. For later batches, repeat `--exclude-data` for
+every additional previously prepared bundle, retaining the original
+`--parent-data`.
+
+The preparation implementation lives under `scripts/`, outside the running
+trainer's hashed module set. It can prepare a separate output while the
+original run continues, without changing its resume identity, arrays or
+checkpoints. SQLite indexing/encoding uses CPU and disk. Full snapshot checks
+and parent exclusion indexing still scan their inputs even for smaller quotas.
+Keep enough space for the temporary grouped-source index and the final bundle.
+
+The resulting bundle has the existing LM format and a new dataset identity.
+Use the separate continuation command below; it is not a replacement for the
+active dataset. Ordinary strict `resume.sh` still rejects changed dataset
+identities. Data preparation does not start training. Synthetic verification:
+
+```sh
+llm/.venv/bin/python -m unittest llm.reranker_large.tests.test_extra_corpus
+```
+
+## Continue pretraining on the additional batch
+
+Start from the preserved 60k model on the frozen-tokenizer additional batch:
+
+```sh
+# Read-only CPU compatibility check; creates no run and performs no updates:
+./llm/reranker_large/scripts/continue-pretrain.sh --check-only
+# Explicitly start a new experiment:
+./llm/reranker_large/scripts/continue-pretrain.sh
+```
+
+Defaults are explicit and independent of the original experiment:
+
+- Config: `configs/continue-pretrain.json`.
+- Data: `data/prepared/student-15m-extra-v1/lm/`.
+- Initial weights: `runs/student-15m-v1/snapshots/pretrain-step-060000/best.pt`.
+- New run: `runs/student-15m-extra-v1/pretrain/`.
+
+Initialization copies model weights only. AdamW, RNG/epoch ordering, step and
+target-token counters start fresh; the parent checksum, step, dataset identity
+and complete known dataset lineage are retained. All ancestor dataset IDs
+must appear in the new bundle's explicit exclusions. Model configuration and
+the complete frozen tokenizer must match. Existing runs are refused.
+
+The initial preset uses batch 16, accumulation 8, peak learning rate `3e-5`,
+100 warmup steps and cosine decay to `3e-6`. It stops after at most one pass,
+deriving the schedule and step cap from actual windows; the final update may
+contain fewer microbatches. The current 2,453,372-window bundle needs
+**19,167 new steps** to consume its 100,000,742 training targets once. Counters
+start at zero in this new experiment rather than continuing from 60,000.
+Validation and saves run every 250 steps and at the end; final-test arrays are
+never opened by training. Best follows this batch's validation token loss.
+
+To resume an interrupted new experiment, use the same separate entry point:
+
+```sh
+./llm/reranker_large/scripts/continue-pretrain.sh --resume
+```
+
+`--config`, `--data`, `--run`, `--init-checkpoint`, `--device`, `--threads`,
+`--max-steps` and `--max-tokens` are explicit overrides. For a shorter pilot,
+start with `--max-steps 10000`, then use `--resume` to finish the same single
+pass. Budgets cannot extend this entry point beyond one pass. Its strict
+resume binds its own implementation plus shared code, dataset, effective
+config, tokenizer, device, PyTorch and thread count. Original training modules
+and their resume identities remain unchanged. Checkpoints retain the standard
+pretraining format for the existing evaluation, export and distillation tools;
+supply the new `--data` and `--checkpoint` when using those tools.
+
+Synthetic verification:
+
+```sh
+llm/.venv/bin/python -m unittest llm.reranker_large.tests.test_continuation
+```
+
 ## Manual document input
 
 No corpus mixture or source rights are inferred. Corpus selection, source

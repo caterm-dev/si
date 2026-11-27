@@ -1,5 +1,6 @@
 //! C ABI for the macOS Swift client. Engines are shared immutably during decoding.
 
+mod app_learning;
 mod presentation;
 
 use std::ffi::{CStr, c_char};

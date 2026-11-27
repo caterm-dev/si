@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.server = server
         updater.start()
+        AppLearningSampler.shared.start()
         Task {
             async let appMemory: Void = ApplicationMemorySettings.shared.start()
             async let history: Void = InputHistorySettings.shared.start()
@@ -42,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Task {
+            await AppLearningSampler.shared.shutdown()
             async let appMemory: Void = ApplicationMemorySettings.shared.flush()
             async let history: Void = InputHistorySettings.shared.flush()
             async let sentences: Void = SentenceLearningSettings.shared.flush()

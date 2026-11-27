@@ -8,7 +8,9 @@ completions and constructed paths using word frequencies and spelling costs.
 Frequencies divide each word's count by the total across languages in its
 lexicon. Base grams add a capped, joint-count-weighted log-probability-ratio
 reward. Each position uses its highest matching trigram, otherwise a discounted
-bigram, otherwise zero. A matching record with zero reward still blocks lower
+bigram, otherwise a bounded confidence-gated backoff penalty when both words
+have enough exact-token corpus evidence. Sparse missing records stay neutral.
+A matching record with zero reward still blocks lower
 orders. Defaults `k=10`, `cap=5` bits and `d=0.7` live under
 `[statistical_scoring]` in `config/si.conf`. User grams retain their separate
 bounded probability boosts. Word IDs stay in the same history

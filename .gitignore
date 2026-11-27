@@ -80,6 +80,9 @@ __pycache__/
 /eval/private/
 SI-Input-History*.jsonl
 SI-Sentence-History*.jsonl
+SI-AX-*.json
+SI-AX-*.txt
+AppLearning/
 
 # Old local neural-model staging directory.
 /mac/SI/Core/Resources/Reranker/

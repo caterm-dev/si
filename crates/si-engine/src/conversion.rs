@@ -116,7 +116,7 @@ pub struct Candidate {
     pub score_bits: Option<f64>,
     /// Transient change in log probability from the host field's preceding text.
     pub context_adjustment: f64,
-    /// Nonpositive, bounded sequence-lift adjustment from the optional character model.
+    /// Bounded contextual lift adjustment or BOS-only reward from the optional character model.
     pub reranking_bonus: f64,
     /// The last word extends the typed spelling.
     pub completion: bool,

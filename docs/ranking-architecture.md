@@ -29,8 +29,19 @@ The highest lift gets zero; other scored candidates can lose at most eight bits.
 Unscored candidates keep zero adjustment, so the engine re-sorts the complete
 result set after scoring, including whole results below the original pool.
 Base statistical scores, deterministic ties and explicit pin/remembered-choice
-priority are preserved. Empty/unavailable context or a zero context budget
-skips inference; a context truncated to zero model tokens also supplies zero.
+priority are preserved.
+
+Empty/unavailable context, a zero context budget or a context truncated to zero
+model tokens uses a separate BOS-only branch. The native inference path prepends
+the tokenizer's BOS token; no textual sentence marker is inserted. Its complete
+sequence log probability is divided by the number of output Unicode scalars,
+not UTF-8 bytes or model tokens. Byte-fallback contributions stay in the sum.
+With this mean `m` in bits, the reward is
+`w * clamp(B_sentence + m, 0, B_sentence)`, default `B_sentence=8`.
+Thus a mean of -6 bits/scalar adds two bits at weight one; a mean at or below
+-8 adds zero. The mapping is absolute and independent of other pool members.
+It scores the candidate's internal dependencies without an EOS contribution.
+This positive reward replaces the contextual lift adjustment for that request.
 Pools with fewer than two distinct eligible outputs skip scoring.
 
 A model-owned 4,096-entry LRU caches unconditional sequence log probabilities
@@ -41,13 +52,15 @@ The cache stays in memory with the immutable model, is not persisted and is
 released with that model. Reloading a model creates a separate cache.
 
 Defaults come from `[local_model_ranking]` in [config/si.conf](../config/si.conf):
-`model_score_weight = 1.0` and `model_score_gap_limit_bits = 8`. Rust embeds
+`model_score_weight = 1.0`, `model_score_gap_limit_bits = 8` and
+`model_sentence_reward_cap_bits = 8`. Rust embeds
 this file at build time; rebuild and reinstall the input method to apply edits.
 Library callers can read a validated `SiConfig` and use
 `SmallReranker::open_with_config` without rebuilding. The section also controls
 pool size (1..64), context tokens (0..128) and candidate tokens (1..64).
-Weight accepts 0..4 and the gap limit 0..32 bits; either can be zero to disable
-adjustments. Missing whole engine sections retain bundled defaults; explicitly
+Weight accepts 0..4 and both bounds accept 0..32 bits. Zero weight disables both
+branches; a zero gap limit disables contextual lift, and a zero sentence cap
+disables BOS-only rewards. Missing whole engine sections retain bundled defaults; explicitly
 supplied sections require every current key. Conversion reads no configuration
 files. The CLI's `candidates` command still does not run the character model.
 
@@ -56,6 +69,17 @@ with user-dictionary snapshots. Secure input and provisional preview skip
 inference. Missing or invalid weights, an unscorable pool or inference errors
 use the statistical results. All scoring runs locally and transiently.
 [Model provenance](../Data/RerankerSmall/README.md)
+
+On the 1,020-query authored recall suite, adding the BOS-only branch to the
+current bounded-gram-backoff engine changed first-choice hits from 442 to 455
+and Recall@9 hits from 756 to 762. Fourteen references became first and one
+ceased to be first (`灯光师让我们站在白线内` became second behind
+`灯光是让我们站在白线内`). Full-pool hits stayed at 839; this final reranking
+does not inject candidates. These are regression measurements on local resources,
+not an independent quality estimate. For `chiyoushijian` without preceding text,
+`持有时间` receives +0.789539 bits and `吃有时间` +0.765877; their final scores
+are -23.682805 and -23.908164 respectively. The model's preference between
+these two is small; the gram-backoff change supplies most of their separation.
 
 The historical measurements below used the original v1 checkpoint. The current
 bundled selection and its isolated fixed-pool results are recorded in the
@@ -95,6 +119,39 @@ trigram with zero reward still prevents bigram fallback. Higher stored orders
 do not change the three-word ceiling, and short histories still discount
 bigrams. User-boosted priors use the same reward formula in the personalized
 lane; the separate user-model gram interpolation retains its existing policy.
+
+If neither observed order matches, the base score uses a bounded backoff penalty.
+Let `s = min(outgoing_count(last_word), incoming_count(next_exact_word_ID))`.
+The penalty is `B * max(0, s-m)/(s+k_backoff)` bits, with defaults
+`B=1`, `m=32`, `k_backoff=100`. This multiplies the unigram by
+`alpha = 2^(-penalty)`. Sparse histories and successor tokenizations absent from
+the corpus remain neutral. Missing higher orders never penalize a matching bigram.
+Both the base and personalized lanes and preceding-field history mixtures use
+the same base adjustment; user-model gram boosts remain separate. Prefixes use
+only consumed spelling. A zero backoff cap restores the former missing-record
+behavior. Observed rewards keep their existing policy, so this is not a fully
+normalized backoff probability model.
+
+The local `chiyoushijian` investigation found no exact `吃有时间` substring in
+the three `si-corpus/*/text.txt` inputs selected by `si-corpus-ingest.sh`.
+The separate `raw-text-v2/lccc/text.txt` snapshot contained three occurrences;
+the current written-text segmenter attaches `吃` to a preceding word in all
+three, then emits `有时间` as one token. The paired gram snapshot has 24,414
+outgoing observations for `吃`, 1,062 incoming observations for `有时间`, and
+no `吃 → 有时间` record. These local files are not a complete provenance log of
+all historical snapshot imports, so counts do not establish linguistic impossibility.
+The default penalty for that edge is about 0.886 bits. This evidence supports
+a bounded adjustment rather than an unconditional penalty for every missing gram.
+
+With the same local snapshots, correction both off and conservative, unavailable
+preceding text and no personal state, `持有时间` keeps its -24.472344-bit score;
+`吃有时间` changes from -23.787638 to -24.674041 and becomes second.
+The 1,020-query authored recall suite changes from 830 to 839 full-pool hits,
+739 to 756 Recall@9 hits, and 434 to 442 first-choice hits. Eleven previously
+missing targets enter the pool and two leave it; 20 references become first
+and 12 cease to be first. The changed beam order can lose valid constructed
+paths. These regression measurements do not establish representative quality,
+segmentation consistency, host compatibility or keystroke latency.
 
 Confirmed fragment starts use the base `<s>` grams. Fragment boundaries match
 offline ingestion: explicit delimiters and line endings start a new fragment;

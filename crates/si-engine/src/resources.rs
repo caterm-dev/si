@@ -27,7 +27,7 @@ pub use engine_config::{
     CandidateSearchConfig, EngineConfig, FieldContextConfig, PinyinCorrectionConfig,
     RerankerConfig, SpellingScoringConfig, StatisticalScoringConfig,
 };
-pub use learning_config::{LearningConfig, SiConfig};
+pub use learning_config::{AppLearningConfig, LearningConfig, SiConfig};
 pub use progress::CorpusProgress;
 use progress::ProgressReporter;
 

@@ -8,6 +8,15 @@
 typedef struct SIEngine SIEngine;
 typedef struct SICandidates SICandidates;
 typedef struct SIPrecedingTextCache SIPrecedingTextCache;
+typedef struct SIAppLearning SIAppLearning;
+size_t si_app_learning_snapshot_byte_limit(void);
+/* Storage-only app model. No candidate search connection. Confine a handle to one worker.
+   Observe offsets are UTF-8 bytes; count == 0 accepts NULL buffers and clears the previous snapshot.
+   Returns -1 = error, 0 = no new observations, 1 = published. */
+SIAppLearning *si_app_learning_open(const SIEngine *engine, const char *directory, const char *bundle);
+void si_app_learning_close(SIAppLearning *handle);
+int32_t si_app_learning_observe(SIAppLearning *handle,
+                              const uint8_t *text, size_t len, const size_t *ends, size_t count);
 
 typedef struct SIUserPhrase {
     const uint8_t *spelling;

@@ -59,6 +59,7 @@ impl<'a> Corpus<'a> {
 pub(super) struct Scoring<'a> {
     config: EngineConfig,
     base: Corpus<'a>,
+    base_incoming: Vec<f64>,
     start_token: Option<WordId>,
     user: Option<Corpus<'a>>,
     contexts: Mutex<Option<ContextCaches<'a>>>,
@@ -71,6 +72,14 @@ impl<'a> Scoring<'a> {
         config: EngineConfig,
     ) -> Self {
         let base = Corpus::new(base);
+        // Count exact lexeme IDs, once per immutable resource snapshot. A word
+        // absent from the corpus tokenization cannot supply negative evidence.
+        let mut base_incoming = vec![0.0; base.lexicon.len()];
+        if let Some(grams) = base.grams {
+            for ([_, next], count) in grams.bigrams() {
+                base_incoming[next.0 as usize] += count as f64;
+            }
+        }
         let user = user
             .map(Corpus::new)
             .filter(|corpus| !corpus.lexicon.is_empty());
@@ -85,6 +94,7 @@ impl<'a> Scoring<'a> {
         Self {
             config,
             base,
+            base_incoming,
             start_token: start_token.filter(|_| has_starts),
             user,
             contexts: Mutex::new(Some(ContextCaches::default())),
@@ -485,26 +495,22 @@ impl ScoreSession<'_, '_> {
         let config = self.model.config.statistical_scoring;
         if !self.field.base.is_empty() {
             let mut mixed = Scores::default();
-            for row in &self.field.base {
-                let mut probability = priors;
-                if let Some(gram) = highest_base_gram(
-                    &mut self.contexts.base,
-                    self.model.base,
-                    row.history.base,
-                    ids.base,
-                ) {
-                    probability.base = reward_base_gram(probability.base, gram, config);
-                    probability.personalized =
-                        reward_base_gram(probability.personalized, gram, config);
-                }
-                mixed.base += row.weight * probability.base;
-                mixed.personalized += row.weight * probability.personalized;
+            let mut penalized = false;
+            for index in 0..self.field.base.len() {
+                let row = &self.field.base[index];
+                let (history, weight) = (row.history.base, row.weight);
+                let probability = self.base_probabilities(priors, history, ids.base);
+                penalized |= probability.base < priors.base
+                    || probability.personalized < priors.personalized;
+                mixed.base += weight * probability.base;
+                mixed.personalized += weight * probability.personalized;
             }
-            // Normalized history weights must not turn neutral evidence into a
-            // penalty through accumulated rounding.
+            // Preserve intentional backoff penalties, while keeping neutral
+            // histories from becoming negative through accumulated rounding.
             priors = Scores {
-                base: priors.base.max(mixed.base.min(1.0)),
-                personalized: priors.personalized.max(mixed.personalized.min(1.0)),
+                base: if penalized { 0.0 } else { priors.base }.max(mixed.base.min(1.0)),
+                personalized: if penalized { 0.0 } else { priors.personalized }
+                    .max(mixed.personalized.min(1.0)),
             };
         }
         if let Some(user) = self.model.user.filter(|_| !self.field.user.is_empty()) {
@@ -567,19 +573,8 @@ impl ScoreSession<'_, '_> {
                 },
             );
         }
-        let base = self.model.base;
         let mut priors = *word_score.unigram.get_or_init(|| self.model.unigram(word));
-        if let Some(gram) =
-            highest_base_gram(&mut self.contexts.base, base, previous.base, word.ids.base)
-        {
-            priors.base =
-                reward_base_gram(priors.base, gram, self.model.config.statistical_scoring);
-            priors.personalized = reward_base_gram(
-                priors.personalized,
-                gram,
-                self.model.config.statistical_scoring,
-            );
-        }
+        priors = self.base_probabilities(priors, previous.base, word.ids.base);
         if let Some(user) = self.model.user {
             for (observed, mass) in
                 continuations(&mut self.contexts.user, user, previous.user, word.ids.user)
@@ -617,6 +612,38 @@ impl ScoreSession<'_, '_> {
                 personalized: probability_bits(priors.personalized) - cost,
             },
         )
+    }
+
+    fn base_probabilities(
+        &mut self,
+        priors: Scores,
+        history: HistoryIds,
+        next: Option<WordId>,
+    ) -> Scores {
+        let config = self.model.config.statistical_scoring;
+        if let Some(gram) =
+            highest_base_gram(&mut self.contexts.base, self.model.base, history, next)
+        {
+            return Scores {
+                base: reward_base_gram(priors.base, gram, config),
+                personalized: reward_base_gram(priors.personalized, gram, config),
+            };
+        }
+        let (Some(grams), Some(next), Some(key)) =
+            (self.model.base.grams, next, context_keys(history).next())
+        else {
+            return priors;
+        };
+        // Missing higher orders alone are too sparse to penalize: a matching
+        // bigram above always wins. Only the last-word history gates backoff.
+        let mass = prepare_context(&mut self.contexts.base, grams, key).mass;
+        let incoming = self.model.base_incoming[next.0 as usize];
+        let penalty = unseen_base_penalty(mass, incoming, config);
+        let alpha = (-penalty).exp2();
+        Scores {
+            base: priors.base * alpha,
+            personalized: priors.personalized * alpha,
+        }
     }
 }
 
@@ -661,6 +688,13 @@ fn reward_base_gram(prior: f64, gram: BaseGram, config: StatisticalScoringConfig
         // log score. A reward cannot make an edge's log probability positive.
         (prior_bits + bonus).exp2().min(1.0)
     }
+}
+
+fn unseen_base_penalty(mass: f64, incoming: f64, config: StatisticalScoringConfig) -> f64 {
+    let support = mass.min(incoming);
+    config.base_word_gram_backoff_penalty_cap_bits
+        * (support - config.base_word_gram_backoff_minimum_count).max(0.0)
+        / (support + config.base_word_gram_backoff_confidence_count)
 }
 
 fn start_reward(count: u64, maximum: u64, reward_limit: f64) -> f64 {

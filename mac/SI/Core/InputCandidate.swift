@@ -10,7 +10,7 @@ public struct InputCandidate: Identifiable, Equatable, Sendable {
     public private(set) var presentationScore: Double?
     /// Transient Rust gram adjustment from the preceding field text.
     var fieldContextAdjustment = 0.0
-    /// Ephemeral nonpositive sequence-lift adjustment from the local character model.
+    /// Ephemeral contextual lift adjustment or BOS-only reward from the local character model.
     var rerankingBonus = 0.0
     /// Exact-spelling correction priority is separate from statistical score units.
     public private(set) var isRememberedChoice = false

@@ -113,6 +113,7 @@ impl UserLearningConfig {
 /// Settings shared by conversion, offline corpus and vocabulary workflows.
 pub struct SiConfig {
     pub engine: EngineConfig,
+    pub app: AppLearningConfig,
     pub base_max_order: GramOrder,
     pub user_max_order: GramOrder,
     pub base_learning: LearningConfig,
@@ -137,12 +138,14 @@ impl SiConfig {
 
     fn parse(path: &Path, text: &str) -> io::Result<Self> {
         let engine = EngineConfig::parse_overrides(path, text)?;
+        let app = AppLearningConfig::parse(path, text)?.unwrap_or_default();
         let mut sections = [None, None];
         let mut current = None;
         for (line_number, line) in settings(text) {
             let section = match line {
                 "[base]" => Some(0),
                 "[user]" => Some(1),
+                "[app]" => Some(2),
                 _ if EngineConfig::is_section(line) => Some(2),
                 _ => None,
             };
@@ -212,11 +215,108 @@ impl SiConfig {
         let (user_max_order, user_learning) = finish("[user]", user)?;
         Ok(Self {
             engine,
+            app,
             base_max_order,
             user_max_order,
             base_learning,
             user_learning: UserLearningConfig::validate(user_learning)?,
         })
+    }
+}
+
+/// Immutable App Learning settings. Defaults are embedded from config/si.conf.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AppLearningConfig {
+    pub(super) max_order: GramOrder,
+    pub(super) max_snapshot_bytes: usize,
+    pub(super) max_model_bytes: u64,
+}
+
+impl Default for AppLearningConfig {
+    fn default() -> Self {
+        Self::parse(
+            Path::new("config/si.conf"),
+            include_str!("../../../../config/si.conf"),
+        )
+        .expect("valid bundled App Learning configuration")
+        .expect("bundled App Learning section")
+    }
+}
+
+impl AppLearningConfig {
+    pub fn max_order(self) -> GramOrder {
+        self.max_order
+    }
+
+    pub fn max_snapshot_bytes(self) -> usize {
+        self.max_snapshot_bytes
+    }
+
+    pub fn max_model_bytes(self) -> u64 {
+        self.max_model_bytes
+    }
+
+    // A missing whole section inherits embedded defaults, preserving older configuration files.
+    fn parse(path: &Path, text: &str) -> io::Result<Option<Self>> {
+        let mut selected = false;
+        let mut found = false;
+        let mut order = None;
+        let mut sizes = [None, None];
+        for (line, setting) in settings(text) {
+            if setting.starts_with('[') {
+                selected = setting == "[app]";
+                if selected && std::mem::replace(&mut found, true) {
+                    return Err(bad_line(path, line, "duplicate [app] section"));
+                }
+                continue;
+            }
+            if !selected {
+                continue;
+            }
+            let (key, value) = split_setting(path, line, setting)?;
+            if key == "max_order" {
+                let value = parse_count(value)
+                    .and_then(|value| GramOrder::try_from(value).ok())
+                    .ok_or_else(|| {
+                        bad_line(
+                            path,
+                            line,
+                            format!("max_order must be an integer in 2..={MAX_ORDER}"),
+                        )
+                    })?;
+                if order.replace(value).is_some() {
+                    return Err(bad_line(path, line, "duplicate max_order"));
+                }
+            } else {
+                let index = match key {
+                    "max_snapshot_bytes" => 0,
+                    "max_model_bytes" => 1,
+                    _ => return Err(bad_line(path, line, "unknown App Learning setting")),
+                };
+                let value = parse_count(value)
+                    .filter(|&value| value > 0 && (index != 0 || usize::try_from(value).is_ok()))
+                    .ok_or_else(|| {
+                        bad_line(
+                            path,
+                            line,
+                            "byte limit must be a positive representable integer",
+                        )
+                    })?;
+                if sizes[index].replace(value).is_some() {
+                    return Err(bad_line(path, line, "duplicate App Learning setting"));
+                }
+            }
+        }
+        if !found {
+            return Ok(None);
+        }
+        Ok(Some(Self {
+            max_order: order.ok_or_else(|| missing(path, "[app]", "max_order"))?,
+            max_snapshot_bytes: sizes[0]
+                .ok_or_else(|| missing(path, "[app]", "max_snapshot_bytes"))?
+                as usize,
+            max_model_bytes: sizes[1].ok_or_else(|| missing(path, "[app]", "max_model_bytes"))?,
+        }))
     }
 }
 
@@ -321,6 +421,10 @@ mod tests {
         let reloaded = SiConfig::parse(std::path::Path::new("si.conf"), configured).unwrap();
         assert_eq!(config.base_max_order, reloaded.base_max_order);
         assert_eq!(config.user_max_order, reloaded.user_max_order);
+        assert_eq!(config.app, reloaded.app);
+        assert_eq!(config.app.max_order(), si_gram::GramOrder::Fourgram);
+        assert_eq!(config.app.max_snapshot_bytes(), 512 * 1024);
+        assert_eq!(config.app.max_model_bytes(), 64 * 1024 * 1024);
         assert_eq!(config.base_learning.min_count, 40_000);
         assert_eq!(config.base_learning.min_forward_percent, 4);
         assert_eq!(config.base_learning.min_backward_percent, 4);
@@ -338,6 +442,62 @@ mod tests {
             config.engine.local_model_ranking.model_score_gap_limit_bits,
             8.0
         );
+    }
+
+    #[test]
+    fn app_configuration_accepts_overrides_and_defaults_for_older_files() {
+        let path = std::path::Path::new("app.conf");
+        let bundled = include_str!("../../../../config/si.conf");
+        let custom = bundled
+            .replace("[app]\nmax_order = 4", "[app]\nmax_order = 2")
+            .replace("max_snapshot_bytes = 524288", "max_snapshot_bytes = 10")
+            .replace("max_model_bytes = 67108864", "max_model_bytes = 2048");
+        let config = SiConfig::parse(path, &custom).unwrap();
+        assert_eq!(config.app.max_order(), si_gram::GramOrder::Bigram);
+        assert_eq!(config.app.max_snapshot_bytes(), 10);
+        assert_eq!(config.app.max_model_bytes(), 2048);
+        assert_eq!(config.user_max_order, SiConfig::default().user_max_order);
+        let old = bundled.split("[app]").next().unwrap();
+        assert_eq!(
+            SiConfig::parse(path, old).unwrap().app,
+            SiConfig::default().app
+        );
+    }
+
+    #[test]
+    fn invalid_or_incomplete_app_configuration_is_rejected() {
+        let path = std::path::Path::new("invalid.conf");
+        let bundled = include_str!("../../../../config/si.conf");
+        for (key, replacement) in [
+            ("[app]", "[app]\n[app]"),
+            ("[app]\nmax_order = 4", "[app]\nmax_order = 1"),
+            ("[app]\nmax_order = 4", "[app]\nmax_order = 6"),
+            (
+                "[app]\nmax_order = 4",
+                "[app]\nmax_order = 4\nmax_order = 3",
+            ),
+            ("[app]\nmax_order = 4", "[app]"),
+            ("max_snapshot_bytes = 524288", "max_snapshot_bytes = 0"),
+            ("max_snapshot_bytes = 524288", "max_snapshot_bytes = -1"),
+            ("max_snapshot_bytes = 524288", "max_snapshot_bytes = 1.5"),
+            ("max_snapshot_bytes = 524288", ""),
+            ("max_snapshot_bytes = 524288", "unknown = 524288"),
+            ("max_model_bytes = 67108864", "max_model_bytes = 0"),
+            (
+                "max_model_bytes = 67108864",
+                "max_model_bytes = 18446744073709551616",
+            ),
+            (
+                "max_model_bytes = 67108864",
+                "max_model_bytes = 1\nmax_model_bytes = 2",
+            ),
+            ("max_model_bytes = 67108864", ""),
+        ] {
+            assert!(
+                SiConfig::parse(path, &bundled.replace(key, replacement)).is_err(),
+                "{replacement}"
+            );
+        }
     }
 
     #[test]

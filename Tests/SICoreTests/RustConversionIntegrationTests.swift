@@ -50,15 +50,27 @@ struct RustConversionIntegrationTests {
     }
 
 
-    @Test func localModelWithNoEffectiveContextPreservesStatisticalCandidates() throws {
+    @Test func localModelWithNoEffectiveContextAddsBoundedSentenceRewards() throws {
         let engine = try #require(RustConversion.shared)
         let spelling = "xianzaitianjiazimu"
+        var presentationEngine = CandidateEngine(usesCoverageAdjustedOrder: false)
+        presentationEngine.rerankingEnabled = true
         for context: String? in [nil, "", "上一句话。"] {
             let baseline = engine.candidates(for: spelling, languages: [.simplifiedChinese], precedingText: context)
             let ranked = engine.candidates(for: spelling, languages: [.simplifiedChinese], precedingText: context,
                                            rerankingEnabled: true)
-            #expect(ranked == baseline)
-            #expect(ranked.allSatisfy { $0.rerankingBonus == 0 })
+            #expect(Set(ranked.map(\.id)) == Set(baseline.map(\.id)))
+            let scores = Dictionary(uniqueKeysWithValues: baseline.map { ($0.id, $0.rankingScore + $0.fieldContextAdjustment) })
+            #expect(ranked.allSatisfy { scores[$0.id] == $0.rankingScore + $0.fieldContextAdjustment })
+            #expect(ranked.allSatisfy { $0.rerankingBonus >= 0 && $0.rerankingBonus <= 8 })
+            #expect(ranked.contains { $0.rerankingBonus > 0 })
+            for row in ranked where row.isPartial || row.isLiteral || row.hasCompletion || row.hasLiteralSegments {
+                #expect(row.rerankingBonus == 0)
+            }
+            let presented = presentationEngine.candidates(for: spelling, languages: [.simplifiedChinese], precedingText: context)
+            let shortlist = CandidateShortlist.candidates(from: presented)
+            #expect(shortlist.first?.id == ranked.first?.id)
+            #expect(shortlist.last?.text == spelling && shortlist.last?.isLiteral == true)
         }
     }
 

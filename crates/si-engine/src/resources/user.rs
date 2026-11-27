@@ -1,5 +1,6 @@
 //! Local user-model updates from explicitly supplied sentences.
 
+pub mod app;
 mod edit;
 pub use edit::UserEntry;
 mod ingest;

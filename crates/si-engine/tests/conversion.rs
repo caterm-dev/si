@@ -91,8 +91,10 @@ fn configured_model_pool_context_and_candidate_token_limits_are_used() -> io::Re
     )?;
     let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
     let baseline = engine.candidates("shu", CHINESE);
-    assert_eq!(baseline, convert("shu", Some("院子里种几棵"), &model));
-    assert_eq!(baseline, convert("shu", None, &model));
+    assert_eq!(
+        convert("shu", Some("院子里种几棵"), &model),
+        convert("shu", None, &model)
+    );
 
     let config = engine_config(&directory, &[("model_candidate_limit", "2")])?;
     let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
@@ -417,7 +419,7 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
 }
 
 #[test]
-fn small_reranker_limits_contextual_lift_and_skips_empty_fragments() -> io::Result<()> {
+fn small_reranker_limits_contextual_lift_and_uses_bos_for_empty_fragments() -> io::Result<()> {
     let directory = Scratch::new()?;
     let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
     let reranker = SmallReranker::open(&model)?;
@@ -443,9 +445,14 @@ fn small_reranker_limits_contextual_lift_and_skips_empty_fragments() -> io::Resu
                 },
             )
         };
-        for context in [None, Some(""), Some("上一句话。")] {
-            assert_eq!(convert(context), baseline);
+        let bos = convert(None);
+        for context in [Some(""), Some("上一句话。")] {
+            assert_eq!(convert(context), bos);
         }
+        assert!(
+            bos.iter()
+                .all(|row| row.reranking_bonus >= 0.0 && row.reranking_bonus <= 8.0)
+        );
         let ranked = convert(Some("院子里种几棵"));
         assert_eq!(ranked[0].text, expected_first);
         let tree = ranked.iter().find(|row| row.text == "树").unwrap();
@@ -453,6 +460,75 @@ fn small_reranker_limits_contextual_lift_and_skips_empty_fragments() -> io::Resu
         assert_eq!(tree.reranking_bonus, 0.0);
         let other = ranked.iter().find(|row| row.text == "数").unwrap();
         assert!(other.reranking_bonus < -2.0 && other.reranking_bonus >= -8.0);
+    }
+    Ok(())
+}
+
+#[test]
+fn small_reranker_adds_bounded_bos_rewards_without_changing_lexical_evidence() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "chi'you'shi'jian", "吃有时间", 100);
+    add(&mut lexicon, ZH, "chi'you'shi'jian", "持有时间", 100);
+    add(&mut lexicon, ZH, "chi", "吃", 10);
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let model = SmallReranker::open(&path)?;
+    let source = "chiyoushijian";
+    let baseline = engine.candidates(source, BILINGUAL);
+    assert_eq!(baseline[0].text, "吃有时间");
+    let convert = |model: &SmallReranker, context, preview| {
+        engine.convert_with_options(
+            source,
+            BILINGUAL,
+            preview,
+            &[],
+            ConversionPreferences::default(),
+            context,
+            ConversionOptions {
+                correction: None,
+                reranker: Some(model),
+            },
+        )
+    };
+    let rows = convert(&model, None, false);
+    assert_eq!(rows[0].text, "持有时间");
+    assert_eq!(rows, convert(&model, Some(""), false));
+    assert_eq!(rows, convert(&model, Some("上一句话。"), false));
+    assert_eq!(baseline, convert(&model, None, true));
+    let config = engine_config(
+        &directory,
+        &[
+            ("model_context_token_limit", "1"),
+            ("model_score_gap_limit_bits", "0"),
+        ],
+    )?;
+    let truncated = SmallReranker::open_with_config(&path, config.local_model_ranking)?;
+    assert_eq!(rows, convert(&truncated, Some("\u{10ffff}"), false));
+    for row in &rows {
+        let before = find(&baseline, &row.text, row.language, row.consumed_bytes);
+        assert_eq!(row.score_bits, before.score_bits);
+        assert_eq!(row.source_boundaries, before.source_boundaries);
+        assert_eq!(row.confirmation_boundaries, before.confirmation_boundaries);
+        assert!(row.reranking_bonus >= 0.0 && row.reranking_bonus <= 8.0);
+        if row.consumed_bytes < source.len()
+            || row.language == CandidateLanguage::Literal
+            || row.completion
+            || row.verbatim
+        {
+            assert_eq!(row.reranking_bonus, 0.0);
+        }
+    }
+    assert_literal(rows.last().unwrap(), source);
+    for changes in [
+        vec![("model_sentence_reward_cap_bits", "0")],
+        vec![("model_score_weight", "0")],
+        vec![("model_candidate_token_limit", "1")],
+    ] {
+        let config = engine_config(&directory, &changes)?;
+        let model = SmallReranker::open_with_config(&path, config.local_model_ranking)?;
+        assert_eq!(baseline, convert(&model, None, false));
     }
     Ok(())
 }
@@ -779,7 +855,7 @@ fn gram_history_and_continuation_mass_span_languages() -> io::Result<()> {
 }
 
 #[test]
-fn base_grams_use_one_trigram_or_discounted_bigram_and_missing_matches_are_neutral()
+fn base_grams_use_one_trigram_or_discounted_bigram_and_sparse_missing_matches_are_neutral()
 -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
@@ -862,6 +938,122 @@ fn base_grams_use_one_trigram_or_discounted_bigram_and_missing_matches_are_neutr
 }
 
 #[test]
+fn unseen_base_bigrams_require_observed_history_and_successor_tokenization() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut last_penalty = 0.0;
+    for (history_count, incoming_count) in [
+        (10_000, 0),
+        (32, 10_000),
+        (10_000, 32),
+        (100, 100),
+        (10_000, 10_000),
+    ] {
+        let mut lexicon = Lexicon::new();
+        let look = add(&mut lexicon, ZH, "kan", "看", 100);
+        let book = add(&mut lexicon, ZH, "shu", "书", 100);
+        let tree = add(&mut lexicon, ZH, "shu", "树", 100);
+        let again = add(&mut lexicon, ZH, "zai", "再", 100);
+        let mut grams = GramBuilder::new();
+        grams.add(&[look, tree], history_count).unwrap();
+        grams.add(&[again, book], incoming_count).unwrap();
+        let resources = directory.resources(&mut lexicon, Some(grams))?;
+        let enabled = CandidateEngine::new(&resources, None);
+        let config = engine_config(
+            &directory,
+            &[("base_word_gram_backoff_penalty_cap_bits", "0")],
+        )?;
+        let disabled = CandidateEngine::new_with_config(&resources, None, config);
+        for preview in [false, true] {
+            let convert = |engine: &CandidateEngine<'_>, input| {
+                engine.convert(
+                    input,
+                    CHINESE,
+                    preview,
+                    &[],
+                    ConversionPreferences::default(),
+                )
+            };
+            let rows = convert(&enabled, "kanshu");
+            assert_eq!(rows, convert(&enabled, "kanshu"));
+            let baseline = convert(&disabled, "kanshu");
+            let score = |rows: &[Candidate], text| {
+                find(rows, text, CandidateLanguage::Chinese, 6)
+                    .score_bits
+                    .unwrap()
+            };
+            let penalty = score(&baseline, "看书") - score(&rows, "看书");
+            if history_count <= 32 || incoming_count <= 32 {
+                assert_eq!(penalty, 0.0);
+            } else {
+                assert!(penalty > 0.0 && penalty < 1.0);
+                if !preview {
+                    assert!(penalty > last_penalty);
+                    last_penalty = penalty;
+                }
+            }
+            // Seen bigrams, the first word, and direct words retain their scores.
+            assert_eq!(score(&baseline, "看树"), score(&rows, "看树"));
+            assert_eq!(convert(&enabled, "shu"), convert(&disabled, "shu"));
+            let longer = convert(&enabled, "kanshuzai");
+            assert_eq!(score(&rows, "看书"), score(&longer, "看书"));
+            let field = enabled.convert_with_context(
+                "shu",
+                CHINESE,
+                preview,
+                &[],
+                ConversionPreferences::default(),
+                "看",
+            );
+            let adjustment = find(&field, "书", CandidateLanguage::Chinese, 3).context_adjustment;
+            assert!((adjustment + penalty).abs() < 1e-12);
+            assert_literal(rows.last().unwrap(), "kanshu");
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn confident_unseen_bigram_backoff_can_overturn_a_high_frequency_word_stack() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let eat = add(&mut lexicon, ZH, "chi", "吃", 18_329_161);
+    let have_time = add(&mut lexicon, ZH, "you'shi'jian", "有时间", 2_068_444);
+    let hold = add(&mut lexicon, ZH, "chi'you", "持有", 321_058);
+    let time = add(&mut lexicon, ZH, "shi'jian", "时间", 35_561_296);
+    let other = add(&mut lexicon, ZH, "qi'ta", "其他", 23_374_649_933);
+    let mut grams = GramBuilder::new();
+    grams.add(&[eat, other], 24_414).unwrap();
+    grams.add(&[other, have_time], 1_062).unwrap();
+    grams.add(&[hold, time], 5).unwrap();
+    grams.add(&[hold, other], 142).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let config = engine_config(
+        &directory,
+        &[("base_word_gram_backoff_penalty_cap_bits", "0")],
+    )?;
+    let disabled = CandidateEngine::new_with_config(&resources, None, config);
+    let baseline = disabled.candidates("chiyoushijian", BILINGUAL);
+    assert_eq!(baseline[0].text, "吃有时间");
+    for correction in [false, true] {
+        let enabled = CandidateEngine::new(&resources, None).with_pinyin_correction(correction);
+        let rows = enabled.candidates("chiyoushijian", BILINGUAL);
+        assert_eq!(rows[0].text, "持有时间");
+        assert_eq!(
+            rows[0].score_bits,
+            find(&baseline, "持有时间", CandidateLanguage::Chinese, 13).score_bits
+        );
+        assert!(
+            find(&rows, "吃有时间", CandidateLanguage::Chinese, 13)
+                .score_bits
+                .unwrap()
+                < rows[0].score_bits.unwrap()
+        );
+        assert_literal(rows.last().unwrap(), "chiyoushijian");
+    }
+    Ok(())
+}
+
+#[test]
 fn preceding_field_uses_only_the_last_fragment_and_resets_at_punctuation() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
@@ -908,9 +1100,11 @@ fn preceding_field_uses_only_the_last_fragment_and_resets_at_punctuation() -> io
         };
         assert_eq!(first_chinese(&baseline), "和");
         assert_eq!(first_chinese(&latest), "河");
-        assert_eq!(
-            find(&latest, "he", CandidateLanguage::English, 2).context_adjustment,
-            0.0
+        // Both exact word IDs have ample corpus evidence, but this bilingual
+        // transition is absent. The last fragment applies bounded backoff.
+        assert!(
+            (find(&latest, "he", CandidateLanguage::English, 2).context_adjustment + 0.88).abs()
+                < 1e-12
         );
         assert!(
             find(

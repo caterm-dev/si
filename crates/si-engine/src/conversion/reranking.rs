@@ -41,12 +41,11 @@ impl SmallReranker {
     }
 
     pub(super) fn bonuses(&self, context: &str, texts: &[&str]) -> Option<Vec<f64>> {
-        if context.is_empty()
-            || self.config.model_context_token_limit == 0
-            || self.config.model_score_weight == 0.0
-            || self.config.model_score_gap_limit_bits == 0.0
-        {
+        if self.config.model_score_weight == 0.0 {
             return Some(vec![0.0; texts.len()]);
+        }
+        if context.is_empty() || self.config.model_context_token_limit == 0 {
+            return self.sentence_bonuses(texts);
         }
         let conditioned = self
             .model
@@ -58,6 +57,9 @@ impl SmallReranker {
             )
             .ok()??;
         if conditioned.context_tokens_used == 0 {
+            return self.sentence_bonuses(texts);
+        }
+        if self.config.model_score_gap_limit_bits == 0.0 {
             return Some(vec![0.0; texts.len()]);
         }
         let baseline = self.baseline_scores(texts)?;
@@ -68,6 +70,16 @@ impl SmallReranker {
             .map(|(with, without)| (with - without) * std::f64::consts::LOG2_E)
             .collect();
         relative_adjustments(&lifts, self.config)
+    }
+
+    fn sentence_bonuses(&self, texts: &[&str]) -> Option<Vec<f64>> {
+        if self.config.model_sentence_reward_cap_bits == 0.0 {
+            return Some(vec![0.0; texts.len()]);
+        }
+        // Empty neural context seeds the native BOS token. Score the complete
+        // sequence, including its internal dependencies and byte-fallback tokens.
+        let scores = self.baseline_scores(texts)?;
+        sentence_rewards(&scores, texts, self.config)
     }
 
     fn baseline_scores(&self, texts: &[&str]) -> Option<Vec<f64>> {
@@ -105,6 +117,25 @@ impl SmallReranker {
     }
 }
 
+fn sentence_rewards(scores: &[f64], texts: &[&str], config: RerankerConfig) -> Option<Vec<f64>> {
+    if scores.len() != texts.len() || scores.is_empty() {
+        return None;
+    }
+    scores
+        .iter()
+        .zip(texts)
+        .map(|(score, text)| {
+            let count = text.chars().count();
+            if !score.is_finite() || *score > 0.0 || count == 0 {
+                return None;
+            }
+            let mean_bits = score * std::f64::consts::LOG2_E / count as f64;
+            let cap = config.model_sentence_reward_cap_bits;
+            Some(config.model_score_weight * (cap + mean_bits).clamp(0.0, cap))
+        })
+        .collect()
+}
+
 fn relative_adjustments(scores: &[f64], config: RerankerConfig) -> Option<Vec<f64>> {
     if !scores.iter().all(|score| score.is_finite()) {
         return None;
@@ -123,7 +154,7 @@ fn relative_adjustments(scores: &[f64], config: RerankerConfig) -> Option<Vec<f6
 
 #[cfg(test)]
 mod tests {
-    use super::{SmallReranker, relative_adjustments};
+    use super::{SmallReranker, relative_adjustments, sentence_rewards};
     use crate::resources::RerankerConfig;
 
     #[test]
@@ -143,10 +174,40 @@ mod tests {
             first,
             model.bonuses("我准备", &["吃肌酸", "吃计算"]).unwrap()
         );
+        let empty = model.bonuses("", &["持有时间", "吃有时间"]).unwrap();
+        assert!(empty[0] > empty[1] && empty[1] > 0.0);
+        assert_eq!(empty, model.bonuses("", &["持有时间", "吃有时间"]).unwrap());
+    }
+
+    #[test]
+    fn bos_rewards_normalize_by_scalars_and_do_not_depend_on_pool_outliers() {
+        let config = RerankerConfig::default();
+        let log = std::f64::consts::LN_2;
+        let scores = [-4.0 * log, -8.0 * log, -100.0 * log, 0.0];
+        let texts = ["好", "你好", "🙂", "a"];
+        let rewards = sentence_rewards(&scores, &texts, config).unwrap();
+        assert_eq!(rewards, [4.0, 4.0, 0.0, 8.0]);
         assert_eq!(
-            model.bonuses("", &["吃肌酸", "吃计算"]),
-            Some(vec![0.0, 0.0])
+            sentence_rewards(&scores[..2], &texts[..2], config).unwrap(),
+            rewards[..2]
         );
+        assert_eq!(
+            sentence_rewards(&[-8.0 * log], &["é"], config).unwrap(),
+            [0.0]
+        );
+        let custom = RerankerConfig {
+            model_score_weight: 0.5,
+            model_sentence_reward_cap_bits: 6.0,
+            ..config
+        };
+        assert_eq!(
+            sentence_rewards(&[-4.0 * log], &["好"], custom).unwrap(),
+            [1.0]
+        );
+        assert!(sentence_rewards(&[f64::NAN], &["好"], config).is_none());
+        assert!(sentence_rewards(&[1.0], &["好"], config).is_none());
+        assert!(sentence_rewards(&[0.0], &[""], config).is_none());
+        assert!(sentence_rewards(&[], &[], config).is_none());
     }
 
     #[test]

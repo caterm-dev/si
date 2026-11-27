@@ -43,6 +43,9 @@ and [bridge checks](TESTING.md#automated-checks).
 - [ ] Broader unknown-word/language-boundary detection beyond bounded lexical heuristics.
 - [x] Opt-in global Personal Learning with shared usage/correction counts, neutral first choices, one-correction exact-spelling priority, bounded frequency rewards and global management; no per-app learning controls, decay or age expiry.
 - [x] Local learning from Return field snapshots persists the Rust user lexicon and word grams.
+- [x] Independent default-off App Learning settings and 30-second background AX sampling into private per-app lexical/word-gram pairs, with one previous snapshot per app, append-only paragraph differences, one fixed file pair and explicit deletion; storage only.
+- [ ] Native App Learning timer, AX coverage, secure/direct-input, permission and Settings accessibility verification.
+- [ ] Integrate app-local models into candidate search/ranking after separate design and verification.
 - [ ] Native sentence learning verification across compatible host fields, focus changes, secure input and Settings accessibility.
 - [x] Remove App History recording/completion; migrate app archives to global vocabulary-only schema 4, merging app counts, preserving schema-3 evidence and resetting older ambiguous ranking evidence.
 - [x] Independently opted-in permanent Input History with exact per-submission spelling/output, repeat preservation, local SQLite pages, search, explicit deletion and error/retry controls; no candidate/training integration.

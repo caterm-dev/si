@@ -179,6 +179,14 @@
 
 // Optional experimental permissions
 "Accessibility" = "Accessibility";
+"Export Current App AX Data…" = "Export Current App AX Data…";
+"AX Export Failed" = "AX Export Failed";
+"No foreground application is available for AX export." = "No foreground application is available for AX export.";
+"Allow SI in macOS Accessibility settings before exporting AX data." = "Allow SI in macOS Accessibility settings before exporting AX data.";
+"AX export is unavailable during secure input." = "AX export is unavailable during secure input.";
+"The foreground application changed. Return to the app and export again." = "The foreground application changed. Return to the app and export again.";
+"The application did not expose a readable AX tree." = "The application did not expose a readable AX tree.";
+"The AX export exceeded the file size limit. No file was saved." = "The AX export exceeded the file size limit. No file was saved.";
 "Allowed" = "Allowed";
 "Not allowed" = "Not allowed";
 "Open Settings…" = "Open Settings…";
@@ -346,3 +354,41 @@
 "Local model ranking" = "Local model ranking";
 "Use preceding text to help rank whole-input candidates on this Mac." = "Use preceding text to help rank whole-input candidates on this Mac.";
 "Offer spelling suggestions. Press Space to accept a correction highlighted in first place." = "Offer spelling suggestions. Press Space to accept a correction highlighted in first place.";
+
+"App Learning" = "App Learning";
+
+"Enable App Learning" = "Enable App Learning";
+
+"Every 30 seconds, SI reads eligible foreground app text through Accessibility and saves a separate local vocabulary and word-gram model for that app. Button text is excluded. These models do not affect candidates yet." = "Every 30 seconds, SI reads eligible foreground app text through Accessibility and saves a separate local vocabulary and word-gram model for that app. Button text is excluded. These models do not affect candidates yet.";
+
+"Allow SI in macOS Accessibility settings, then refresh permission status here. No app text is read until permission is granted." = "Allow SI in macOS Accessibility settings, then refresh permission status here. No app text is read until permission is granted.";
+
+"Waiting for the next 30-second sample." = "Waiting for the next 30-second sample.";
+
+"App vocabulary and word grams saved." = "App vocabulary and word grams saved.";
+
+"Unchanged text was not counted again." = "Unchanged text was not counted again.";
+
+"No complete eligible AX snapshot was available. This sample was skipped." = "No complete eligible AX snapshot was available. This sample was skipped.";
+
+"App Learning is paused because data could not be saved. Retry or clear its data." = "App Learning is paused because data could not be saved. Retry or clear its data.";
+
+"Retry App Learning" = "Retry App Learning";
+
+"Reading app text" = "Reading app text";
+
+"Saved App Data" = "Saved App Data";
+
+"Only derived vocabulary, word grams and app metadata are saved. Raw AX snapshots and source paragraphs are not saved. Data stays on this Mac until you delete it; turning off App Learning stops sampling and keeps saved models." = "Only derived vocabulary, word grams and app metadata are saved. Raw AX snapshots and source paragraphs are not saved. Data stays on this Mac until you delete it; turning off App Learning stops sampling and keeps saved models.";
+
+"%ld words · %ld word grams" = "%ld words · %ld word grams";
+
+"Delete App Learning for %@" = "Delete App Learning for %@";
+
+"Clear All App Learning Data…" = "Clear All App Learning Data…";
+
+"Clear all App Learning data?" = "Clear all App Learning data?";
+
+"This deletes app vocabulary, word grams and metadata. Other personal data is kept." = "This deletes app vocabulary, word grams and metadata. Other personal data is kept.";
+
+"Delete this app’s learning data?" = "Delete this app’s learning data?";

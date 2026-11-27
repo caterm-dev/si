@@ -6,13 +6,14 @@ enum SettingsPage: Hashable {
     case directInput
     case phrases
     case learning
+    case appLearning
     case inputHistory
     case permissions
     case about
 
     static let groups: [(title: String, pages: [Self])] = [
         ("Input", [.typing, .aiCompletion, .directInput]),
-        ("Personal Data", [.phrases, .learning, .inputHistory]),
+        ("Personal Data", [.phrases, .learning, .appLearning, .inputHistory]),
         ("System", [.permissions, .about])
     ]
 
@@ -23,6 +24,7 @@ enum SettingsPage: Hashable {
         case .directInput: "Direct Input by Application"
         case .phrases: "Personal Phrases"
         case .learning: "Personal Learning"
+        case .appLearning: "App Learning"
         case .inputHistory: "Input History"
         case .permissions: "Experimental Permissions"
         case .about: "About SI"
@@ -44,6 +46,7 @@ enum SettingsPage: Hashable {
         case .directInput: "macwindow"
         case .phrases: "text.badge.plus"
         case .learning: "sparkles"
+        case .appLearning: "app.connected.to.app.below.fill"
         case .inputHistory: "clock"
         case .permissions: "lock.shield"
         case .about: "info.circle"
@@ -66,6 +69,7 @@ enum SettingsPage: Hashable {
         case .directInput: ["Manage Direct Input…", "Applications", "Terminal", "Toggle Direct Input Shortcut", "Record Shortcut…"]
         case .phrases: ["Add Phrase…", "Edit", "Delete", "Delete All…", "Frequency", "user.silex"]
         case .learning: ["Manage Learning Data…", "Clear Personal Learning Data…"]
+        case .appLearning: ["Enable App Learning", "Accessibility", "Saved App Data", "Clear All App Learning Data…"]
         case .inputHistory: ["Save Input History", "Export Input History…", "Clear Input History…"]
         case .permissions: ["Accessibility", "Screen Recording"]
         case .about: ["Software Updates", "Check for Updates…", "Version", "Keyboard Shortcuts", "GitHub"]

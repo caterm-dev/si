@@ -27,8 +27,11 @@ original spelling, including umlaut aliases and trailing separators. The
 engine calculates word frequency as the word's count divided by the total
 count across the dictionary, including Chinese and English. Word grams score
 continuations across languages using the same rule. At each word position, the
-base model uses the highest matching trigram, otherwise a discounted bigram;
-missing records add zero. Its nonnegative log-probability-ratio reward is capped
+base model uses the highest matching trigram, otherwise a discounted bigram.
+When neither exists, a confidence-gated backoff can subtract up to one bit.
+It requires more than 32 observations of both the preceding word's continuations
+and the exact next word's incoming bigrams; sparse or unseen tokenizations stay neutral.
+Its nonnegative observed log-probability-ratio reward is capped
 at 5 bits and weighted by the joint count `c/(c+10)`. Bigram rewards are multiplied
 by 0.7. Set these defaults under `[statistical_scoring]` in `config/si.conf`.
 Spelling costs
@@ -69,7 +72,10 @@ of Pinyin correction. It compares each complete candidate's log probability with
 and without the preceding field fragment, preserving the candidate's internal
 dependencies in both passes. Sequence-level lift is compared with the highest
 lift in the pool; relative adjustments are clipped to `[-8, 0]` bits and weighted
-by 1.0. Empty or unavailable context contributes zero and skips inference.
+by 1.0. With empty or unavailable context, the model seeds its native sentence-start
+token and scores the whole candidate. Let `m` be its mean log2 probability per
+output Unicode scalar. The added reward is `clamp(8 + m, 0, 8)` bits before
+the same model weight. A zero or truncated-away context budget uses this branch too.
 SI uses the statistical order whenever model scoring is unavailable.
 Set model adjustment and scoring-pool limits under `[local_model_ranking]` in
 [config/si.conf](config/si.conf). These defaults are embedded in Rust at build
@@ -82,6 +88,11 @@ are separate explicit work.
 Its [distillation sample generator](llm/reranker_large/README.md#source-linked-candidate-pools)
 accepts frozen corpus documents and a pinned local SI dialogue inventory,
 and reports context-free, short/long-context, partial-input and typo cases.
+An [additional-corpus preparation command](llm/reranker_large/README.md#prepare-an-additional-unused-batch)
+keeps the student's tokenizer and excludes prior public corpus groups/text
+without changing an active training run. Its [separate continuation command](llm/reranker_large/README.md#continue-pretraining-on-the-additional-batch)
+initializes from preserved student weights and trains the additional batch
+for at most one pass in a new run.
 [Scoring and bounds](docs/ranking-architecture.md#local-model-ranking)
 
 In compatible macOS text fields, SI requests at most the last 96 UTF-16 units
@@ -241,7 +252,42 @@ Codex CLI and Claude Code receive SI's `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY` 
 
 Screen Recording is used for independently enabled, manually triggered AI completion. Granting system permission by itself leaves ordinary conversion, enabled languages, Personal Learning and Input History unchanged. Accessibility remains an independent experimental permission action. Input Monitoring and global event taps are not used. Native permission dialogs still require [manual verification](docs/TESTING.md#experimental-permissions).
 
+For local inspection, choose **Export Current App AX Data…** from SI's input-source menu while the application you want to inspect is foreground. With Accessibility already authorized, SI reads that application's exposed AX graph on a worker actor and reveals a new readable JSON file in `~/Library/Application Support/SI/AXExports/`. It includes node references, attributes, action/parameterized-attribute names and AX error codes; parameterized attributes are not invoked, opaque values are identified by type, and attributed strings retain their plain text. This cannot guarantee all application text. Secure input stops the export and secure text nodes are redacted. Switching applications aborts the next validation rather than retargeting the export. Limits are 5,000 nodes, 1,024 values per array, 256 attributes per node, 256 KiB per string, 8 MiB total text, 100,000 attributes/values and a 20-second traversal budget (individual AX calls may finish afterward); the JSON records truncations. The final file is limited to 32 MiB. Files are owner-only, stay local and remain until you delete them in Finder. This manual export does not enable AI, learning or Input History.
+
+Extract one-sentence-per-line TXT from an existing export entirely offline with Python 3:
+
+```sh
+python3 scripts/ax_to_text.py /path/to/SI-AX-export.json
+```
+
+This creates only an adjacent `.sentences.txt` file with owner-only permissions. Existing output requires `--overwrite`; `--output` selects another destination. The default root is the focused/main window; `--root NODE_ID` restricts extraction to a particular subtree. Body-only extraction is the default: button/menu/toolbar text is excluded, including inline button mentions and sidebar titles exposed as buttons. `--body-only` explicitly selects this default; use `--include-controls` only to opt into control text. AX paragraph/style/link/list structure joins inline fragments before punctuation-based sentence splitting, retaining distinct repeated text. Each sentence occupies one line; outer whitespace is trimmed and internal line breaks become spaces. Sentence splitting and geometry fallbacks are heuristic, so this does not guarantee original layout, complete screen coverage or linguistically exact sentence boundaries. Truncated snapshots and missing child references produce visible warnings while exporting available text. Exposed offscreen content can be included; declared hidden/screen-reader-only and secure elements are excluded. Extracted files remain private local inspection data, are ignored by Git under `SI-AX-*` names and are never automatically used for learning or sent to a service.
+
 Xcode resolves [PermissionFlow 2.11.4](https://github.com/jaywcjlove/PermissionFlow/releases/tag/v2.11.4) on the first app build. Its MIT license permits redistribution with the [included notice](mac/SI/Resources/PermissionFlow-LICENSE.txt).
+
+## App Learning
+
+Open **SI Settings → Personal Data → App Learning** and turn on **Enable App Learning**. This independent switch defaults to off. If Accessibility is missing, the page explains how to grant it and provides **Open Accessibility Settings…** and **Refresh Permission Status**. Permission checks never prompt while typing, and a system grant alone does not enable sampling.
+
+While enabled, SI attempts one asynchronous foreground-window AX read every 30 seconds, starting after the first interval and continuing with Settings closed. It requires a matching active InputMethodKit client, skips SI itself, secure input and application-wide direct input, and revalidates client, app, window and consent. Buttons, menus, toolbars, images, declared hidden content and secure fields are excluded. Accessible offscreen document text can still be included. Unsupported, failed or truncated reads skip that sample. No screenshot, clipboard or network access is involved. **App Learning only saves data; it is not connected to candidate generation or ranking.**
+
+Each app gets one private directory under `~/Library/Application Support/SI/AppLearning/<SHA-256-of-bundle-ID>/`, containing one fixed `app.silex`, `app.sigram` and `meta-v1.txt` set. Metadata records format version, bundle ID, last model-update time, revision, word/gram counts and the paragraph count of the last saved snapshot. A lock file and temporary publication files protect writes; no a/b generations are retained. Existing a/b models are flattened on the next model open, preserving the active pair before removing the old directories and pointer. The base model and global Personal Learning, Personal Phrases and Input History remain separate. Derived words may themselves contain private names or addresses.
+
+Each app keeps only its previous accepted paragraph snapshot in memory. Current paragraphs are compared by exact text and occurrence count, regardless of order; only occurrences absent from that previous snapshot are ingested. A modified paragraph is simply another new observation: old word and gram counts are never retracted. There is no edit detection, historical paragraph cache or window/document deduplication state. Switching windows uses the same app-level previous snapshot, and text that disappeared for a sample can count again when it returns. A complete empty snapshot clears the previous comparison; an incomplete read leaves it unchanged. Restarting SI or disabling/re-enabling App Learning also clears the comparison snapshot.
+
+The `[app]` section of [config/si.conf](config/si.conf) controls App Learning independently of `[base]` and `[user]`:
+
+```ini
+[app]
+max_order = 4
+max_snapshot_bytes = 524288
+max_model_bytes = 67108864
+```
+
+New observations count word grams from order two through `max_order` (2..5); changing it preserves existing counts at other orders. The two positive byte limits default to **512 KiB of UTF-8 source text per snapshot** and **64 MiB combined for each app's fixed model files**, including metadata. These defaults are embedded in Rust at build time; rebuild and reinstall SI to apply configuration edits. Older configuration files without `[app]` inherit embedded defaults; a supplied section requires all three keys.
+
+A snapshot over the configured source limit is skipped entirely, leaving the previous snapshot and saved model unchanged. There are no separate paragraph, word, gram, app-count, AX-node, tree-depth or child-count quotas. AX traversal is iterative, checks cancellation/state, detects cycles and pages child arrays; a slow AX call can still fail at its 0.2-second messaging timeout. Only one previous snapshot per app is retained. A model update that would exceed the configured model limit is rejected before replacing the fixed files, with a visible storage error and unarmed temporary files cleaned up. Lowering that limit below an existing model's size also causes a visible open error and preserves the files. **Retry App Learning** resumes sampling; failed raw snapshots are not durably queued. Turning the feature off stops reads, releases previous snapshots after in-flight work finishes and retains saved models. Normal termination waits for accepted work.
+
+Models have no automatic expiry. Use the page's per-app **Delete** or **Clear All App Learning Data…** to remove the app model, metadata and any interrupted temporary publication; deletion invalidates older captures. Raw AX snapshots and source paragraphs are not written to disk. Models are unencrypted, owner-only local files and may be accessible to other software running as you or backups. No existing learning/history consent enables App Learning. See [privacy](docs/PRIVACY.md#app-learning) and [host checks](docs/TESTING.md#app-learning).
 
 ## Personal Learning
 

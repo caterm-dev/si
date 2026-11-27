@@ -66,6 +66,12 @@ final class RustConversion: @unchecked Sendable {
         return handle.map { RustConversion(engine: $0, correctionMode: correctionMode) }
     }
 
+    func openAppLearning(at directory: URL, bundle: String) -> OpaquePointer? {
+        directory.withUnsafeFileSystemRepresentation { path in
+            bundle.withCString { si_app_learning_open(engine, path, $0) }
+        }
+    }
+
     var userEntries: [UserLexiconEntry] {
         var entries: [UserLexiconEntry] = []
         var row = SIUserEntryView()
