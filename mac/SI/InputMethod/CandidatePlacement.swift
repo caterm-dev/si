@@ -36,6 +36,12 @@ enum CandidatePlacement {
         guard available.width > 0, available.height > 0 else { return nil }
         let size = CGSize(width: min(preferredSize.width, availableWidth(at: anchor)),
                           height: min(preferredSize.height, available.height))
-        return CGRect(x: anchor.rect.minX, y: anchor.rect.minY - size.height, width: size.width, height: size.height)
+        let below = anchor.rect.minY - size.height
+        // Prefer below the line, but keep an expanded panel above it when the
+        // bottom edge would be clipped by the display or Dock. If neither side
+        // fits, keep the full frame within the display's visible vertical bounds.
+        let preferredY = below >= available.minY ? below : anchor.rect.maxY
+        let y = min(max(preferredY, available.minY), available.maxY - size.height)
+        return CGRect(x: anchor.rect.minX, y: y, width: size.width, height: size.height)
     }
 }

@@ -445,12 +445,16 @@ highlighted for each edited composition.
 deleting across multiple lines, and growing fields with unchanged caret screen
 height. It also covers overlapping rectangles, sparse wrap geometry, UTF-16
 grapheme probes, unavailable and obsolete geometry, prefix remainders, capture
-reset, resizing, and global display coordinates.
+reset, resizing, exact bottom-edge fits, below/above placement, vertical clamping,
+and global display coordinates.
 `CandidateGeometryReaderTests` covers an on-screen inline placeholder being
 overridden by verified document geometry, initial selection and marked UTF-16
 positions, unsupported/mismatched document responses, and obsolete host calls.
 `CandidatePanelOwnershipTests` covers a focus switch between rendering and display,
 and actual AppKit panel placement while candidate widths and expansion change.
+A visible expansion near the bottom flips above the line before deferred placement;
+collapse returns below, retaining candidate order/selection and every row/control
+within the panel.
 `CandidateWidthTests` covers each reduction from six columns to one, expansion
 at a reduced count, restored width, unchanged candidate order/selection, mouse
 and digit agreement, fractional remaining width, exact oversized text, and the 480-point preferred minimum with a smaller-screen cap. Visible-refresh cases alternate candidate lengths in compact and expanded layouts, checking that the current text fits before deferred host positioning.
@@ -461,7 +465,7 @@ On an intentionally installed Debug build, type synthetic Pinyin such as
 `dangqian` in a new Claude Desktop composer, the Chrome address bar, a Chrome
 web input, Safari, Notes, TextEdit, VS Code, Terminal and a WeChat draft. Separately
 check a WeChat Moments reply field near the bottom of its window: the first
-candidate panel and subsequent edits must stay below that reply's visual line,
+candidate panel and subsequent edits must stay next to that reply's visual line,
 without jumping to the top of the window. Repeat after closing/reopening the reply
 and switching between replies and the normal chat composer. Check
 that the panel first appears at the composition start. In Chrome and Codex, place the
@@ -487,8 +491,12 @@ wraps to the next line's start.
 Finish or cancel the manually confirmed remainder, then start a new
 composition and verify its new position. Repeat on a connected external
 display. Check that expand/collapse, paging and changing candidate widths keep
-the same top-left below the current line start, including near the bottom and right
-edges. Near the right edge, vary candidate lengths and verify the row reduces
+the same horizontal line anchor, including near the bottom and right
+edges. With enough room below, the panel stays below the line. When expansion
+would cross the visible bottom edge, it must move above the line with every row
+and the collapse control visible. Collapse returns below if the compact strip fits.
+If both sides are too short, the panel stays within the visible vertical bounds.
+Near the right edge, vary candidate lengths and verify the row reduces
 from six candidates down to one before truncating a single oversized label.
 The panel must stay at the same line anchor and within the visible right edge.
 Confirm each displayed digit and mouse choice, page through the entire shortlist
@@ -497,7 +505,9 @@ The count can grow again when space permits; all choices retain engine order.
 A short candidate should use a 480-point panel when there is room, and a narrower
 panel when fewer than 480 points remain on the screen.
 Type and delete rapidly while candidates grow and shrink. With sufficient screen space, the first choice must not briefly truncate in the previous window width before placement catches up. Repeat in compact and expanded layouts. Check light/dark appearance, keyboard focus and VoiceOver row/column descriptions.
-Near the bottom edge the panel still does not flip above the line. Moving the mouse, moving
+Repeat near the Dock and on an external display with a different global origin.
+The panel must use that display’s visible bounds when choosing above or below.
+Moving the mouse, moving
 the host window or disconnecting a display must not introduce mouse or previous-
 client fallback positions. An unavailable initial host rectangle must leave the panel hidden
 for that composition, without later geometry or mouse fallback. Delete the entire

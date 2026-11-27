@@ -17,7 +17,7 @@ struct CandidatePlacementTests {
             let anchor = try #require(state.candidateStart)
             #expect(anchor.rect == start)
             #expect(CandidatePlacement.frame(preferredSize: size, anchor: anchor)
-                    == CGRect(x: 568, y: 17, width: 300, height: 36))
+                    == CGRect(x: 568, y: 71, width: 300, height: 36))
         }
     }
 
@@ -250,13 +250,46 @@ struct CandidatePlacementTests {
         #expect(anchor.rect == start && anchor.screen.frame == removed.frame)
     }
 
-    @Test func resizingAtScreenEdgesKeepsTheSameTopLeftBelowTheStart() throws {
+    @Test func resizingAtScreenEdgesKeepsTheHorizontalAnchorAndFlipsWhenNeeded() throws {
         let anchor = try #require(CandidateAnchor(CGRect(x: 1430, y: 80, width: 1, height: 22), screens: [primary]))
         for size in [size, CGSize(width: 650, height: 36), CGSize(width: 650, height: 311)] {
             let frame = try #require(CandidatePlacement.frame(preferredSize: size, anchor: anchor))
-            #expect(frame.minX == 1430 && frame.maxY == 80)
+            #expect(frame.minX == 1430)
+            if size.height == 36 { #expect(frame.maxY == 80) }
+            else { #expect(frame.minY == anchor.rect.maxY) }
             #expect(frame.width == 10 && frame.height == size.height)
+            #expect(primary.visibleFrame.contains(frame))
         }
+    }
+
+    @Test func exactBottomFitStaysBelowButOnePointLessSpaceFlipsAbove() throws {
+        for y in [76.0, 75.0] {
+            let anchor = try #require(CandidateAnchor(CGRect(x: 100, y: y, width: 1, height: 20), screens: [primary]))
+            let frame = try #require(CandidatePlacement.frame(preferredSize: size, anchor: anchor))
+            #expect(frame.height == size.height)
+            if y == 76 { #expect(frame.maxY == anchor.rect.minY && frame.minY == primary.visibleFrame.minY) }
+            else { #expect(frame.minY == anchor.rect.maxY) }
+        }
+    }
+
+    @Test func neitherSideFittingClampsVerticallyWithoutShrinkingToTheSpaceBelow() throws {
+        let anchor = try #require(CandidateAnchor(CGRect(x: 100, y: 400, width: 1, height: 20), screens: [primary]))
+        for height in [CGFloat(700), CGFloat(1000)] {
+            let frame = try #require(CandidatePlacement.frame(preferredSize: CGSize(width: 300, height: height), anchor: anchor))
+            #expect(primary.visibleFrame.contains(frame))
+            #expect(frame.maxY == primary.visibleFrame.maxY)
+            #expect(frame.height == min(height, primary.visibleFrame.height))
+            #expect(frame.minX == anchor.rect.minX)
+        }
+    }
+
+    @Test func flippingUsesTheAnchorsDisplayIncludingNegativeGlobalCoordinates() throws {
+        let lower = CandidatePlacement.Screen(frame: CGRect(x: -1440, y: -900, width: 1440, height: 900),
+                                              visibleFrame: CGRect(x: -1440, y: -860, width: 1440, height: 835))
+        let anchor = try #require(CandidateAnchor(CGRect(x: -800, y: -850, width: 1, height: 20), screens: [primary, lower]))
+        let frame = try #require(CandidatePlacement.frame(preferredSize: CGSize(width: 480, height: 180), anchor: anchor))
+        #expect(frame.minX == -800 && frame.minY == -830 && frame.height == 180)
+        #expect(lower.visibleFrame.contains(frame))
     }
 
     @Test(arguments: [CGRect.zero, CGRect.null, CGRect.infinite,
