@@ -375,7 +375,8 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
                           compositionLearningEnabled: !secureInput,
                           punctuationCandidatesEnabled: languages.punctuationCandidatesEnabled,
                           pinyinCorrectionMode: languages.pinyinCorrectionEnabled && !secureInput ? .conservative : .off,
-                          rerankingEnabled: languages.localModelRankingEnabled && !secureInput)
+                          rerankingEnabled: languages.localModelRankingEnabled && !secureInput,
+                          useLargeModel: languages.useLargeModel)
         return true
     }
 
@@ -587,7 +588,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         let state = MainActor.assumeIsolated {
             (english: LanguageSettings.shared.englishEnabled,
              chinese: LanguageSettings.shared.chineseEnabled,
-             exportingAX: AXDataExport.shared.isExporting,
              canCheckForUpdates: (NSApplication.shared.delegate as? AppDelegate)?.updater.canCheckForUpdates ?? false)
         }
         let menu = NSMenu(title: "SI")
@@ -600,8 +600,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         chinese.state = state.chinese ? .on : .off
         menu.addItem(.separator())
         menu.addItem(withTitle: L10n.text("SI Settings…"), action: #selector(showPreferences(_:)), keyEquivalent: "")
-        let export = menu.addItem(withTitle: L10n.text("Export Current App AX Data…"), action: #selector(exportAXData(_:)), keyEquivalent: "")
-        export.isEnabled = !state.exportingAX
         // IMK dispatches menu selectors here via doCommandBySelector:commandDictionary:.
         let item = menu.addItem(withTitle: L10n.text("Check for Updates…"), action: #selector(checkForUpdates(_:)), keyEquivalent: "")
         item.isEnabled = state.canCheckForUpdates
@@ -635,11 +633,6 @@ final class SIInputController: IMKInputController, @unchecked Sendable {
         MainActor.assumeIsolated {
             (NSApplication.shared.delegate as? AppDelegate)?.updater.checkForUpdates()
         }
-    }
-
-    @objc nonisolated private func exportAXData(_ sender: Any!) {
-        // Reuse the existing IMK menu callback boundary; AX work runs off the main actor.
-        MainActor.assumeIsolated { AXDataExport.shared.exportCurrentApplication() }
     }
 
     nonisolated override func showPreferences(_ sender: Any!) {

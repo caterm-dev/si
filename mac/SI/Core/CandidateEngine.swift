@@ -7,6 +7,7 @@ public struct CandidateEngine: Sendable {
     }
 
     var pinyinCorrectionMode: PinyinCorrectionMode = .off
+    var useLargeModel = false
     var rerankingEnabled = false
     private let providers: [any CandidateProvider]?
     private let usesCoverageAdjustedOrder: Bool
@@ -59,7 +60,7 @@ public struct CandidateEngine: Sendable {
                 dictionary: dictionary, includesConfirmation: includesConfirmation, learning: learning, now: now,
                 context: context, precedingText: precedingText, precedingTextCache: precedingTextCache,
                 correctionMode: pinyinCorrectionMode,
-                rerankingEnabled: rerankingEnabled)
+                rerankingEnabled: rerankingEnabled, useLargeModel: useLargeModel)
                 ?? dictionary.candidates(for: input, languages: languages)
         }
         var entries = generated

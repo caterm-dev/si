@@ -8,13 +8,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use si_gram::GramBuilder;
 use si_lexicon::Lexicon;
 
-use super::super::{AppLearningConfig, lock_destination, open_compatible_grams};
+use super::super::{
+    AppLearningConfig, lock_destination, open_compatible_grams, prune_model_to_bytes,
+};
 use super::{ingest, snapshot};
 
 const FILES: [&str; 3] = ["app.silex", "app.sigram", "meta-v1.txt"];
 
 /// Only the previous accepted snapshot is retained, independently for each app.
-/// Source text is transient; edits append observations and never retract old counts.
+/// Source text is transient; edits append observations. Capacity pruning may remove old counts.
 pub struct AppLearningSession {
     directory: PathBuf,
     bundle: String,
@@ -43,26 +45,38 @@ impl AppLearningSession {
         }
         private_directory(&directory)?;
         let _lock = lock_destination(&directory.join("model"), false)?;
-        recover(&directory, &bundle, config.max_model_bytes)?;
-        migrate_legacy(&directory, &bundle, config.max_model_bytes)?;
-        let revision = if directory.join(FILES[2]).exists() {
-            read_state(&directory, &bundle, config.max_model_bytes)?;
-            let revision = revision_at(&directory, &bundle)?;
+        recover(&directory, &bundle)?;
+        migrate_legacy(&directory, &bundle)?;
+        let mut model = if directory.join(FILES[2]).exists() {
+            let model = read_state(&directory, &bundle)?;
             clean_legacy(&directory)?;
-            revision
+            Some(model)
         } else {
             if FILES[..2].iter().any(|name| directory.join(name).exists()) {
                 return Err(invalid("incomplete app model"));
             }
+            None
+        };
+        let revision = if model.is_some() {
+            revision_at(&directory, &bundle)?
+        } else {
             0
         };
-        Ok(Self {
+        let mut session = Self {
             directory,
             bundle,
             previous: Vec::new(),
             revision,
             config,
-        })
+        };
+        // A lower configured limit also applies to an existing valid model. Finish any old
+        // transaction first, then publish the trimmed pair as one new revision.
+        if let Some(model) = model.as_mut()
+            && file_bytes(&session.directory)? > config.max_model_bytes
+        {
+            session.publish(model, &[])?;
+        }
+        Ok(session)
     }
 
     pub fn max_snapshot_bytes(&self) -> usize {
@@ -83,7 +97,7 @@ impl AppLearningSession {
             return Err(invalid("empty app paragraph"));
         }
         let _lock = lock_destination(&self.directory.join("model"), false)?;
-        recover(&self.directory, &self.bundle, self.config.max_model_bytes)?;
+        recover(&self.directory, &self.bundle)?;
         let revision = if self.directory.join(FILES[2]).exists() {
             revision_at(&self.directory, &self.bundle)?
         } else {
@@ -110,7 +124,7 @@ impl AppLearningSession {
         let mut model = if self.revision == 0 {
             empty_state()
         } else {
-            read_state(&self.directory, &self.bundle, self.config.max_model_bytes)?
+            read_state(&self.directory, &self.bundle)?
         };
         ingest::observe(
             &mut model,
@@ -123,12 +137,6 @@ impl AppLearningSession {
     }
 
     fn publish(&mut self, model: &mut snapshot::State, text: &[&str]) -> io::Result<()> {
-        let staged = self.directory.join(".pending");
-        remove_directory(&staged)?;
-        private_directory(&staged)?;
-        model.lexicon.save(staged.join(FILES[0]))?;
-        model.grams.bind_lexicon(&model.lexicon)?;
-        model.grams.save(staged.join(FILES[1]))?;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(io::Error::other)?
@@ -137,15 +145,43 @@ impl AppLearningSession {
             .revision
             .checked_add(1)
             .ok_or_else(|| invalid("app revision overflow"))?;
-        let mut meta = snapshot::private_file(&staged.join(FILES[2]))?;
-        writeln!(
-            meta,
-            "SI-APP-LEARNING-1\n{}\n{now}\n{revision}\n{}\n{}\n{}",
-            self.bundle,
+        let metadata = |words, grams| {
+            format!(
+                "SI-APP-LEARNING-1\n{}\n{now}\n{revision}\n{words}\n{grams}\n{}\n",
+                self.bundle,
+                text.len()
+            )
+        };
+        let minimum_pair = empty_state();
+        let minimum_bytes = minimum_pair.grams.serialized_size()
+            + Lexicon::new().serialized_size().map_err(io::Error::other)?;
+        if self.config.max_model_bytes < minimum_bytes + metadata(0, 0).len() as u64 {
+            return Err(invalid(
+                "app capacity is smaller than empty model and metadata",
+            ));
+        }
+        let before = metadata(
             model.lexicon.len(),
             model.grams.sizes().iter().sum::<usize>(),
-            text.len()
-        )?;
+        );
+        let budget = self
+            .config
+            .max_model_bytes
+            .saturating_sub(before.len() as u64)
+            .max(minimum_bytes);
+        prune_model_to_bytes(&mut model.lexicon, &mut model.grams, budget)?;
+        let metadata = metadata(
+            model.lexicon.len(),
+            model.grams.sizes().iter().sum::<usize>(),
+        );
+        let staged = self.directory.join(".pending");
+        remove_directory(&staged)?;
+        private_directory(&staged)?;
+        model.lexicon.save(staged.join(FILES[0]))?;
+        model.grams.bind_lexicon(&model.lexicon)?;
+        model.grams.save(staged.join(FILES[1]))?;
+        let mut meta = snapshot::private_file(&staged.join(FILES[2]))?;
+        meta.write_all(metadata.as_bytes())?;
         meta.sync_all()?;
         if let Err(error) = sync_files(&staged, self.config.max_model_bytes) {
             // An unarmed oversized write must not remain as retained model data.
@@ -159,7 +195,7 @@ impl AppLearningSession {
         self.revision = revision;
         marker.sync_all()?;
         sync(&self.directory)?;
-        recover(&self.directory, &self.bundle, self.config.max_model_bytes)?;
+        recover(&self.directory, &self.bundle)?;
         clean_legacy(&self.directory)
     }
 }
@@ -172,21 +208,16 @@ fn empty_state() -> snapshot::State {
     }
 }
 
-fn read_state(directory: &Path, bundle: &str, max_bytes: u64) -> io::Result<snapshot::State> {
+fn read_state(directory: &Path, bundle: &str) -> io::Result<snapshot::State> {
     if !fs::symlink_metadata(directory)?.is_dir() {
         return Err(invalid("app model requires a regular directory"));
     }
     revision_at(directory, bundle)?;
-    let mut bytes = 0;
     for name in FILES {
         let meta = fs::symlink_metadata(directory.join(name))?;
         if !meta.is_file() {
             return Err(invalid("app model requires regular files"));
         }
-        bytes = total_bytes(bytes, meta.len())?;
-    }
-    if bytes > max_bytes {
-        return Err(invalid("app model byte capacity reached"));
     }
     let lexicon = Lexicon::open(directory.join(FILES[0]))?;
     let grams = open_compatible_grams(&directory.join(FILES[1]), &lexicon)?;
@@ -218,7 +249,7 @@ fn revision_at(directory: &Path, bundle: &str) -> io::Result<u64> {
 }
 
 /// Call under the app lock. If interrupted, finish publishing the one staged model on next open.
-fn recover(directory: &Path, bundle: &str, max_bytes: u64) -> io::Result<()> {
+fn recover(directory: &Path, bundle: &str) -> io::Result<()> {
     let marker = directory.join(".publishing");
     let staged = directory.join(".pending");
     if !marker.exists() {
@@ -246,16 +277,11 @@ fn recover(directory: &Path, bundle: &str, max_bytes: u64) -> io::Result<()> {
         directory
     };
     revision_at(meta_directory, bundle)?;
-    let mut bytes = 0;
     for name in FILES {
         let meta = fs::symlink_metadata(candidate(name))?;
         if !meta.is_file() {
             return Err(invalid("invalid staged app file"));
         }
-        bytes = total_bytes(bytes, meta.len())?;
-    }
-    if bytes > max_bytes {
-        return Err(invalid("app model byte capacity reached"));
     }
     let lexicon = Lexicon::open(candidate(FILES[0]))?;
     open_compatible_grams(&candidate(FILES[1]), &lexicon)?;
@@ -268,7 +294,7 @@ fn recover(directory: &Path, bundle: &str, max_bytes: u64) -> io::Result<()> {
             fs::rename(source, directory.join(name))?;
         }
     }
-    read_state(directory, bundle, max_bytes)?;
+    read_state(directory, bundle)?;
     sync(directory)?;
     fs::remove_file(marker)?;
     sync(directory)?;
@@ -276,13 +302,13 @@ fn recover(directory: &Path, bundle: &str, max_bytes: u64) -> io::Result<()> {
     sync(directory)
 }
 
-fn migrate_legacy(directory: &Path, bundle: &str, max_bytes: u64) -> io::Result<()> {
+fn migrate_legacy(directory: &Path, bundle: &str) -> io::Result<()> {
     let pointer = directory.join("current");
     if !pointer.exists() {
         return Ok(());
     }
     if directory.join(FILES[2]).exists() {
-        read_state(directory, bundle, max_bytes)?;
+        read_state(directory, bundle)?;
         return clean_legacy(directory);
     }
     let slot = fs::read_to_string(&pointer)?;
@@ -290,16 +316,16 @@ fn migrate_legacy(directory: &Path, bundle: &str, max_bytes: u64) -> io::Result<
         return Err(invalid("invalid legacy app pointer"));
     }
     let source = directory.join(slot.trim());
-    read_state(&source, bundle, max_bytes)?;
+    read_state(&source, bundle)?;
     let staged = directory.join(".pending");
     private_directory(&staged)?;
     for name in FILES {
         fs::copy(source.join(name), staged.join(name))?;
     }
-    sync_files(&staged, max_bytes)?;
+    sync_files(&staged, u64::MAX)?;
     snapshot::private_file(&directory.join(".publishing"))?.sync_all()?;
     sync(directory)?;
-    recover(directory, bundle, max_bytes)?;
+    recover(directory, bundle)?;
     clean_legacy(directory)
 }
 
@@ -332,6 +358,12 @@ fn sync_files(directory: &Path, max_bytes: u64) -> io::Result<()> {
         return Err(invalid("app model byte capacity reached"));
     }
     sync(directory)
+}
+
+fn file_bytes(directory: &Path) -> io::Result<u64> {
+    FILES.iter().try_fold(0, |total, name| {
+        total_bytes(total, fs::symlink_metadata(directory.join(name))?.len())
+    })
 }
 
 fn total_bytes(total: u64, next: u64) -> io::Result<u64> {
@@ -405,12 +437,7 @@ mod tests {
             AppLearningSession::open(self.0.clone(), BUNDLE.into()).unwrap()
         }
         fn model(&self) -> snapshot::State {
-            read_state(
-                &self.0,
-                BUNDLE,
-                AppLearningConfig::default().max_model_bytes,
-            )
-            .unwrap()
+            read_state(&self.0, BUNDLE).unwrap()
         }
         fn entries(&self) -> BTreeSet<String> {
             fs::read_dir(&self.0)
@@ -775,7 +802,7 @@ mod tests {
     }
 
     #[test]
-    fn configured_model_limit_preserves_existing_files_and_previous_snapshot_on_rejection() {
+    fn configured_model_limit_prunes_and_publishes_without_pausing_learning() {
         let fixture = Fixture::new();
         fixture.session().observe(&base(), &["alpha beta"]).unwrap();
         let before: Vec<_> = FILES
@@ -788,12 +815,104 @@ mod tests {
         };
         let mut session =
             AppLearningSession::open_with_config(fixture.0.clone(), BUNDLE.into(), config).unwrap();
-        assert!(session.observe(&base(), &["gamma delta epsilon"]).is_err());
+        assert!(session.observe(&base(), &["gamma delta epsilon"]).unwrap());
+        assert_eq!(session.previous, ["gamma delta epsilon"]);
+        assert_eq!(session.revision, 2);
+        assert!(file_bytes(&fixture.0).unwrap() <= config.max_model_bytes);
+        let state = fixture.model();
+        state.grams.check_lexicon(&state.lexicon).unwrap();
+        assert!(state.lexicon.len() < 5);
+        assert!(!session.observe(&base(), &["gamma delta epsilon"]).unwrap());
+        assert!(!fixture.0.join(".pending").exists());
+        assert!(!fixture.0.join(".publishing").exists());
+    }
+
+    #[test]
+    fn lowering_capacity_prunes_existing_models_and_preserves_frequent_words_on_open() {
+        let fixture = Fixture::new();
+        let mut session = fixture.session();
+        session
+            .observe(&base(), &["alpha beta gamma delta epsilon"])
+            .unwrap();
+        session.observe(&base(), &["alpha"; 10]).unwrap();
+        drop(session);
+        let config = AppLearningConfig {
+            max_model_bytes: 200,
+            ..AppLearningConfig::default()
+        };
+        let session =
+            AppLearningSession::open_with_config(fixture.0.clone(), BUNDLE.into(), config).unwrap();
+        assert_eq!(session.revision, 3);
         assert!(session.previous.is_empty());
+        assert!(file_bytes(&fixture.0).unwrap() <= 200);
+        let state = fixture.model();
+        assert_eq!(count(&state, "alpha"), 11);
+        assert!(state.lexicon.len() < 5);
+        assert_eq!(state.grams.sizes(), [0; 4]);
+        state.grams.check_lexicon(&state.lexicon).unwrap();
+        drop(session);
+        assert_eq!(
+            AppLearningSession::open_with_config(fixture.0.clone(), BUNDLE.into(), config)
+                .unwrap()
+                .revision,
+            3
+        );
+    }
+
+    #[test]
+    fn impossible_capacity_preserves_fixed_files_and_unaccepted_snapshot() {
+        let fixture = Fixture::new();
+        let mut session = fixture.session();
+        session.observe(&base(), &["alpha beta"]).unwrap();
+        let before: Vec<_> = FILES
+            .iter()
+            .map(|name| fs::read(fixture.0.join(name)).unwrap())
+            .collect();
+        session.config.max_model_bytes = 1;
+        assert!(session.observe(&base(), &["gamma delta"]).is_err());
+        assert_eq!(session.previous, ["alpha beta"]);
+        assert_eq!(session.revision, 1);
+        assert!(
+            AppLearningSession::open_with_config(fixture.0.clone(), BUNDLE.into(), session.config)
+                .is_err()
+        );
         for (name, bytes) in FILES.iter().zip(before) {
             assert_eq!(fs::read(fixture.0.join(name)).unwrap(), bytes);
         }
-        assert!(!fixture.0.join(".pending").exists());
         assert!(!fixture.0.join(".publishing").exists());
+    }
+
+    #[test]
+    fn interrupted_pruned_publication_recovers_without_counting_the_snapshot_again() {
+        let fixture = Fixture::new();
+        let mut session = fixture.session();
+        session.observe(&base(), &["alpha beta"]).unwrap();
+        session.config.max_model_bytes = file_bytes(&fixture.0).unwrap();
+        let mut state = fixture.model();
+        ingest::observe(
+            &mut state,
+            &base(),
+            [Ok("gamma delta epsilon")],
+            GramOrder::Fourgram,
+        )
+        .unwrap();
+        fs::remove_file(fixture.0.join(FILES[2])).unwrap();
+        private_directory(&fixture.0.join(FILES[2])).unwrap();
+        assert!(
+            session
+                .publish(&mut state, &["gamma delta epsilon"])
+                .is_err()
+        );
+        fs::remove_dir(fixture.0.join(FILES[2])).unwrap();
+        assert!(!session.observe(&base(), &["gamma delta epsilon"]).unwrap());
+        assert_eq!(session.revision, 2);
+        assert!(file_bytes(&fixture.0).unwrap() <= session.config.max_model_bytes);
+        let saved = fixture.model();
+        assert_eq!(
+            saved.lexicon.words().collect::<Vec<_>>(),
+            state.lexicon.words().collect::<Vec<_>>()
+        );
+        saved.grams.check_lexicon(&saved.lexicon).unwrap();
+        assert!(!fixture.0.join(".pending").exists());
     }
 }

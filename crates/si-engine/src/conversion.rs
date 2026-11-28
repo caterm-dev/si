@@ -2,6 +2,7 @@ mod cache;
 mod context;
 mod input;
 mod lookup;
+mod pool;
 mod ranking;
 mod reranking;
 mod scoring;
@@ -16,6 +17,7 @@ use self::scoring::Scoring;
 use crate::resources::{EngineConfig, EngineResources, PinyinCorrectionConfig};
 use crate::text_boundaries::last_fragment;
 pub use context::PrecedingTextCache;
+pub use pool::{CandidatePool, CandidatePoolInspector, PoolEntry, PoolOptions, PoolToken};
 pub use reranking::SmallReranker;
 
 const MAX_OUTPUT_BYTES: usize = 4_096;
@@ -116,7 +118,7 @@ pub struct Candidate {
     pub score_bits: Option<f64>,
     /// Transient change in log probability from the host field's preceding text.
     pub context_adjustment: f64,
-    /// Bounded contextual lift adjustment or BOS-only reward from the optional character model.
+    /// Bounded conditional-probability or BOS-only adjustment from the optional character model.
     pub reranking_bonus: f64,
     /// The last word extends the typed spelling.
     pub completion: bool,

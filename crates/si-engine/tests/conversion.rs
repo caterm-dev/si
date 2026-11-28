@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use si_engine::resources::EngineResources;
 use si_engine::resources::user::{UserLearningConfig, UserModelStore};
 use si_engine::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionOptions, ConversionPreferences,
-    EnabledLanguages, PersonalPhrase, SmallReranker,
+    Candidate, CandidateEngine, CandidateLanguage, CandidatePoolInspector, ConversionOptions,
+    ConversionPreferences, EnabledLanguages, PersonalPhrase, PoolOptions, SmallReranker,
 };
 use si_gram::GramBuilder;
 use si_lexicon::{IndexId, Lexicon, WordId};
@@ -100,9 +100,20 @@ fn configured_model_pool_context_and_candidate_token_limits_are_used() -> io::Re
     let model = SmallReranker::open_with_config(&model_path, config.local_model_ranking)?;
     let rows = convert("shu", Some("院子里种几棵"), &model);
     assert!(rows.iter().any(|row| row.reranking_bonus < 0.0));
+    let worst = rows
+        .iter()
+        .filter(|row| baseline[..2].iter().any(|base| base.text == row.text))
+        .map(|row| row.reranking_bonus)
+        .reduce(f64::min)
+        .unwrap();
     for row in &rows {
         if !baseline[..2].iter().any(|base| base.text == row.text) {
-            assert_eq!(row.reranking_bonus, 0.0);
+            let expected = if row.language == CandidateLanguage::Literal {
+                0.0
+            } else {
+                worst
+            };
+            assert_eq!(row.reranking_bonus, expected);
         }
     }
     for (tokens, adjusted) in [("1", false), ("2", true)] {
@@ -310,7 +321,7 @@ fn small_reranker_uses_loaded_configuration_without_reading_it_during_conversion
             &config_path,
             bundled
                 .replace(
-                    "model_score_weight = 1.0",
+                    "model_score_weight = 0.8",
                     &format!("model_score_weight = {model_score_weight}"),
                 )
                 .replace(
@@ -348,7 +359,7 @@ fn small_reranker_uses_loaded_configuration_without_reading_it_during_conversion
 }
 
 #[test]
-fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::Result<()> {
+fn small_reranker_scores_twelve_homophones_and_penalizes_the_thirteenth() -> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
     for text in [
@@ -382,18 +393,13 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
         .bounded_sequence_scores(context, &texts, 16, 12)?
         .unwrap()
         .scores;
-    let without = neural
-        .bounded_sequence_scores("", &texts, 0, 12)?
-        .unwrap()
-        .scores;
-    let lifts: Vec<_> = with
+    let bits: Vec<_> = with
         .iter()
-        .zip(without)
-        .map(|(a, b)| (a - b) * std::f64::consts::LOG2_E)
+        .map(|score| score * std::f64::consts::LOG2_E)
         .collect();
-    let highest = lifts.iter().copied().reduce(f64::max).unwrap();
-    for (text, lift) in texts.iter().zip(lifts) {
-        let expected = (lift - highest).max(-8.0);
+    let highest = bits.iter().copied().reduce(f64::max).unwrap();
+    for (text, score) in texts.iter().zip(bits) {
+        let expected = 0.8 * (score - highest).max(-8.0);
         let row = ranked.iter().find(|row| row.text == *text).unwrap();
         assert!((row.reranking_bonus - expected).abs() < 1e-6);
     }
@@ -401,13 +407,13 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
         .iter()
         .position(|row| row.text == baseline[12].text)
         .unwrap();
-    assert_eq!(ranked[unscored].reranking_bonus, 0.0);
-    // Signed penalties must also re-sort results outside the scored pool.
-    assert!(
-        ranked[unscored + 1..]
-            .iter()
-            .any(|row| row.reranking_bonus < 0.0)
-    );
+    let worst = ranked
+        .iter()
+        .map(|row| row.reranking_bonus)
+        .reduce(f64::min)
+        .unwrap();
+    assert!(worst < 0.0);
+    assert_eq!(ranked[unscored].reranking_bonus, worst);
     for pair in ranked[..ranked.len() - 1].windows(2) {
         let score = |row: &Candidate| {
             row.score_bits.unwrap() + row.context_adjustment + row.reranking_bonus
@@ -419,7 +425,82 @@ fn small_reranker_scores_twelve_homophones_and_excludes_the_thirteenth() -> io::
 }
 
 #[test]
-fn small_reranker_limits_contextual_lift_and_uses_bos_for_empty_fragments() -> io::Result<()> {
+fn small_reranker_penalizes_unscored_completions_and_reuses_identical_scored_text() -> io::Result<()>
+{
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "ni'hao", "你好", 100);
+    add(&mut lexicon, ZH, "ni'hao", "拟好", 90);
+    add(&mut lexicon, ZH, "ni'hao'ma", "你好吗", 60);
+    add(&mut lexicon, ZH, "ni", "你", 50);
+    add(&mut lexicon, EN, "nihao", "你好", 1);
+    let resources = directory.resources(&mut lexicon, None)?;
+    let config = engine_config(&directory, &[("model_candidate_limit", "2")])?;
+    let engine = CandidateEngine::new(&resources, None);
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let model = SmallReranker::open_with_config(&path, config.local_model_ranking)?;
+    let source = "nihao";
+    let phrases = [PersonalPhrase {
+        spelling: source,
+        text: "私人问候",
+        language: CandidateLanguage::Chinese,
+        pinned: false,
+    }];
+    for context in [None, Some("见面时说")] {
+        let baseline = engine.convert_with_options(
+            source,
+            BILINGUAL,
+            false,
+            &phrases,
+            ConversionPreferences::default(),
+            context,
+            ConversionOptions::default(),
+        );
+        let rows = engine.convert_with_options(
+            source,
+            BILINGUAL,
+            false,
+            &phrases,
+            ConversionPreferences::default(),
+            context,
+            ConversionOptions {
+                correction: None,
+                reranker: Some(&model),
+            },
+        );
+        let chinese = find(&rows, "你好", CandidateLanguage::Chinese, source.len());
+        let english = find(&rows, "你好", CandidateLanguage::English, source.len());
+        assert_eq!(english.reranking_bonus, chinese.reranking_bonus);
+        let worst = rows
+            .iter()
+            .map(|row| row.reranking_bonus)
+            .reduce(f64::min)
+            .unwrap();
+        assert!(worst < 0.0);
+        let completion = find(&rows, "你好吗", CandidateLanguage::Chinese, source.len());
+        assert!(completion.completion);
+        assert_eq!(completion.reranking_bonus, worst);
+        assert!(rows.iter().any(|row| row.personal));
+        assert!(rows.iter().any(|row| row.consumed_bytes < source.len()));
+        for row in &rows {
+            if row.personal
+                || row.verbatim
+                || row.language == CandidateLanguage::Literal
+                || row.consumed_bytes < source.len()
+            {
+                assert_eq!(row.reranking_bonus, 0.0);
+            }
+            let original = find(&baseline, &row.text, row.language, row.consumed_bytes);
+            assert_eq!(row.score_bits, original.score_bits);
+            assert_eq!(row.source_boundaries, original.source_boundaries);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn small_reranker_limits_conditional_probability_gaps_and_uses_bos_for_empty_fragments()
+-> io::Result<()> {
     let directory = Scratch::new()?;
     let model = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
     let reranker = SmallReranker::open(&model)?;
@@ -451,7 +532,7 @@ fn small_reranker_limits_contextual_lift_and_uses_bos_for_empty_fragments() -> i
         }
         assert!(
             bos.iter()
-                .all(|row| row.reranking_bonus >= 0.0 && row.reranking_bonus <= 8.0)
+                .all(|row| row.reranking_bonus >= -6.4 && row.reranking_bonus <= 0.0)
         );
         let ranked = convert(Some("院子里种几棵"));
         assert_eq!(ranked[0].text, expected_first);
@@ -465,7 +546,8 @@ fn small_reranker_limits_contextual_lift_and_uses_bos_for_empty_fragments() -> i
 }
 
 #[test]
-fn small_reranker_adds_bounded_bos_rewards_without_changing_lexical_evidence() -> io::Result<()> {
+fn small_reranker_applies_bounded_bos_adjustments_without_changing_lexical_evidence()
+-> io::Result<()> {
     let directory = Scratch::new()?;
     let mut lexicon = Lexicon::new();
     add(&mut lexicon, ZH, "chi'you'shi'jian", "吃有时间", 100);
@@ -511,10 +593,9 @@ fn small_reranker_adds_bounded_bos_rewards_without_changing_lexical_evidence() -
         assert_eq!(row.score_bits, before.score_bits);
         assert_eq!(row.source_boundaries, before.source_boundaries);
         assert_eq!(row.confirmation_boundaries, before.confirmation_boundaries);
-        assert!(row.reranking_bonus >= 0.0 && row.reranking_bonus <= 8.0);
+        assert!(row.reranking_bonus >= -6.4 && row.reranking_bonus <= 0.0);
         if row.consumed_bytes < source.len()
             || row.language == CandidateLanguage::Literal
-            || row.completion
             || row.verbatim
         {
             assert_eq!(row.reranking_bonus, 0.0);
@@ -529,6 +610,98 @@ fn small_reranker_adds_bounded_bos_rewards_without_changing_lexical_evidence() -
         let config = engine_config(&directory, &changes)?;
         let model = SmallReranker::open_with_config(&path, config.local_model_ranking)?;
         assert_eq!(baseline, convert(&model, None, false));
+    }
+    Ok(())
+}
+
+#[test]
+fn small_reranker_uses_whole_sentence_gaps_to_overcome_homophone_frequency() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let source = "nirenweizhezhongfangshihaoma";
+    let reading = "ni'ren'wei'zhe'zhong'fang'shi'hao'ma";
+    let correct = "你认为这种方式好吗";
+    let incorrect = "你认为这种方式号码";
+    add(&mut lexicon, ZH, reading, incorrect, 2_663_317);
+    add(&mut lexicon, ZH, reading, correct, 668_208);
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let baseline = engine.candidates(source, CHINESE);
+    assert_eq!(baseline[0].text, incorrect);
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let model = SmallReranker::open(&path)?;
+    let rows = engine.convert_with_options(
+        source,
+        CHINESE,
+        false,
+        &[],
+        ConversionPreferences::default(),
+        None,
+        ConversionOptions {
+            correction: None,
+            reranker: Some(&model),
+        },
+    );
+    assert_eq!(rows[0].text, correct);
+    assert_eq!(rows[0].reranking_bonus, 0.0);
+    let incorrect_row = find(&rows, incorrect, CandidateLanguage::Chinese, source.len());
+    assert_eq!(incorrect_row.reranking_bonus, -6.4);
+    let window = si_engine::presentation::conversion_window(source, CHINESE, &rows);
+    assert_eq!(rows[window[0]].text, correct);
+    assert_eq!(rows.last(), baseline.last());
+    Ok(())
+}
+
+#[test]
+fn small_reranker_prefers_probable_question_over_rare_high_lift_homophone() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for (text, count) in [("号码", 2_663_317), ("好吗", 668_208), ("号吗", 19_684)] {
+        add(&mut lexicon, ZH, "hao'ma", text, count);
+    }
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let source = "haoma";
+    let baseline = engine.candidates(source, CHINESE);
+    assert_eq!(baseline[0].text, "号码");
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Data/RerankerSmall");
+    let model = SmallReranker::open(&path)?;
+    let neural = si_neural::Reranker::open(&path)?;
+    let texts = ["好吗", "号码", "号吗"];
+    let unconditional = neural
+        .bounded_sequence_scores("", &texts, 0, 16)?
+        .unwrap()
+        .scores;
+    for context in ["方式", "你认为这种方式"] {
+        let conditional = neural
+            .bounded_sequence_scores(context, &texts, 16, 16)?
+            .unwrap()
+            .scores;
+        // The rare candidate has higher lift despite its lower conditional probability.
+        assert!(conditional[2] - unconditional[2] > conditional[0] - unconditional[0]);
+        assert!(conditional[0] > conditional[2]);
+        let bonuses = model.bonuses(context, &texts).unwrap();
+        assert_eq!(bonuses[0], 0.0);
+        assert_eq!(bonuses[2], -6.4);
+        let rows = engine.convert_with_options(
+            source,
+            CHINESE,
+            false,
+            &[],
+            ConversionPreferences::default(),
+            Some(context),
+            ConversionOptions {
+                correction: None,
+                reranker: Some(&model),
+            },
+        );
+        assert_eq!(rows[0].text, "好吗");
+        for row in &rows {
+            let original = find(&baseline, &row.text, row.language, row.consumed_bytes);
+            assert_eq!(row.score_bits, original.score_bits);
+            assert_eq!(row.source_boundaries, original.source_boundaries);
+        }
+        assert_eq!(rows.last(), baseline.last());
     }
     Ok(())
 }
@@ -1385,6 +1558,292 @@ fn word_paths_cover_chinese_english_and_mixed_inputs_with_tail_completion() -> i
                 )
             })
     );
+    Ok(())
+}
+
+#[test]
+fn exact_pool_recovers_a_gram_winner_without_pruning_its_intermediate_history() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    for ch in '\u{4e00}'..='\u{4e1d}' {
+        add(&mut lexicon, ZH, "ji", &ch.to_string(), 100);
+    }
+    let tie = add(&mut lexicon, ZH, "ji", "系", 99);
+    let good = add(&mut lexicon, ZH, "hao", "好", 100);
+    let shoelace = add(&mut lexicon, ZH, "xie'dai", "鞋带", 100);
+    let mut grams = GramBuilder::new();
+    grams.add(&[tie, good], 10_000).unwrap();
+    grams.add(&[tie, good, shoelace], 10_000).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    let source = "jihaoxiedai";
+    let original = engine.candidates(source, CHINESE);
+    assert!(!original.iter().any(|row| row.text == "系好鞋带"));
+    let inspector = CandidatePoolInspector::new(&engine).unwrap();
+    let pool = inspector
+        .inspect(source, CHINESE, None, None, PoolOptions::default())
+        .unwrap();
+    assert!(pool.complete);
+    assert_eq!(pool.native, original);
+    let target = pool
+        .entries
+        .iter()
+        .find(|row| row.candidate.text == "系好鞋带")
+        .unwrap();
+    assert_eq!(target.k_best_rank, Some(1));
+    assert!(target.selected);
+    assert_eq!(target.tokens.len(), 3);
+    let sum: f64 = target
+        .tokens
+        .iter()
+        .map(|token| {
+            token.unigram_bits + token.gram_bits + token.context_bits + token.spelling_bits
+        })
+        .sum();
+    assert!(
+        (sum - target.candidate.score_bits.unwrap() - target.candidate.context_adjustment).abs()
+            < 1e-10
+    );
+    assert_eq!(original, engine.candidates(source, CHINESE));
+    let interrupted = inspector
+        .inspect(
+            source,
+            CHINESE,
+            None,
+            None,
+            PoolOptions {
+                search_budget: 1,
+                ..PoolOptions::default()
+            },
+        )
+        .unwrap();
+    assert!(!interrupted.complete);
+    assert_eq!(interrupted.certified, 0);
+    assert_eq!(interrupted.stop, "expansion-limit");
+    assert_eq!(interrupted.native, original);
+    for row in original.iter().filter(|row| {
+        row.consumed_bytes == source.len() && row.language != CandidateLanguage::Literal
+    }) {
+        assert!(
+            interrupted
+                .entries
+                .iter()
+                .any(|entry| entry.candidate.text == row.text
+                    && entry.candidate.language == row.language)
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn exact_pool_matches_complete_small_lattices_and_filters_only_after_search() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    let mut variants = Vec::new();
+    for text in ["及", "机", "级", "寄"] {
+        variants.push(add(&mut lexicon, ZH, "ji", text, 100));
+    }
+    let good = add(&mut lexicon, ZH, "hao", "好", 100);
+    add(&mut lexicon, ZH, "hao", "号", 100);
+    add(&mut lexicon, ZH, "ji'hao", "系好", 5);
+    let shoe = add(&mut lexicon, ZH, "xie'dai", "鞋带", 100);
+    add(&mut lexicon, ZH, "xie'dai", "携带", 100);
+    add(&mut lexicon, EN, "jihaoxiedai", "及好携带", 100);
+    let previous = add(&mut lexicon, ZH, "wo", "我", 100);
+    let start = lexicon.add_word("<s>", 0).unwrap();
+    let mut grams = GramBuilder::new();
+    grams.add(&[variants[3], good], 1000).unwrap();
+    grams.add(&[variants[3], good, shoe], 1000).unwrap();
+    grams.add(&[previous, variants[0]], 500).unwrap();
+    grams.add(&[start, variants[3]], 500).unwrap();
+    grams.add(&[start, variants[3], good], 500).unwrap();
+    let resources = directory.resources(&mut lexicon, Some(grams))?;
+    let engine = CandidateEngine::new(&resources, None);
+    let inspector = CandidatePoolInspector::new(&engine).unwrap();
+    let source = "jihaoxiedai";
+    let options = PoolOptions {
+        pool_size: 64,
+        multiword_limit: 64,
+        ..PoolOptions::default()
+    };
+    let all = inspector
+        .inspect(source, BILINGUAL, None, None, options)
+        .unwrap();
+    assert!(all.complete);
+    let expected: Vec<_> = all
+        .native
+        .iter()
+        .filter(|row| {
+            row.consumed_bytes == source.len()
+                && row.language != CandidateLanguage::Literal
+                && !row.completion
+        })
+        .collect();
+    let mut actual: Vec<_> = all
+        .entries
+        .iter()
+        .filter(|row| row.k_best_rank.is_some())
+        .collect();
+    actual.sort_by_key(|row| row.k_best_rank);
+    assert_eq!(actual.len(), expected.len());
+    for (row, expected) in actual.iter().zip(expected) {
+        assert_eq!(
+            (&row.candidate.text, row.candidate.language),
+            (&expected.text, expected.language)
+        );
+        assert!((row.candidate.score_bits.unwrap() - expected.score_bits.unwrap()).abs() < 1e-10);
+    }
+    let limited = inspector
+        .inspect(
+            source,
+            BILINGUAL,
+            None,
+            None,
+            PoolOptions {
+                multiword_limit: 1,
+                ..options
+            },
+        )
+        .unwrap();
+    assert_eq!(limited.native, all.native);
+    assert_eq!(
+        limited
+            .entries
+            .iter()
+            .filter(|row| row.quota_kept && row.tokens.len() >= 3)
+            .count(),
+        1
+    );
+    assert!(
+        limited
+            .entries
+            .iter()
+            .any(|row| row.exclusion == "word-quota")
+    );
+    assert!(
+        limited
+            .entries
+            .iter()
+            .any(|row| row.exclusion == "structure" && row.blocked_by.len() == 2)
+    );
+    let duplicate: Vec<_> = all
+        .entries
+        .iter()
+        .filter(|row| row.candidate.text == "及好携带")
+        .collect();
+    assert_eq!(duplicate.len(), 2);
+    assert_ne!(
+        duplicate[0].candidate.language,
+        duplicate[1].candidate.language
+    );
+    for preceding in [Some("我"), Some("")] {
+        let contextual = inspector
+            .inspect(source, BILINGUAL, preceding, None, options)
+            .unwrap();
+        assert!(contextual.complete);
+        let expected: Vec<_> = contextual
+            .native
+            .iter()
+            .filter(|row| {
+                row.consumed_bytes == source.len()
+                    && row.language != CandidateLanguage::Literal
+                    && !row.completion
+            })
+            .collect();
+        let mut actual: Vec<_> = contextual
+            .entries
+            .iter()
+            .filter(|row| row.k_best_rank.is_some())
+            .collect();
+        actual.sort_by_key(|row| row.k_best_rank);
+        assert_eq!(actual.len(), expected.len());
+        for (row, expected) in actual.iter().zip(expected) {
+            assert_eq!(
+                (&row.candidate.text, row.candidate.language),
+                (&expected.text, expected.language)
+            );
+            let total = |row: &Candidate| row.score_bits.unwrap() + row.context_adjustment;
+            assert!((total(&row.candidate) - total(expected)).abs() < 1e-10);
+        }
+    }
+    assert!(
+        CandidatePoolInspector::new(&CandidateEngine::new(&resources, Some(&resources))).is_err()
+    );
+    for short in ["ji", "jihao"] {
+        let choices = inspector
+            .inspect(short, CHINESE, None, None, options)
+            .unwrap();
+        assert!(choices.complete);
+        assert!(
+            choices
+                .entries
+                .iter()
+                .all(|row| row.exclusion != "structure")
+        );
+    }
+    let top = inspector
+        .inspect(
+            source,
+            BILINGUAL,
+            None,
+            None,
+            PoolOptions {
+                k_best: 1,
+                ..options
+            },
+        )
+        .unwrap();
+    assert!(top.complete);
+    assert_eq!(
+        top.entries
+            .iter()
+            .find(|row| row.k_best_rank == Some(1))
+            .unwrap()
+            .candidate,
+        actual[0].candidate
+    );
+    Ok(())
+}
+
+#[test]
+fn exact_pool_preserves_alias_offsets_disabled_languages_and_empty_input() -> io::Result<()> {
+    let directory = Scratch::new()?;
+    let mut lexicon = Lexicon::new();
+    add(&mut lexicon, ZH, "lü", "绿", 100);
+    add(&mut lexicon, ZH, "hao", "好", 100);
+    let resources = directory.resources(&mut lexicon, None)?;
+    let engine = CandidateEngine::new(&resources, None);
+    let inspector = CandidatePoolInspector::new(&engine).unwrap();
+    let source = "lu:'hao";
+    let pool = inspector
+        .inspect(source, CHINESE, Some(""), None, PoolOptions::default())
+        .unwrap();
+    assert!(pool.complete);
+    let target = pool
+        .entries
+        .iter()
+        .find(|row| row.candidate.text == "绿好")
+        .unwrap();
+    assert_eq!(target.tokens[0].source_end, 4);
+    assert_eq!(target.tokens[1].source_start, 4);
+    assert_eq!(target.candidate.consumed_bytes, source.len());
+    for (source, languages) in [
+        ("", CHINESE),
+        (
+            "Unknown_ID",
+            EnabledLanguages {
+                chinese: false,
+                english: false,
+            },
+        ),
+    ] {
+        let pool = inspector
+            .inspect(source, languages, None, None, PoolOptions::default())
+            .unwrap();
+        assert!(pool.complete);
+        assert!(pool.entries.is_empty());
+        assert_eq!(pool.native, engine.candidates(source, languages));
+    }
     Ok(())
 }
 

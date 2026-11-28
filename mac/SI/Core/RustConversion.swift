@@ -26,14 +26,16 @@ final class RustConversion: @unchecked Sendable {
         let gramResource = grams
         #endif
         let engine = RustConversion(lexicon: lexicon, grams: gramResource,
-                                    reranker: resourceDirectory.appendingPathComponent("RerankerSmall", isDirectory: true))
+                                    reranker: resourceDirectory.appendingPathComponent("RerankerSmall", isDirectory: true),
+                                    largeReranker: resourceDirectory.appendingPathComponent("RerankerLarge", isDirectory: true))
         ready.withLock { $0 = engine }
         return engine
     }()
 
     typealias PinyinCorrectionMode = CandidateEngine.PinyinCorrectionMode
 
-    init?(lexicon: URL, grams: URL? = nil, correctionMode: PinyinCorrectionMode = .off, reranker: URL? = nil) {
+    init?(lexicon: URL, grams: URL? = nil, correctionMode: PinyinCorrectionMode = .off, reranker: URL? = nil,
+          largeReranker: URL? = nil) {
         guard let handle = lexicon.withUnsafeFileSystemRepresentation({ lexiconPath in
             if let grams {
                 return grams.withUnsafeFileSystemRepresentation { si_engine_open(lexiconPath, $0) }
@@ -46,6 +48,9 @@ final class RustConversion: @unchecked Sendable {
         }
         if let reranker {
             _ = reranker.withUnsafeFileSystemRepresentation { si_engine_load_reranker(handle, $0) }
+        }
+        if let largeReranker {
+            _ = largeReranker.withUnsafeFileSystemRepresentation { si_engine_load_model(handle, $0, 2) }
         }
         engine = handle
         self.correctionMode = correctionMode
@@ -135,7 +140,8 @@ final class RustConversion: @unchecked Sendable {
                     learning: LearningProfile = LearningProfile(), now: Date = .now,
                     context: CandidateContext? = nil, precedingText: String? = nil,
                     precedingTextCache: PrecedingTextCache? = nil,
-                    correctionMode: PinyinCorrectionMode? = nil, rerankingEnabled: Bool = false) -> [InputCandidate] {
+                    correctionMode: PinyinCorrectionMode? = nil, rerankingEnabled: Bool = false,
+                    useLargeModel: Bool = false) -> [InputCandidate] {
         let mode = correctionMode ?? self.correctionMode
         var mask: UInt8 = 0
         if languages.contains(.simplifiedChinese) { mask |= 1 }
@@ -159,7 +165,7 @@ final class RustConversion: @unchecked Sendable {
                                 hasPrecedingText ? preceding.baseAddress ?? empty : nil, preceding.count,
                                 mask, preview, phrases.baseAddress, phrases.count,
                                 tokens.baseAddress, tokens.count, paths.baseAddress, paths.count,
-                                mode.rawValue, rerankingEnabled, precedingTextCache?.handle)
+                                mode.rawValue, rerankingEnabled ? (useLargeModel ? 2 : 1) : 0, precedingTextCache?.handle)
                         }
                     }
                 }

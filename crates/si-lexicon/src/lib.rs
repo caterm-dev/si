@@ -24,7 +24,7 @@ use std::path::Path;
 
 use index::{KeyIndex, PendingIndex, Postings, merge_keys};
 
-/// A stable word ordinal within one dictionary file and its subsequent snapshots.
+/// Stable across additions and compaction within one dictionary. Pruning may remap ordinals.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct WordId(pub u32);
@@ -295,6 +295,89 @@ impl Lexicon {
     pub fn lookup_keys(&self) -> impl Iterator<Item = (Reading<'_>, WordId)> {
         merge_keys(self.index.iter(), self.pending_keys.iter())
             .flat_map(|((index, key), ids)| ids.map(move |id| (Reading { index, key }, WordId(id))))
+    }
+
+    /// Keep selected words, their primary readings and every surviving lookup alias.
+    /// Returns old-ID -> new-ID mappings; removed words map to None. Surviving order and counts
+    /// are preserved. Paired gram files must be remapped or rebuilt before using the new IDs.
+    /// A failed rebuild leaves this dictionary unchanged.
+    pub fn retain(
+        &mut self,
+        mut keep: impl FnMut(Word<'_>) -> bool,
+    ) -> Result<Vec<Option<WordId>>, EditError> {
+        let mut next = Self::new();
+        let mut mapping = vec![None; self.len()];
+        for word in self.words().filter(|word| keep(*word)) {
+            let id = WordId(next.len() as u32);
+            next.restore_word(id, word.text, word.count, word.reading)?;
+            mapping[word.id.0 as usize] = Some(id);
+        }
+        for (reading, id) in self.lookup_keys() {
+            if let Some(id) = mapping[id.0 as usize] {
+                next.add_key(reading.index, reading.key, id)?;
+            }
+        }
+        next.compact()?;
+        *self = next;
+        Ok(mapping)
+    }
+
+    /// Exact size of a snapshot saved in the current file format; performs no file I/O.
+    pub fn serialized_size(&mut self) -> Result<u64, EditError> {
+        self.compact()?;
+        Ok(file::serialized_size(self))
+    }
+
+    /// Remove the lowest-count words until the saved dictionary fits `max_bytes`.
+    /// Equal counts remove lower old IDs first. Returns the ID mapping used by `retain`.
+    /// Even an empty dictionary needs its file header; smaller limits fail without deleting words.
+    pub fn prune_to_bytes(&mut self, max_bytes: u64) -> Result<Vec<Option<WordId>>, EditError> {
+        let mut size = self.serialized_size()?;
+        if max_bytes < file::serialized_size(&Self::new()) {
+            return Err(EditError::CapacityExceeded);
+        }
+        if size <= max_bytes {
+            return Ok((0..self.len()).map(|id| Some(WordId(id as u32))).collect());
+        }
+        let mut order: Vec<_> = self.words().map(|word| (word.count, word.id.0)).collect();
+        order.sort_unstable();
+        let mut rank = vec![0; self.len()];
+        let mut costs: Vec<_> = self.words().map(file::word_size).collect();
+        for (index, &(_, id)) in order.iter().enumerate() {
+            rank[id as usize] = index;
+        }
+        // A key's record/bytes disappear only when its last posting is removed. Charge them
+        // to the last word in removal order, and each posting to its own word.
+        let mut group: Option<(Reading<'_>, usize)> = None;
+        for (reading, id) in self.lookup_keys() {
+            let id = id.0 as usize;
+            costs[id] += 4;
+            match group {
+                Some((previous, last)) if previous == reading => {
+                    if rank[id] > rank[last] {
+                        group = Some((reading, id));
+                    }
+                }
+                previous => {
+                    if let Some((key, last)) = previous {
+                        costs[last] += file::key_size(key);
+                    }
+                    group = Some((reading, id));
+                }
+            }
+        }
+        if let Some((key, last)) = group {
+            costs[last] += file::key_size(key);
+        }
+        let mut removed = 0;
+        for &(_, id) in &order {
+            if size <= max_bytes {
+                break;
+            }
+            size -= costs[id as usize];
+            removed += 1;
+        }
+        self.retain(|word| rank[word.id.0 as usize] >= removed)
     }
 
     /// Exact key lookup in ascending word-ID order.

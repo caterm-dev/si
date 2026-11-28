@@ -1,4 +1,6 @@
+mod candidate_pool;
 mod candidates;
+mod model_adjustments;
 
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -29,7 +31,9 @@ Usage:
   si-cli corpus ingest <lexicon.silex> <grams.sigram> <source.txt> [<source.txt> ...]
   si-cli corpus clear-grams <lexicon.silex> <grams.sigram>
   si-cli corpus prune  --order <2|3|4|5> --min-count <count> <lexicon.silex> <grams.sigram>
-  si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--languages <zh-Hans,en|zh-Hans|en|none>] [--pinyin-correction <on|higher-recall|off>] [--search <full|preview>] [--list <full|window>] [--preceding <text>] [--request-format <spelling|context-tsv>]
+  si-cli candidates <base.silex> [--grams <base.sigram>] [--user <profile.si-user>] [--model <neural-bundle>] [--languages <zh-Hans,en|zh-Hans|en|none>] [--pinyin-correction <on|higher-recall|off>] [--search <full|preview>] [--list <full|window>] [--preceding <text>] [--request-format <spelling|context-tsv>] [--output-format <tsv|model-tsv>]
+  si-cli candidate-pool <base.silex> [--grams <base.sigram>] [--languages <zh-Hans,en|zh-Hans|en|none>] [--preceding <text>] [--request-format <spelling|context-tsv>] [--pinyin-correction <on|off>] [--k-best <1..512>] [--pool-size <1..64>] [--structure-limit <0..2>] [--multiword-limit <0..pool>] [--search-budget <1..1000000>]
+  si-cli model-adjustments <neural-bundle> (context<TAB>candidate<TAB>... requests on stdin)
   si-cli user ingest <profile.si-user> <base.silex> <batch-id> <sentences.txt|->
   si-cli user learn  <profile.si-user> <base.silex> [<si.conf>]
   si-cli user status <profile.si-user>
@@ -69,6 +73,12 @@ fn run(args: &[OsString], config: &SiConfig) -> Option<io::Result<()>> {
         }
         [scope, base, options @ ..] if scope == "candidates" => {
             candidates::run(Path::new(base), options, config)
+        }
+        [scope, base, options @ ..] if scope == "candidate-pool" => {
+            candidate_pool::run(Path::new(base), options, config)
+        }
+        [scope, bundle] if scope == "model-adjustments" => {
+            Some(model_adjustments::run(Path::new(bundle), config))
         }
         [scope, action, output, inputs @ ..] if scope == "lexicon" && action == "build" => {
             let sources = lexicon_sources(inputs)?;

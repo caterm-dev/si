@@ -8,6 +8,77 @@ const FULL: IndexId = IndexId(1);
 const INITIALS: IndexId = IndexId(2);
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
+fn pruning_fixture() -> Lexicon {
+    let mut lexicon = Lexicon::new();
+    let low = lexicon.add_reading(FULL, b"chong", "重", 1).unwrap();
+    let high = lexicon.add_reading(FULL, b"zhong", "重", 50).unwrap();
+    let other = lexicon.add_word("é", 2).unwrap();
+    for id in [low, high, other] {
+        lexicon.add_key(INITIALS, b"shared", id).unwrap();
+    }
+    lexicon.add_key(INITIALS, &[0xff; 200], low).unwrap();
+    lexicon.add_key(INITIALS, b"z", high).unwrap();
+    lexicon
+}
+
+#[test]
+fn retaining_words_preserves_primary_identities_aliases_counts_and_roundtrips() -> io::Result<()> {
+    let mut lexicon = pruning_fixture();
+    let mapping = lexicon.retain(|word| word.count > 1).unwrap();
+    assert_eq!(mapping, [None, Some(WordId(0)), Some(WordId(1))]);
+    assert_eq!(lexicon.find_reading(FULL, b"zhong", "重"), Some(WordId(0)));
+    assert!(lexicon.exact(FULL, b"chong").next().is_none());
+    assert_eq!(
+        lexicon
+            .exact(INITIALS, b"shared")
+            .map(|word| word.count)
+            .collect::<Vec<_>>(),
+        [50, 2]
+    );
+    assert_eq!(lexicon.exact(INITIALS, b"z").next().unwrap().text, "重");
+    let directory = ScratchDirectory::new()?;
+    let path = directory.0.join("pruned.silex");
+    let size = lexicon.serialized_size().unwrap();
+    lexicon.save(&path)?;
+    assert_eq!(fs::metadata(&path)?.len(), size);
+    let reopened = Lexicon::open(&path)?;
+    assert_eq!(
+        reopened.words().collect::<Vec<_>>(),
+        lexicon.words().collect::<Vec<_>>()
+    );
+    assert_eq!(
+        reopened.lookup_keys().collect::<Vec<_>>(),
+        lexicon.lookup_keys().collect::<Vec<_>>()
+    );
+    Ok(())
+}
+
+#[test]
+fn byte_pruning_fits_every_boundary_and_keeps_highest_counts_longest() {
+    let maximum = pruning_fixture().serialized_size().unwrap();
+    let minimum = Lexicon::new().serialized_size().unwrap();
+    for budget in 0..=maximum {
+        let mut lexicon = pruning_fixture();
+        if budget < minimum {
+            assert_eq!(
+                lexicon.prune_to_bytes(budget),
+                Err(EditError::CapacityExceeded)
+            );
+            assert_eq!(lexicon.len(), 3);
+            continue;
+        }
+        let mapping = lexicon.prune_to_bytes(budget).unwrap();
+        assert!(lexicon.serialized_size().unwrap() <= budget);
+        if !lexicon.is_empty() {
+            assert!(mapping[1].is_some());
+            assert_eq!(lexicon.word(mapping[1].unwrap()).unwrap().count, 50);
+        }
+        if mapping[0].is_some() {
+            assert_eq!(mapping, [Some(WordId(0)), Some(WordId(1)), Some(WordId(2))]);
+        }
+    }
+}
+
 #[test]
 fn a_word_has_one_raw_count_across_key_spaces() {
     let mut lexicon = Lexicon::new();

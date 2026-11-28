@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from .settings import ROOT, load_config
+from .settings import APP_PROTOCOL, ROOT, load_config
 
 
 def main():
@@ -57,6 +57,8 @@ def main():
             sub.add_argument('--max-tokens', type=int)
         if command == 'distill':
             sub.add_argument('--init-checkpoint', type=Path, default=runs / 'pretrain/best.pt')
+            sub.add_argument('--init-data', type=Path, help='Frozen LM corpus recorded by a continued initialization checkpoint')
+            sub.add_argument('--check-only', action='store_true', help='Verify initialization/cache on CPU without training or creating a run')
         if command == 'resume':
             sub.add_argument('--stage', choices=('pretrain', 'distill'), required=True)
         if command in ('validation', 'test', 'evaluate', 'rank', 'export', 'benchmark'):
@@ -71,6 +73,7 @@ def main():
             sub.add_argument('--candidate', action='append', required=True)
             sub.add_argument('--language', choices=('zh-Hans', 'en', 'mixed'), default='zh-Hans')
             sub.add_argument('--input', help='Exact spelling retained separately as the literal action')
+            sub.add_argument('--base-score-bits', action='append', type=float, help='App-protocol statistical score per supplied candidate')
         if command == 'benchmark':
             sub.add_argument('--binary', type=Path, default=Path('target/release/si-neural'))
             sub.add_argument('--bundle', type=Path, default=path('EXPORT', ROOT / 'exports' / experiment) / 'rust')
@@ -110,6 +113,8 @@ def main():
         result = train(config_path, args.data, args.run or runs / stage, args.device,
             pools_path=args.pools if stage == 'distill' else None,
             init_checkpoint=args.init_checkpoint if command == 'distill' else None,
+            init_data=args.init_data if command == 'distill' else None,
+            check_only=args.check_only if command == 'distill' else False,
             resume=command == 'resume', max_steps=args.max_steps, max_tokens=args.max_tokens, threads=args.threads)
     elif command in ('validation', 'test'):
         from llm.reranker_small.evaluate import evaluate
@@ -129,6 +134,11 @@ def main():
         checkpoint, model, tokenizer = load_checkpoint(args.checkpoint, device)
         row = dict(context=args.context, candidates=[dict(text=c, language=args.language) for c in args.candidate],
                    observed_text=args.candidate[0])
+        if checkpoint['config']['scoring'].get('protocol') == APP_PROTOCOL:
+            if len(args.candidate) > checkpoint['config']['scoring']['max_candidates']:
+                raise ValueError('Manual App rank requests must fit the model pool')
+            row.update(base_scores_bits=args.base_score_bits or [0.0]*len(args.candidate),
+                       model_mask=[True]*len(args.candidate),model_adjustment_mask=[True]*len(args.candidate))
         result = (predict(model, tokenizer, row, checkpoint['config'], device) if args.input != '' else
                   dict(scores=[], order=[], abstained=False, context_tokens_used=0))
         result['candidates'] = row['candidates'] if args.input != '' else []

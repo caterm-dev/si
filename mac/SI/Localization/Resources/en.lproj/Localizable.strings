@@ -179,14 +179,6 @@
 
 // Optional experimental permissions
 "Accessibility" = "Accessibility";
-"Export Current App AX Data…" = "Export Current App AX Data…";
-"AX Export Failed" = "AX Export Failed";
-"No foreground application is available for AX export." = "No foreground application is available for AX export.";
-"Allow SI in macOS Accessibility settings before exporting AX data." = "Allow SI in macOS Accessibility settings before exporting AX data.";
-"AX export is unavailable during secure input." = "AX export is unavailable during secure input.";
-"The foreground application changed. Return to the app and export again." = "The foreground application changed. Return to the app and export again.";
-"The application did not expose a readable AX tree." = "The application did not expose a readable AX tree.";
-"The AX export exceeded the file size limit. No file was saved." = "The AX export exceeded the file size limit. No file was saved.";
 "Allowed" = "Allowed";
 "Not allowed" = "Not allowed";
 "Open Settings…" = "Open Settings…";
@@ -359,11 +351,11 @@
 
 "Enable App Learning" = "Enable App Learning";
 
-"Every 30 seconds, SI reads eligible foreground app text through Accessibility and saves a separate local vocabulary and word-gram model for that app. Button text is excluded. These models do not affect candidates yet." = "Every 30 seconds, SI reads eligible foreground app text through Accessibility and saves a separate local vocabulary and word-gram model for that app. Button text is excluded. These models do not affect candidates yet.";
+"Mouse movement, scrolling or keyboard activity triggers an eligible foreground app text sample through Accessibility, at most once every 30 seconds. SI saves a separate local vocabulary and word-gram model for each app. Button text is excluded. These models do not affect candidates yet." = "Mouse movement, scrolling or keyboard activity triggers an eligible foreground app text sample through Accessibility, at most once every 30 seconds. SI saves a separate local vocabulary and word-gram model for each app. Button text is excluded. These models do not affect candidates yet.";
 
 "Allow SI in macOS Accessibility settings, then refresh permission status here. No app text is read until permission is granted." = "Allow SI in macOS Accessibility settings, then refresh permission status here. No app text is read until permission is granted.";
 
-"Waiting for the next 30-second sample." = "Waiting for the next 30-second sample.";
+"Waiting for computer activity. Samples are at least 30 seconds apart." = "Waiting for computer activity. Samples are at least 30 seconds apart.";
 
 "App vocabulary and word grams saved." = "App vocabulary and word grams saved.";
 
@@ -392,3 +384,5 @@
 "This deletes app vocabulary, word grams and metadata. Other personal data is kept." = "This deletes app vocabulary, word grams and metadata. Other personal data is kept.";
 
 "Delete this app’s learning data?" = "Delete this app’s learning data?";
+"Use large ranking model" = "Use large ranking model";
+"Turn off to use the small model." = "Turn off to use the small model.";

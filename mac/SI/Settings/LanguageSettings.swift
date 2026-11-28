@@ -13,6 +13,7 @@ final class LanguageSettings {
     static let punctuationKey = "typing.punctuationBehavior"
     static let punctuationCandidatesKey = "typing.punctuationCandidates"
     static let pinyinCorrectionKey = "typing.pinyinCorrection"
+    static let largeModelKey = "typing.useLargeModel"
     static let localModelRankingKey = "typing.localModelRanking"
     static let passthroughApplicationsKey = "typing.passthroughApplications"
     static let directInputShortcutKey = "typing.directInputShortcut"
@@ -51,6 +52,13 @@ final class LanguageSettings {
         didSet {
             defaults.set(pinyinCorrectionEnabled ? 1 : 0, forKey: Self.pinyinCorrectionKey)
             if oldValue != pinyinCorrectionEnabled { configurationGeneration &+= 1 }
+        }
+    }
+
+    var useLargeModel: Bool {
+        didSet {
+            defaults.set(useLargeModel, forKey: Self.largeModelKey)
+            if oldValue != useLargeModel { configurationGeneration &+= 1 }
         }
     }
 
@@ -122,6 +130,7 @@ final class LanguageSettings {
         // Both legacy enabled modes map to the single switch.
         let savedCorrection = defaults.integer(forKey: Self.pinyinCorrectionKey)
         pinyinCorrectionEnabled = savedCorrection == 1 || savedCorrection == 2
+        useLargeModel = defaults.bool(forKey: Self.largeModelKey)
         localModelRankingEnabled = defaults.bool(forKey: Self.localModelRankingKey)
         punctuationCandidatesEnabled = defaults.bool(forKey: Self.punctuationCandidatesKey)
         if let saved = defaults.string(forKey: Self.punctuationKey) {

@@ -54,6 +54,17 @@ fn main() -> Result<()> {
             })
         }
         [command, path] if command == "rank" => {
+            let metadata: Value =
+                serde_json::from_slice(&std::fs::read(Path::new(path).join("model.json"))?)
+                    .map_err(|_| io::Error::other("invalid model metadata"))?;
+            if metadata["score_protocol"]
+                .as_str()
+                .is_some_and(|protocol| protocol.starts_with("si-app-model-adjustment-"))
+            {
+                return Err(io::Error::other(
+                    "App-aligned bundles require si-cli candidates --model or si-cli model-adjustments",
+                ));
+            }
             let model = Reranker::open(Path::new(path))?;
             requests(|q| {
                 let result = model.rank(

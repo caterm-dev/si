@@ -36,15 +36,17 @@ For the selected chat checkpoint, resource checks and seven Rust/PyTorch
 scoring parity cases pass. The former
 `small_reranker_preserves_model_gaps_across_large_statistical_gaps` failure
 described a retired scoring policy; current focused tests cover bounded
-contextual lift and BOS-only rewards. See the selected-model README for the
-historical measured gaps. BOS fixtures check scalar normalization, absolute
-bounds and weight, absent/empty/boundary-equivalent context, zero context
-budgets, disabled rewards, over-budget abstention, unchanged lexical evidence
+conditional-probability and BOS-only adjustments. See the selected-model README for the
+historical measured gaps. BOS fixtures check summed sequence gaps without length
+normalization, pool-relative clipping before the 0.8 weight, absent/empty/boundary-
+equivalent context, zero context budgets, disabled adjustments, over-budget
+abstention, unchanged lexical evidence
 and source spans, preview suppression and literal retention.
-The current BOS change passes the Rust workspace tests and the 17-test
-`RustConversionIntegrationTests` suite; the Debug app build succeeds. The full
-Swift suite is not green: separate vocabulary/recall, ranking-presentation and
-Input History export/restore tests still report failures. These checks do not
+The former per-scalar BOS change passed the Rust workspace tests and the 17-test
+`RustConversionIntegrationTests` suite; the Debug app build succeeded. At that
+point the full Swift suite was not green: separate vocabulary/recall,
+ranking-presentation and Input History export/restore tests reported failures.
+These checks do not
 establish live host compatibility.
 
 Run the synchronous selection and window regression tests with the app's paired snapshots.
@@ -91,6 +93,16 @@ bigram fallback, neutral sparse absent/weaker records and a matched zero-reward
 trigram blocking fallback. Exact, completion, prefix and preceding-field cases
 keep the same consumed spans; stored four-grams do not bypass the trigram limit.
 Configuration fixtures validate all three reward parameters and disabled rewards.
+Offline pool-inspection fixtures recover a gram winner whose initial history
+was lost by the ordinary beam, compare exact ordering and scores against complete
+small lattices (including ties and field/sentence-start context), and verify
+language-aware identity, source aliases, budget failure and preservation of every
+native result. Structure and word-count limits apply only after enumeration;
+blocked-by indices identify structural replacements. CLI fixtures validate
+limits and separate search membership from pool selection. No inspector is
+constructed during ordinary app conversion. Use `si-cli candidate-pool` to audit
+native, expanded, post-structure, post-length, post-quota and scoring-pool recall
+separately, listing every loss rather than only net counts.
 Backoff fixtures cover strong unseen bigrams, rare histories, rare or absent
 successor tokenizations, zero-cap disabling, unchanged seen transitions,
 preceding-field penalties and prefix-score independence. A synthetic
@@ -380,25 +392,47 @@ office app. Include ordinary and secure fields, using dummy input.
 ### Local model ranking in a host
 
 With fresh preferences, verify Local model ranking starts on and its saved
-Typing choice survives restart. Empty or unavailable preceding context uses
-bounded BOS-only rewards when ranking is enabled; disabling ranking restores
-the statistical order. With an isolated synthetic
+Typing choice survives restart. Under Typing, **Use large ranking model** starts off.
+Toggle it during a composition in TextEdit and in a browser field. Check that the
+marked spelling and caret survive, fresh selections match the chosen model and a
+stale window selection cannot commit. Restart and check the saved choice. Turn
+local ranking off and back on to check the selection is retained. Check both
+labels and the disabled state using the keyboard and VoiceOver. Empty or unavailable preceding context uses
+bounded BOS-only summed-score adjustments when ranking is enabled; disabling
+ranking restores the statistical order. With an isolated synthetic
 field, compare `shu` after `院子太晒最好沿着围墙多种几棵` with ranking off/on.
 Check candidate selection by Space, digits and mouse, Return's exact spelling,
 Escape, focus changes, secure/direct input and an unsupported context reader.
+With empty preceding text, compare `nirenweizhezhongfangshihaoma` with ranking
+off/on: the local resource case should promote `你认为这种方式好吗` above
+`你认为这种方式号码` when enabled. The nine-character window budget remains one
+constructed result. Separately check `haoma` after both `方式` and
+`你认为这种方式`: the conditional-probability adjustment should rank `好吗`
+above `号吗` with the local base resources and no personal state.
+Check lower-ranked choices such as `好麻`: an ordinary whole result outside the
+model pool must receive the pool's worst adjustment rather than zero. Prefix
+scores and exact original input must remain independent of that full-input pool.
 A trailing sentence boundary must clear LM context. No typing or pause may
 commit a prefix automatically. Native host behavior remains a manual check.
 
-Rust tests compare whole-sequence conditional/unconditional probabilities,
-relative eight-bit clipping before the 1.0 weight, negative adjustments,
-unscored candidates moving above penalized pool members, zero-context/budget
+Rust tests compare whole-sequence conditional probabilities and BOS probabilities,
+relative eight-bit clipping before the 0.8 weight, negative adjustments,
+unscored ordinary whole candidates receiving the worst pool adjustment, zero-context/budget
 fallback, deterministic repeated scoring and bounded exact-byte LRU eviction.
 Cache contention must not wait or change scores; no inference holds its lock.
 The shared Swift integration verifies both correction modes, unchanged lexical
-scores/identities, signed bridge values and zero adjustment for excluded paths.
-`small_reranker_limits_contextual_lift_and_uses_bos_for_empty_fragments` verifies that
+scores/identities, signed bridge values and zero adjustment for prefixes, literals,
+personal phrases and verbatim paths. Completion/correction results can receive
+the pool fallback without model inference. Identical output text reuses its
+computed adjustment across language identities.
+`small_reranker_limits_conditional_probability_gaps_and_uses_bos_for_empty_fragments`
+verifies that
 context can overcome moderate statistical gaps but not the configured bound.
-The pool-limit test retains all thirteen homophones while scoring only twelve.
+A rare-homophone regression verifies that a higher unconditional-to-conditional
+lift cannot override the higher conditional probability of `好吗` over `号吗`.
+The pool-limit test retains all thirteen homophones while scoring only twelve
+and assigning the thirteenth the lowest pool adjustment. The same policy covers
+BOS-only scoring, completions and configured pool limits.
 Configuration tests load custom parameters, remove the file before conversion,
 and cover zero weight, invalid/nonfinite values and missing/unknown fields.
 These checks do not establish native keystroke latency or representative accuracy.
@@ -645,27 +679,25 @@ Run `./scripts/test.sh` and `./scripts/build.sh`. Permission controls are separa
 
 On an intentionally installed build, open **Permissions** and verify that both permission names, statuses and actions fit at the minimum Settings window width in English and Simplified Chinese, including when their statuses differ. Check keyboard navigation, distinct VoiceOver names for the two **Open Settings…** buttons, and light/dark appearance. With Accessibility disabled and System Settings closed, choose **Open Settings…** on the Screen Recording row and verify that the correct pane and floating panel appear without an Accessibility prompt. Drag SI from the panel into the list and confirm that macOS accepts the bundle from `~/Library/Input Methods/SI.app`. Revoke the grant in System Settings and repeat with System Settings already open. Open the Accessibility pane from its row and check that the panel closes when System Settings quits. Verify keyboard-only authorization using the system list's **+** file chooser and **Shift-Command-G**. Test the floating panel in English and Simplified Chinese.
 
-Return to SI and refresh status after each change. If macOS requires a restart, restart the installed copy normally without running a second SI process. Neither launching SI nor typing should prompt. Granting either or both permissions must leave ordinary candidates, enabled languages, direct-input app rules and learning/history consent unchanged. With AI completion off and without an explicit AX export, no host controls or images should be captured.
-
-### Manual AX data export
-
-In TextEdit containing only synthetic text, choose **Export Current App AX Data…** from SI's input-source menu. Confirm the JSON identifies TextEdit rather than SI or the menu host, includes the synthetic text and node references, and is revealed in `~/Library/Application Support/SI/AXExports/`. Repeat in a browser and editor; inaccessible content must appear as errors/unsupported types rather than a promise of full coverage. Inspect `truncations` and discovered versus serialized node counts for a large tree. Check 0700 directory/0600 file permissions, unique files for repeated exports, and manual deletion in Finder. Verify menu keyboard navigation, VoiceOver and English/Chinese labels. Missing Accessibility consent must show an error without prompting or producing a file; secure input/focused password controls must prevent export, and other secure nodes must be redacted. Switch to another application during traversal and verify export fails instead of reading the replacement app. Confirm failed writes are visible and leave no partial JSON. Repeated clicks during an export must not start parallel traversals, and ordinary typing must remain responsive and create no files or network requests. This export is independent of AI, Personal Learning and Input History consent. Native menu routing, host AX coverage and these privacy/runtime checks remain unverified until exercised in the login session.
-
-On November 27, 2026, an isolated executable using the production exporter source passed synthetic checks for exact Unicode/NUL JSON round trips, UTF-8-safe string truncation, duplicate AX reference identity, cross-process reference exclusion, range values, attributed-string plain text and the global value limit. This did not read host text or verify native menu routing, secure-field behavior or file export in an installed SI process.
-
-For the offline text extractor, run `python3 -m unittest discover -s Tests/AXTextToolsTests -v`. Synthetic fixtures cover paragraph reconstruction across styles/links/inline mentions, list boundaries versus sidebar navigation, focused-window/subtree selection, repeated text and shared references, native multiline values, hidden/secure nodes, geometry fallback, cycles/missing references, sentence offsets, the single `.sentences.txt` output, visible content-free warnings for truncated snapshots and private output/overwrite protections. Regression fixtures also cover sidebar titles exposed as buttons, distinct parent/control labels, separate toolbar controls, and the body-only default versus explicit `--include-controls`, including exclusion of inline button children. No app build is needed for changes confined to this script/tests. On November 27, 2026, the user-selected 971-node, untruncated AX export was also parsed locally without printing its text; the selected body-only default produced 20 blocks and 27 heuristic sentence spans with no missing-edge warnings, excluding sidebar and inline button text. Explicit control-inclusive extraction retained the reported sidebar title; this is an opt-in mode rather than the default. This confirms the snapshot's extractable content and structure, not pixel-for-pixel screen coverage or general host compatibility.
+Return to SI and refresh status after each change. If macOS requires a restart, restart the installed copy normally without running a second SI process. Neither launching SI nor typing should prompt. Granting either or both permissions must leave ordinary candidates, enabled languages, direct-input app rules and learning/history consent unchanged. With AI Completion and App Learning off, granting permission alone must not read host controls or capture images.
 
 System permission dialogs, revocation, Settings keyboard/VoiceOver and live appearance remain unverified until exercised in the login session.
 
+After removing the temporary inspection tools, the Debug app build and localization/App Learning settings/storage suites passed. The full Swift run still reported ranking/vocabulary expectations and the Input History restore-tool failure. No installation or native input-menu verification was performed.
+
 ## App Learning
 
-Run `cargo test --locked -p si-engine resources::user::app --lib`, `./scripts/test.sh --filter 'AppLearning|LocalizationTests'`, the full documented Cargo/Swift checks and `./scripts/build.sh`. Also run `cargo test --locked -p si-engine resources::learning_config --lib` for `[app]` parsing/default/validation checks. Rust synthetic fixtures cover configured maximum gram orders, custom snapshot/model byte limits with preservation on overflow, unchanged/reordered snapshots, previous-only paragraph occurrence differences, append-only edits, complete empty snapshots, restart behavior, fixed private files, stale writers/capacities, legacy a/b migration, interrupted publication boundaries, retry idempotence and corrupt staging rejection. Swift fixtures cover independent default-off consent, permission gating, pause/retry, separate app directories, fixed paired files, empty snapshots, per-app/global clear and rejection of pre-clear captures. Models have no candidate-search connection.
+Run `cargo test --locked -p si-engine resources::user::app --lib`, `./scripts/test.sh --filter 'AppLearning|LocalizationTests'`, the full documented Cargo/Swift checks and `./scripts/build.sh`. Also run `cargo test --locked -p si-engine resources::learning_config --lib` for `[app]` parsing/default/validation checks. Rust synthetic fixtures cover configured maximum gram orders, custom snapshot byte limits with preservation on overflow, paired model pruning, lower-capacity reopen, impossible-capacity preservation and interrupted pruned publication, unchanged/reordered snapshots, previous-only paragraph occurrence differences, append-only edits, complete empty snapshots, restart behavior, fixed private files, stale writers/capacities, legacy a/b migration, interrupted publication boundaries, retry idempotence and corrupt staging rejection. Swift fixtures cover activity-triggered first sampling, continuous activity throttling, cooldown event discard, idle periods, delayed polls, restart cooldown preservation, invalid idle durations, independent default-off consent, permission gating, pause/retry, separate app directories, fixed paired files, empty snapshots, per-app/global clear and rejection of pre-clear captures. Models have no candidate-search connection.
+
+The activity-triggered revision uses a 10-second HID-idle poll and a separate global 30-second capture cooldown. The Debug app build and all 15 focused App Learning/activity/settings/storage/localization tests passed. Six timing fixtures cover idle periods, activity anywhere within a 10-second check window, continuous activity limited to starts at seconds 10/40/70/100, cooldown event discard, delayed checks, restart preservation and invalid idle durations. The full Swift run reported the same failing suites and issue counts as the preceding temporary-tool cleanup baseline (ranking/vocabulary expectations and Input History restore). No installation, actual hardware-input category checks or native host/VoiceOver verification was performed.
+
+The capacity-pruning revision passed the locked Rust workspace tests, formatting check and strict workspace/all-target Clippy. Coverage includes all 18 app storage tests, three paired-pruning tests, every byte budget of small synthetic lexicon/model fixtures, shared-key and primary-reading preservation, exact saved-file sizes for empty/2/3/4/5-order models, lower-limit reopen and recovery after interrupted pruned publication. Overflow behavior is exercised with small configured budgets; the default 64-MiB file boundary is checked separately. No private model was modified and no live AX sample was read. Only Rust/configuration/documentation changed, so Swift tests, app build and installed host checks were not rerun for this revision.
 
 The subsequent `[app]` configuration change passed `cargo fmt --all -- --check`, `cargo test --workspace --locked` (including all 15 app storage tests and the configuration tests) and strict workspace/all-target Clippy. Tests verify embedded defaults, older files without `[app]`, invalid/missing/duplicate keys, custom 2/4/5-order ingestion and configured byte caps preserving prior data on rejection. This change touched Rust/configuration/documentation only; Swift tests and the app build were not rerun for it. Configuration is embedded at build time, so an installed input method must be rebuilt/reinstalled to use edits.
 
 On November 27, 2026, the 512-KiB/64-MiB revision passed all 12 focused Rust app tests, the Rust workspace tests, strict workspace/all-target Clippy, the Debug app build and all nine App Learning/storage/settings/localization focused Swift tests. Byte-boundary tests accept exactly 512 KiB, skip UTF-8 overflow without changing the previous snapshot/model, accept over 256 paragraphs and over 16 apps, and check the combined 64-MiB file boundary. An isolated executable using production AX traversal and synthetic AX/Core-limit substitutes passed 6,000 text nodes, 1,000 nested groups, paragraph/style joining, button exclusion, exact 512-KiB acceptance and UTF-8 overflow rejection; it read no real AX text. Full Swift testing still reports existing vocabulary/history-restore failures, with unrelated expectations left unchanged. Installed AX/host behavior and VoiceOver remain unverified.
 
-On an intentionally installed signed build, open **Personal Data → App Learning** in English/Simplified Chinese, with keyboard/VoiceOver and light/dark appearance. With AX trust missing, enabling must show explicit Settings actions and create no model. Grant/refresh permission, return to a synthetic TextEdit document with SI selected and wait for the first 30-second tick. Verify exactly one fixed pair/meta set per app (plus the lock file), 0700/0600 permissions, and no `.pending`/`.publishing` after success. Leave text unchanged for another tick: counts/revision must remain unchanged. Reorder paragraphs without adding occurrences: counts must remain unchanged. Verify snapshots over 512 KiB skip the entire sample and keep the last comparison/model; under-limit snapshots with more than 256 paragraphs must remain eligible. Model updates over the combined 64-MiB limit must preserve existing files and show an error. There should be no separate word/gram/app-count caps. Add or edit a paragraph: only new text is ingested and old counts remain. Sample a complete empty document and then reintroduce a paragraph: it should count again. Switch windows within the same app: all compare against the same previous snapshot; there are no per-window caches. Close Settings and verify enabled sampling continues.
+On an intentionally installed signed build, open **Personal Data → App Learning** in English/Simplified Chinese, with keyboard/VoiceOver and light/dark appearance. With AX trust missing, enabling must show explicit Settings actions and create no model. Grant/refresh permission, return to a synthetic TextEdit document with SI selected and move the mouse, scroll or type. Verify that the first eligible sample can start at the next 10-second activity poll without waiting 30 seconds. Exercise each input category, mouse dragging and modifier keys separately. During continuous activity, starts must be at least 30 seconds apart, globally across apps. Stop activity before the cooldown ends: no deferred sample should run at or after expiry; a fresh action is required. Leave the computer idle past multiple intervals: no AX reads should start. Retry and disable/re-enable within a cooldown must not bypass it; a disabled feature must stop activity polling. No Input Monitoring prompt or global input event capture should appear. Verify exactly one fixed pair/meta set per app (plus the lock file), 0700/0600 permissions, and no `.pending`/`.publishing` after success. After the cooldown, trigger another sample without changing document text: counts/revision must remain unchanged. Reorder paragraphs without adding occurrences: counts must remain unchanged. Verify snapshots over 512 KiB skip the entire sample and keep the last comparison/model; under-limit snapshots with more than 256 paragraphs must remain eligible. Model updates over the combined 64-MiB limit must automatically prune low-count grams, then low-count words/aliases if needed, and publish a valid pair plus metadata within the limit without pausing sampling. Verify counts/metadata after reopening and retrying the same sample; counts must not duplicate. A lower configured limit must prune an existing valid model when enabled/opened, while corrupt models or limits too small for empty headers/metadata still fail visibly without silently replacing saved data. There should be no separate word/gram/app-count caps. Add or edit a paragraph: only new text is ingested and old counts remain. Sample a complete empty document and then reintroduce a paragraph: it should count again. Switch windows within the same app: all compare against the same previous snapshot; there are no per-window caches. Close Settings and verify enabled sampling continues.
 
 Switch between eligible apps and verify isolation. Change focus/direct-input rules, revoke permission, enter secure input or disable/clear during a read: obsolete samples must not publish, deletion must not be undone, and typing must not prompt. Truncated/unsupported reads skip without clearing the previous snapshot. Storage failures visibly pause and offer Retry/Clear. Off/on and normal restart clear previous snapshots but retain the fixed derived models. Existing a/b models must migrate without losing their active counts, and no old generations/pointer should remain after success. Per-app deletion must keep other app/global data; Clear All removes models and temporary publication files. Verify no raw AX/source text is saved and candidate order stays unchanged. Native host AX coverage, permission changes, VoiceOver and installed runtime behavior remain unverified until exercised in the login session. Do not run installed and build copies together.
 
@@ -854,6 +886,60 @@ bitwise resumed weights, ancestor/tokenizer rejection, export lineage, no
 test-array access and unchanged legacy trainer identity. MPS continuation
 training/resume quality and native latency require separate measurements;
 these checks do not start formal training.
+
+The same synthetic suite verifies that distillation can initialize from a
+continued checkpoint while retaining the old candidate-cache identity. It
+checks exact initial weights, fresh AdamW state, CPU resume equivalence and
+lineage-preserving export. Missing initialization corpus, unrelated lineage,
+wrong source manifest and changed tokenizer bytes are rejected before a run
+is created. `scripts/distill-pilot.sh --check-only` provides a separate read-only
+CPU check of the selected real archive/cache; it does not validate MPS training
+quality or start formal training.
+
+`llm.reranker_large.tests.test_app_scoring` checks contextual/BOS reward math,
+gradient flow through both likelihood branches, fused statistical scores,
+native Rust App component parity, punctuation/eligibility export, protocol
+cache rejection and exact CPU distillation resume on authored tiny fixtures.
+The native/Python comparison also exercises 16-target-token acceptance and
+17-target-token abstention with byte-fallback scalars at a 16-token context.
+The real App-aligned cache and retraining remain separately invoked stages;
+their results must be evaluated with the same native fusion protocol.
+
+`llm.reranker_large.tests.test_sequence_distillation` checks the separate
+`candidate-sequence-kl-v1` training objective with App v4 inference unchanged.
+A wrong candidate beyond the hard inference cap has zero capped-KL gradient
+but a finite corrective sequence-KL gradient. Other fixtures verify unique-text
+loss weighting, independence from statistical/unscored competitors, rejection
+of inconsistent duplicate teacher values, inactive-pool filtering, unchanged
+source provenance, unscored tests, read-only compatibility, exact tiny CPU
+resume and exports retaining App v4. Preparation freezes and hashes the Python
+runtime/config inside the immutable derivative. Formal training is a separate
+operator command; these fixtures do not start the real 15.6M experiment or
+establish ranking quality or native host responsiveness.
+
+`llm.reranker_large.tests.test_coverage` exercises targeted contrast mining on
+in-memory synthetic documents. It checks exact/near regression exclusion,
+dictionary-compatible sound pairs, strict per-pattern budgets, train-only
+source groups, no manufactured ranking gold and held-out validation families.
+Known longer lexical readings cannot be replaced by a guessed character
+reading. The local coverage snapshot is separately audited for all file hashes,
+exact source spans, sound compatibility, no prior query/document/group reuse,
+no train/validation query or reserved-family surface overlap and an unchanged
+score-blind validation seal. Neither these tests nor preparation run teacher
+or student inference. Lexical overlap checks do not certify semantic novelty;
+the new AI-authored validation still needs independent human review.
+
+`llm.reranker_large.tests.test_replay` checks supervised-target replay quotas,
+train-window exclusions, exact surplus masking, sampler/checkpoint restoration
+and the strict top-one/LM-retention selection gate. The separately invoked
+`replay_experiment.py` freezes two matched real-data arms, checks every 50
+updates, and stops after six nonimproving checks. Step-zero fallback prevents
+an ineligible update from becoming best. Its sealed 233-case development
+validation has AI-authored intentions pending human review; it is not a final
+test. Keep legacy regression results out of checkpoint selection, and compare
+selected weights with actual Rust fusion and fixed-budget old/extra LM loss
+after both arms finish. These checks establish neither host-app behavior nor
+representative human typing accuracy.
 
 Use the [corpus guide](../corpus/README.md) for the pinned Python environment.
 Run `corpus/.venv/bin/python -m unittest discover -s corpus/tests` for

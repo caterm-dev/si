@@ -32,7 +32,23 @@ fn invalid(message: impl Into<String>) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message.into())
 }
 
+#[derive(Clone, Copy)]
+enum WeightFormat {
+    F32,
+    F16,
+}
+
+impl WeightFormat {
+    fn file_name(self) -> &'static str {
+        match self {
+            Self::F32 => "weights.f32",
+            Self::F16 => "weights.f16",
+        }
+    }
+}
+
 struct Manifest {
+    weight_format: WeightFormat,
     model: Value,
     characters: Vec<char>,
     checkpoint_sha256: String,
@@ -77,7 +93,13 @@ impl Manifest {
                 ))
             })
             .collect::<Result<_>>()?;
+        let weight_format = match raw.get("weight_format").map(Value::as_str) {
+            None | Some(Some("f32")) => WeightFormat::F32,
+            Some(Some("f16")) if kind == "reranker" => WeightFormat::F16,
+            _ => return Err(invalid("unsupported weight format")),
+        };
         Ok(Self {
+            weight_format,
             checkpoint_sha256: json::text(&raw["checkpoint_sha256"])?.to_owned(),
             model: raw["model"].take(),
             characters,

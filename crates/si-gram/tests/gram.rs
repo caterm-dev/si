@@ -7,6 +7,26 @@ use si_gram::{BigramModel, BuildError, GramBuilder, GramModel, GramOrder};
 use si_lexicon::{Lexicon, WordId};
 
 #[test]
+fn serialized_sizes_match_saved_empty_legacy_and_extended_order_files() -> io::Result<()> {
+    let directory = ScratchDirectory::new()?;
+    let path = directory.0.join("sized.sigram");
+    for highest in [0, 2, 3, 4, 5] {
+        let mut builder = GramBuilder::new();
+        if highest != 0 {
+            builder.add(&vec![WordId(0); highest], 7).unwrap();
+        }
+        let grams = builder.finish().unwrap();
+        grams.save(&path)?;
+        assert_eq!(grams.serialized_size(), fs::metadata(&path)?.len());
+        assert_eq!(
+            GramModel::open(&path)?.serialized_size(),
+            grams.serialized_size()
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn observing_counts_overlapping_windows_within_each_sequence() {
     let [a, b, c, d] = [0, 1, 2, 3].map(WordId);
     let mut builder = GramBuilder::new();

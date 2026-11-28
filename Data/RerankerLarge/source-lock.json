@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "lccc",
+      "origin": "https://huggingface.co/datasets/silver/lccc",
+      "revision": "5bd582fa28cd7143f2f9c852e08e23089d677c44",
+      "license": "MIT",
+      "category": "dialogue",
+      "prepared_manifest_sha256": "07d24af1a2e43309432a4566710a328c95426e2d49f00b7601fcce28e782f9e0"
+    },
+    {
+      "id": "kdconv",
+      "origin": "https://github.com/thu-coai/KdConv",
+      "revision": "653db76432de09a004ba708a68f8bbd5500e6bec",
+      "license": "Apache-2.0",
+      "category": "dialogue",
+      "prepared_manifest_sha256": "289c7f494f875c01bfdd09bf71f07a769cc7064529cc2101af1184eda1d1873b"
+    },
+    {
+      "id": "crosswoz",
+      "origin": "https://github.com/thu-coai/CrossWOZ",
+      "revision": "df82c9fdff91b9b130f2d6b89110d3870ba6260e",
+      "license": "Apache-2.0",
+      "category": "dialogue",
+      "prepared_manifest_sha256": "289c7f494f875c01bfdd09bf71f07a769cc7064529cc2101af1184eda1d1873b"
+    },
+    {
+      "id": "wikipedia",
+      "origin": "https://dumps.wikimedia.org/zhwiki/",
+      "revision": "20261001",
+      "license": "CC-BY-SA-4.0",
+      "category": "wikipedia",
+      "prepared_manifest_sha256": "da12167f8ff79ec18322fcb9e187095410934b3bd29ede78106ab8b3947e3189"
+    },
+    {
+      "id": "kubernetes",
+      "origin": "https://github.com/kubernetes/website",
+      "revision": "43374c571c6f1c7b0f23daffb16e401232ea7bf3",
+      "license": "CC-BY-4.0",
+      "category": "technical",
+      "prepared_manifest_sha256": "20731e808adf90ae06a4a5ff0f656f06132685244b9d679ea4f400e5c71eb6d6"
+    },
+    {
+      "id": "tensorflow",
+      "origin": "https://github.com/tensorflow/docs-l10n",
+      "revision": "7cb584af651df3863a3bebc93674163f8dc6db7b",
+      "license": "Apache-2.0",
+      "category": "technical",
+      "prepared_manifest_sha256": "80c9face29c2547165a10234324e992d9fac0b7b5749570468437d84b121d4ba"
+    },
+    {
+      "id": "mdn",
+      "origin": "https://github.com/mdn/translated-content",
+      "revision": "033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+      "license": "CC-BY-SA-2.5",
+      "category": "technical",
+      "prepared_manifest_sha256": "3ab08dab2940a04b6f17e59f8b46d62c87ebd203fb676c442d5c0bd2da5309fb"
+    },
+    {
+      "id": "si-distillation",
+      "origin": "Local user-supplied dialogue. Includes AI-authored/synthetic material; not evidence of actual chat or human review. Per-file authorship is not inferred.",
+      "revision": "c2e31d639ebe9f5ad7d05e44a3d06ca19294a4baa6467706bd0e65998da22971",
+      "license": "Source-specific terms are not established by local ownership; no blanket redistribution license."
+    }
+  ],
+  "parent_lm_dataset_id": "bb9e2a51b52b1d1e9548e4ac385ba4f2a3bd266b0de8ab5bba7e63ca8302893c",
+  "generation": {
+    "parent_lm_dataset_id": "bb9e2a51b52b1d1e9548e4ac385ba4f2a3bd266b0de8ab5bba7e63ca8302893c",
+    "source_lock_id": "c2e31d639ebe9f5ad7d05e44a3d06ca19294a4baa6467706bd0e65998da22971",
+    "rules": {
+      "schema_version": 1,
+      "seed": 42,
+      "pools": {
+        "train": 10000,
+        "validation": 500,
+        "test": 500
+      },
+      "source_shares": {
+        "si_dialogues": 0.25,
+        "si_workbuddy": 0.15,
+        "public_dialogue": 0.2,
+        "wikipedia": 0.35,
+        "technical": 0.05
+      },
+      "context_buckets": {
+        "none": {
+          "tokens": [
+            0,
+            0
+          ],
+          "share": 0.3
+        },
+        "short": {
+          "tokens": [
+            1,
+            4
+          ],
+          "share": 0.25
+        },
+        "medium": {
+          "tokens": [
+            5,
+            8
+          ],
+          "share": 0.2
+        },
+        "long": {
+          "tokens": [
+            9,
+            16
+          ],
+          "share": 0.25
+        }
+      },
+      "target_buckets": {
+        "single": {
+          "characters": [
+            1,
+            1
+          ],
+          "share": 0.15
+        },
+        "word": {
+          "characters": [
+            2,
+            3
+          ],
+          "share": 0.3
+        },
+        "phrase": {
+          "characters": [
+            4,
+            6
+          ],
+          "share": 0.3
+        },
+        "long": {
+          "characters": [
+            7,
+            10
+          ],
+          "share": 0.15
+        },
+        "very_long": {
+          "characters": [
+            11,
+            16
+          ],
+          "share": 0.1
+        }
+      },
+      "input_shares": {
+        "complete": 0.45,
+        "partial": 0.35,
+        "early": 0.15,
+        "typo": 0.05
+      },
+      "si_split_shares": {
+        "train": 0.9,
+        "validation": 0.05,
+        "test": 0.05
+      },
+      "excluded_si_files": [
+        "dialogues/synthetic-fourth-position-20261123.txt"
+      ],
+      "proposals_per_document": 32,
+      "max_si_file_share": 0.2,
+      "pinyin_correction": "on",
+      "languages": "zh-Hans,en",
+      "notes": [
+        "Shares are proposal targets, not a promise of accepted-pool distributions; the report records actual cases and exclusions.",
+        "Context is a contiguous suffix of the current utterance, never another speaker's utterance.",
+        "Student distillation uses 16 context tokens and 16 candidate tokens; the installed app is unchanged.",
+        "Readings are dictionary-derived and unreviewed; ambiguous longest dictionary matches are skipped.",
+        "No target injection, automatic reference labels, pure English targets or training on eval/ files."
+      ]
+    },
+    "model_limits": {
+      "batch_size": 12,
+      "max_candidates": 12,
+      "length_penalty": 1.0,
+      "context_tokens": 16,
+      "candidate_tokens": 16
+    },
+    "resources": {
+      "binary": {
+        "bytes": 5045888,
+        "sha256": "24677d402ea490f4f949a882e754d7129f902677b63fb07be7776a6158e1537e"
+      },
+      "lexicon": {
+        "bytes": 104723800,
+        "sha256": "70a591eec23967b300401978da3461483b74d00ef2ae05d70fc428a8ec445c4d"
+      },
+      "grams": {
+        "bytes": 67010360,
+        "sha256": "0d64b40a1ee2b8e719d6da8695e86bd0d5b904be4ca9b7e72d71a9595b566ecc"
+      },
+      "engine_config": {
+        "bytes": 4347,
+        "sha256": "b724c43f50c370090c5107c47a1eca14bfe99281f9a4394c01a59406f0dba8ff"
+      }
+    },
+    "producer_sha256": "fa47eb792493fa9afec6490a0c726b7be16ce301f313251e22212ce6e02e66c3",
+    "consumer_code_identity": "db74d8aab08af560e4ca1b633c623f117ebd55220102d366faba1af488e43ad0"
+  },
+  "document_registry": "metadata/generation/documents.jsonl",
+  "app_alignment": {
+    "source_dataset_id": "7600f6975044a0dd95bf16f3c20ed26c4b39a626461b3f1ebeb185f0f3b30579",
+    "lm_dataset_id": "bb9e2a51b52b1d1e9548e4ac385ba4f2a3bd266b0de8ab5bba7e63ca8302893c",
+    "config": {
+      "schema_version": 1,
+      "seed": 42,
+      "stage": "distill",
+      "model": {
+        "vocab_size": 8192,
+        "layers": 7,
+        "width": 384,
+        "heads": 6,
+        "feedforward": 1536,
+        "context": 64,
+        "dropout": 0.1
+      },
+      "data": {
+        "format": "reviewed-documents-v1",
+        "max_document_characters": 2000000
+      },
+      "training": {
+        "batch_size": 4,
+        "gradient_accumulation": 4,
+        "max_steps": 1000,
+        "schedule_steps": 1000,
+        "max_tokens": 0,
+        "warmup_steps": 100,
+        "learning_rate": 5e-05,
+        "weight_decay": 0.1,
+        "gradient_clip": 1.0,
+        "validate_every": 100,
+        "save_every": 100,
+        "validation_tokens": 65536
+      },
+      "scoring": {
+        "batch_size": 12,
+        "max_candidates": 12,
+        "length_penalty": 1.0,
+        "context_tokens": 16,
+        "candidate_tokens": 16,
+        "protocol": "si-app-model-adjustment-v4",
+        "app": {
+          "model_score_weight": 0.8,
+          "model_score_gap_limit_bits": 8.0,
+          "model_sentence_reward_cap_bits": 8.0
+        }
+      },
+      "distillation": {
+        "temperature": 2.0,
+        "kd_weight": 1.0,
+        "lm_weight": 0.2,
+        "label_weight": 0.0,
+        "validation_pools": 512
+      }
+    },
+    "resources": {
+      "si-cli": {
+        "sha256": "92f2ba242dcf7b765c33d9ae8edc9aec9cb43fee3afd3374003e8edde4d30e21",
+        "bytes": 5210144
+      },
+      "main.silex": {
+        "sha256": "70a591eec23967b300401978da3461483b74d00ef2ae05d70fc428a8ec445c4d",
+        "bytes": 104723800
+      },
+      "words.sigram": {
+        "sha256": "0d64b40a1ee2b8e719d6da8695e86bd0d5b904be4ca9b7e72d71a9595b566ecc",
+        "bytes": 67010360
+      },
+      "si.conf": {
+        "sha256": "9480d2a8d9774b36593c6cf72b0e2822e5533273207b5940a1900d6af47b45e3",
+        "bytes": 5490
+      }
+    },
+    "model_files": {
+      "LICENSE": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+      "README.md": "3c93cbc9f60417337fcbf093da872007586b9d886b0f0187f21aec35b869616a",
+      "config.json": "479dcf0c5286339e41ad3992cd08ae88a467c4187587936248e2b7c96283484b",
+      "generation_config.json": "8c970692323e3ea0e9b8b0a4dca79388d31226e41f83c9fd6014804280ebf6e8",
+      "merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "model.safetensors": "88c142557820ccad55bb59756bfcfcf891de9cc6202816bd346445188a0ed342",
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "c91efca15ceff6e9ee9424db58a6f59cd41294e550a86cbd07e3c1fb500b34f9",
+      "vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    },
+    "device": "mps",
+    "threads": 4,
+    "code_identity": "c5119dd0d1164a31d190a3e7b6cfd6879deed474358cb944ff9f7fd9486adcff",
+    "producer_sha256": "410b49ddcb38a1b6248a5a9e0717d0a9b2d430ad5767a1ffaa3ec2f637f6f344",
+    "likelihood_cache_dataset_id": "d80c935281e75a6de242c667e8c9bc9e58b4c1b6e021ab35030bab4706260e9a"
+  },
+  "sequence_kd": {
+    "parent_dataset_id": "2f2976687917906c1239ce1ac3e64ef96b7a565349d2f5f4e0b0e3c3df342eb3",
+    "parent_manifest_sha256": "aea6bb4dd40f3fd3b153a1495b52ecc3f4a122a17cc67f379443e91345262e69",
+    "training_objective": "candidate-sequence-kl-v1",
+    "score_mapping": {
+      "protocol": "si-app-model-adjustment-v4",
+      "app": {
+        "model_score_weight": 0.8,
+        "model_score_gap_limit_bits": 8.0,
+        "model_sentence_reward_cap_bits": 8.0
+      }
+    },
+    "config_sha256": "19adda6f848f6692f44bb2092e8d6097b8a5cf2ab8719a173f9b60a7ac85789d",
+    "engine_config_sha256": "9480d2a8d9774b36593c6cf72b0e2822e5533273207b5940a1900d6af47b45e3",
+    "producer_sha256": "d054945f17e3a901a33ed8bc9face2bc0e27c33b440934294b575f9d967ee127",
+    "code_identity": "97c8b0ae6fe8aaa46eb027041bb968f900ff47780832833dcd7c5b8fb8689344"
+  }
+}

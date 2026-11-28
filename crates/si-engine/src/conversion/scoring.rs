@@ -105,6 +105,33 @@ impl<'a> Scoring<'a> {
         self.user.is_some()
     }
 
+    /// A history-independent upper bound for every base lexical edge. Used only
+    /// by the explicitly constructed offline pool inspector, never on a key event.
+    pub(super) fn lexical_upper_scores(&self) -> Vec<f64> {
+        let priors: Vec<_> = self
+            .base
+            .lexicon
+            .words()
+            .map(|word| self.base.frequency(word.count as f64))
+            .collect();
+        let mut upper: Vec<_> = priors.iter().copied().map(probability_bits).collect();
+        if let Some(grams) = self.base.grams {
+            upper_table(
+                grams.bigrams(),
+                &priors,
+                &mut upper,
+                self.config.statistical_scoring,
+            );
+            upper_table(
+                grams.trigrams(),
+                &priors,
+                &mut upper,
+                self.config.statistical_scoring,
+            );
+        }
+        upper
+    }
+
     pub(super) fn sentence_start(&self) -> History {
         let start = self.start_token.map(|id| StartHistory {
             history: HistoryIds::default().with_word(Some(id), self.base.history_limit),
@@ -189,6 +216,40 @@ impl<'a> Scoring<'a> {
     }
 }
 
+fn upper_table<const N: usize>(
+    rows: impl Iterator<Item = ([WordId; N], u64)> + Clone,
+    priors: &[f64],
+    upper: &mut [f64],
+    config: StatisticalScoringConfig,
+) {
+    let mut rows = rows.peekable();
+    while let Some((first, _)) = rows.peek().copied() {
+        let group = rows.clone();
+        let mut mass = 0.0;
+        let mut length = 0;
+        while rows
+            .peek()
+            .is_some_and(|(key, _)| key[..N - 1] == first[..N - 1])
+        {
+            mass += rows.next().unwrap().1 as f64;
+            length += 1;
+        }
+        for (key, count) in group.take(length) {
+            let id = key[N - 1].0 as usize;
+            let score = probability_bits(reward_base_gram(
+                priors[id],
+                BaseGram {
+                    count: count as f64,
+                    mass,
+                    order: N,
+                },
+                config,
+            ));
+            upper[id] = upper[id].max(score);
+        }
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 pub(super) struct Scores {
     pub(super) base: f64,
@@ -265,7 +326,7 @@ pub(super) struct StartSpan {
     pub(super) corrected: bool,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub(super) struct History {
     base: HistoryIds,
     user: HistoryIds,
@@ -274,6 +335,15 @@ pub(super) struct History {
 }
 
 impl History {
+    /// Base lexical rewards depend on at most two preceding IDs. Preserve the
+    /// separate opening state: higher-order sentence-start counts still matter.
+    pub(super) fn base_suffix_key(mut self) -> Self {
+        self.base.len = self.base.len.min(2);
+        self.base.ids[self.base.len..].fill(WordId(0));
+        self.user = HistoryIds::default();
+        self
+    }
+
     pub(super) fn is_empty(self) -> bool {
         self.base.len == 0 && self.user.len == 0
     }

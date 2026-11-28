@@ -28,7 +28,7 @@ impl Drop for OwnedResources {
 pub struct SIEngine {
     decoder: CandidateEngine<'static>,
     correction_sensitivity: Option<CorrectionSensitivity>,
-    reranker: Option<Arc<SmallReranker>>,
+    rerankers: [Option<Arc<SmallReranker>>; 2],
     // Field drop order keeps the resources alive until after the decoder drops.
     resources: OwnedResources,
 }
@@ -38,7 +38,7 @@ impl SIEngine {
         base: Arc<EngineResources>,
         user: Option<EngineResources>,
         sensitivity: Option<CorrectionSensitivity>,
-        reranker: Option<Arc<SmallReranker>>,
+        rerankers: [Option<Arc<SmallReranker>>; 2],
     ) -> Self {
         let resources = OwnedResources(NonNull::from(Box::leak(Box::new((base, user)))));
         // SAFETY: the allocation outlives the decoder and its data is immutable.
@@ -49,7 +49,7 @@ impl SIEngine {
         Self {
             decoder,
             correction_sensitivity: sensitivity,
-            reranker,
+            rerankers,
             resources,
         }
     }
@@ -189,7 +189,7 @@ pub unsafe extern "C" fn si_engine_open(
         Arc::new(resources),
         None,
         None,
-        None,
+        [None, None],
     )))
 }
 
@@ -200,6 +200,22 @@ pub unsafe extern "C" fn si_engine_load_reranker(
     engine: *mut SIEngine,
     directory: *const c_char,
 ) -> bool {
+    unsafe { si_engine_load_model(engine, directory, 1) }
+}
+
+/// # Safety
+/// Same exclusive engine access and string lifetime as si_engine_load_reranker.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn si_engine_load_model(
+    engine: *mut SIEngine,
+    directory: *const c_char,
+    model: u8,
+) -> bool {
+    let index = match model {
+        1 => 0,
+        2 => 1,
+        _ => return false,
+    };
     let Some(engine) = (unsafe { engine.as_mut() }) else {
         return false;
     };
@@ -212,7 +228,7 @@ pub unsafe extern "C" fn si_engine_load_reranker(
     let Ok(reranker) = SmallReranker::open(Path::new(directory)) else {
         return false;
     };
-    engine.reranker = Some(Arc::new(reranker));
+    engine.rerankers[index] = Some(Arc::new(reranker));
     true
 }
 
@@ -344,7 +360,7 @@ pub unsafe extern "C" fn si_engine_load_user(
             Arc::clone(engine.base()),
             Some(user),
             engine.correction_sensitivity,
-            engine.reranker.clone(),
+            engine.rerankers.clone(),
         )))
     });
     true
@@ -500,7 +516,7 @@ pub unsafe extern "C" fn si_engine_candidates_for_mode(
             paths,
             path_count,
             mode,
-            rerank,
+            u8::from(rerank),
             ptr::null(),
         )
     }
@@ -524,7 +540,7 @@ pub unsafe extern "C" fn si_engine_candidates_with_context_cache(
     paths: *const SILearnedPath,
     path_count: usize,
     mode: u8,
-    rerank: bool,
+    model: u8,
     cache: *const PrecedingTextCache,
 ) -> *mut SICandidates {
     let Some(engine) = (unsafe { engine.as_ref() }) else {
@@ -681,7 +697,11 @@ pub unsafe extern "C" fn si_engine_candidates_with_context_cache(
         preceding_text,
         ConversionOptions {
             correction,
-            reranker: engine.reranker.as_deref().filter(|_| rerank),
+            reranker: match model {
+                1 => engine.rerankers[0].as_deref(),
+                2 => engine.rerankers[1].as_deref(),
+                _ => None,
+            },
         },
         unsafe { cache.as_ref() },
     );
@@ -842,7 +862,7 @@ mod context_tests {
             Arc::new(EngineResources::open(&lexicon, Some(&grams))?),
             None,
             None,
-            None,
+            [None, None],
         );
         let candidates = |prefix: Option<&[u8]>| {
             let spelling = b"bawomen";

@@ -14,34 +14,42 @@ keys through.
 
 **Local model ranking** is a separate Typing option enabled by default. With it on,
 Rust evaluates the first 12 eligible ordinary whole-input candidates in statistical
-order, without a score-gap cutoff. Completions, literal segments, personal phrases
-and spelling corrections receive no model adjustment. Candidates use at most
-12 model tokens and share up to 16 trailing context tokens from the current
+order, without a score-gap cutoff. Completions, verbatim paths, personal phrases
+and spelling corrections are not sent to model inference. Candidates use at most
+16 model tokens and share up to 16 trailing context tokens from the current
 punctuation-delimited fragment. A terminal boundary clears the previous fragment.
 
 For the whole candidate string `c`, let
-`lift(c) = (log P(c | context) - log P(c | empty)) / ln(2)` bits. Both passes
-retain all dependencies inside the candidate; lexical segmentation does not enter
-this calculation. Scores are sums over model tokens, without per-character
-averaging. The final adjustment is
-`w * clamp(lift(c) - max_pool_lift, -B, 0)`. Defaults are `w=1.0` and `B=8`.
-The highest lift gets zero; other scored candidates can lose at most eight bits.
-Unscored candidates keep zero adjustment, so the engine re-sorts the complete
-result set after scoring, including whole results below the original pool.
+`s(c) = log P(c | context) / ln(2)` bits. The model sums complete-candidate token
+log probabilities, preserving internal dependencies independently of lexical
+segmentation, without dividing by output length. The final adjustment is
+`w * clamp(s(c) - max_pool_score, -B, 0)`. Defaults are `w=0.8` and `B=8`.
+The highest conditional probability gets zero; other scored candidates can lose
+at most 6.4 bits. Unconditional probability is not subtracted: the retired lift
+ratio could favor rare candidates with very low baselines. No auxiliary lift
+reward is added.
+After a valid pool is scored, ordinary whole-input candidates outside it receive
+the lowest computed adjustment, including completions, corrections and outputs
+beyond the model token/byte limits. If their exact text was scored under another
+candidate identity, they reuse that score instead. Model work remains bounded to
+the configured pool. Prefixes, original literals, personal phrases and verbatim
+paths retain zero adjustment. No valid pool, an unavailable model or inference
+failure preserves the complete statistical result set without model penalties.
+The engine re-sorts the complete result set after applying these adjustments.
 Base statistical scores, deterministic ties and explicit pin/remembered-choice
 priority are preserved.
 
 Empty/unavailable context, a zero context budget or a context truncated to zero
 model tokens uses a separate BOS-only branch. The native inference path prepends
 the tokenizer's BOS token; no textual sentence marker is inserted. Its complete
-sequence log probability is divided by the number of output Unicode scalars,
-not UTF-8 bytes or model tokens. Byte-fallback contributions stay in the sum.
-With this mean `m` in bits, the reward is
-`w * clamp(B_sentence + m, 0, B_sentence)`, default `B_sentence=8`.
-Thus a mean of -6 bits/scalar adds two bits at weight one; a mean at or below
--8 adds zero. The mapping is absolute and independent of other pool members.
-It scores the candidate's internal dependencies without an EOS contribution.
-This positive reward replaces the contextual lift adjustment for that request.
+sequence log probability is summed over all model tokens, including byte fallback,
+and converted to bits without dividing by output length. Let this score be `s(c)`.
+The adjustment is `w * clamp(s(c) - max_pool_score, -B_sentence, 0)`, with
+`B_sentence=8` and `w=0.8` by default. The highest model score gets zero;
+other scored candidates can lose at most 6.4 bits. Adding a worse pool member
+or a shared score offset does not change existing adjustments.
+No EOS probability is added. This adjustment replaces conditional-probability scoring
+for that request; ordinary unscored whole candidates use the same worst-pool policy.
 Pools with fewer than two distinct eligible outputs skip scoring.
 
 A model-owned 4,096-entry LRU caches unconditional sequence log probabilities
@@ -52,26 +60,29 @@ The cache stays in memory with the immutable model, is not persisted and is
 released with that model. Reloading a model creates a separate cache.
 
 Defaults come from `[local_model_ranking]` in [config/si.conf](../config/si.conf):
-`model_score_weight = 1.0`, `model_score_gap_limit_bits = 8` and
-`model_sentence_reward_cap_bits = 8`. Rust embeds
+`model_score_weight = 0.8`, `model_score_gap_limit_bits = 8` and
+`model_sentence_reward_cap_bits = 8`. The last key retains its historical name
+but now bounds the BOS-only penalty before weighting. Rust embeds
 this file at build time; rebuild and reinstall the input method to apply edits.
 Library callers can read a validated `SiConfig` and use
 `SmallReranker::open_with_config` without rebuilding. The section also controls
 pool size (1..64), context tokens (0..128) and candidate tokens (1..64).
 Weight accepts 0..4 and both bounds accept 0..32 bits. Zero weight disables both
-branches; a zero gap limit disables contextual lift, and a zero sentence cap
-disables BOS-only rewards. Missing whole engine sections retain bundled defaults; explicitly
+branches; a zero gap limit disables contextual model adjustments, and a zero sentence cap
+disables BOS-only adjustments. Missing whole engine sections retain bundled defaults; explicitly
 supplied sections require every current key. Conversion reads no configuration
-files. The CLI's `candidates` command still does not run the character model.
+files. The CLI's `candidates --model <bundle>` runs the same character model.
 
-The app loads the packaged small FP32 model once at startup and shares it
-with user-dictionary snapshots. Secure input and provisional preview skip
+At startup the app loads Small from FP32 and Large from FP16, and shares both
+with user-dictionary snapshots. A request selects at most one model. Both use FP32 arithmetic. Secure input and provisional preview skip
 inference. Missing or invalid weights, an unscorable pool or inference errors
 use the statistical results. All scoring runs locally and transiently.
 [Model provenance](../Data/RerankerSmall/README.md)
 
-On the 1,020-query authored recall suite, adding the BOS-only branch to the
-current bounded-gram-backoff engine changed first-choice hits from 442 to 455
+The following historical measurements used the former per-scalar BOS reward
+and model weight 1.0, before the summed-score adjustment and 0.8 default.
+On the 1,020-query authored recall suite, adding that branch to the
+bounded-gram-backoff engine changed first-choice hits from 442 to 455
 and Recall@9 hits from 756 to 762. Fourteen references became first and one
 ceased to be first (`灯光师让我们站在白线内` became second behind
 `灯光是让我们站在白线内`). Full-pool hits stayed at 839; this final reranking
@@ -105,6 +116,83 @@ four to eight scored additional candidates for 22 of the 678 complete queries.
 First-choice hits went from 211 to 210 on the contextual queries and remained
 160 on the compact queries. On a 1,403-edit sample from the compact queries,
 in-process p95 went from 32.3 to 32.2 ms.
+
+## Offline k-best and scoring-pool inspection
+
+`CandidatePoolInspector` and `si-cli candidate-pool` are offline diagnostic APIs.
+Ordinary conversion keeps its original search, scores and candidate ordering.
+The retired `--structure-diversity` experiment incorrectly applied a quota inside
+beams; it is removed. Its historical 839-to-807 recall result describes that
+retired search rule, not post-search pool selection.
+
+The inspector loads no user profile or neural model. It prepares immutable
+history-independent lexical upper scores once: for each base word, the maximum
+of its unigram score and the existing rewarded score under every observed
+bigram/trigram history. Missing-gram penalties can only lower this bound.
+A backward acyclic Viterbi pass supplies optimistic suffix values. A* retains
+full path histories and lazily refines suffix bounds with memoized actual gram
+scores, keyed by source position, the last two base word IDs and the separate
+sentence-opening state. Higher-order opening history is retained. If the bound
+refinement budget is exhausted, the conservative lexical bound remains valid;
+no partial maximum becomes a pruning threshold. A rounding allowance covers
+bounded floating-point accumulation.
+
+Completed enumeration certifies up to N distinct `(language, exact output bytes)`
+whole candidates, ordered by the existing statistical score and deterministic
+identity ties. All paths at the cutoff score must be resolved before certification.
+The graph includes enabled Chinese, English and mixed full-spelling paths, source
+separators and aliases, with the existing 128-unit and 4,096-byte constructed
+bounds. Abbreviations, completions, corrections, personal and verbatim paths are
+outside this exact graph; they remain in the independently preserved native pool.
+Neither a wide beam nor an incomplete A* run is labeled a complete exact k-best.
+
+The request accepts `--k-best` (1..512, default 256), `--pool-size` (1..64,
+default 12), `--structure-limit` (0..2, default 2; 0 disables grouping),
+`--multiword-limit` (0..pool size, default pool size) and `--search-budget`
+(1..1,000,000 A* expansions, default 100,000). The frontier is bounded to 100,000
+paths, the lexical graph to 65,536 edges, and suffix refinement to at most
+100,000 cached states and `min(10*search_budget, 2,000,000)` transitions.
+Exhausting input, edge, frontier or A* work limits reports an incomplete result
+with zero certified entries; partial results remain explicitly provisional.
+
+After enumeration, the inspector preserves the union with every native whole
+candidate. It keeps the original native rank, score and model eligibility
+separately. A stronger exact derivation may improve the union score; an exact
+trace is never attributed to a stronger, different native derivation. Each row
+reports its exact-path score and whether that trace matches the selected union
+derivation. Untraced native derivations are exempt from structural/word quotas.
+
+Pool selection runs in statistical order. Grouping requires a constructed path
+with at least one fixed lexical anchor; direct characters/words and paths made
+entirely of single-Han lexemes stay independent. A structural key includes language,
+token source spans and exact non-single-Han token text, replacing each single-Han
+lexeme with a wildcard. For example, `及 / 好 / 携带` and `机 / 好 / 携带`
+share a key, while `几号 / 携带` and `及 / 好 / 鞋带` remain distinct. Grouping
+keeps the first one or two paths without modifying any search state. Existing
+ordinary model eligibility and the candidate byte precheck follow, then an
+optional cap on paths with at least three lexical tokens, then the pool-size
+limit. A restrictive quota can underfill the pool. Every exclusion is labeled
+`ineligible`, `structure`, `length`, `word-quota` or `pool-limit`; structure
+exclusions identify the retained competitors. These are selection diagnostics,
+not neural scores: the actual model token bound and inference remain separate.
+
+```sh
+cargo build --release --locked -p si-cli
+printf 'jihaoxiedai\n' | target/release/si-cli candidate-pool Data/Engine/main.silex --grams Data/Engine/words.sigram --k-best 256 --pool-size 12 --structure-limit 2 --multiword-limit 6
+```
+
+The streamed TSV has one `pool` metadata row, followed by `row` union candidates
+and `token` exact-path evidence, ending with a blank line. Metadata records
+completion/certified count, A* expansions, peak frontier, graph edges, stop reason,
+suffix states and suffix transitions. Candidate rows retain native/k-best ranks,
+per-stage membership, exclusion/replacement indices, lexical/context scores,
+language, trace validity, exact score and original eligibility/score. Token rows
+retain exact text, language, original UTF-8 source spans, paired word IDs/counts,
+unigram/gram/context/spelling contributions and wildcard eligibility.
+Report native, k-best (with completion status), union, post-structure, post-length,
+post-quota and selected-pool recall, plus gained/lost IDs and replacement texts.
+The app does not use this inspector, and no latency-safe deployment or neural
+accuracy improvement follows from these offline stages.
 
 ## Statistical score and presentation
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from llm.pinyin_to_text.common import file_hash, fingerprint, read_json
-from .settings import SPLITS
+from .settings import APP_PROTOCOL, SEQUENCE_KD, SPLITS, score_mapping, training_objective
 
 
 def manifest_at(root, kind):
@@ -68,6 +68,10 @@ def load_pools(root, config, lm_manifest, tokenizer, splits, *, scored):
             or manifest['tokenizer_digest'] != tokenizer.digest or manifest['limits'] != expected
             or bool(manifest.get('teacher')) != scored):
         raise ValueError('Pool tokenizer, parent dataset, limits or teacher stage mismatch')
+    if manifest.get('score_mapping', {'protocol': 'mean-logp-v1'}) != score_mapping(config):
+        raise ValueError('Candidate-cache score protocol differs from student scoring')
+    if training_objective(config) == SEQUENCE_KD and manifest.get('training_objective') != SEQUENCE_KD:
+        raise ValueError('Candidate sequence KL requires its verified active-pool derivative')
     if not splits or any(s not in SPLITS for s in splits):
         raise ValueError('Select explicit candidate-pool splits')
     return manifest, {s: Pools(Path(root), manifest, s) for s in splits}

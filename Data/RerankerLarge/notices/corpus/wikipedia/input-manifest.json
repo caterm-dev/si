@@ -1,0 +1,79 @@
+{
+  "schema_version": 2,
+  "extraction_contract": "complete-simplified-text-lines-v2",
+  "source": {
+    "id": "wikipedia",
+    "name": "Chinese Wikipedia current article text",
+    "kind": "wikipedia",
+    "repository": "https://dumps.wikimedia.org/zhwiki/",
+    "revision": "20261001",
+    "path": "zhwiki-20261001-pages-articles.xml.bz2",
+    "url": "https://dumps.wikimedia.org/zhwiki/20261001/zhwiki-20261001-pages-articles.xml.bz2",
+    "size": 3430912430,
+    "sha1": "04d5eec3c249fdf8604b97f4435e019c60a4ec94",
+    "license": "CC-BY-SA-4.0",
+    "share_alike": true,
+    "license_document": {
+      "path": "licenses/wikipedia-LICENSE.txt",
+      "sha256": "28a9529c7d0bb4dc51f4bf5c116a3d16ef247a052f7591466768ddf563fd1cf5",
+      "url": "https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt"
+    },
+    "additional_documents": [
+      {
+        "path": "licenses/wikipedia-DUMP_TERMS.html",
+        "sha256": "104242365285791c1d60d61b2ec8eac34e5c4b6a74ae5fdca9996a52f9cd3714",
+        "url": "https://dumps.wikimedia.org/legal.html"
+      },
+      {
+        "path": "metadata/wikipedia/20261001/dumpstatus.json",
+        "sha256": "f8e6648ce9750e72efdf59ceed794244ba129887c109ec8a754f057092e70a81",
+        "url": "https://dumps.wikimedia.org/zhwiki/20261001/dumpstatus.json"
+      },
+      {
+        "path": "metadata/wikipedia/20261001/sha1sums.txt",
+        "sha256": "533b4be44e26fdcc6d5a3e5d74879b74b11736ba804e9ca7cd9b0db62e29b7b6",
+        "url": "https://dumps.wikimedia.org/zhwiki/20261001/zhwiki-20261001-sha1sums.txt"
+      }
+    ],
+    "scope": "Complete pages-articles current-revision dump; cleaning selects namespace 0, excludes redirects.",
+    "download_url": "https://ftp.acc.umu.se/mirror/wikimedia.org/dumps/zhwiki/20261001/zhwiki-20261001-pages-articles.xml.bz2",
+    "sha256": "5db9052efe9ca97aa3da05ffe5b2f12c8ffe5e040f0a9d1ced82ec2fda5d7e2f"
+  },
+  "inputs": {
+    "size": 3430912430,
+    "sha256": "5db9052efe9ca97aa3da05ffe5b2f12c8ffe5e040f0a9d1ced82ec2fda5d7e2f"
+  },
+  "normalization": {
+    "opencc": "0.1.7",
+    "config": "t2s"
+  },
+  "counts": {
+    "records_read": 4969911,
+    "nonarticle_pages": 1952740,
+    "documents": 1558805,
+    "surrogates_removed": 0,
+    "lines": 50486909,
+    "characters": 1178160323,
+    "redirect_pages": 1458366
+  },
+  "code": {
+    "prepare_raw_text.py": "eca66b04a8d024af987292920ac1290cf98e38bb405ed1c276548bf76074af57",
+    "readers.py": "db7ed2591a780d7f0c28a64a860bdb81b950f2582800c5007a818c4c521619f2",
+    "local_sources.py": "da964724659c99c15f3df778861b9ea220b17eb47696041fd3f1ddbf2b7b61f6",
+    "common.py": "a4e9d8cc52d7393d5785b2d1b8efb3017b58034edaa2589119ca02bd76a2f17a",
+    "clean/chinese.py": "8009c7a9ca11c56045a9050d746c9dab017e871256ea91427386aca680a2cfc0",
+    "clean/wikipedia.py": "0e06f67fff77a4002962b8403a32da3066f3f474811145d139ea946c944a86fd"
+  },
+  "scope": "All eligible records in the complete pinned local raw archive; no character cap, Han-only filtering, 4-character minimum, 96-character cutting or deduplication. OpenCC t2s applies to extracted text only. Local SI conversation boundaries are preserved; dialogue dataset/split/turn/message/parent identities are retained in document metadata.",
+  "extraction": "JSON text/turns; Markdown prose; namespace-0 nonredirect Wikipedia current wikitext prose with title. Existing markup readers remove code/templates/tables/references. Line endings are LF; invalid surrogate code points are removed for valid UTF-8. LCCC joins only spaces between adjacent Han/CJK punctuation tokens.",
+  "files": {
+    "documents.jsonl": {
+      "sha256": "dc102c581884ad20301e1a36175fe4ad1781d6f07e5ed5b1f16155d2b2a0fad9",
+      "bytes": 181925655
+    },
+    "text.txt": {
+      "sha256": "24d401dbd06424229aba6382c5d7a79773425afcdf39c0adf64b352239d7fcd4",
+      "bytes": 2999319933
+    }
+  }
+}

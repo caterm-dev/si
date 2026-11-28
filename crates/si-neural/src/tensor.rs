@@ -114,13 +114,38 @@ pub(crate) fn dot(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
+// IEEE 754 binary16 values are exactly representable in binary32.
+fn widen_half(bits: u16) -> f32 {
+    let exponent = (bits >> 10) & 31;
+    let fraction = u32::from(bits & 1023);
+    let magnitude = match exponent {
+        0 => fraction as f32 * (1.0 / 16_777_216.0),
+        31 => f32::from_bits(0x7f80_0000 | (fraction << 13)),
+        e => f32::from_bits(((u32::from(e) + 112) << 23) | (fraction << 13)),
+    };
+    if bits & 0x8000 != 0 {
+        -magnitude
+    } else {
+        magnitude
+    }
+}
+
 pub(crate) struct Weights {
+    format: crate::WeightFormat,
     reader: BufReader<std::fs::File>,
     entries: BTreeMap<String, (Vec<usize>, u64)>,
 }
 
 impl Weights {
-    pub fn open(path: &Path, shapes: BTreeMap<String, Vec<usize>>) -> Result<Self> {
+    pub fn open(
+        path: &Path,
+        shapes: BTreeMap<String, Vec<usize>>,
+        format: crate::WeightFormat,
+    ) -> Result<Self> {
+        let bytes_per_weight = match format {
+            crate::WeightFormat::F32 => 4,
+            crate::WeightFormat::F16 => 2,
+        };
         let mut offset = 0_u64;
         let mut entries = BTreeMap::new();
         for (name, shape) in shapes {
@@ -128,8 +153,8 @@ impl Weights {
                 return Err(invalid("invalid tensor dimensions"));
             }
             entries.insert(name, (shape.clone(), offset));
-            offset += shape.iter().map(|&n| n as u64).product::<u64>() * 4;
-            if offset > 512 * 1024 * 1024 {
+            offset += shape.iter().map(|&n| n as u64).product::<u64>() * bytes_per_weight;
+            if offset / bytes_per_weight > 128 * 1024 * 1024 {
                 return Err(invalid("weight bundle exceeds limit"));
             }
         }
@@ -138,6 +163,7 @@ impl Weights {
             return Err(invalid("weight size mismatch"));
         }
         Ok(Self {
+            format,
             reader: BufReader::new(file),
             entries,
         })
@@ -153,12 +179,25 @@ impl Weights {
             return Err(invalid(format!("unexpected shape for tensor {name}")));
         }
         self.reader.seek(SeekFrom::Start(offset))?;
-        let mut bytes = vec![0; shape.iter().product::<usize>() * 4];
-        self.reader.read_exact(&mut bytes)?;
-        let values: Vec<_> = bytes
-            .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
-            .collect();
+        let count = shape.iter().product::<usize>();
+        let values: Vec<f32> = match self.format {
+            crate::WeightFormat::F32 => {
+                let mut bytes = vec![0; count * 4];
+                self.reader.read_exact(&mut bytes)?;
+                bytes
+                    .chunks_exact(4)
+                    .map(|v| f32::from_le_bytes(v.try_into().unwrap()))
+                    .collect()
+            }
+            crate::WeightFormat::F16 => {
+                let mut bytes = vec![0; count * 2];
+                self.reader.read_exact(&mut bytes)?;
+                bytes
+                    .chunks_exact(2)
+                    .map(|v| widen_half(u16::from_le_bytes(v.try_into().unwrap())))
+                    .collect()
+            }
+        };
         if values.iter().any(|x| !x.is_finite()) {
             return Err(invalid("nonfinite tensor weight"));
         }

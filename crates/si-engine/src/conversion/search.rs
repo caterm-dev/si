@@ -1205,7 +1205,7 @@ struct CompletionPruning<'a> {
     paths: Option<&'a PrefixMask>,
 }
 
-fn render<'a>(edge: Match<'a>, typed: &str) -> Cow<'a, str> {
+pub(super) fn render<'a>(edge: Match<'a>, typed: &str) -> Cow<'a, str> {
     let text = edge.word.text;
     if edge.word.language == Language::English
         && edge.word.personal.is_none()

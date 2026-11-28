@@ -10,6 +10,10 @@ struct LanguageSettingsTests {
         let defaults = try #require(UserDefaults(suiteName: name))
         defer { defaults.removePersistentDomain(forName: name) }
         let settings = LanguageSettings(defaults: defaults)
+        #expect(!settings.useLargeModel)
+        let beforeSelection = settings.configurationGeneration
+        settings.useLargeModel = true
+        #expect(settings.configurationGeneration == beforeSelection + 1)
         #expect(settings.localModelRankingEnabled)
         settings.pinyinCorrectionEnabled = false
         #expect(LanguageSettings(defaults: defaults).localModelRankingEnabled)
@@ -17,6 +21,7 @@ struct LanguageSettingsTests {
         let generation = settings.configurationGeneration
         settings.localModelRankingEnabled = false
         let restored = LanguageSettings(defaults: defaults)
+        #expect(restored.useLargeModel)
         #expect(!restored.localModelRankingEnabled && !restored.pinyinCorrectionEnabled)
         #expect(settings.configurationGeneration == generation + 1)
         settings.localModelRankingEnabled = true

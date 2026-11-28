@@ -31,6 +31,12 @@ struct Entry<'a> {
     word: Lexeme<'a>,
 }
 
+impl Lexeme<'_> {
+    pub(super) fn count(self) -> u64 {
+        self.count
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(super) struct Match<'a> {
     pub(super) end: usize,

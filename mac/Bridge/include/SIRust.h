@@ -80,6 +80,8 @@ void si_preceding_text_cache_free(SIPrecedingTextCache *cache);
 /* UTF-8 paths. Grams is optional. NULL indicates resources could not be loaded. */
 SIEngine *si_engine_open(const char *lexicon, const char *grams);
 /* Optional local model. Call with exclusive access before publishing the engine. */
+// Model selection: 0 disables ranking, 1 selects Small, 2 selects Large.
+bool si_engine_load_model(SIEngine *engine, const char *directory, uint8_t model);
 bool si_engine_load_reranker(SIEngine *engine, const char *directory);
 void si_engine_close(SIEngine *engine);
 /* Profile I/O and index construction. Call away from the event handler.
@@ -139,7 +141,7 @@ SICandidates *si_engine_candidates_with_context_cache(const SIEngine *engine, co
                                    const SIUserPhrase *phrases, size_t phrase_count,
                                    const SILearnedToken *tokens, size_t token_count,
                                    const SILearnedPath *paths, size_t path_count, uint8_t mode,
-                                   bool rerank, const SIPrecedingTextCache *cache);
+                                   uint8_t model, const SIPrecedingTextCache *cache);
 bool si_engine_has_english_word_prefix(const SIEngine *engine, const uint8_t *text,
                                        size_t length, size_t minimum);
 size_t si_candidates_count(const SICandidates *results);

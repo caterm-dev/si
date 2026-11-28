@@ -250,6 +250,11 @@ pub struct GramModel {
 }
 
 impl GramModel {
+    /// Exact byte length when saved in the current file format, without file I/O.
+    pub fn serialized_size(&self) -> u64 {
+        file::serialized_size(self)
+    }
+
     /// Number of distinct grams at each supported order, starting with bigrams.
     pub fn sizes(&self) -> GramSizes {
         [

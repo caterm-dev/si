@@ -8,9 +8,13 @@ pub mod resources;
 pub mod segmentation;
 mod text_boundaries;
 
+/// Exact punctuation-delimited field fragment used by local neural ranking.
+pub use text_boundaries::last_fragment as model_context_fragment;
+
 pub use conversion::{
-    Candidate, CandidateEngine, CandidateLanguage, ConversionBoundary, ConversionOptions,
-    ConversionPreferences, Correction, CorrectionKind, CorrectionSensitivity, EnabledLanguages,
-    PathPreference, PersonalPhrase, PrecedingTextCache, SmallReranker, TokenPreference,
+    Candidate, CandidateEngine, CandidateLanguage, CandidatePool, CandidatePoolInspector,
+    ConversionBoundary, ConversionOptions, ConversionPreferences, Correction, CorrectionKind,
+    CorrectionSensitivity, EnabledLanguages, PathPreference, PersonalPhrase, PoolEntry,
+    PoolOptions, PoolToken, PrecedingTextCache, SmallReranker, TokenPreference,
 };
 pub use si_lexicon::IndexId;

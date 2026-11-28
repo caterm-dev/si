@@ -9,7 +9,7 @@ struct AppLearningSettingsPage: View {
     var body: some View {
         SettingsGroup("App Learning") {
             Toggle("Enable App Learning", isOn: $settings.enabled)
-            Text("Every 30 seconds, SI reads eligible foreground app text through Accessibility and saves a separate local vocabulary and word-gram model for that app. Button text is excluded. These models do not affect candidates yet.")
+            Text("Mouse movement, scrolling or keyboard activity triggers an eligible foreground app text sample through Accessibility, at most once every 30 seconds. SI saves a separate local vocabulary and word-gram model for each app. Button text is excluded. These models do not affect candidates yet.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             if settings.enabled && !settings.permissionGranted {

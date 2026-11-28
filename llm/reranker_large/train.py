@@ -12,17 +12,22 @@ from llm.reranker_small.model import CharacterLM, parameter_report
 from llm.reranker_small.runtime import atomic_checkpoint, seed_everything, select_device, validation_loss
 from llm.reranker_small.tokenizer import PAD
 from llm.reranker_small.train import learning_rate
-from .data import load_pools
+from .data import checked_file, load_pools, manifest_at
 from .scoring import distillation_loss, forward_pool, validate_pool
-from .settings import code_identity, file_hash, load_config, resume_identity, write_json
+from .settings import (APP_PROTOCOL, SEQUENCE_KD, code_identity, file_hash, load_config,
+                       resume_identity, training_objective, write_json)
 
 
 def pool_loss(model, tokenizer, row, config, device):
     if not validate_pool(row, tokenizer, config) or 'teacher_scores' not in row:
         raise ValueError('Distillation requires eligible pools and cached teacher scores')
-    scores, observed = forward_pool(model, tokenizer, row, device, config['scoring'])
-    total, kd = distillation_loss(scores, row['teacher_scores'], observed,
-                                 config['distillation'], row.get('reference_indices', []))
+    if training_objective(config) == SEQUENCE_KD:
+        from .sequence_distillation import pool_loss as sequence_pool_loss
+        total, kd = sequence_pool_loss(model, tokenizer, row, config, device)
+    else:
+        scores, observed = forward_pool(model, tokenizer, row, device, config['scoring'])
+        total, kd = distillation_loss(scores, row['teacher_scores'], observed,
+                                     config['distillation'], row.get('reference_indices', []))
     if not torch.isfinite(total):
         raise RuntimeError('Nonfinite distillation loss')
     return total, kd
@@ -43,13 +48,66 @@ def validate_distillation(model, tokenizer, data, config, device):
             kd += float(divergence)
         if not count:
             raise ValueError('Validation pool split is empty')
-        return dict(loss=total / count, kl=kd / count, pools=count, partial=count < len(data))
+        result = dict(loss=total / count, kl=kd / count, pools=count, partial=count < len(data))
+        if training_objective(config) == SEQUENCE_KD:
+            result['objective'] = SEQUENCE_KD
+        return result
     finally:
         model.train(was_training)
 
 
+def load_initialization(path, config, tokenizer, manifest, init_data=None):
+    """Accept identical-data weights or a verified continuation of this corpus."""
+    pin = file_hash(path)
+    parent = torch.load(path, map_location='cpu', weights_only=True)
+    if (parent.get('schema_version') != 1 or parent.get('kind') != 'si-character-lm'
+            or parent.get('stage') != 'pretrain' or parent['config']['model'] != config['model']
+            or parent.get('tokenizer_digest') != tokenizer.digest
+            or parent.get('tokenizer') != tokenizer.to_dict() or file_hash(path) != pin):
+        raise ValueError('Initialization requires a matching pretrained student and identical frozen tokenizer')
+    initial = dict(sha256=pin, dataset_id=parent['dataset_id'], step=parent['step'],
+                   stage=parent['stage'], code_identity=parent['code_identity'])
+    if parent['dataset_id'] != manifest['dataset_id']:
+        if init_data is None:
+            raise ValueError('Continued initialization requires --init-data and verified ancestor dataset lineage')
+        source_pin = file_hash(Path(init_data) / 'manifest.json')
+        source = manifest_at(init_data, 'si-character-lm')
+        ancestor = parent.get('initial_checkpoint') or {}
+        lineage = parent.get('lineage_dataset_ids', [])
+        prior = ancestor.get('ancestor_dataset_ids', [])
+        excluded = source.get('excluded_dataset_ids', [])
+        if any(not isinstance(v, list) or any(not isinstance(x, str) for x in v)
+               for v in (lineage, prior, excluded)):
+            raise ValueError('Invalid continuation dataset lineage')
+        prior = set(prior) | {ancestor.get('dataset_id')}
+        if (parent.get('continuation_kind') != 'si-student-continued-pretrain-v1'
+                or source['dataset_id'] != parent['dataset_id']
+                or source.get('tokenizer_origin') != 'frozen-parent'
+                or source.get('parent_dataset_id') != ancestor.get('dataset_id')
+                or source['tokenizer_digest'] != tokenizer.digest
+                or source['model_limits'] != {k: config['model'][k] for k in ('vocab_size', 'context')}
+                or manifest['dataset_id'] not in prior or not prior <= set(excluded)
+                or set(lineage) != prior | {parent['dataset_id']}):
+            raise ValueError('Initialization corpus must be a recorded continuation of the candidate-pool LM ancestor')
+        source_tokenizer = checked_file(init_data, source, 'tokenizer.json')
+        from llm.reranker_small.tokenizer import Tokenizer
+        if Tokenizer.load(source_tokenizer).to_dict() != tokenizer.to_dict():
+            raise ValueError('Initialization source tokenizer bytes differ')
+        if file_hash(Path(init_data) / 'manifest.json') != source_pin:
+            raise ValueError('Initialization source manifest changed')
+        initial.update(parent_initial_checkpoint=ancestor, lineage_dataset_ids=lineage,
+                       source_dataset_manifest=source,
+                       source_dataset_manifest_sha256=source_pin)
+    elif init_data is not None:
+        source = manifest_at(init_data, 'si-character-lm')
+        if source['dataset_id'] != parent['dataset_id']:
+            raise ValueError('Initialization data do not match the checkpoint')
+    return parent, initial
+
+
 def train(config_path, data_path, run_path, device_name='mps', *, pools_path=None,
-          init_checkpoint=None, resume=False, max_steps=None, max_tokens=None, threads=4):
+          init_checkpoint=None, init_data=None, check_only=False, resume=False,
+          max_steps=None, max_tokens=None, threads=4):
     config = load_config(config_path)
     settings, stage = config['training'], config['stage']
     for key, override in (('max_steps', max_steps), ('max_tokens', max_tokens)):
@@ -57,19 +115,21 @@ def train(config_path, data_path, run_path, device_name='mps', *, pools_path=Non
             if type(override) is not int or override < (1 if key == 'max_steps' else 0):
                 raise ValueError('Invalid training budget')
             settings[key] = override
-    if threads <= 0 or (resume and init_checkpoint is not None):
+    if threads <= 0 or (resume and (init_checkpoint is not None or init_data is not None or check_only)):
         raise ValueError('Use positive threads and choose initialization or resume')
     if stage == 'distill' and not pools_path:
         raise ValueError('Distillation needs a frozen teacher cache')
-    if stage == 'pretrain' and (pools_path or init_checkpoint):
+    if stage == 'pretrain' and (pools_path or init_checkpoint or init_data or check_only):
         raise ValueError('This student pretraining starts from random weights without teacher data')
     if stage == 'distill' and not resume and init_checkpoint is None:
         raise ValueError('Start distillation from a compatible pretrained student')
+    if init_data is not None and init_checkpoint is None:
+        raise ValueError('Initialization data require a source checkpoint')
     run_path = Path(run_path)
     if not resume and run_path.exists():
         raise FileExistsError('Choose a new run directory')
     torch.set_num_threads(threads)
-    device = select_device(device_name)
+    device = select_device('cpu' if check_only else device_name)
     seed_everything(config['seed'])
     manifest, tokenizer, datasets = load_bundle(data_path, config, ('train', 'validation'))
     training_data_id, teacher = manifest['dataset_id'], None
@@ -90,11 +150,21 @@ def train(config_path, data_path, run_path, device_name='mps', *, pools_path=Non
         if (checkpoint['step'] >= settings['max_steps'] or
                 (settings['max_tokens'] and checkpoint['tokens_seen'] >= settings['max_tokens'])):
             raise ValueError('Checkpoint reached its budget; explicitly extend it')
+    parent, initial = (load_initialization(init_checkpoint, config, tokenizer, manifest, init_data)
+                       if init_checkpoint is not None else (None, None))
     model = CharacterLM(config['model'], tokenizer.active_ids).to(device)
+    if parent is not None:
+        model.load_state_dict(parent['model'])
+        del parent
+    if check_only:
+        return dict(stage=stage, training_started=False, initial_checkpoint=initial,
+                    dataset_id=manifest['dataset_id'], training_data_id=training_data_id,
+                    train_pools=len(datasets['train']), validation_pools=len(datasets['validation']),
+                    max_steps=settings['max_steps'], training_objective=training_objective(config))
     optimizer = torch.optim.AdamW(model.parameters(), lr=settings['learning_rate'],
                                   betas=(0.9, 0.95), weight_decay=settings['weight_decay'])
     step = epoch = cursor = tokens_seen = 0
-    best, initial = float('inf'), None
+    best = float('inf')
     if checkpoint:
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
@@ -109,17 +179,6 @@ def train(config_path, data_path, run_path, device_name='mps', *, pools_path=Non
             torch.cuda.set_rng_state_all(checkpoint['accelerator_rng'])
         del checkpoint
     else:
-        if init_checkpoint:
-            pin = file_hash(init_checkpoint)
-            parent = torch.load(init_checkpoint, map_location='cpu', weights_only=True)
-            if (parent.get('kind') != 'si-character-lm' or parent.get('stage') != 'pretrain'
-                    or parent['config']['model'] != config['model'] or parent['tokenizer_digest'] != tokenizer.digest
-                    or parent['dataset_id'] != manifest['dataset_id'] or file_hash(init_checkpoint) != pin):
-                raise ValueError('Initialization requires this dataset/tokenizer and matching pretrained student')
-            model.load_state_dict(parent['model'])
-            initial = dict(sha256=pin, dataset_id=parent['dataset_id'], step=parent['step'],
-                           stage=parent['stage'], code_identity=parent['code_identity'])
-            del parent
         run_path.mkdir(parents=True)
         write_json(run_path / 'run.json', dict(**expected, config=config, teacher=teacher,
             initial_checkpoint=initial, model=parameter_report(config['model']), sources=manifest['sources']))
@@ -172,7 +231,13 @@ def train(config_path, data_path, run_path, device_name='mps', *, pools_path=Non
                     (loss / count).backward()
                     loss_sum += float(loss.detach())
                     # Actual target-token exposures; observed text participates only with LM weight.
-                    target_tokens += sum(len(tokenizer.encode(c['text'])) - 2 for c in row['candidates'])
+                    if config['scoring'].get('protocol') == APP_PROTOCOL:
+                        unique = {c['text'] for c, flag in zip(row['candidates'], row['model_mask'], strict=True) if flag}
+                        # The current App protocol forwards only the effective-context
+                        # sequence; contextual scoring no longer needs a BOS pass.
+                        target_tokens += sum(len(tokenizer.encode(t))-2 for t in unique)
+                    else:
+                        target_tokens += sum(len(tokenizer.encode(c['text'])) - 2 for c in row['candidates'])
                     if config['distillation']['lm_weight']:
                         target_tokens += len(tokenizer.encode(row['observed_text'])) - 2
         torch.nn.utils.clip_grad_norm_(model.parameters(), settings['gradient_clip'], error_if_nonfinite=True)

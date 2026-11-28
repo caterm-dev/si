@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "kind": "si-character-lm-rust-inference",
+  "checkpoint_sha256": "562ca419d17a8d96d23e27d044881b603074c656739da17282f264f1c81f38c0",
+  "weight_edit": {
+    "parents": [
+      {
+        "path": "llm/reranker_large/runs/student-15m-extra-v1/snapshots/continued-step-019167/best.pt",
+        "sha256": "d8b62715b60064256cbb3c9c5fc5a9651e395ae3e1c73c22faab2f51ac8e74ba"
+      },
+      {
+        "path": "llm/reranker_large/runs/student-15m-extra-v1/distill-pilot/best.pt",
+        "sha256": "6d13bf913e7340426bbfde0de26f9fa01c6a62b891adc9fb80f9b454987d579f"
+      },
+      {
+        "path": "llm/reranker_large/runs/student-15m-extra-v1/distill-replay25-lr1e5-v1/best.pt",
+        "sha256": "f2e58c347c5dcac6923e4057858cd0c3dae0e24d4546725416ce39f64b39041a"
+      }
+    ],
+    "selected": {
+      "pilot": 0,
+      "replay": 0.75,
+      "final_norm_scale": 1.2,
+      "native_top1": 153,
+      "queries": 233,
+      "recalled": 212,
+      "lm_loss": 3.3499378375709057,
+      "lm_validation_tokens": 65536
+    },
+    "formula": "base + pilot_fraction * (pilot - base) + replay_fraction * (replay - base); scale final LayerNorm affine parameters",
+    "dev_sha256": "7e691a6b57c8efb28d73fc9717f1cc84f8111022f038b682c37bc738ae12842c",
+    "selection": "Maximize development Top-1 with old LM loss increase below 0.1; break ties by lowest loss.",
+    "output_sha256": {
+      "model.pt": "562ca419d17a8d96d23e27d044881b603074c656739da17282f264f1c81f38c0",
+      "rust/model.json": "89899c46677e727fb0560a746406f5cbe92fcd1254806c9fe2293c37c7a7e3d0",
+      "rust/weights.f32": "09351f871623d907059c60deadb9469f12e221cd4566d5e591a7107db64746f2"
+    }
+  },
+  "files": {
+    "NOTICE.md": "4eb8f2aa338e2f83dd291d6c6a9e04d2e01abbf3aaca5f31e0df932282512def",
+    "model.json": "716ab14448961b56aeaf8f97b0d85352c87e9783332d02a9d190b8ad2a0c82ec",
+    "notices/Qwen-LICENSE.txt": "832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e",
+    "notices/corpus/dialogue/input-manifest.json": "289c7f494f875c01bfdd09bf71f07a769cc7064529cc2101af1184eda1d1873b",
+    "notices/corpus/dialogue/licenses/crosswoz-LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "notices/corpus/dialogue/licenses/kdconv-LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "notices/corpus/dialogue/metadata/crosswoz-README.md": "be521315fc7fde65ebc0da70628a70511e11b0d3ff24cf3370210305f60ac97f",
+    "notices/corpus/dialogue/metadata/crosswoz-data-README.md": "0219c68539445bf019a60e721aeee89fff80d4bd44c2983c0eb0c74be006341a",
+    "notices/corpus/dialogue/metadata/kdconv-README.md": "367143877472b758f894fe02d312d24f78271e4c26ae283237d0a13c7acee630",
+    "notices/corpus/kubernetes/input-manifest.json": "20731e808adf90ae06a4a5ff0f656f06132685244b9d679ea4f400e5c71eb6d6",
+    "notices/corpus/kubernetes/licenses/kubernetes-LICENSE.txt": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411",
+    "notices/corpus/lccc/input-manifest.json": "07d24af1a2e43309432a4566710a328c95426e2d49f00b7601fcce28e782f9e0",
+    "notices/corpus/lccc/licenses/lccc-DATASET_CARD.md": "51d1d953671afc7fd5c0294518372839581c40946f275cabd79e52b3e2ed616e",
+    "notices/corpus/lccc/licenses/lccc-LICENSE.txt": "03da0dd5f60f263f146b6e9c8922ddbce716ffb1ddb8cbceacb0a76f1940b366",
+    "notices/corpus/mdn/input-manifest.json": "3ab08dab2940a04b6f17e59f8b46d62c87ebd203fb676c442d5c0bd2da5309fb",
+    "notices/corpus/mdn/licenses/mdn-LICENSE.txt": "57c0d7e200fadfdbadb04b9ab220297809ba7f2ac0adaa6707a07fba432b2ebe",
+    "notices/corpus/tensorflow/input-manifest.json": "80c9face29c2547165a10234324e992d9fac0b7b5749570468437d84b121d4ba",
+    "notices/corpus/tensorflow/licenses/tensorflow-LICENSE.txt": "9a97acbe7fac6fc504253eb3972f346f6f2f091563df496a66e81a0990398c59",
+    "notices/corpus/wikipedia/input-manifest.json": "da12167f8ff79ec18322fcb9e187095410934b3bd29ede78106ab8b3947e3189",
+    "notices/corpus/wikipedia/licenses/wikipedia-DUMP_TERMS.html": "104242365285791c1d60d61b2ec8eac34e5c4b6a74ae5fdca9996a52f9cd3714",
+    "notices/corpus/wikipedia/licenses/wikipedia-LICENSE.txt": "28a9529c7d0bb4dc51f4bf5c116a3d16ef247a052f7591466768ddf563fd1cf5",
+    "notices/corpus/wikipedia/metadata/wikipedia/20261001/dumpstatus.json": "f8e6648ce9750e72efdf59ceed794244ba129887c109ec8a754f057092e70a81",
+    "notices/corpus/wikipedia/metadata/wikipedia/20261001/sha1sums.txt": "533b4be44e26fdcc6d5a3e5d74879b74b11736ba804e9ca7cd9b0db62e29b7b6",
+    "notices/distillation-inventory.json": "d24205ca895768eeb9ddf6e05bc9edb0f3020da32c1fe2f974c67b2115cddba6",
+    "notices/distillation.md": "f619c283b231e2451e2307486f3c5e38457b82ca3b4734df3df2ac6af8eba59d",
+    "notices/pretraining.md": "a499d10aef5ffa4b5d34aa97adcbc84f4ff5617a570ab94c09d8cd4f894929f7",
+    "source-lock.json": "460e9f1509005088c36ff34efd97a68ecf9b711130fcc4a63036474047833e89",
+    "weights.f16": "79a762bbe1adbe5cad3d7eae70a68ac84a78de767f6491b243e48097c0cbe0da"
+  }
+}

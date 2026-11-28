@@ -27,7 +27,7 @@ final class AppLearningSettings {
     private(set) var isClearing = false
     private(set) var isSampling = false
     private(set) var lastSample: Date?
-    private(set) var status = L10n.text("Waiting for the next 30-second sample.")
+    private(set) var status = L10n.text("Waiting for computer activity. Samples are at least 30 seconds apart.")
     @ObservationIgnored let store: AppLearningStore
     @ObservationIgnored var onConfigurationChanged: (@MainActor () -> Void)?
     @ObservationIgnored private let defaults: UserDefaults

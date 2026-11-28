@@ -283,6 +283,24 @@ fn create_temporary(path: &Path) -> io::Result<(PathBuf, File)> {
     }
 }
 
+pub(super) fn serialized_size(lexicon: &Lexicon) -> u64 {
+    HEADER_SIZE
+        + 24 * lexicon.len() as u64
+        + lexicon.text.len() as u64
+        + lexicon.reading_bytes.len() as u64
+        + 12 * lexicon.index.records.len() as u64
+        + lexicon.index.keys.len() as u64
+        + 4 * lexicon.index.postings.len() as u64
+}
+
+pub(super) fn word_size(word: crate::Word<'_>) -> u64 {
+    24 + word.text.len() as u64 + word.reading.map_or(0, |reading| reading.key.len() as u64)
+}
+
+pub(super) fn key_size(key: crate::Reading<'_>) -> u64 {
+    12 + key.key.len() as u64
+}
+
 fn encode(lexicon: &Lexicon, mut output: impl Write) -> io::Result<()> {
     output.write_all(MAGIC)?;
     for length in [

@@ -156,12 +156,18 @@ fn rerank(rows: &mut [Row], model: &SmallReranker, context: &str, full_span: usi
     let whole = rows
         .iter()
         .enumerate()
-        .take_while(|(_, ((end, ..), _))| *end == full_span)
-        .filter(|(_, (_, row))| !row.personal && !row.verbatim && row.correction.is_none());
+        .take_while(|(_, ((end, ..), _))| *end == full_span);
     let mut pool = Vec::with_capacity(model.candidate_limit());
     let mut texts = Vec::with_capacity(model.candidate_limit());
     for (index, ((_, _, text), _)) in whole.filter(|(_, ((_, _, text), row))| {
-        !row.completion && text.len() <= model.candidate_byte_limit()
+        super::reranking::eligible(
+            row.personal,
+            row.verbatim,
+            row.correction.is_some(),
+            row.completion,
+            text.len(),
+            model.candidate_byte_limit(),
+        )
     }) {
         let text = text.as_str();
         let slot = texts
@@ -182,11 +188,25 @@ fn rerank(rows: &mut [Row], model: &SmallReranker, context: &str, full_span: usi
     let Some(bonuses) = model.bonuses(context, &texts) else {
         return;
     };
-    for (index, slot) in pool {
-        rows[index].1.reranking_bonus = bonuses[slot];
+    let worst = bonuses.iter().copied().reduce(f64::min).unwrap();
+    let adjustments: Vec<_> = rows
+        .iter()
+        .enumerate()
+        .take_while(|(_, ((end, ..), _))| *end == full_span)
+        .filter(|(_, (_, row))| super::reranking::adjustment_eligible(row.personal, row.verbatim))
+        .map(|(index, ((_, _, text), _))| {
+            let bonus = texts
+                .iter()
+                .position(|&scored| scored == text)
+                .map_or(worst, |slot| bonuses[slot]);
+            (index, bonus)
+        })
+        .collect();
+    for (index, bonus) in adjustments {
+        rows[index].1.reranking_bonus = bonus;
     }
-    // Signed adjustments can put previously lower unscored whole results ahead
-    // of scored candidates. Re-sort with the same span and preference policy.
+    // Unscored ordinary whole results must not gain the best adjustment by default.
+    // Keep the same span and explicit preference policy when applying penalties.
     rows.sort_unstable_by(compare);
 }
 

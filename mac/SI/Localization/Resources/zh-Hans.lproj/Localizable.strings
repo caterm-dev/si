@@ -179,14 +179,6 @@
 
 // Optional experimental permissions
 "Accessibility" = "辅助功能";
-"Export Current App AX Data…" = "导出当前应用 AX 数据…";
-"AX Export Failed" = "AX 导出失败";
-"No foreground application is available for AX export." = "没有可用于 AX 导出的前台应用。";
-"Allow SI in macOS Accessibility settings before exporting AX data." = "请先在 macOS 辅助功能设置中允许 SI，再导出 AX 数据。";
-"AX export is unavailable during secure input." = "安全输入期间无法导出 AX 数据。";
-"The foreground application changed. Return to the app and export again." = "前台应用已更改。请返回原应用后重新导出。";
-"The application did not expose a readable AX tree." = "此应用没有提供可读取的 AX 树。";
-"The AX export exceeded the file size limit. No file was saved." = "AX 导出超过文件大小限制，未保存文件。";
 "Allowed" = "已允许";
 "Not allowed" = "未允许";
 "Open Settings…" = "打开设置…";
@@ -359,11 +351,11 @@
 
 "Enable App Learning" = "启用应用学习";
 
-"Every 30 seconds, SI reads eligible foreground app text through Accessibility and saves a separate local vocabulary and word-gram model for that app. Button text is excluded. These models do not affect candidates yet." = "SI 每 30 秒通过辅助功能读取符合条件的前台应用文字，并为各应用保存独立的本地词汇和词组模型。按钮文字不参与学习。这些模型暂不影响候选结果。";
+"Mouse movement, scrolling or keyboard activity triggers an eligible foreground app text sample through Accessibility, at most once every 30 seconds. SI saves a separate local vocabulary and word-gram model for each app. Button text is excluded. These models do not affect candidates yet." = "鼠标移动、滚轮或键盘活动会触发通过辅助功能读取符合条件的前台应用文字，每 30 秒最多采集一次。SI 为各应用保存独立的本地词汇和词组模型。按钮文字不参与学习。这些模型暂不影响候选结果。";
 
 "Allow SI in macOS Accessibility settings, then refresh permission status here. No app text is read until permission is granted." = "请在 macOS 辅助功能设置中允许 SI，然后在这里刷新权限状态。获得授权之前不会读取应用文字。";
 
-"Waiting for the next 30-second sample." = "正在等待下一次采样，采样间隔为 30 秒。";
+"Waiting for computer activity. Samples are at least 30 seconds apart." = "正在等待电脑活动，两次采样至少间隔 30 秒。";
 
 "App vocabulary and word grams saved." = "已保存应用词汇和词组统计。";
 
@@ -392,3 +384,5 @@
 "This deletes app vocabulary, word grams and metadata. Other personal data is kept." = "这将删除应用词汇、词组统计和元数据，其他个人数据会保留。";
 
 "Delete this app’s learning data?" = "删除此应用的学习数据？";
+"Use large ranking model" = "使用大排序模型";
+"Turn off to use the small model." = "关闭后使用小模型。";

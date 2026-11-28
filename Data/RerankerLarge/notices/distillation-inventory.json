@@ -1,0 +1,1046 @@
+{
+  "schema_version": 1,
+  "kind": "si-distillation-source-lock",
+  "files": [
+    {
+      "path": "dialogues/01_daily_life.txt",
+      "source": "si_dialogues",
+      "bytes": 73392,
+      "sha256": "145d3678c726cb734b44f52afb5979e2e564f2b967f64f014db09da3657f7094"
+    },
+    {
+      "path": "dialogues/02_leisure_and_outings.txt",
+      "source": "si_dialogues",
+      "bytes": 78255,
+      "sha256": "998762ce456fe64df25d811fe320f5cea25a08273dfea972a58c068be2d5c481"
+    },
+    {
+      "path": "dialogues/03_work_collaboration.txt",
+      "source": "si_dialogues",
+      "bytes": 88929,
+      "sha256": "8eaa88fe7c4dc82425641e43385ada77b76b08873813260da65cb31caf8dbece"
+    },
+    {
+      "path": "dialogues/04_product_and_design.txt",
+      "source": "si_dialogues",
+      "bytes": 92553,
+      "sha256": "b8b94e9675bdbf315566be2127875da06d4b88ce1a8a6ac380cb13bc15fa93cc"
+    },
+    {
+      "path": "dialogues/05_development_and_debugging.txt",
+      "source": "si_dialogues",
+      "bytes": 95113,
+      "sha256": "46055ec9331616b89d8bc7bc63a8e6ce7a08bfd2af9ebafe0e69e852bbe7b1fa"
+    },
+    {
+      "path": "dialogues/06_web_and_app_interfaces.txt",
+      "source": "si_dialogues",
+      "bytes": 93113,
+      "sha256": "de0dfbbc4970f253417afea70412023af087de5a370e6ad44da3f68e7bce62a7"
+    },
+    {
+      "path": "dialogues/07_backend_and_databases.txt",
+      "source": "si_dialogues",
+      "bytes": 92213,
+      "sha256": "2c07fd6a6dd9007678435b7d0fbe0331c04790799f6a15a3ea2d68b8e01bb43b"
+    },
+    {
+      "path": "dialogues/08_cloud_operations_and_security.txt",
+      "source": "si_dialogues",
+      "bytes": 91641,
+      "sha256": "fa04e1d727d0dfd0e79fdbc7ac1a718a252971c4ab6a1697e98c8037aee73b32"
+    },
+    {
+      "path": "dialogues/09_ai_and_data.txt",
+      "source": "si_dialogues",
+      "bytes": 94615,
+      "sha256": "73668c9ac64f76d9c1d8dc7eb2f28021576fa128df8a61560f93849543470d6a"
+    },
+    {
+      "path": "dialogues/10_devices_and_networks.txt",
+      "source": "si_dialogues",
+      "bytes": 94635,
+      "sha256": "28d4eea7ab56b4d6cd3b38d4d31415c0f4dac953b3790a6c58c4328c99241511"
+    },
+    {
+      "path": "dialogues/11_health_and_medical.txt",
+      "source": "si_dialogues",
+      "bytes": 69669,
+      "sha256": "1adba06aaa3c5526df32f87e6395ef60ea839fd443d33bc13ea2bfbce7bdc09f"
+    },
+    {
+      "path": "dialogues/12_education_and_learning.txt",
+      "source": "si_dialogues",
+      "bytes": 71106,
+      "sha256": "9e9cc9bcbc9605f80ee4ed8a8f39235aa295b36ad1de7aef23ae92b13d0a05e1"
+    },
+    {
+      "path": "dialogues/13_family_and_relationships.txt",
+      "source": "si_dialogues",
+      "bytes": 60257,
+      "sha256": "472b5b17d4eff8ce6e1c5f6170cb7e0b63ca5f1a225b85fa7efd2a0b656c4cb1"
+    },
+    {
+      "path": "dialogues/14_finance_and_shopping.txt",
+      "source": "si_dialogues",
+      "bytes": 58915,
+      "sha256": "048e33dfa882d19093493307e47c3f65994fbd9043214d508dfc01eb7b2add7d"
+    },
+    {
+      "path": "dialogues/15_travel_and_transportation.txt",
+      "source": "si_dialogues",
+      "bytes": 48099,
+      "sha256": "4262674637170c826a9006965e17bd1819be495059de33e3a30e3b28482f6c5f"
+    },
+    {
+      "path": "dialogues/dialogues_by_word.txt",
+      "source": "si_dialogues",
+      "bytes": 278448337,
+      "sha256": "4e2b2ab8d0ebd4067527457262a1a5bd14cbc87fa19c520fc63a7e0395c74b09"
+    },
+    {
+      "path": "dialogues/dialogues_high_weight.txt",
+      "source": "si_dialogues",
+      "bytes": 190380342,
+      "sha256": "087c425c0174f000bfdc748b27ff5009d5e88ccfa9ede5b83b7252feea773e77"
+    },
+    {
+      "path": "workbuddy/accountant_audit.txt",
+      "source": "si_workbuddy",
+      "bytes": 5019,
+      "sha256": "544c40c43f51b8784eae8e2a647654f96f727dd4cf0ec4f3a69e8470cb4aa2d9"
+    },
+    {
+      "path": "workbuddy/accountant_tax.txt",
+      "source": "si_workbuddy",
+      "bytes": 4826,
+      "sha256": "342a2d84c57cdb313aa49f773f92e266ee772db001c431f1fab123934f630e1b"
+    },
+    {
+      "path": "workbuddy/ai_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 4099,
+      "sha256": "b6be0ad4a4a1d1062e2f0087d24ed91c08c199be0774aaa6aad7ffc9fff7424b"
+    },
+    {
+      "path": "workbuddy/airport_ground.txt",
+      "source": "si_workbuddy",
+      "bytes": 2885,
+      "sha256": "d29af4ded0e08c504f73e9ab65b8ef1428d197dc7849905cf3ec5411547928c2"
+    },
+    {
+      "path": "workbuddy/algorithm_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 4057,
+      "sha256": "aff333f6038b7d67403ae1bac8b015121089cc71ec5a99a08c471456c744b073"
+    },
+    {
+      "path": "workbuddy/android_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 3907,
+      "sha256": "91a4dda0299c714cb9665ab374ba4fce1a89212b052f0559f04f49634e76cc0e"
+    },
+    {
+      "path": "workbuddy/ar_vr_developer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2015,
+      "sha256": "11311c1b75e6ff5c71871ebb1b60d9aecaef348c3ae2501bd2ffa2070a125761"
+    },
+    {
+      "path": "workbuddy/art_teacher.txt",
+      "source": "si_workbuddy",
+      "bytes": 4430,
+      "sha256": "c4fb2cb043cf4526680b039381952eb90224ef7bbe5201db4c9820006aa1a13e"
+    },
+    {
+      "path": "workbuddy/backend_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 4008,
+      "sha256": "63a2e282473b653253c67cf5443fd548c75a2e24af2a580a88f0cd9a769b4450"
+    },
+    {
+      "path": "workbuddy/bakery.txt",
+      "source": "si_workbuddy",
+      "bytes": 2512,
+      "sha256": "aaa1f9b8ebd0bdd8a15aeec932b60b91e51855bf75a4534e0dfcfc78937d9c71"
+    },
+    {
+      "path": "workbuddy/band_practice.txt",
+      "source": "si_workbuddy",
+      "bytes": 2521,
+      "sha256": "cb8c6f020187ff18dea84f23be1a03e9cb9a30ea11b121b79f4e008af74527cd"
+    },
+    {
+      "path": "workbuddy/bank_manager.txt",
+      "source": "si_workbuddy",
+      "bytes": 1904,
+      "sha256": "ca0270c7a8d246b9eb5d804fbadee5289b842deaa8b35a5ad88498ac8decfb93"
+    },
+    {
+      "path": "workbuddy/bank_teller.txt",
+      "source": "si_workbuddy",
+      "bytes": 1983,
+      "sha256": "928f02aca7dfdf058568829244fdbfa688e99fb0b9d9fcf4fafc7225bfcb2f56"
+    },
+    {
+      "path": "workbuddy/barber_shop.txt",
+      "source": "si_workbuddy",
+      "bytes": 1350,
+      "sha256": "3796aec930c22291fc47d705800dd4ffa48ff453f580038dc2c3acd87d37e957"
+    },
+    {
+      "path": "workbuddy/barista.txt",
+      "source": "si_workbuddy",
+      "bytes": 2436,
+      "sha256": "5b80ce166795113b89f1f3d28123b26864b0f76dd03393a0619402e8ac2da05d"
+    },
+    {
+      "path": "workbuddy/blockchain_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 2303,
+      "sha256": "4744b50c2e06d668fcba62eb708f69ccf8e3ac36b352d8660117c323464233cb"
+    },
+    {
+      "path": "workbuddy/bookstore.txt",
+      "source": "si_workbuddy",
+      "bytes": 2204,
+      "sha256": "0b0bca166c5ddaa507c4ed9b1a916a1d2ae3cb385b63789f34ebaa3bd3eea596"
+    },
+    {
+      "path": "workbuddy/bus_driver.txt",
+      "source": "si_workbuddy",
+      "bytes": 2232,
+      "sha256": "ad907cfc391d9c377eb62d7405e68438024281fe9e2df78b979ac2b50d7bef11"
+    },
+    {
+      "path": "workbuddy/butcher.txt",
+      "source": "si_workbuddy",
+      "bytes": 2286,
+      "sha256": "03b644b692894407eaaf81ce134f4266644e196aa48f4311d4504870a8f81835"
+    },
+    {
+      "path": "workbuddy/calligrapher.txt",
+      "source": "si_workbuddy",
+      "bytes": 2655,
+      "sha256": "bed491cc85ef6c03df115ae63cbf06255c91de791d7685111fd9d88f3aedd491"
+    },
+    {
+      "path": "workbuddy/car_mechanic.txt",
+      "source": "si_workbuddy",
+      "bytes": 4374,
+      "sha256": "46558ffa44f59e432d12ba8742de2f9da132c15934c967dbf83ea703a0262d59"
+    },
+    {
+      "path": "workbuddy/car_mechanic_inspection.txt",
+      "source": "si_workbuddy",
+      "bytes": 4322,
+      "sha256": "410ff2a9f7c94ecf43130ff44c47373485fed5f9b57be52d0161a8e7a6f6a14a"
+    },
+    {
+      "path": "workbuddy/ceramic_artist.txt",
+      "source": "si_workbuddy",
+      "bytes": 2554,
+      "sha256": "6c71af8217f0870d318be49ed3f83d4658f40b275a5c388e98d31a70e942d4c5"
+    },
+    {
+      "path": "workbuddy/chef_prepwork.txt",
+      "source": "si_workbuddy",
+      "bytes": 2967,
+      "sha256": "c122b1065ec18b8c9d5a9dc6e701d182c87f946e4acd4238d720dbba6754c6df"
+    },
+    {
+      "path": "workbuddy/chef_service.txt",
+      "source": "si_workbuddy",
+      "bytes": 2690,
+      "sha256": "df6681db61f3a674591e5b3b98d75e792a6fd6a59b7a2bf7cda86bc28671b169"
+    },
+    {
+      "path": "workbuddy/cleaning_service.txt",
+      "source": "si_workbuddy",
+      "bytes": 2481,
+      "sha256": "6672bca7bdb73622ee1f8cdda461a34d248c0c60cc8df0be8ed9f19557a59a9d"
+    },
+    {
+      "path": "workbuddy/cloud_architect.txt",
+      "source": "si_workbuddy",
+      "bytes": 2811,
+      "sha256": "2b6308ce82cf7eaef3db816a4a4b81c62bd625a37b3d79b889059ad4f6484eaf"
+    },
+    {
+      "path": "workbuddy/coffee_shop.txt",
+      "source": "si_workbuddy",
+      "bytes": 3950,
+      "sha256": "a08051ec60cfa22cc98eec091c4785154a5b484610803a519b9a63a6b3482df1"
+    },
+    {
+      "path": "workbuddy/construction_site.txt",
+      "source": "si_workbuddy",
+      "bytes": 4289,
+      "sha256": "5ff28b5d44bbf7a390cc020cd3de34fa848ee773330d5e3ecc8a3ae3bbf0374d"
+    },
+    {
+      "path": "workbuddy/convenience_store.txt",
+      "source": "si_workbuddy",
+      "bytes": 2546,
+      "sha256": "e1e4ddf6daffeb2274bf0828c81599728a30917823c0ae6e2c635531b9bda4df"
+    },
+    {
+      "path": "workbuddy/courier_station.txt",
+      "source": "si_workbuddy",
+      "bytes": 2740,
+      "sha256": "6b526a51ef0b9e262e54a3900cdd5620a777243127c1f1343b4866c7c2f61038"
+    },
+    {
+      "path": "workbuddy/cto_meeting.txt",
+      "source": "si_workbuddy",
+      "bytes": 2755,
+      "sha256": "12a5fee8722088bf7a0dac798aff0e155c85fa5fd7f803b0c1b526b7c225b7f9"
+    },
+    {
+      "path": "workbuddy/dailylife.txt",
+      "source": "si_workbuddy",
+      "bytes": 2289,
+      "sha256": "1ad56d6fe7bfe93fb18e1e215567d2e85232588115410076ec0bd98d53b39e2d"
+    },
+    {
+      "path": "workbuddy/dancer_rehearsal.txt",
+      "source": "si_workbuddy",
+      "bytes": 2436,
+      "sha256": "1ad8b42649f1d96f846b8d51698bc0befa2819fc62c2d0817bad8def9df850c1"
+    },
+    {
+      "path": "workbuddy/data_anyst.txt",
+      "source": "si_workbuddy",
+      "bytes": 3892,
+      "sha256": "ac2e8686fa723ceed6ec16ddeab51fffe0664a36f94ad19eaff5f885ef9f8260"
+    },
+    {
+      "path": "workbuddy/data_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 3895,
+      "sha256": "171646444bae5dc572ef1d190508d579afb5f9c093d6efff4d62036e7b335ce2"
+    },
+    {
+      "path": "workbuddy/database_admin.txt",
+      "source": "si_workbuddy",
+      "bytes": 3257,
+      "sha256": "759e1139726086f081485a91c8bbcb63a7e984796354654b64d409d16cf1af6e"
+    },
+    {
+      "path": "workbuddy/delivery_rider.txt",
+      "source": "si_workbuddy",
+      "bytes": 3124,
+      "sha256": "29532ef1ec4487ffe76d0a6273d57d56d74da619658dadbd76f52191ea38b42e"
+    },
+    {
+      "path": "workbuddy/dentist_patient.txt",
+      "source": "si_workbuddy",
+      "bytes": 4300,
+      "sha256": "c235a72914a89dbaf3202b6fe9adeb020c2e10b0285a0555b53a3ec28edcbfd2"
+    },
+    {
+      "path": "workbuddy/devops_deploy.txt",
+      "source": "si_workbuddy",
+      "bytes": 4473,
+      "sha256": "950927aaf8c1625338fa5ea83eb8b0220f7502bbe3ae16339b2eef7450307edc"
+    },
+    {
+      "path": "workbuddy/devops_kubernetes.txt",
+      "source": "si_workbuddy",
+      "bytes": 3622,
+      "sha256": "f27862a4f2833e34ccbd26aeff1de5eda585b10713bbcdf8aa27c28190f59b44"
+    },
+    {
+      "path": "workbuddy/devops_monitoring.txt",
+      "source": "si_workbuddy",
+      "bytes": 4037,
+      "sha256": "b04eabeaef3488f22ea2b6bdb4573da8138c492f997b4d6e032a241b644bea0d"
+    },
+    {
+      "path": "workbuddy/devtools_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2052,
+      "sha256": "bdb973e4023a49f3e26659bf8beb335ef945cbf1ddddd33ef10242595f6de8aa"
+    },
+    {
+      "path": "workbuddy/dialogues_gen/chats.txt",
+      "source": "si_workbuddy",
+      "bytes": 701532,
+      "sha256": "b3543a12baaa899f70445a2d6f170d9de5269b662a8aae32efceb56d760955f5"
+    },
+    {
+      "path": "workbuddy/doctor_clinic.txt",
+      "source": "si_workbuddy",
+      "bytes": 4254,
+      "sha256": "588788ccd4211ccab093ef5ef6ddd78e82169b1a8c65b45a63d1f61fb5f2596b"
+    },
+    {
+      "path": "workbuddy/doctor_rounds.txt",
+      "source": "si_workbuddy",
+      "bytes": 1798,
+      "sha256": "7430c39a062ca8fed364e386698d4db9a896db3683e159877c656d89bcaf17d6"
+    },
+    {
+      "path": "workbuddy/driving_instructor.txt",
+      "source": "si_workbuddy",
+      "bytes": 2502,
+      "sha256": "c1dcd5ad541001dadd45384ed36532f20ebec28656dc9b41bed8c0789d26cbd6"
+    },
+    {
+      "path": "workbuddy/ecommerce_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 2259,
+      "sha256": "2204c6ae43a4719528d7827e018bfdfa7887eda17924bbda9e2d60302399ab8a"
+    },
+    {
+      "path": "workbuddy/edtech_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 2230,
+      "sha256": "efc84bb3cf110568a676dd7150a21e762cb0999433cee28909d32bc300e77bea"
+    },
+    {
+      "path": "workbuddy/electric_grid.txt",
+      "source": "si_workbuddy",
+      "bytes": 3060,
+      "sha256": "3318611c3fa251d06b810d3b6e1d01f6e3e04f92004f34411da6083628a133cd"
+    },
+    {
+      "path": "workbuddy/electrician_work.txt",
+      "source": "si_workbuddy",
+      "bytes": 1990,
+      "sha256": "77010d7de779ba1e771d5232244c3ed630d7496e7520e213a3505e60a3d6a917"
+    },
+    {
+      "path": "workbuddy/embedded_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2233,
+      "sha256": "f9837d101df7e11f975580c05181233aa23f80cce751b93ab5ddc007ff999e2d"
+    },
+    {
+      "path": "workbuddy/event_planner.txt",
+      "source": "si_workbuddy",
+      "bytes": 2556,
+      "sha256": "c0ee9c1551337ffc3d3cd207568583b3bbbf28cc2281413d39474914dedec73c"
+    },
+    {
+      "path": "workbuddy/farmer_harvest.txt",
+      "source": "si_workbuddy",
+      "bytes": 1885,
+      "sha256": "6a8590ff4ccd38ff2d42ba776d6e67a35a507c577bc7dd9038de68c2cee77916"
+    },
+    {
+      "path": "workbuddy/farmer_market.txt",
+      "source": "si_workbuddy",
+      "bytes": 1526,
+      "sha256": "f79ab6133bc3ccbfb6308124dfc50a95fc4fad9f413dd8e2fc052aa71a7f4827"
+    },
+    {
+      "path": "workbuddy/fintech_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 2319,
+      "sha256": "e63836631d460a5c2738e0930f3521bd4e0a2f83b9d0d0a0570448dca26e8a69"
+    },
+    {
+      "path": "workbuddy/firefighter_drill.txt",
+      "source": "si_workbuddy",
+      "bytes": 1641,
+      "sha256": "d56f3123838a37df4b2b434141480d58f4322caa1a56cf58bdfd1bb9283052e5"
+    },
+    {
+      "path": "workbuddy/fishing_boat.txt",
+      "source": "si_workbuddy",
+      "bytes": 2447,
+      "sha256": "ed2a16aed45fe4894456b4cac07d25cbff4feb30afc3271162a1f650cf900920"
+    },
+    {
+      "path": "workbuddy/fishmonger.txt",
+      "source": "si_workbuddy",
+      "bytes": 2458,
+      "sha256": "b86259426c46de70f8f7ab8a63089570f37b55fa307e72b9ef00f8983d6f35c4"
+    },
+    {
+      "path": "workbuddy/fitness_coach.txt",
+      "source": "si_workbuddy",
+      "bytes": 2769,
+      "sha256": "d685a3600fa672d71e11233300a5cfd21763ebccdf3b5d28e7fdeeb653605b5e"
+    },
+    {
+      "path": "workbuddy/florist.txt",
+      "source": "si_workbuddy",
+      "bytes": 4046,
+      "sha256": "33d3cf97f3361c9df0bf74a51fc908a3c5abd55ab7fa81f3782e0adb0816c1b3"
+    },
+    {
+      "path": "workbuddy/forestry_worker.txt",
+      "source": "si_workbuddy",
+      "bytes": 2273,
+      "sha256": "fc097808450545b36449f0cd32a4804cab3981ac7858738391ce9564453be23f"
+    },
+    {
+      "path": "workbuddy/frontend_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 4023,
+      "sha256": "ea19e698ad8d366a19e3c573f63a4de47a30e1ef97dfa512c0146ef2447b8495"
+    },
+    {
+      "path": "workbuddy/fruit_shop.txt",
+      "source": "si_workbuddy",
+      "bytes": 2444,
+      "sha256": "2554cf92b4ae910a2664bf8459edf7af8cdc15e3a318b3ba4d17e44146bc336e"
+    },
+    {
+      "path": "workbuddy/fullstack_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 4194,
+      "sha256": "e8950c7fed8b712210fa71b91fc8d8761527a95e7ce570ea6ada02d9820649fe"
+    },
+    {
+      "path": "workbuddy/furniture_maker.txt",
+      "source": "si_workbuddy",
+      "bytes": 4019,
+      "sha256": "d139802ec1d9c7ffd8a43a78f56c42edbe9c87eb6047f0ade6aadaff1699b4c6"
+    },
+    {
+      "path": "workbuddy/game_developer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2390,
+      "sha256": "57098f548333ec1bcb00a3de3b5f0461535bc5e6d92d0c1e0684ece87eaeffad"
+    },
+    {
+      "path": "workbuddy/gardener.txt",
+      "source": "si_workbuddy",
+      "bytes": 2416,
+      "sha256": "9d2533852dd3adc6f80d52590ddc38e2157373212fddc92066ef7226e4c10945"
+    },
+    {
+      "path": "workbuddy/garment_factory.txt",
+      "source": "si_workbuddy",
+      "bytes": 2513,
+      "sha256": "30839aa29d6bd28133e8b8f075caab9a55d086b3dab930fa9a3ef4b590ea491f"
+    },
+    {
+      "path": "workbuddy/gas_station.txt",
+      "source": "si_workbuddy",
+      "bytes": 2577,
+      "sha256": "49c636c117b718062dcb408823ddd3201aa884e6a5bc313f94bcfff224af51eb"
+    },
+    {
+      "path": "workbuddy/gym_trainer.txt",
+      "source": "si_workbuddy",
+      "bytes": 3533,
+      "sha256": "a629654b598d6d3142402089ad7d18b8d1de9861dea6dd421cd0ec45803750ee"
+    },
+    {
+      "path": "workbuddy/hardware_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 1945,
+      "sha256": "afc87dd2fb2d2d115b4d89caaa52e32ed5a7aff7db8bdc40a7d540d0231062e7"
+    },
+    {
+      "path": "workbuddy/healthtech_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 2529,
+      "sha256": "d6777209c71b99382c5d9b737d3c3dc1cf143628f9bf2dc4b7c3bff392626703"
+    },
+    {
+      "path": "workbuddy/hotel_frontdesk.txt",
+      "source": "si_workbuddy",
+      "bytes": 4140,
+      "sha256": "2e5014a153a31fe1fd8a0a70f6757330756a28553b8fee8876b0d7566cfc6fc2"
+    },
+    {
+      "path": "workbuddy/hotel_housekeeping.txt",
+      "source": "si_workbuddy",
+      "bytes": 3684,
+      "sha256": "1ce2f22af301a036d4f7b40187d5154b339b06d0146f7e77a3ea24507bb7fd6d"
+    },
+    {
+      "path": "workbuddy/hr_recruiting.txt",
+      "source": "si_workbuddy",
+      "bytes": 4583,
+      "sha256": "fa444ac95791ea0ac7d9010bf9479d1adede7217a9629f4769b32ce3ad6d0936"
+    },
+    {
+      "path": "workbuddy/hr_salary.txt",
+      "source": "si_workbuddy",
+      "bytes": 4390,
+      "sha256": "65cd414d4282f5c1a0605407190e8724ce3872141d0890e6386fe9ab0f68dd28"
+    },
+    {
+      "path": "workbuddy/insurance_agent.txt",
+      "source": "si_workbuddy",
+      "bytes": 4138,
+      "sha256": "e27ffd0b40a5fab01dd0ae4d738d9c8feb56cd7c3e9558a29f14b0c48c809047"
+    },
+    {
+      "path": "workbuddy/interior_designer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2536,
+      "sha256": "40c576be4d4eb31b13c009140a8d736fbe71c4335c5c1207e0f4b1cb7c61030a"
+    },
+    {
+      "path": "workbuddy/ios_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 3678,
+      "sha256": "7085b42cf82d97e3c09602f9730f732b527178a437b21918826ae69089f08953"
+    },
+    {
+      "path": "workbuddy/iot_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2036,
+      "sha256": "46122f4c1b070e3a3bb605d52bbf59a6f41590d016366e22137a49f0115315ee"
+    },
+    {
+      "path": "workbuddy/jewelry_store.txt",
+      "source": "si_workbuddy",
+      "bytes": 2662,
+      "sha256": "7eab21ec742d8ca691b083f407987b4799888911b18ba4bad6b896b94ef13415"
+    },
+    {
+      "path": "workbuddy/kindergarten_teacher.txt",
+      "source": "si_workbuddy",
+      "bytes": 2551,
+      "sha256": "2ea14032fd7448659a17d366b9c30b83213b5e04e97ef4faef8597c5f258dd0a"
+    },
+    {
+      "path": "workbuddy/kitchen_closing.txt",
+      "source": "si_workbuddy",
+      "bytes": 2172,
+      "sha256": "6516f23458c9cc53bc1b017bf4ffd789707520377388d3ab4553fcc1aacb2e3a"
+    },
+    {
+      "path": "workbuddy/lab_technician.txt",
+      "source": "si_workbuddy",
+      "bytes": 3268,
+      "sha256": "64eae16ce81e306c109eafb955f1efe569bd6e2fd7d4b0a1ffb516fb24bf702b"
+    },
+    {
+      "path": "workbuddy/lawyer_client.txt",
+      "source": "si_workbuddy",
+      "bytes": 1909,
+      "sha256": "99060b43e3203bfff2c1ee23d9337b070fe4489e704f8c24e199fc16c155e770"
+    },
+    {
+      "path": "workbuddy/lawyer_court.txt",
+      "source": "si_workbuddy",
+      "bytes": 2036,
+      "sha256": "033151a4100cd5d86d8bb7e87251267ddd31f1099b33d61a2943f36f0fe35ea9"
+    },
+    {
+      "path": "workbuddy/librarian.txt",
+      "source": "si_workbuddy",
+      "bytes": 3003,
+      "sha256": "bf37e878a2ab85514872d5181467e3018e4442542ead141d75ef8d3954bb2d21"
+    },
+    {
+      "path": "workbuddy/market_stall.txt",
+      "source": "si_workbuddy",
+      "bytes": 2393,
+      "sha256": "4402ab6e587c1671d909c18fe683abe5fd85d7ddc25a9a9936f7f8c9418cadb1"
+    },
+    {
+      "path": "workbuddy/miner.txt",
+      "source": "si_workbuddy",
+      "bytes": 2466,
+      "sha256": "7083323bf031e81e4481b4bd277e9487453c27bff2517b4fff3164b20a21af4b"
+    },
+    {
+      "path": "workbuddy/ml_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 3925,
+      "sha256": "2bfba5e5f33e5cb69e25b9b00fa6f5900496c6e732dc0e07638b8f84622d6e9b"
+    },
+    {
+      "path": "workbuddy/mobile_dev.txt",
+      "source": "si_workbuddy",
+      "bytes": 4114,
+      "sha256": "da948c82efef5f506fe4729ed8f799134995c10bcc08f8b4d6ce342705897bbd"
+    },
+    {
+      "path": "workbuddy/moving_company.txt",
+      "source": "si_workbuddy",
+      "bytes": 2831,
+      "sha256": "4b06016ca0f1fbcc16b609973875e70652803ba9b9b577d1909e3ebf9df85b3e"
+    },
+    {
+      "path": "workbuddy/museum_guide.txt",
+      "source": "si_workbuddy",
+      "bytes": 3121,
+      "sha256": "41101da81301e3762f693e01f554018870d38da02bf3fbb54366a7f69786d55a"
+    },
+    {
+      "path": "workbuddy/music_teacher.txt",
+      "source": "si_workbuddy",
+      "bytes": 3689,
+      "sha256": "8ee570322426b1bbc82150a4bf2cd8de2e2b7d82fc562f06fe60504c20a466ae"
+    },
+    {
+      "path": "workbuddy/network_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2744,
+      "sha256": "de7bc1c524f5fa27d9810ea24b5e666eb98fc5f16d0a28cec3fa696572325c9a"
+    },
+    {
+      "path": "workbuddy/notary_office.txt",
+      "source": "si_workbuddy",
+      "bytes": 2922,
+      "sha256": "b82ff7e1983b79da9abc7963db0351f0b616b8fb6e64f23b9689370079f751ec"
+    },
+    {
+      "path": "workbuddy/nurse_nightshift.txt",
+      "source": "si_workbuddy",
+      "bytes": 2914,
+      "sha256": "f67aa09aaf3adbca019ce660571e050ba31bb4a3f1c703745b5bf8c5c7a26efe"
+    },
+    {
+      "path": "workbuddy/nurse_wardround.txt",
+      "source": "si_workbuddy",
+      "bytes": 3258,
+      "sha256": "cd8710fdf3b1f4d1cd44f3c1e8218bd340e88a687cf9185431c75443f78b029f"
+    },
+    {
+      "path": "workbuddy/office_admin.txt",
+      "source": "si_workbuddy",
+      "bytes": 4411,
+      "sha256": "dcadd0de9b0f8ca41f596f8cb1b240a601cf4c8023fb5d39fe6b199b71d2d7c2"
+    },
+    {
+      "path": "workbuddy/office_meeting.txt",
+      "source": "si_workbuddy",
+      "bytes": 4128,
+      "sha256": "069566fde29e5df2e567594a21e8eb902be1f33c71778733b37d358986e97d5a"
+    },
+    {
+      "path": "workbuddy/optician.txt",
+      "source": "si_workbuddy",
+      "bytes": 2471,
+      "sha256": "5df827470f2e2d85f565adf07538a3913752ae109b2e1d8d11d5695ac29f514f"
+    },
+    {
+      "path": "workbuddy/pet_store.txt",
+      "source": "si_workbuddy",
+      "bytes": 2388,
+      "sha256": "35c508b33c8fbe2c933fd2449ab223c0cb5de46a62df3f0e43da9e02745c716b"
+    },
+    {
+      "path": "workbuddy/pharmacist.txt",
+      "source": "si_workbuddy",
+      "bytes": 4652,
+      "sha256": "cb9a03aae78b1d76f63706c072df73c2cd561bc47a1e09ce1af108efc120d738"
+    },
+    {
+      "path": "workbuddy/photographer_shoot.txt",
+      "source": "si_workbuddy",
+      "bytes": 1654,
+      "sha256": "3408f2fb338e6e0afc435b0a2e006d51073471a79f5dae8cfcc8dee54b53fddc"
+    },
+    {
+      "path": "workbuddy/plumber_repair.txt",
+      "source": "si_workbuddy",
+      "bytes": 2057,
+      "sha256": "241bb0a211328534b55ec3738c0eeee1e038a82dd8a97f197806c96408e2a352"
+    },
+    {
+      "path": "workbuddy/pm_meeting.txt",
+      "source": "si_workbuddy",
+      "bytes": 3304,
+      "sha256": "e864bd16c9294a2da0bdb8cf7e7306bff2e011d0588de0c064b52a0b57ea6d2d"
+    },
+    {
+      "path": "workbuddy/pm_requirement.txt",
+      "source": "si_workbuddy",
+      "bytes": 3981,
+      "sha256": "26f9b1c6a22e07cf7a98ff20e68624933f18c5c15ecf5ac363958381704fc5e7"
+    },
+    {
+      "path": "workbuddy/pm_sprint.txt",
+      "source": "si_workbuddy",
+      "bytes": 3244,
+      "sha256": "a0c2f26b00a0b868ed50a90b383e4fdccb35f04db476b5c3d5388bb0fc8cf041"
+    },
+    {
+      "path": "workbuddy/police_patrol.txt",
+      "source": "si_workbuddy",
+      "bytes": 1706,
+      "sha256": "997c31e8a51176a0e6d11118ecf6671fe1c815de65b1b54d4d88a5355bd284a6"
+    },
+    {
+      "path": "workbuddy/post_office.txt",
+      "source": "si_workbuddy",
+      "bytes": 2605,
+      "sha256": "766ff0a8b6aad505851bf193e7eab343666add6370519ed935bd1ced64367a1a"
+    },
+    {
+      "path": "workbuddy/product_manager_launch.txt",
+      "source": "si_workbuddy",
+      "bytes": 2462,
+      "sha256": "2e2d267b27a425a377e7d6789fcb44a1014f25a3b400b446120b39f17c6e91d4"
+    },
+    {
+      "path": "workbuddy/programmer_bugfix.txt",
+      "source": "si_workbuddy",
+      "bytes": 4192,
+      "sha256": "262f12e6628bbc5029294aacfb183f5ececba2cd468d34a99b8bd3a32197037c"
+    },
+    {
+      "path": "workbuddy/programmer_codereview.txt",
+      "source": "si_workbuddy",
+      "bytes": 4006,
+      "sha256": "7624de38f4f2258fec5d06af7ba39f105098d57bf0cbb959507d6d9a40328464"
+    },
+    {
+      "path": "workbuddy/programmer_deploy.txt",
+      "source": "si_workbuddy",
+      "bytes": 3509,
+      "sha256": "3eb92320dc55ab3d2a490a6eb15202005eb31cf988af983edf4bc83a2315946b"
+    },
+    {
+      "path": "workbuddy/property_management.txt",
+      "source": "si_workbuddy",
+      "bytes": 2671,
+      "sha256": "a33145fd53a4edb61b346246bd0f40ea1a570aa73d23d937fda165e62f572d80"
+    },
+    {
+      "path": "workbuddy/qa_automation.txt",
+      "source": "si_workbuddy",
+      "bytes": 3618,
+      "sha256": "74a14dc03e0260a32cd08cc931f16a29ff25ee9ca22b4644d9ca2e295dc42678"
+    },
+    {
+      "path": "workbuddy/qa_testing.txt",
+      "source": "si_workbuddy",
+      "bytes": 3691,
+      "sha256": "714bb34aad367c880f734397d27c025caaf00a31ec4be49bacccf05290ce0b3b"
+    },
+    {
+      "path": "workbuddy/railway_worker.txt",
+      "source": "si_workbuddy",
+      "bytes": 2647,
+      "sha256": "0074729443f453ca652bd89da1daf0fc35f22ee552ceaa93032ee508951038ff"
+    },
+    {
+      "path": "workbuddy/real_estate_agent.txt",
+      "source": "si_workbuddy",
+      "bytes": 1868,
+      "sha256": "11115eb484b224feb353619d2d3b1009f4b313ddf224463f4b6886ea1be34ecf"
+    },
+    {
+      "path": "workbuddy/real_estate_developer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2570,
+      "sha256": "3ca485e083d2be0869651ce505e421238adf0fd20c24a08279fe402554aa1c72"
+    },
+    {
+      "path": "workbuddy/restaurant_manager.txt",
+      "source": "si_workbuddy",
+      "bytes": 3987,
+      "sha256": "233eb9eeacba5465bb71ea98a340e95629b8ea46f842d91c076cbfc8b06a6395"
+    },
+    {
+      "path": "workbuddy/restaurant_waiter.txt",
+      "source": "si_workbuddy",
+      "bytes": 4083,
+      "sha256": "bc632f5a151881464220661d3188351f194010fbae79fb0f0a3ca976b97fa3e6"
+    },
+    {
+      "path": "workbuddy/robotics_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2188,
+      "sha256": "476f33ab493fdeea633a2920e495a0f05022f6e3e4c6ed63e7d5035b0c93bf98"
+    },
+    {
+      "path": "workbuddy/sales_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2343,
+      "sha256": "78fc512462a9b43b9990f6fab965509b531cd3977b2da669cff1442c8d0b0e15"
+    },
+    {
+      "path": "workbuddy/sales_store.txt",
+      "source": "si_workbuddy",
+      "bytes": 1782,
+      "sha256": "fd8c2848b4e7f17998d4d07de4777dd2377daf8e90b2379df79954b040f1a45e"
+    },
+    {
+      "path": "workbuddy/scrum_master.txt",
+      "source": "si_workbuddy",
+      "bytes": 2225,
+      "sha256": "0c0902fa0acbd3c3a26287ee27936759eacdb5a310ca54d499e0d375eea3fb02"
+    },
+    {
+      "path": "workbuddy/security_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2803,
+      "sha256": "3f751e025fdd6ad16df4800e3806c3d92511a22e2bad63a1a7d92f5a8322cbd4"
+    },
+    {
+      "path": "workbuddy/security_guard.txt",
+      "source": "si_workbuddy",
+      "bytes": 2612,
+      "sha256": "d0fc4e877ed526cc930fd4e06e3a3d3aa0afe2219ef75460fa579b2131352718"
+    },
+    {
+      "path": "workbuddy/solutions_architect.txt",
+      "source": "si_workbuddy",
+      "bytes": 2407,
+      "sha256": "17a3051e607d2988521dcc63ce24337af5c81cde676dae8a489d19ae6f54bd12"
+    },
+    {
+      "path": "workbuddy/sre_incident.txt",
+      "source": "si_workbuddy",
+      "bytes": 3701,
+      "sha256": "7fe0ecbd3ef020e1bdc5316aa0332cd5bae09e3714a6428a2c3e335c6a3d364f"
+    },
+    {
+      "path": "workbuddy/startup_founder.txt",
+      "source": "si_workbuddy",
+      "bytes": 2422,
+      "sha256": "9b72e0b28e87141192e6141e9a8c39599cde1fa6b9404c388f91a2f20355e140"
+    },
+    {
+      "path": "workbuddy/steel_mill.txt",
+      "source": "si_workbuddy",
+      "bytes": 2699,
+      "sha256": "4824157ab8041b9c31214433f3bba095204000ca7586418be0dcb1e4b9e96554"
+    },
+    {
+      "path": "workbuddy/street_vendor.txt",
+      "source": "si_workbuddy",
+      "bytes": 2144,
+      "sha256": "56701ef3681f8c3113f6a28a6c4e48be07ef8eda5296d3088bf2ba277691e20d"
+    },
+    {
+      "path": "workbuddy/support_engineer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2226,
+      "sha256": "294b12d39bb4c570f99201824b7fb15dd9ff3a3072c176214664bc48d743f247"
+    },
+    {
+      "path": "workbuddy/swimming_coach.txt",
+      "source": "si_workbuddy",
+      "bytes": 2456,
+      "sha256": "e4d2d52d63a5f2c35f02b8318ae223ee8d8ddde09ae5d292c2ac12d33a80a024"
+    },
+    {
+      "path": "workbuddy/tailor_custom.txt",
+      "source": "si_workbuddy",
+      "bytes": 2621,
+      "sha256": "34d8d3faae1c29b6aad0169a3318f6ceaeb231fd0fafd1946a73e57c95d8a8d6"
+    },
+    {
+      "path": "workbuddy/tailor_shop.txt",
+      "source": "si_workbuddy",
+      "bytes": 3998,
+      "sha256": "b7c03dcaf45f5605272c8b625b4d2b1d6b89160f38eb5cc8ff22232faf87aa6b"
+    },
+    {
+      "path": "workbuddy/taxi_driver.txt",
+      "source": "si_workbuddy",
+      "bytes": 2924,
+      "sha256": "5fbb59763643948e81c7ec3c39fd6b5b895a30cb382a8e3c88171ed19f7246eb"
+    },
+    {
+      "path": "workbuddy/teacher_classroom.txt",
+      "source": "si_workbuddy",
+      "bytes": 2994,
+      "sha256": "72e3e63a6298e21a12517fb200dd06e062e0d9b436058d300136568c0975e0e7"
+    },
+    {
+      "path": "workbuddy/teacher_homework.txt",
+      "source": "si_workbuddy",
+      "bytes": 2666,
+      "sha256": "ad423f3547b5dfc4c68b8c192348e45683a3d498d432c478cbb81a6e00a91d6a"
+    },
+    {
+      "path": "workbuddy/tech_lead.txt",
+      "source": "si_workbuddy",
+      "bytes": 3002,
+      "sha256": "64a2d7bff8f9fd1c6a9e36f1c0e4586b19be2b7267bdd36f39032f1047e2664f"
+    },
+    {
+      "path": "workbuddy/technical_writer.txt",
+      "source": "si_workbuddy",
+      "bytes": 2210,
+      "sha256": "b53f069ca03b6a34457647a04a4c3e580c3a2363c9b90e250f2afb800332d43e"
+    },
+    {
+      "path": "workbuddy/textile_worker.txt",
+      "source": "si_workbuddy",
+      "bytes": 2578,
+      "sha256": "0601d7cb3a8459ddaa1b46757aedfe7b9ca44dfe8032fb9ac1e8ab40c4cbaca5"
+    },
+    {
+      "path": "workbuddy/train_conductor.txt",
+      "source": "si_workbuddy",
+      "bytes": 2502,
+      "sha256": "6fe78c094c8dfdc9abc0891b95f666cbb15f072d2bd5a01c68584e26adebf825"
+    },
+    {
+      "path": "workbuddy/travel_agent.txt",
+      "source": "si_workbuddy",
+      "bytes": 2552,
+      "sha256": "eb3ff5dc213f4d09881ea2820e970e840cbf769a6b5bf81e729f9db3e9795089"
+    },
+    {
+      "path": "workbuddy/tutor_student.txt",
+      "source": "si_workbuddy",
+      "bytes": 3256,
+      "sha256": "87643611748ba06760372784368f9ae0b46f7bdc4b8297723164e9993198072c"
+    },
+    {
+      "path": "workbuddy/ui_designer.txt",
+      "source": "si_workbuddy",
+      "bytes": 3870,
+      "sha256": "cbb9bf3a1760a0b3426290d5ea96626debcb8d9a662c5380a513fc59b20583d6"
+    },
+    {
+      "path": "workbuddy/ux_researcher.txt",
+      "source": "si_workbuddy",
+      "bytes": 3824,
+      "sha256": "a4ecd0a9e1346df47cfd2d1f5cd9c39820c3447d1b5c3e116469e8841cff2178"
+    },
+    {
+      "path": "workbuddy/veterinarian.txt",
+      "source": "si_workbuddy",
+      "bytes": 4473,
+      "sha256": "94b8cdee5024a3db8f6c288caada00e53d7b0e58074a0a13ba197cda26172e54"
+    },
+    {
+      "path": "workbuddy/warehouse_inventory.txt",
+      "source": "si_workbuddy",
+      "bytes": 4134,
+      "sha256": "1e2f7791a1df5eb40e83ec303dcd24b365733769c68425ce945a4064f2bf2901"
+    },
+    {
+      "path": "workbuddy/warehouse_worker.txt",
+      "source": "si_workbuddy",
+      "bytes": 4240,
+      "sha256": "9d192a8869344c28c563b9a47681fe9580b044b24f18467db3e1e956fb4c253b"
+    },
+    {
+      "path": "workbuddy/water_treatment.txt",
+      "source": "si_workbuddy",
+      "bytes": 2936,
+      "sha256": "fa2ae169d14b3c9a056a39633f5267adbea2d0a23077d4edd1087330063b6987"
+    },
+    {
+      "path": "workbuddy/weather_station.txt",
+      "source": "si_workbuddy",
+      "bytes": 2942,
+      "sha256": "c1e53805122605e7a8274b78fc2633e43d3395807eca84cf0d63d4d1aa2509d7"
+    },
+    {
+      "path": "workbuddy/yoga_instructor.txt",
+      "source": "si_workbuddy",
+      "bytes": 3789,
+      "sha256": "4ee585bf1d0e914afa9d142cbf59204c316fe5e4341a1291834aaa5eb6055c06"
+    }
+  ],
+  "exclusions": [
+    "dialogues/synthetic-fourth-position-20261123.txt"
+  ],
+  "rules_sha256": "1e8ad132881e46035ce6197d5ef9c08bb344927d78f6115e3e7c5171289a20fe",
+  "provenance": "Local user-supplied dialogue. Includes AI-authored/synthetic material; not evidence of actual chat or human review. Per-file authorship is not inferred.",
+  "license": "Source-specific terms are not established by local ownership; no blanket redistribution license.",
+  "grouping": "Blank-line-delimited conversations. Workbuddy files stay together; other conversations share a split by normalized whole-conversation template with ASCII words/numbers masked. Exact documents and long paragraphs are also checked. Semantic near-duplicates are not certified absent.",
+  "source_lock_id": "c2e31d639ebe9f5ad7d05e44a3d06ca19294a4baa6467706bd0e65998da22971"
+}

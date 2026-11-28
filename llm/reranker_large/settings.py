@@ -8,6 +8,40 @@ from llm.pinyin_to_text.common import file_hash, fingerprint, read_json, write_j
 ROOT = Path(__file__).resolve().parent
 REPO = ROOT.parents[1]
 SPLITS = ('train', 'validation', 'test')
+APP_PROTOCOL = 'si-app-model-adjustment-v4'
+SEQUENCE_KD = 'candidate-sequence-kl-v1'
+
+
+def training_objective(config):
+    objective = config['distillation'].get('objective', 'fused-score-kl-v1')
+    if objective not in ('fused-score-kl-v1', SEQUENCE_KD):
+        raise ValueError('Unknown distillation objective')
+    if objective == SEQUENCE_KD:
+        if config['scoring'].get('protocol') != APP_PROTOCOL:
+            raise ValueError('Candidate sequence KL requires current App inference scoring')
+        if config['distillation']['label_weight'] != 0:
+            raise ValueError('Candidate sequence KL does not infer supervised labels')
+        if config['scoring']['app']['model_score_weight'] <= 0:
+            raise ValueError('Candidate sequence KL requires a positive model weight')
+    return objective
+
+
+def score_mapping(config):
+    scoring = config['scoring']
+    protocol = scoring.get('protocol', 'mean-logp-v1')
+    if protocol == 'mean-logp-v1':
+        return {'protocol': protocol}
+    if protocol != APP_PROTOCOL:
+        raise ValueError('Unknown score protocol')
+    params = scoring['app']
+    if set(params) != {'model_score_weight', 'model_score_gap_limit_bits', 'model_sentence_reward_cap_bits'}:
+        raise ValueError('App scoring requires the exact supported parameter set')
+    for key, upper in (('model_score_weight', 4), ('model_score_gap_limit_bits', 32),
+                       ('model_sentence_reward_cap_bits', 32)):
+        value = params[key]
+        if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= upper:
+            raise ValueError('Invalid App score parameter: ' + key)
+    return dict(protocol=protocol, app=dict(params))
 
 
 def load_config(path):
@@ -15,6 +49,7 @@ def load_config(path):
     if config.get('schema_version') != 1 or type(config.get('seed')) is not int:
         raise ValueError('Expected a schema-1 student configuration and integer seed')
     model, scoring = config['model'], config['scoring']
+    score_mapping(config)
     for key in ('vocab_size', 'layers', 'width', 'heads', 'feedforward', 'context'):
         if type(model[key]) is not int or model[key] <= 0:
             raise ValueError('Positive integer required: model.' + key)
@@ -44,7 +79,7 @@ def load_config(path):
             or model['layers'] > 24 or model['feedforward'] > 8192 or model['context'] > 512):
         raise ValueError('Unsupported student stage or Rust model dimensions')
     if scoring['length_penalty'] != 1.0 or not 2 <= scoring['max_candidates'] <= 12:
-        raise ValueError('Student uses mean log probability and at most 12 candidates')
+        raise ValueError('Student scoring supports at most 12 model candidates')
     distillation = config['distillation']
     if type(distillation['validation_pools']) is not int or distillation['validation_pools'] <= 0:
         raise ValueError('Positive distillation validation pool budget required')
@@ -54,6 +89,7 @@ def load_config(path):
             raise ValueError('Invalid distillation setting: ' + key)
     if distillation['temperature'] <= 0 or distillation['kd_weight'] <= 0:
         raise ValueError('Temperature and KD weight must be positive')
+    training_objective(config)
     if (type(scoring['context_tokens']) is not int or not 0 <= scoring['context_tokens'] <= 128
             or type(scoring['candidate_tokens']) is not int or not 1 <= scoring['candidate_tokens'] <= 64
             or scoring['context_tokens'] + scoring['candidate_tokens'] > model['context']):
@@ -61,13 +97,16 @@ def load_config(path):
     return config
 
 
+def code_files():
+    return sorted([*ROOT.glob('*.py'), *ROOT.glob('requirements*.txt'),
+                   *(REPO / 'llm/reranker_small').glob('*.py'),
+                   *(REPO / 'llm/pinyin_to_text').glob('*.py'),
+                   REPO / 'llm/export_rust.py', REPO / 'corpus/common.py'])
+
+
 def code_identity():
     # Include every reused implementation without changing old code/resume identities.
-    paths = [*ROOT.glob('*.py'), *ROOT.glob('requirements*.txt'),
-             *(REPO / 'llm/reranker_small').glob('*.py'),
-             *(REPO / 'llm/pinyin_to_text').glob('*.py'),
-             REPO / 'llm/export_rust.py', REPO / 'corpus/common.py']
-    return fingerprint({str(p.relative_to(REPO)): file_hash(p) for p in sorted(paths)})
+    return fingerprint({str(p.relative_to(REPO)): file_hash(p) for p in code_files()})
 
 
 def resume_identity(config):

@@ -186,8 +186,8 @@ class DistillationDataTests(unittest.TestCase):
             cache_teacher(root / 'pretrain.json', root / 'lm', root / 'pools', root / 'teacher', SyntheticTeacher())
             self.assertTrue((root / 'teacher/metadata/generation/documents.jsonl').is_file())
             model = CharacterLM(config['model'], tokenizer.active_ids)
-            atomic_checkpoint(root / 'parent.pt', dict(kind='si-character-lm', stage='pretrain',
-                config=config, tokenizer_digest=tokenizer.digest, dataset_id=manifest['dataset_id'],
+            atomic_checkpoint(root / 'parent.pt', dict(schema_version=1, kind='si-character-lm', stage='pretrain',
+                config=config, tokenizer=tokenizer.to_dict(), tokenizer_digest=tokenizer.digest, dataset_id=manifest['dataset_id'],
                 model=model.state_dict(), step=0, code_identity='authored-synthetic-fixture'))
             config['stage'] = 'distill'
             write_json(root / 'distill.json', config)

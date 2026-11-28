@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "stage": "distill",
+  "model": {
+    "vocab_size": 8192,
+    "layers": 7,
+    "width": 384,
+    "heads": 6,
+    "feedforward": 1536,
+    "context": 64,
+    "dropout": 0.1
+  },
+  "data": {
+    "format": "reviewed-documents-v1",
+    "max_document_characters": 2000000
+  },
+  "training": {
+    "batch_size": 4,
+    "gradient_accumulation": 4,
+    "max_steps": 1000,
+    "schedule_steps": 1000,
+    "max_tokens": 0,
+    "warmup_steps": 100,
+    "learning_rate": 5e-05,
+    "weight_decay": 0.1,
+    "gradient_clip": 1.0,
+    "validate_every": 100,
+    "save_every": 100,
+    "validation_tokens": 65536
+  },
+  "scoring": {
+    "batch_size": 12,
+    "max_candidates": 12,
+    "length_penalty": 1.0,
+    "context_tokens": 16,
+    "candidate_tokens": 16,
+    "protocol": "si-app-model-adjustment-v3",
+    "app": {
+      "model_score_weight": 0.8,
+      "model_score_gap_limit_bits": 8.0,
+      "model_sentence_reward_cap_bits": 8.0
+    }
+  },
+  "distillation": {
+    "temperature": 2.0,
+    "kd_weight": 1.0,
+    "lm_weight": 0.2,
+    "label_weight": 0.0,
+    "validation_pools": 512
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "schema_version": 2,
+  "extraction_contract": "complete-simplified-text-lines-v2",
+  "source": {
+    "id": "mdn",
+    "name": "MDN Simplified Chinese documentation",
+    "kind": "markdown",
+    "repository": "https://github.com/mdn/translated-content",
+    "revision": "033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+    "prefix": "files/zh-cn/",
+    "license": "CC-BY-SA-2.5",
+    "share_alike": true,
+    "path": "source.tar.gz",
+    "url": "https://codeload.github.com/mdn/translated-content/tar.gz/033e5bf0a0ed3d4203313a5079bc95e054df7aa6",
+    "license_url": "https://raw.githubusercontent.com/mdn/translated-content/033e5bf0a0ed3d4203313a5079bc95e054df7aa6/LICENSE.md",
+    "sha256": "c5128a8382a007a7a2840f94edeb03d2f47ce00fa8b9a5cd515643d3bcb81164",
+    "size": 60711236,
+    "license_document": {
+      "path": "licenses/mdn-LICENSE.txt",
+      "sha256": "57c0d7e200fadfdbadb04b9ab220297809ba7f2ac0adaa6707a07fba432b2ebe"
+    }
+  },
+  "inputs": {
+    "size": 60711236,
+    "sha256": "c5128a8382a007a7a2840f94edeb03d2f47ce00fa8b9a5cd515643d3bcb81164"
+  },
+  "normalization": {
+    "opencc": "0.1.7",
+    "config": "t2s"
+  },
+  "counts": {
+    "records_read": 7617,
+    "documents": 7617,
+    "surrogates_removed": 0,
+    "lines": 410068,
+    "characters": 6388717
+  },
+  "code": {
+    "prepare_raw_text.py": "eca66b04a8d024af987292920ac1290cf98e38bb405ed1c276548bf76074af57",
+    "readers.py": "db7ed2591a780d7f0c28a64a860bdb81b950f2582800c5007a818c4c521619f2",
+    "local_sources.py": "da964724659c99c15f3df778861b9ea220b17eb47696041fd3f1ddbf2b7b61f6",
+    "common.py": "a4e9d8cc52d7393d5785b2d1b8efb3017b58034edaa2589119ca02bd76a2f17a",
+    "clean/chinese.py": "8009c7a9ca11c56045a9050d746c9dab017e871256ea91427386aca680a2cfc0",
+    "clean/wikipedia.py": "0e06f67fff77a4002962b8403a32da3066f3f474811145d139ea946c944a86fd"
+  },
+  "scope": "All eligible records in the complete pinned local raw archive; no character cap, Han-only filtering, 4-character minimum, 96-character cutting or deduplication. OpenCC t2s applies to extracted text only. Local SI conversation boundaries are preserved; dialogue dataset/split/turn/message/parent identities are retained in document metadata.",
+  "extraction": "JSON text/turns; Markdown prose; namespace-0 nonredirect Wikipedia current wikitext prose with title. Existing markup readers remove code/templates/tables/references. Line endings are LF; invalid surrogate code points are removed for valid UTF-8. LCCC joins only spaces between adjacent Han/CJK punctuation tokens.",
+  "files": {
+    "documents.jsonl": {
+      "sha256": "df32ea87fa9eccb80914d653680784bca25eb224652c5fca04c337643068cb84",
+      "bytes": 829951
+    },
+    "text.txt": {
+      "sha256": "fae0a41b2e5ec715c2eed408f51ecbd8f2f18a177d24b55a801a91d15c553842",
+      "bytes": 14752275
+    }
+  }
+}

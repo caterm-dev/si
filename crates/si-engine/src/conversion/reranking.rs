@@ -6,6 +6,7 @@ use std::sync::Mutex;
 
 use si_neural::Reranker;
 
+use super::{Candidate, CandidateLanguage};
 use crate::resources::RerankerConfig;
 use baseline_cache::BaselineCache;
 
@@ -40,7 +41,8 @@ impl SmallReranker {
         self.config.model_candidate_token_limit * 4
     }
 
-    pub(super) fn bonuses(&self, context: &str, texts: &[&str]) -> Option<Vec<f64>> {
+    /// Score a supplied model pool with the same adjustments used by conversion.
+    pub fn bonuses(&self, context: &str, texts: &[&str]) -> Option<Vec<f64>> {
         if self.config.model_score_weight == 0.0 {
             return Some(vec![0.0; texts.len()]);
         }
@@ -62,14 +64,50 @@ impl SmallReranker {
         if self.config.model_score_gap_limit_bits == 0.0 {
             return Some(vec![0.0; texts.len()]);
         }
-        let baseline = self.baseline_scores(texts)?;
-        let lifts: Vec<_> = conditioned
+        let bits: Vec<_> = conditioned
             .scores
             .iter()
-            .zip(baseline)
-            .map(|(with, without)| (with - without) * std::f64::consts::LOG2_E)
+            .map(|score| score * std::f64::consts::LOG2_E)
             .collect();
-        relative_adjustments(&lifts, self.config)
+        relative_adjustments(&bits, self.config)
+    }
+
+    /// Select the same rows as live conversion, before neural adjustment.
+    pub fn pool_indices(
+        rows: &[Candidate],
+        input_bytes: usize,
+        config: RerankerConfig,
+    ) -> Vec<usize> {
+        rows.iter()
+            .enumerate()
+            .take_while(|(_, row)| row.consumed_bytes == input_bytes)
+            .filter(|(_, row)| {
+                row.language != CandidateLanguage::Literal
+                    && eligible(
+                        row.personal,
+                        row.verbatim,
+                        row.is_corrected(),
+                        row.completion,
+                        row.text.len(),
+                        config.model_candidate_token_limit * 4,
+                    )
+            })
+            .take(config.model_candidate_limit)
+            .map(|(index, _)| index)
+            .collect()
+    }
+
+    /// Whole-input rows that receive a model score or the pool's worst adjustment.
+    pub fn adjustment_indices(rows: &[Candidate], input_bytes: usize) -> Vec<usize> {
+        rows.iter()
+            .enumerate()
+            .filter(|(_, row)| {
+                row.consumed_bytes == input_bytes
+                    && row.language != CandidateLanguage::Literal
+                    && adjustment_eligible(row.personal, row.verbatim)
+            })
+            .map(|(index, _)| index)
+            .collect()
     }
 
     fn sentence_bonuses(&self, texts: &[&str]) -> Option<Vec<f64>> {
@@ -79,7 +117,7 @@ impl SmallReranker {
         // Empty neural context seeds the native BOS token. Score the complete
         // sequence, including its internal dependencies and byte-fallback tokens.
         let scores = self.baseline_scores(texts)?;
-        sentence_rewards(&scores, texts, self.config)
+        sentence_adjustments(&scores, texts, self.config)
     }
 
     fn baseline_scores(&self, texts: &[&str]) -> Option<Vec<f64>> {
@@ -117,26 +155,52 @@ impl SmallReranker {
     }
 }
 
-fn sentence_rewards(scores: &[f64], texts: &[&str], config: RerankerConfig) -> Option<Vec<f64>> {
-    if scores.len() != texts.len() || scores.is_empty() {
+pub(super) fn eligible(
+    personal: bool,
+    verbatim: bool,
+    corrected: bool,
+    completion: bool,
+    bytes: usize,
+    byte_limit: usize,
+) -> bool {
+    !personal && !verbatim && !corrected && !completion && bytes <= byte_limit
+}
+
+pub(super) fn adjustment_eligible(personal: bool, verbatim: bool) -> bool {
+    !personal && !verbatim
+}
+
+fn sentence_adjustments(
+    scores: &[f64],
+    texts: &[&str],
+    config: RerankerConfig,
+) -> Option<Vec<f64>> {
+    if scores.len() != texts.len()
+        || texts.iter().any(|text| text.is_empty())
+        || scores.iter().any(|score| *score > 0.0)
+    {
         return None;
     }
-    scores
+    let bits: Vec<_> = scores
         .iter()
-        .zip(texts)
-        .map(|(score, text)| {
-            let count = text.chars().count();
-            if !score.is_finite() || *score > 0.0 || count == 0 {
-                return None;
-            }
-            let mean_bits = score * std::f64::consts::LOG2_E / count as f64;
-            let cap = config.model_sentence_reward_cap_bits;
-            Some(config.model_score_weight * (cap + mean_bits).clamp(0.0, cap))
-        })
-        .collect()
+        .map(|score| score * std::f64::consts::LOG2_E)
+        .collect();
+    bounded_adjustments(
+        &bits,
+        config.model_score_weight,
+        config.model_sentence_reward_cap_bits,
+    )
 }
 
 fn relative_adjustments(scores: &[f64], config: RerankerConfig) -> Option<Vec<f64>> {
+    bounded_adjustments(
+        scores,
+        config.model_score_weight,
+        config.model_score_gap_limit_bits,
+    )
+}
+
+fn bounded_adjustments(scores: &[f64], weight: f64, limit: f64) -> Option<Vec<f64>> {
     if !scores.iter().all(|score| score.is_finite()) {
         return None;
     }
@@ -144,17 +208,14 @@ fn relative_adjustments(scores: &[f64], config: RerankerConfig) -> Option<Vec<f6
     Some(
         scores
             .iter()
-            .map(|score| {
-                config.model_score_weight
-                    * (score - highest).max(-config.model_score_gap_limit_bits)
-            })
+            .map(|score| weight * (score - highest).max(-limit))
             .collect(),
     )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{SmallReranker, relative_adjustments, sentence_rewards};
+    use super::{SmallReranker, relative_adjustments, sentence_adjustments};
     use crate::resources::RerankerConfig;
 
     #[test]
@@ -175,25 +236,28 @@ mod tests {
             model.bonuses("我准备", &["吃肌酸", "吃计算"]).unwrap()
         );
         let empty = model.bonuses("", &["持有时间", "吃有时间"]).unwrap();
-        assert!(empty[0] > empty[1] && empty[1] > 0.0);
+        assert!(empty[0] == 0.0 && empty[1] < 0.0);
         assert_eq!(empty, model.bonuses("", &["持有时间", "吃有时间"]).unwrap());
     }
 
     #[test]
-    fn bos_rewards_normalize_by_scalars_and_do_not_depend_on_pool_outliers() {
-        let config = RerankerConfig::default();
+    fn bos_adjustments_preserve_sequence_gaps_without_length_normalization() {
+        let config = RerankerConfig {
+            model_score_weight: 0.8,
+            ..RerankerConfig::default()
+        };
         let log = std::f64::consts::LN_2;
-        let scores = [-4.0 * log, -8.0 * log, -100.0 * log, 0.0];
-        let texts = ["好", "你好", "🙂", "a"];
-        let rewards = sentence_rewards(&scores, &texts, config).unwrap();
-        assert_eq!(rewards, [4.0, 4.0, 0.0, 8.0]);
+        let scores = [-4.0 * log, -8.0 * log, -100.0 * log, -4.0 * log];
+        let texts = ["好", "你好", "🙂", "é\u{301}"];
+        let adjustments = sentence_adjustments(&scores, &texts, config).unwrap();
+        assert_eq!(adjustments, [0.0, -3.2, -6.4, 0.0]);
         assert_eq!(
-            sentence_rewards(&scores[..2], &texts[..2], config).unwrap(),
-            rewards[..2]
+            sentence_adjustments(&scores[..2], &texts[..2], config).unwrap(),
+            adjustments[..2]
         );
         assert_eq!(
-            sentence_rewards(&[-8.0 * log], &["é"], config).unwrap(),
-            [0.0]
+            sentence_adjustments(&scores, &["你", "好", "你好", "🙂"], config).unwrap(),
+            adjustments
         );
         let custom = RerankerConfig {
             model_score_weight: 0.5,
@@ -201,19 +265,33 @@ mod tests {
             ..config
         };
         assert_eq!(
-            sentence_rewards(&[-4.0 * log], &["好"], custom).unwrap(),
-            [1.0]
+            sentence_adjustments(&scores, &texts, custom).unwrap(),
+            [0.0, -2.0, -3.0, 0.0]
         );
-        assert!(sentence_rewards(&[f64::NAN], &["好"], config).is_none());
-        assert!(sentence_rewards(&[1.0], &["好"], config).is_none());
-        assert!(sentence_rewards(&[0.0], &[""], config).is_none());
-        assert!(sentence_rewards(&[], &[], config).is_none());
+        let shifted = scores.map(|score| score - 100.0 * log);
+        for (actual, expected) in sentence_adjustments(&shifted, &texts, config)
+            .unwrap()
+            .iter()
+            .zip(&adjustments)
+        {
+            assert!((actual - expected).abs() < 1e-12);
+        }
+        for invalid in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, 1.0] {
+            assert!(sentence_adjustments(&[invalid], &["好"], config).is_none());
+        }
+        assert!(sentence_adjustments(&[0.0], &[""], config).is_none());
+        assert!(sentence_adjustments(&scores, &["好"], config).is_none());
+        assert!(sentence_adjustments(&[], &[], config).is_none());
     }
 
     #[test]
-    fn relative_adjustments_preserve_lift_gaps_and_cap_before_weighting() {
+    fn relative_adjustments_preserve_probability_gaps_and_cap_before_weighting() {
         let scores = [0.0, -2.0, -7.0, -8.0, -20.0];
-        let rewards = relative_adjustments(&scores, RerankerConfig::default()).unwrap();
+        let config = RerankerConfig {
+            model_score_weight: 1.0,
+            ..RerankerConfig::default()
+        };
+        let rewards = relative_adjustments(&scores, config).unwrap();
         for (actual, expected) in rewards.iter().zip([0.0, -2.0, -7.0, -8.0, -8.0]) {
             assert!((actual - expected).abs() < 1e-12);
         }

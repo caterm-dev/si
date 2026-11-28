@@ -4,6 +4,24 @@ import Testing
 @testable import SICore
 
 struct RustConversionIntegrationTests {
+    @Test func switchingModelRefreshesCompositionAndRejectsOldScores() throws {
+        let languages: Set<InputLanguage> = [.simplifiedChinese]
+        var session = InputSession(candidateGeneration: .deferred)
+        session.configure(languages: languages, rerankingEnabled: true)
+        session.setPrecedingText("看视频时请打开")
+        session.append("zimu")
+        let small = try #require(session.pendingCandidateRequest).generate()
+        session.configure(languages: languages, rerankingEnabled: true, useLargeModel: true)
+        let large = try #require(session.pendingCandidateRequest).generate()
+        let acceptedOld = session.accept(small)
+        #expect(!acceptedOld)
+        let smallBonuses = Dictionary(uniqueKeysWithValues: small.candidates.map { ($0.id, $0.rerankingBonus) })
+        #expect(large.candidates.contains { $0.rerankingBonus < 0 && smallBonuses[$0.id] != $0.rerankingBonus })
+        session.configure(languages: languages, useLargeModel: true)
+        let disabled = try #require(session.pendingCandidateRequest).generate()
+        #expect(disabled.candidates.allSatisfy { $0.rerankingBonus == 0 })
+    }
+
     @Test func localModelReordersWholeCandidatesIndependentlyOfCorrection() throws {
         let languages = Set(InputLanguage.allCases)
         let spelling = "xianzaitianjiazimu"
@@ -22,13 +40,12 @@ struct RustConversionIntegrationTests {
         let ranked = request.generate()
         let promoted = try #require(ranked.candidates.first)
         #expect(promoted.text == "现在添加字幕")
-        #expect(promoted.rerankingBonus >= -8 && promoted.rerankingBonus <= 0)
+        #expect(promoted.rerankingBonus >= -6.4 && promoted.rerankingBonus <= 0)
         #expect(Set(ranked.candidates.map(\.id)) == Set(baseline.candidates.map(\.id)))
         let baselineScores = Dictionary(uniqueKeysWithValues: baseline.candidates.map { ($0.id, $0.statisticalScore) })
         #expect(ranked.candidates.allSatisfy { baselineScores[$0.id] == .some($0.statisticalScore) })
-        #expect(ranked.candidates.allSatisfy { $0.rerankingBonus >= -8 && $0.rerankingBonus <= 0 })
-        #expect(ranked.candidates.filter { $0.rerankingBonus < 0 }.count <= 12)
-        for row in ranked.candidates where row.isPartial || row.isLiteral || row.hasCompletion || row.hasLiteralSegments {
+        #expect(ranked.candidates.allSatisfy { $0.rerankingBonus >= -6.4 && $0.rerankingBonus <= 0 })
+        for row in ranked.candidates where row.isPartial || row.isLiteral || row.hasLiteralSegments {
             #expect(row.rerankingBonus == 0)
         }
         #expect(ranked.candidates.contains { $0.rerankingBonus < 0 })
@@ -41,7 +58,9 @@ struct RustConversionIntegrationTests {
         let withCorrection = try #require(session.pendingCandidateRequest).generate()
         #expect(withCorrection.candidates.first?.id == promoted.id)
         #expect(withCorrection.candidates.first?.rerankingBonus == promoted.rerankingBonus)
-        #expect(withCorrection.candidates.filter(\.isPinyinCorrection).allSatisfy { $0.rerankingBonus == 0 })
+        #expect(withCorrection.candidates.filter(\.isPinyinCorrection).allSatisfy {
+            $0.rerankingBonus >= -6.4 && $0.rerankingBonus <= 0
+        })
         let accepted = session.accept(withCorrection)
         #expect(accepted)
         let commit = session.commitResult(promoted, reason: .defaultAcceptance)
@@ -50,7 +69,7 @@ struct RustConversionIntegrationTests {
     }
 
 
-    @Test func localModelWithNoEffectiveContextAddsBoundedSentenceRewards() throws {
+    @Test func localModelWithNoEffectiveContextUsesBoundedSentenceAdjustments() throws {
         let engine = try #require(RustConversion.shared)
         let spelling = "xianzaitianjiazimu"
         var presentationEngine = CandidateEngine(usesCoverageAdjustedOrder: false)
@@ -62,9 +81,9 @@ struct RustConversionIntegrationTests {
             #expect(Set(ranked.map(\.id)) == Set(baseline.map(\.id)))
             let scores = Dictionary(uniqueKeysWithValues: baseline.map { ($0.id, $0.rankingScore + $0.fieldContextAdjustment) })
             #expect(ranked.allSatisfy { scores[$0.id] == $0.rankingScore + $0.fieldContextAdjustment })
-            #expect(ranked.allSatisfy { $0.rerankingBonus >= 0 && $0.rerankingBonus <= 8 })
-            #expect(ranked.contains { $0.rerankingBonus > 0 })
-            for row in ranked where row.isPartial || row.isLiteral || row.hasCompletion || row.hasLiteralSegments {
+            #expect(ranked.allSatisfy { $0.rerankingBonus >= -6.4 && $0.rerankingBonus <= 0 })
+            #expect(ranked.contains { $0.rerankingBonus < 0 })
+            for row in ranked where row.isPartial || row.isLiteral || row.hasLiteralSegments {
                 #expect(row.rerankingBonus == 0)
             }
             let presented = presentationEngine.candidates(for: spelling, languages: [.simplifiedChinese], precedingText: context)

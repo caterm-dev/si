@@ -137,15 +137,32 @@ fn invalid(message: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
 }
 
+fn highest_order(sizes: GramSizes) -> usize {
+    sizes
+        .iter()
+        .rposition(|&size| size != 0)
+        .map_or(LEGACY_MAX_ORDER, |index| (index + 2).max(LEGACY_MAX_ORDER))
+}
+
+pub(super) fn serialized_size(model: &GramModel) -> u64 {
+    let sizes = model.sizes();
+    let highest = highest_order(sizes);
+    PREFIX_BYTES
+        + if highest > LEGACY_MAX_ORDER { 4 } else { 0 }
+        + 4 * (highest - 1) as u64
+        + sizes
+            .iter()
+            .enumerate()
+            .map(|(index, &size)| (4 * (index + 2) + 8) as u64 * size as u64)
+            .sum::<u64>()
+}
+
 pub(crate) fn save(model: &GramModel, path: &Path) -> io::Result<()> {
     let (temporary, file) = create_temporary(path)?;
     let result = (|| {
         let mut writer = BufWriter::new(file);
         let sizes = model.sizes();
-        let highest = sizes
-            .iter()
-            .rposition(|&size| size != 0)
-            .map_or(LEGACY_MAX_ORDER, |index| (index + 2).max(LEGACY_MAX_ORDER));
+        let highest = highest_order(sizes);
         let extended = highest > LEGACY_MAX_ORDER;
         let magic = match (extended, model.surface_tokens, model.legacy_word_order) {
             (true, true, _) => SURFACE_MAGIC_V4,

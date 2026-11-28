@@ -33,6 +33,10 @@ def export(kind, checkpoint, output):
                 'length_penalty': config['decoding' if kind == 'pinyin' else 'scoring']['length_penalty'],
                 'checkpoint_sha256': checksum, 'dataset_id': payload['dataset_id'],
                 'step': payload['step'], 'tensors': {}}
+    if kind != 'pinyin':
+        manifest['score_protocol'] = config['scoring'].get('protocol', 'mean-logp-v1')
+        if config['scoring'].get('protocol', '').startswith('si-app-model-adjustment-'):
+            manifest['app_score_mapping'] = config['scoring']
     with tempfile.TemporaryDirectory(dir=output.parent, prefix='.si-neural-') as temp:
         bundle = Path(temp) / 'bundle'
         bundle.mkdir(mode=0o700)

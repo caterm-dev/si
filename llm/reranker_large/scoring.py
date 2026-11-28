@@ -7,6 +7,7 @@ import torch
 from torch.nn import functional as F
 
 from llm.reranker_small.tokenizer import BOS, PAD
+from .settings import APP_PROTOCOL
 
 LANGUAGES = ('zh-Hans', 'en', 'mixed')
 
@@ -30,7 +31,10 @@ def suffix(text, tokenizer, budget):
 def validate_pool(row, tokenizer, config):
     candidates = row.get('candidates')
     settings = config['scoring']
-    if not isinstance(candidates, list) or not 2 <= len(candidates) <= settings['max_candidates']:
+    if settings.get('protocol', 'mean-logp-v1') not in ('mean-logp-v1', APP_PROTOCOL):
+        raise ValueError('Unsupported scoring protocol; use its frozen implementation')
+    app = settings.get('protocol') == APP_PROTOCOL
+    if not isinstance(candidates, list) or not 2 <= len(candidates) <= (8192 if app else settings['max_candidates']):
         raise ValueError('Pool must contain 2..max_candidates candidates')
     identities = set()
     for candidate in candidates:
@@ -45,7 +49,21 @@ def validate_pool(row, tokenizer, config):
     if (not isinstance(context, str) or len(context.encode('utf-8')) > 8192
             or any(unicodedata.category(c) == 'Cs' for c in context)):
         raise ValueError('Invalid context')
-    eligible = all(len(tokenizer.encode(c['text'])) - 2 <= settings['candidate_tokens'] for c in candidates)
+    if app:
+        mask, bases = row.get('model_mask'), row.get('base_scores_bits')
+        adjustment_mask = row.get('model_adjustment_mask')
+        if (not isinstance(mask, list) or len(mask) != len(candidates) or any(type(v) is not bool for v in mask)
+                or sum(mask) > settings['max_candidates'] or not isinstance(bases, list) or len(bases) != len(candidates)
+                or any(type(v) not in (int, float) or not math.isfinite(v) for v in bases)):
+            raise ValueError('App pools require finite statistical scores and a bounded model mask')
+        if (not isinstance(adjustment_mask, list) or len(adjustment_mask) != len(candidates)
+                or any(type(v) is not bool for v in adjustment_mask)
+                or any(scored and not adjusted for scored, adjusted in zip(mask, adjustment_mask, strict=True))):
+            raise ValueError('App pools require an adjustment mask containing every model-scored row')
+    else:
+        mask = [True] * len(candidates)
+    eligible = all(not flag or len(tokenizer.encode(c['text'])) - 2 <= settings['candidate_tokens']
+                   for c, flag in zip(candidates, mask, strict=True))
     if not printable(row.get('observed_text')):
         raise ValueError('Pool needs its observed natural-text span for the auxiliary LM loss')
     eligible = eligible and len(tokenizer.encode(row['observed_text'])) - 2 <= settings['candidate_tokens']
@@ -59,11 +77,23 @@ def validate_pool(row, tokenizer, config):
         if (not isinstance(scores, list) or len(scores) != len(candidates)
                 or any(type(x) not in (int, float) or not math.isfinite(x) for x in scores)):
             raise ValueError('Teacher scores must be finite and match candidate order')
+        if app:
+            for key in ('teacher_conditional_logp', 'teacher_baseline_logp'):
+                values = row.get(key)
+                if not isinstance(values, list) or len(values) != len(candidates) or any(
+                    (type(v) not in (int, float) or not math.isfinite(v) or v > 1e-5) if flag else v is not None
+                    for v, flag in zip(values or [], mask, strict=True)):
+                    raise ValueError('App teacher scores require masked conditional and BOS log probabilities')
     return eligible
 
 
 def forward_pool(model, tokenizer, row, device, settings):
-    """Return mean-per-scalar scores and the observed span's per-token LM loss."""
+    """Return protocol scores and the observed span's per-token LM loss."""
+    if settings.get('protocol', 'mean-logp-v1') not in ('mean-logp-v1', APP_PROTOCOL):
+        raise ValueError('Unsupported scoring protocol; use its frozen implementation')
+    if settings.get('protocol') == APP_PROTOCOL:
+        from .app_scoring import forward_app_pool
+        return forward_app_pool(model, tokenizer, row, device, settings)
     context = suffix(row.get('context', ''), tokenizer, settings['context_tokens'])
     prefix = [BOS, *tokenizer.encode(context)[1:-1]]
     texts = [c['text'] for c in row['candidates']] + [row['observed_text']]

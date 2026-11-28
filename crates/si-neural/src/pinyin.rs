@@ -77,7 +77,11 @@ impl Pinyin {
             _ => return Err(invalid("unknown Pinyin source format")),
         };
         let tokenizer = Tokenizer::new(manifest.characters, c.vocab_size)?;
-        let mut w = Weights::open(&path.join("weights.f32"), manifest.tensors)?;
+        let mut w = Weights::open(
+            &path.join(manifest.weight_format.file_name()),
+            manifest.tensors,
+            manifest.weight_format,
+        )?;
         let embedding = w.matrix("embedding.weight", c.vocab_size, c.d_model)?;
         let positions = w.matrix(
             "positions",

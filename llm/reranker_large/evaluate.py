@@ -6,14 +6,15 @@ from pathlib import Path
 import statistics
 import subprocess
 import time
+import tempfile
 
 import torch
 
 from llm.reranker_small.data import load_bundle
 from llm.reranker_small.runtime import load_checkpoint, rank_candidates, select_device
 from .data import load_pools, manifest_at
-from .scoring import suffix, validate_pool
-from .settings import file_hash, write_json
+from .scoring import forward_pool, suffix, validate_pool
+from .settings import APP_PROTOCOL, REPO, file_hash, write_json
 
 
 @torch.inference_mode()
@@ -22,6 +23,14 @@ def predict(model, tokenizer, row, config, device):
         return dict(scores=[None] * len(row['candidates']), order=list(range(len(row['candidates']))),
                     abstained=True, context_tokens_used=0)
     context = suffix(row.get('context', ''), tokenizer, config['scoring']['context_tokens'])
+    if config['scoring'].get('protocol') == APP_PROTOCOL:
+        scores, _ = forward_pool(model, tokenizer, row, device, config['scoring'])
+        scores = scores.cpu().tolist()
+        languages = {'zh-Hans': 0, 'en': 1, 'mixed': 2}
+        order = sorted(range(len(scores)), key=lambda i: (-scores[i], languages[row['candidates'][i]['language']],
+                                                          row['candidates'][i]['text']))
+        return dict(scores=scores, order=order, abstained=False, context_tokens_used=len(tokenizer.encode(context))-2,
+                    protocol=APP_PROTOCOL, model_scored=sum(row['model_mask']))
     return rank_candidates(model, tokenizer, context, [c['text'] for c in row['candidates']], device,
                            config['scoring']['batch_size'], 1.0, config['scoring']['max_candidates'])
 
@@ -75,6 +84,7 @@ def evaluate(checkpoint_path, lm_data, pools_path, output, split='validation', d
         reviewed_mrr=totals['mrr'] / totals['reviewed'] if totals['reviewed'] else None,
         teacher_agreement=totals['teacher_agreement'] / totals['teacher_scored'] if totals['teacher_scored'] else None,
         device=str(device), threads=threads, latency_ms=latency(timings),
+        score_protocol=config['scoring'].get('protocol','mean-logp-v1'),
         note='Supplied pools; references only when explicitly reviewed. Teacher agreement is not accuracy. '
              'Abstentions retain input pool order. Timing includes the first cold request and excludes host/UI/search.')
     write_json(output, report)
@@ -93,6 +103,8 @@ def rust_check(checkpoint_path, bundle, binary, output, repeats=40, threads=4):
     torch.set_num_threads(threads)
     checkpoint, model, tokenizer = load_checkpoint(checkpoint_path, torch.device('cpu'))
     config = checkpoint['config']
+    if config['scoring'].get('protocol') == APP_PROTOCOL:
+        return app_rust_check(checkpoint_path, model, tokenizer, config, bundle, binary, output, repeats)
     cases = [dict(context=context, candidates=pool) for context, pool in [
         ('', ['开会', '开慧']), ('今天下午我们一起', ['开会', '开慧', '开会', 'meet']),
         ('🙂' * 50 + '今天下午', ['你好', '您好', 'Swift API', '𠀀'])]]
@@ -147,4 +159,38 @@ def rust_check(checkpoint_path, bundle, binary, output, repeats=40, threads=4):
         latency_ms=latency(samples) if samples else None,
         note='Synthetic warmed resident Rust CLI round trips including JSON transport; no host timing or quality claim.')
     write_json(output, report)
+    return report
+
+
+def app_rust_check(checkpoint_path, model, tokenizer, config, bundle, binary, output, repeats):
+    """Compare against the actual Rust component used by App conversion."""
+    import tomllib
+    binary=Path(binary)
+    if binary.name=='si-neural': binary=binary.with_name('si-cli')
+    engine_config=REPO/'config/si.conf'
+    actual=tomllib.loads(engine_config.read_text())['local_model_ranking']
+    for key,value in config['scoring']['app'].items():
+        if actual[key]!=value: raise ValueError('Current App parameters differ from checkpoint: '+key)
+    for key,native in (('context_tokens','model_context_token_limit'),('candidate_tokens','model_candidate_token_limit'),('max_candidates','model_candidate_limit')):
+        if config['scoring'][key]!=actual[native]: raise ValueError('Current App bounds differ from checkpoint: '+key)
+    cases=[('', ['开会','开慧']),('今天下午我们一起',['你好','您好','Swift API']),('🙂'*50+'今天',['你好','您好','𠀀'])]
+    payload=''.join(context+'\t'+'\t'.join(texts)+'\n' for context,texts in cases)
+    result=subprocess.run([str(binary.resolve()),'--config',str(engine_config),'model-adjustments',str(Path(bundle).resolve())],
+                          input=payload,text=True,capture_output=True,check=True)
+    errors=[]
+    for (context,texts),line in zip(cases,result.stdout.splitlines(),strict=True):
+        effective=suffix(context,tokenizer,config['scoring']['context_tokens'])
+        eligible=all(len(tokenizer.encode(t))-2<=config['scoring']['candidate_tokens'] for t in texts)
+        row=dict(context=effective,observed_text='你好',candidates=[dict(text=t,language='zh-Hans') for t in texts],
+                 base_scores_bits=[0.]*len(texts),model_mask=[eligible]*len(texts),model_adjustment_mask=[True]*len(texts))
+        with torch.inference_mode(): expected,_=forward_pool(model,tokenizer,row,torch.device('cpu'),config['scoring'])
+        values=[0.]*len(texts) if line=='abstained' else list(map(float,line.split('\t')))
+        for a,b in zip(values,expected.tolist(),strict=True):
+            errors.append(abs(a-b))
+            if abs(a-b)>.005+1e-4*abs(b):raise ValueError('Rust App/Python score mismatch')
+    report=dict(kind='si-student-native-app-parity',checkpoint_sha256=file_hash(checkpoint_path),
+                binary_sha256=file_hash(binary),engine_config_sha256=file_hash(engine_config),
+                parity_queries=len(cases),max_absolute_error=max(errors,default=0),
+                score_protocol=APP_PROTOCOL,note='Native App adjustment parity. No host latency claim.')
+    write_json(output,report)
     return report

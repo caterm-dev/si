@@ -83,6 +83,16 @@ spelling units and 32 direct completions per language; these limits are configur
 within 0..32 and 1..128 respectively. Composed
 prefixes retain up to two distinct outputs per language combination and span.
 
+The separate offline `CandidatePoolInspector` leaves these beams unchanged.
+It enumerates a longer k-best over the exact full-spelling base lexical graph,
+then forms a union with every original native whole candidate. Only subsequent
+scoring-pool selection applies structural grouping or word-count quotas. Its
+A* suffix bounds use the same unigram/gram scoring and retain distinct lexical
+histories. Resource and work limits explicitly mark incomplete enumerations;
+only completed searches certify the requested k-best. The original literal,
+prefixes and native candidates remain available independently. This inspector
+is not used by the macOS app. See [pool inspection and bounds](ranking-architecture.md#offline-k-best-and-scoring-pool-inspection).
+
 Each dictionary edge adds a unigram log probability plus any base gram reward in bits
 and pays any spelling cost. A unigram uses its raw count divided by the sum
 of all counts in its lexicon. Base and user lexicons use their own totals,
@@ -211,26 +221,35 @@ can enable correction without mutating the shared engine. Secure input disables
 suggestions.
 
 The independent Local model ranking switch defaults on. After statistical
-search it scores up to 12 eligible whole-input candidates. For each complete
-output string, Rust subtracts its unconditional sequence log probability from
-its probability conditioned on the preceding fragment, then converts the lift
-to bits. Both passes retain dependencies inside the candidate, independently
-of lexical segmentation. Relative to the highest pool lift, adjustments are
-clipped to `[-8, 0]` and weighted by 1.0. Empty/unavailable or zero-token context
-uses the native BOS token and the cached unconditional sequence log probability.
-Divide the summed log2 probability by the output's Unicode scalar count,
-including all byte-fallback token contributions, to obtain mean `m`.
-The reward is `w * clamp(B_sentence + m, 0, B_sentence)`, where the default
-`B_sentence=8` comes from `model_sentence_reward_cap_bits`. The reference floor
-is `-B_sentence` bits per scalar; no pool-relative minimum or maximum is used.
+search it scores up to 12 eligible whole-input candidates. Rust computes the
+summed sequence log probability conditioned on the preceding fragment and
+converts it to bits. Internal candidate dependencies are independent of lexical
+segmentation, and output length is not used to average the score. Relative to
+the highest conditional score in the pool, adjustments are clipped to `[-8, 0]`
+and weighted by 0.8. No unconditional probability is subtracted and no lift
+reward is added. Empty/unavailable or zero-token context uses the native BOS
+token and the cached unconditional sequence log probability.
+Let `s(c)` be the summed log2 probability, including all byte-fallback token
+contributions. Do not divide by output length. Relative to the highest score
+in the pool, the adjustment is `w * clamp(s(c) - max_pool_score, -B_sentence, 0)`.
+The default `w=0.8` and `B_sentence=8` bound it to `[-6.4, 0]` bits.
+`B_sentence` retains the historical configuration key `model_sentence_reward_cap_bits`.
 Zero sentence cap disables only this branch; zero model weight disables both.
-No end-of-sentence probability is added. Unscored results keep zero, so final ordering re-sorts every
-result under the existing span and preference policy.
+No end-of-sentence probability is added. After successful scoring, other ordinary
+whole results receive the lowest pool adjustment, including completions,
+corrections and over-budget outputs. Identical output text reuses an already
+computed adjustment. Prefixes, literals, personal phrases and verbatim paths
+stay exempt; missing/failed model scoring leaves all statistical results intact.
+Final ordering re-sorts every result under the existing span and preference policy.
 A model-owned 4,096-entry exact-string LRU holds only unconditional log scores,
 never host context or typed source. Locks are short and nonblocking; inference
 runs outside the cache lock. Model reload/drop starts/releases its cache.
-The native bridge shares the immutable model
-with user snapshots and returns the signed adjustment separately from lexical and
+The native bridge loads Small and Large at startup and shares both immutable
+scorers with user snapshots. The per-request selection (off, small or large)
+uses the session configuration captured for that candidate request. Switching
+models invalidates outstanding results. Large stores little-endian binary16
+weights, which Rust widens to FP32 during loading. Each scorer owns its BOS cache.
+The bridge uses the selected scorer and returns the signed adjustment separately from lexical and
 contextual scores. Secure input disables inference, and the engine falls back
 to statistical ordering if the model cannot score the pool. The tracked app
 bundle in `Data/RerankerSmall/` selects step 11,000 from the first
@@ -897,17 +916,19 @@ Return consumed during SI composition submits exact remaining spelling to the fi
 
 ## App Learning
 
-`AppLearningSettings` owns independent default-off `appLearning.enabled` consent, visible permission/storage status and per-app/global deletion. `AppLearningSampler` lives with the retained application delegate and waits for the first 30-second tick; subsequent ticks follow a monotonic 30-second schedule without overlapping jobs or accumulating missed ticks. AX calls run on the `AppLearningCapture` actor, and file work/Rust sessions on `AppLearningStore`. UI work and eligibility checks stay on the main actor. Settings closure has no effect on an enabled sampler. Enabling without AX trust shows an explicit Settings permission action; background checks never request permission. Shutdown cancels and joins the worker before releasing transient source text.
+`AppLearningSettings` owns independent default-off `appLearning.enabled` consent, visible permission/storage status and per-app/global deletion. `AppLearningSampler` lives with the retained application delegate and polls `CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: kCGAnyInputEventType)` every 10 seconds. It queries only the aggregate idle duration for keyboard, mouse/drag and scroll activity; no event tap, event payload, key identity, pointer coordinates or Input Monitoring permission is used. `AppLearningActivityGate` compares that duration to the actual monotonic time since the preceding check, clipped to the end of the last eligible capture's 30-second cooldown. The first new activity can capture after one polling interval, while idle checks and activity inside the cooldown cause no AX reads or queued catch-up work. Ineligible checks do not start a cooldown. The last capture-start timestamp survives configuration restarts, including Retry/off-on; actual captures remain serialized without overlap. Invalid/unavailable idle durations fail closed. Only polling/capture scheduling timestamps are transiently retained. AX calls run on the `AppLearningCapture` actor, and file work/Rust sessions on `AppLearningStore`. UI work and eligibility checks stay on the main actor. Settings closure has no effect on an enabled sampler. Enabling without AX trust shows an explicit Settings permission action; background checks never request permission. Shutdown cancels and joins the worker before releasing transient source text.
 
-`AppLearningContext` contains only the weak active IMK client, its bundle identity and an invalidation generation. It is updated through existing main-thread controller callbacks without sharing composition or candidate state. A sampling request must match the foreground process, launch identity and Window Server window, and it excludes SI, secure input and the actual IMK client's direct-input rule. Client/settings/language generations, AX trust and window identity are checked during capture and before storage. Focused secure fields abort; other secure/hidden elements and all button/menu/toolbar subtrees, including inline buttons, are excluded. Reads use exposed AX values, paragraph/style/list structure and normal child order; they do not invoke actions, parameterized attributes, OCR or screenshots. AX failures and limits reject the complete sample. Generic/custom host AX coverage remains unproven. AX traversal uses an explicit work stack and pages children without imposing node, depth, child or paragraph-count quotas; cancellation, state validation, cycle detection and per-call messaging timeouts still apply. The `[app]` section of `config/si.conf` supplies `max_order = 4`, `max_snapshot_bytes = 524288` and `max_model_bytes = 67108864`. `SiConfig.app` exposes validated immutable `AppLearningConfig`; a missing whole section inherits embedded defaults, while a supplied section requires all three keys. Sessions capture the configuration on open; new observations count orders two through the configured maximum, preserving existing counts at other orders. The app uses build-time embedded defaults, requiring rebuild/reinstall after edits. The configured snapshot byte limit is exposed through the C ABI and shared by Swift capture/storage. Separate app-count, word-count and gram-count caps are absent; the three fixed model files share the configured model-byte limit. Lowering it below an existing model size fails visibly without deleting that model.
+`AppLearningContext` contains only the weak active IMK client, its bundle identity and an invalidation generation. It is updated through existing main-thread controller callbacks without sharing composition or candidate state. A sampling request must match the foreground process, launch identity and Window Server window, and it excludes SI, secure input and the actual IMK client's direct-input rule. Client/settings/language generations, AX trust and window identity are checked during capture and before storage. Focused secure fields abort; other secure/hidden elements and all button/menu/toolbar subtrees, including inline buttons, are excluded. Reads use exposed AX values, paragraph/style/list structure and normal child order; they do not invoke actions, parameterized attributes, OCR or screenshots. AX failures and limits reject the complete sample. Generic/custom host AX coverage remains unproven. AX traversal uses an explicit work stack and pages children without imposing node, depth, child or paragraph-count quotas; cancellation, state validation, cycle detection and per-call messaging timeouts still apply. The `[app]` section of `config/si.conf` supplies `max_order = 4`, `max_snapshot_bytes = 524288` and `max_model_bytes = 67108864`. `SiConfig.app` exposes validated immutable `AppLearningConfig`; a missing whole section inherits embedded defaults, while a supplied section requires all three keys. Sessions capture the configuration on open; new observations count orders two through the configured maximum, preserving existing counts at other orders. The app uses build-time embedded defaults, requiring rebuild/reinstall after edits. The configured snapshot byte limit is exposed through the C ABI and shared by Swift capture/storage. Separate app-count, word-count and gram-count caps are absent; the three fixed model files share the configured model-byte limit. Oversized updates automatically prune to the configured limit before publication; lowering the limit also prunes an existing valid model on its next enabled open.
 
-Rust `resources::user::app::AppLearningSession` retains one previous paragraph snapshot per app. An exact-text multiset subtracts occurrence counts present in the preceding snapshot, and the shared user-ingestion pipeline appends only the remaining paragraphs to the existing app-local model. Reordering alone adds nothing; changed paragraphs append new observations without removing previous word/gram counts. A complete empty snapshot clears the comparison. There is no LCS, edit replacement, per-paragraph contribution history, window/document key or source-history cache. An occurrence absent from the immediately preceding snapshot can count again when it reappears. The one previous snapshot is bounded only by the configured UTF-8 source-byte limit (512 KiB by default); oversized snapshots are skipped without replacing it, and restart/off resets it. Neither base files nor the global user model is changed, and decoder integration remains absent.
+Rust `resources::user::app::AppLearningSession` retains one previous paragraph snapshot per app. An exact-text multiset subtracts occurrence counts present in the preceding snapshot, and the shared user-ingestion pipeline appends only the remaining paragraphs to the existing app-local model. Reordering alone adds nothing; changed paragraphs append new observations without retracting previous contributions. Capacity pruning can evict statistics. A complete empty snapshot clears the comparison. There is no LCS, edit replacement, per-paragraph contribution history, window/document key or source-history cache. An occurrence absent from the immediately preceding snapshot can count again when it reappears. The one previous snapshot is bounded only by the configured UTF-8 source-byte limit (512 KiB by default); oversized snapshots are skipped without replacing it, and restart/off resets it. Neither base files nor the global user model is changed, and decoder integration remains absent.
+
+`Lexicon::retain` and `prune_to_bytes` rebuild surviving primary identities and aliases, preserving exact bytes/counts and returning an old-to-new word-ID map. IDs remain stable across ordinary additions/compaction; pruning can change them. Serialized-size helpers in `si-lexicon` and `si-gram` use the current file layout without file I/O. The reusable `resources::prune_model_to_bytes` validates the pair, removes lowest-count gram rows (ties: higher order, then row order), then prunes lowest-count words if the dictionary alone still exceeds the budget (ties: lower old ID). Word pruning occurs only after all gram rows are exhausted, so there are no surviving references to remap. Surviving gram counts and surface-token mode are preserved, and the result is rebound to the paired lexicon. Shared lookup-key bytes are charged only when their final posting disappears. App publication reserves metadata bytes, prunes before writing, regenerates metadata counts, and checks the actual combined file length before arming publication. Opening an oversized valid model publishes a trimmed revision with zero source paragraphs; any already-armed transaction is completed/validated first even if configuration limits have since decreased. Corrupt models are not silently pruned or rebuilt.
 
 The storage-only `SIAppLearning` C ABI consumes exact UTF-8 bytes and paragraph-end byte offsets, including zero paragraphs for an empty snapshot. Its handle is confined to the Swift storage actor. `AppLearningStore` hashes the bundle ID for a dedicated 0700 directory under `SI/AppLearning`. Each directory has one fixed 0600 `app.silex`, `app.sigram`, `meta-v1.txt` set and a stable lock file. The metadata header/version, bundle ID, model-update Unix time, revision, word count, gram count and last saved snapshot paragraph count are published together. No AX tree, paragraph source or document identity is serialized.
 
 A locked write stages the three files in `.pending`, synchronizes them, then arms an empty `.publishing` marker and publishes to the fixed paths. Readers must respect the app lock/recovery entry point: the fixed pair is not intended for unlocked reads during a write. Recovery validates the proposed paired resources before moving any remaining files and finishes an interrupted publication on the next open/observation. The marker and staging directory are removed after success; there is no retained model-generation history. The in-memory previous snapshot/revision advances once the transaction is armed, preventing a same-process retry from counting the same accepted batch twice. An old `current`/a/b layout is migrated by publishing its active pair to the fixed paths before deleting legacy generations. Corrupt data is preserved with a visible failure rather than silently rebuilt.
 
-An actor storage epoch rejects captures queued before clear/reset; in-flight writes finish before deletion, so they cannot restore cleared data. Storage errors/capacities visibly pause new sampling; Retry resumes sampling rather than promising lossless recovery of a failed raw snapshot. Saved derived files remain until explicit per-app/all deletion. There is no automatic upload, age expiry, ranking hook or reuse of global Personal Learning/Input History consent. Limits and retention are documented in [App Learning](../README.md#app-learning).
+An actor storage epoch rejects captures queued before clear/reset; in-flight writes finish before deletion, so they cannot restore cleared data. Unrecoverable storage errors and limits too small for empty headers/metadata visibly pause new sampling; Retry resumes sampling rather than promising lossless recovery of a failed raw snapshot. Saved derived files remain until explicit per-app/all deletion; capacity pruning may remove individual statistics. There is no automatic upload, age expiry, ranking hook or reuse of global Personal Learning/Input History consent. Limits and retention are documented in [App Learning](../README.md#app-learning).
 
 ## macOS integration
 
@@ -918,10 +939,6 @@ An actor storage epoch rejects captures queued before clear/reset; in-flight wri
 `LanguageSettings` also persists the Direct Input shortcut (default Control–Shift–I, physical key code 34). `SIInputController` matches it before the direct-input guard and ordinary shortcut passthrough, using the event client’s bundle identifier. Repeated matches are consumed without toggling again; secure input and unknown clients do not toggle. Rule changes reuse the existing configuration/reset boundary. Settings records modified printable keys in a sheet-local first responder, supports cancellation/reset, and never installs a global event tap or monitor.
 
 `ExperimentPermissions` uses a lazily created PermissionFlow controller for the two explicit Settings actions. Each action opens its own Privacy & Security pane and offers the running `Bundle.main.bundleURL` for the user to drag into the system list. PermissionFlow tracks the System Settings window for panel positioning and falls back to Window Server bounds when Accessibility trust is unavailable. SI disables PermissionFlow's optional Accessibility prompt and uses `AXIsProcessTrusted` and `CGPreflightScreenCaptureAccess` for nonprompting status checks. The app target pins PermissionFlow 2.11.4 and bundles its MIT notice. The shared Swift package has no PermissionFlow dependency.
-
-The explicit input-menu **Export Current App AX Data…** action forwards through the existing IMK menu callback bridge to `AXDataExport`. It captures the foreground PID, bundle ID and launch date before starting one worker-actor export. `AXExportWorker` owns all AX objects and attribute values, follows same-process AX references with hash/equality deduplication, and never traverses external-process references. It records ordinary attributes, supported action and parameterized-attribute names, structured geometry/ranges, plain attributed-string text and read errors. Parameterized attributes are not executed; unsupported opaque values retain only their type. Secure event input and a focused secure-text subrole abort export; other secure-text nodes are redacted. Foreground identity and trust are rechecked between nodes and before persistence. Each element has a 0.2-second messaging timeout. Traversal has node/array/attribute/value-depth/text/time limits and reports truncation in the JSON; it is a live traversal rather than an atomic snapshot. The worker writes a unique 0600 JSON file in the 0700 `SI/AXExports` Application Support subdirectory, deletes a failed partial write and reveals successful output in Finder. Errors are shown locally. This action is independent of the typing, AI and learning paths and never requests permission. Files persist until explicit Finder deletion; no export runs at startup or automatically while typing.
-
-`scripts/ax_to_text.py` is an independent, standard-library-only offline reader for these version-1 snapshots. It starts from the focused/main window or an explicit node, follows child/navigation-order edges with identity/cycle protection, and excludes declared hidden and secure nodes. Native text values take precedence over redundant descendants. Paragraph/style/link/list structure joins inline fragments without global text deduplication; textual lists and sidebar navigation are handled separately. Body-only extraction is the default: control subtrees, including inline buttons, are omitted. Explicit `--include-controls` also retains distinct control labels without repeating equivalent descendants. Extraction keeps source text, node IDs and sentence spans in memory for validation, then writes only one-sentence-per-line UTF-8 TXT to an adjacent `.sentences.txt` file by default. Outer whitespace is trimmed and internal line breaks are replaced by spaces. Sentence boundaries and geometry fallbacks are heuristic; truncations/missing edges are reported without printing source text. File publication uses a same-directory 0600 temporary file, sync and atomic publication, refusing replacement without `--overwrite`; the source export cannot be replaced. No app reads, system permission requests, model dependencies, training or network calls are involved.
 
 `SIApplication` starts an AppKit application. `AppDelegate` retains one `IMKServer` for the process lifetime. `mac/Support/Info.plist` names the connection and the stable Objective-C controller class `SIInputController`; it declares a background input method with one input source and no mode dictionary. The bundle and source identifier is `com.caterm.inputmethod.si`, including the `.inputmethod.` segment used for InputMethodKit discovery. `TISIntendedLanguage` is `en` so SI is discovered under English; its character repertoire still includes Latin and Simplified Chinese scripts. This system classification does not choose an active language inside SI. Showing Settings changes the process activation policy to accessory so the background declaration does not prevent displaying the settings window.
 
@@ -1105,7 +1122,7 @@ partial final update, and prevents wrapping into another epoch. Cumulative token
 budgets allow explicit staged resume within that pass. These overlap checks do
 not establish semantic uniqueness or human-reviewed corpus quality.
 
-`llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented. The [large reranker](../llm/reranker_large/README.md) now provides a 15,592,320-parameter character student: seven width-384 pre-norm blocks, six attention heads, GELU FFN 1,536, 8,192 vocabulary entries, 64 learned positions and tied embeddings. Its explicit offline stages accept reviewed grouped documents and source-linked candidate pools, fit the tokenizer on train only, pretrain a student, cache local Qwen2.5-0.5B Base candidate scores and distill into a separate run. Teacher scores use summed conditional token log probabilities; student scores preserve the deployed per-scalar mean. Temperature and loss weights are configurable. No token-vocabulary alignment is required. Final-test pools are not teacher-scored during cache preparation. Checkpoints bind the model, code, tokenizer, LM data and teacher cache; Python/Rust exports retain both source and teacher provenance. Tiny CPU tests cover synthetic losses, exact resume and shared Rust scoring parity. Formal datasets, large-model training, MPS/CUDA training checks, pause-time scheduling and app integration remain unverified or unimplemented.
+`llm/` groups model families into `reranker_small/`, `reranker_large/` and `pinyin_to_text/`. The converter and small offline LM framework are implemented. The [large reranker](../llm/reranker_large/README.md) now provides a 15,592,320-parameter character student: seven width-384 pre-norm blocks, six attention heads, GELU FFN 1,536, 8,192 vocabulary entries, 64 learned positions and tied embeddings. Its explicit offline stages accept reviewed grouped documents and source-linked candidate pools, fit the tokenizer on train only, pretrain a student, cache local Qwen2.5-0.5B Base candidate scores and distill into a separate run. Teacher scores use summed conditional token log probabilities. The legacy student objective uses a per-scalar mean; the separate App v4 and sequence-KL paths below preserve summed conditional/BOS inference. Temperature and loss weights are configurable. No token-vocabulary alignment is required. Final-test pools are not teacher-scored during cache preparation. Checkpoints bind the model, code, tokenizer, LM data and teacher cache; Python/Rust exports retain both source and teacher provenance. Tiny CPU tests cover synthetic losses, exact resume and shared Rust scoring parity. Local MPS distillation and retention experiments are recorded in offline reports; they do not establish representative ranking quality. The app offers the packaged FP16 weight edit under Typing. CUDA training and pause-time scheduling remain unverified or unimplemented.
 
 The student's explicit `prepare-data.sh` command streams existing `raw-text-v2` text and document metadata, verifies full hashes/ranges and source notices, groups conversations/pages, preserves provided splits and hashes previously unsplit groups into 97%/2%/1%. Defaults target 60% Chinese dialogue, 35% Chinese Wikipedia and 5% Chinese technical prose. A provisional train-only tokenizer estimates whole-group quotas; a final tokenizer fits selected train text only, with actual source/token/fallback counts reported separately. Duplicate held-out text takes priority over training copies, and selected cross-split exact paragraphs exclude conflicting whole groups. SQLite holds the disposable source index. The command stages and publishes a ready LM bundle atomically, retains audit/provenance records and never invokes training. Only synthetic snapshots have exercised this adapter; formal corpus preparation remains user-invoked work.
 
@@ -1132,6 +1149,74 @@ decay. This entry point binds its own code plus the shared implementation for
 strict resume and leaves the original trainer's code identity unchanged.
 Its checkpoints use the existing pretraining/evaluation/export format. A
 read-only CPU compatibility mode performs no updates and creates no run.
+
+Distillation can explicitly initialize from such a continued checkpoint using
+`--init-data` alongside the selected weights. It verifies the source manifest,
+recorded continuation lineage, ancestor exclusions and exact tokenizer bytes;
+the LM ancestor of the existing candidate cache must be in that lineage.
+Initialization copies weights into fresh AdamW state and preserves the source
+manifest and parent hashes in checkpoint/export metadata. Candidate dataset
+identities and teacher scores remain unchanged. Strict resume is unchanged.
+`distill.sh --check-only` checks compatibility on CPU without creating a run or
+optimizer. The selected `distill-pilot.sh` wrapper uses the archived 19,167-step
+additional-corpus model with the previously scored 10K/500 pilot pools in a
+separate 1,000-update run; invoking the wrapper is the explicit training step.
+
+The App-aligned replacement uses `prepare-app-teacher.sh` and `distill-app.sh`.
+Rust exports ordinary whole-input pools, punctuation fragments, statistical
+scores and a model mask using the same eligibility predicate as live conversion.
+Teacher and student both compute bounded bit-valued conditional-probability
+or BOS summed-score differences at weight 0.8, then add them to the statistical
+scores for listwise KL. The `si-app-model-adjustment-v4` protocol rejects older
+per-scalar reward, contextual-lift and zero-adjustment-outside-pool caches; matching
+caches must be regenerated explicitly. Contextual student scoring needs no
+unconditional inference pass. Native exports carry both the inference mask and
+the ordinary-whole adjustment mask. Unscored ordinary whole candidates receive
+the lowest pool adjustment, while exempt paths retain their base scores. Conditional and BOS teacher
+likelihoods, native resource/config snapshots and the exact score mapping are
+retained in a new cache; legacy caches cannot be mixed with that protocol.
+The App and new offline preset both permit 16-token candidates. Native component
+parity uses `si-cli model-adjustments`; full conversion accepts `candidates
+--model`. The lower-level `si-neural rank` rejects App-tagged exports rather
+than silently applying its legacy mean-score policy. No app installation or
+host/personalization validation is implied by offline training.
+
+The independent sequence-KL experiment keeps this App v4 inference contract
+but trains on untruncated, unique candidate sequence logits in bits at the
+same 0.8 weight. It omits statistical scores from the candidate KL and retains
+the observed-span auxiliary LM loss. This avoids the hard inference cap's zero
+gradients; it does not alter Rust ranking. `prepare-sequence-kd.sh` verifies and
+filters the existing teacher cache to active model pools, preserving raw scores,
+notices, split assignments and unscored final tests. Its derivative freezes a
+hashed Python runtime/config. `distill-sequence-kd.sh` explicitly initializes
+from the archived 19,167-step pretraining weights with fresh optimizer state;
+`--check-only` creates no run or optimizer. Sequence-KL validation is not App
+ranking accuracy; checkpoint promotion still requires exact native ranking
+and broad LM retention checks. See the [experiment commands](../llm/reranker_large/README.md#sequence-kl-with-unchanged-app-v4-inference).
+
+A separate `prepare-coverage.sh` stage mines source-linked, same-spelling
+training contrasts from train-only documents for diagnosed error patterns. It
+excludes legacy regression queries, close lexical duplicates and previous
+teacher-cache source groups. Newly authored score-blind validation reserves
+sixteen confusion families and their lexical surfaces outside the new training
+cases. It seals cases before any model inference, keeps pending text-only
+review separate and never assigns human-review status automatically. The
+unscored `si-coverage-cases-v1` format is deliberately separate from a scored
+teacher cache. Training, teacher scoring and validation review remain explicit
+later steps. Original regressions remain diagnostics rather than independent
+generalization evidence; lexical guards do not certify semantic novelty.
+
+The optional matched replay experiment freezes the same sequence-KL training
+data and initialization for no-replay and 25% old-LM-replay arms. Replay samples
+only old training windows, records target-token quotas separately from mean-loss
+weights, and checkpoints its sampler with optimizer and accelerator RNG state.
+Selection uses strict native fused top-one improvement on the sealed synthetic
+development intentions plus an old-LM validation increase below 0.1 nat; six
+unsuccessful checks trigger early stopping. Step-zero weights remain a valid
+fallback. The old regression does not select checkpoints. This is an offline
+experiment, not a model-promotion policy or evidence of independent human
+accuracy; the new intentions still need human review. See the
+[replay commands](../llm/reranker_large/README.md#matched-lm-replay-experiment).
 
 The independent `scripts/prepare-distillation.sh` producer adds pinned local SI
 dialogues without changing that LM bundle or its tokenizer. It retains selected

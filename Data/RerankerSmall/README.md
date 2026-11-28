@@ -61,11 +61,17 @@ package a changed bundle; these source files do not update an installed app.
 The packaged files reproduce the selected checkpoint's complete fixed-pool
 ranking report exactly. Resource-manifest verification and seven Rust/PyTorch
 absolute-scoring parity cases passed for the resource replacement; those
-historical measurements do not evaluate the current sequence-lift policy.
+historical measurements do not evaluate the current conditional-probability policy.
 
-Production Local model ranking now uses whole-candidate conditional minus
-unconditional sequence log probabilities, pool-relative clipping at eight bits
-and a default weight of 1.0. Empty context keeps the statistical order.
+Production Local model ranking now uses whole-candidate conditional sequence
+log probabilities, pool-relative clipping at eight bits
+and a default weight of 0.8. Empty context compares summed BOS log probabilities
+without output-length normalization, relative to the highest pool score,
+with the same eight-bit clipping before weighting.
+After successful scoring, ordinary whole candidates outside the pool receive
+its lowest adjustment; identical scored text reuses the actual value. Completions
+and corrections use that fallback without additional inference. Prefixes,
+literals, personal phrases and verbatim paths remain exempt.
 The unconditional baseline has a bounded in-memory exact-string LRU.
 See the [runtime policy](../../docs/ranking-architecture.md#local-model-ranking)
 and [integration checks](../../docs/TESTING.md#local-model-ranking-in-a-host).
@@ -73,8 +79,9 @@ and [integration checks](../../docs/TESTING.md#local-model-ranking-in-a-host).
 The former absolute-score regression for `原始拼写` versus `元是拼写`
 recorded a 2.350-bit mean-model gap for this checkpoint versus v1's 2.582 bits.
 That difference belonged to the old 0.8-weight absolute-score policy. It is
-not a model-weight fix or evidence for the sequence-lift policy; current tests
-instead verify contextual lift, empty-context identity and bounded penalties.
+not a model-weight fix or evidence for the conditional-probability policy; current
+tests verify conditional probabilities, BOS sequence-score differences and bounded
+penalties, including rare candidates whose lift would invert their probability order.
 Native host behavior remains unverified for the new runtime policy.
 
 Build the standalone scorer and submit a synthetic candidate pool:

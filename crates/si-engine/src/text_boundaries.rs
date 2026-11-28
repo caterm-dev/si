@@ -104,7 +104,7 @@ pub(crate) fn parts(text: &str) -> impl Iterator<Item = Part<'_>> {
     })
 }
 
-pub(crate) fn last_fragment(text: &str) -> &str {
+pub fn last_fragment(text: &str) -> &str {
     let start = text
         .char_indices()
         .filter_map(|(offset, character)| {

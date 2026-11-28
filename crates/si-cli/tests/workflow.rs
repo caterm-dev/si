@@ -261,6 +261,73 @@ fn candidates_stream_queries_with_optional_base_grams_and_user_profile() -> io::
 }
 
 #[test]
+fn candidate_pool_reports_search_and_post_search_selection_separately() -> io::Result<()> {
+    let scratch = ScratchDirectory::new()?;
+    scratch.write(
+        "zh.csv",
+        "text,reading,weight\n及,ji,200\n机,ji,100\n级,ji,50\n好,hao,1000\n携带,xie'dai,1000\n",
+    )?;
+    scratch.run(&["lexicon", "build", "base.silex", "0", "zh.csv"])?;
+    let mut child = scratch
+        .command(&[
+            "candidate-pool",
+            "base.silex",
+            "--languages",
+            "zh-Hans",
+            "--pool-size",
+            "2",
+            "--structure-limit",
+            "1",
+            "--multiword-limit",
+            "2",
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    child.stdin.take().unwrap().write_all(b"jihaoxiedai\n")?;
+    let output = child.wait_with_output()?;
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let text = String::from_utf8(output.stdout).map_err(io::Error::other)?;
+    assert!(text.starts_with("pool\t1\t3\t"));
+    let rows: Vec<_> = text
+        .lines()
+        .filter(|row| row.starts_with("row\t"))
+        .map(|row| row.split('\t').collect::<Vec<_>>())
+        .collect();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows.iter().filter(|row| row[7] == "1").count(), 1);
+    assert_eq!(rows.iter().filter(|row| row[8] == "structure").count(), 2);
+    assert!(rows.iter().all(|row| row[2] != "0" && row[3] != "0"));
+    assert!(
+        text.lines()
+            .any(|row| row.starts_with("token\t1\t1\tzh-Hans\t0\t2\t"))
+    );
+    for args in [
+        vec!["candidate-pool", "base.silex", "--k-best", "0"],
+        vec!["candidate-pool", "base.silex", "--pool-size", "65"],
+        vec!["candidate-pool", "base.silex", "--structure-limit", "3"],
+        vec![
+            "candidate-pool",
+            "base.silex",
+            "--pool-size",
+            "2",
+            "--multiword-limit",
+            "3",
+        ],
+    ] {
+        let invalid = scratch.command(&args).output()?;
+        assert!(!invalid.status.success());
+        assert!(invalid.stdout.is_empty());
+    }
+    Ok(())
+}
+
+#[test]
 fn candidates_stream_independent_contexts_without_changing_plain_requests() -> io::Result<()> {
     let scratch = ScratchDirectory::new()?;
     scratch.write(

@@ -17,6 +17,10 @@ from llm.reranker_large.scripts.prepare_extra_data import prepare
 from llm.reranker_large.settings import code_identity, file_hash, fingerprint, read_json, write_json
 from llm.reranker_large.tests.test_corpus import fixture
 from llm.reranker_large.train import train as train_parent
+from llm.reranker_large.fixtures import SyntheticTeacher
+from llm.reranker_large.prepare import prepare_pools
+from llm.reranker_large.teacher import cache_teacher
+from llm.pinyin_to_text.common import read_jsonl, write_jsonl
 
 
 class ContinuationTests(unittest.TestCase):
@@ -150,6 +154,87 @@ class ContinuationTests(unittest.TestCase):
             continuation.train(self.config, self.data, self.root/'bad-ancestor', path,
                                device_name='cpu', threads=1)
         self.assertFalse((self.root/'bad-ancestor').exists())
+
+    def distillation_inputs(self):
+        self.run_train('continued-for-kd', max_steps=1)
+        config = read_json(self.config)
+        config['stage'] = 'distill'
+        config['training'].pop('single_pass')
+        config['training'].update(max_steps=2, schedule_steps=8)
+        kd = self.root/'distill.json'
+        write_json(kd, config)
+        records = []
+        for split in ('train', 'validation', 'test'):
+            doc = next(read_jsonl(self.parent_data/f'{split}.documents.jsonl'))
+            start = next(i for i, c in enumerate(doc['text']) if '\u4e00' <= c <= '\u9fff')
+            observed = doc['text'][start]
+            records.append(dict(id=split, document_id=doc['id'], input='authored-' + split,
+                context=doc['text'][:start], observed_text=observed,
+                candidates=[dict(text=observed, language='zh-Hans'),
+                            dict(text='你' if observed != '你' else '好', language='zh-Hans')]))
+        write_jsonl(self.root/'records.jsonl', records)
+        write_json(self.root/'provenance.json', dict(schema_version=1, sources=[dict(
+            id='fixture', origin='SI-authored synthetic test data', revision='v1', license='GPL-3.0-only')]))
+        prepare_pools(kd, self.parent_data, self.root/'records.jsonl', self.root/'provenance.json', self.root/'pools')
+        cache_teacher(kd, self.parent_data, self.root/'pools', self.root/'teacher', SyntheticTeacher())
+        return kd, self.root/'continued-for-kd/last.pt'
+
+    def test_continued_weights_initialize_old_candidate_cache_and_resume_exactly(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            kd, continued = self.distillation_inputs()
+            pin = file_hash(continued)
+            common = dict(pools_path=self.root/'teacher', threads=1)
+            result = train_parent(kd, self.parent_data, self.root/'check-kd', 'cpu',
+                init_checkpoint=continued, init_data=self.data, check_only=True, **common)
+            self.assertFalse(result['training_started'])
+            self.assertFalse((self.root/'check-kd').exists())
+            continued_state = torch.load(continued, weights_only=True)
+            from llm.reranker_small.runtime import atomic_checkpoint
+            def capture(path, payload):
+                if payload['step'] == 0:
+                    self.assertFalse(payload['optimizer']['state'])
+                    for key in payload['model']:
+                        self.assertTrue(torch.equal(payload['model'][key], continued_state['model'][key]))
+                atomic_checkpoint(path, payload)
+            with mock.patch('llm.reranker_large.train.atomic_checkpoint', side_effect=capture):
+                train_parent(kd, self.parent_data, self.root/'kd-full', 'cpu',
+                    init_checkpoint=continued, init_data=self.data, **common)
+            train_parent(kd, self.parent_data, self.root/'kd-resumed', 'cpu',
+                init_checkpoint=continued, init_data=self.data, max_steps=1, **common)
+            train_parent(kd, self.parent_data, self.root/'kd-resumed', 'cpu', resume=True, **common)
+        full = torch.load(self.root/'kd-full/last.pt', weights_only=True)
+        resumed = torch.load(self.root/'kd-resumed/last.pt', weights_only=True)
+        for key in full['model']:
+            self.assertTrue(torch.equal(full['model'][key], resumed['model'][key]), key)
+        self.assertEqual(full['initial_checkpoint'], resumed['initial_checkpoint'])
+        self.assertEqual(full['dataset_id'], read_json(self.parent_data/'manifest.json')['dataset_id'])
+        self.assertEqual(full['initial_checkpoint']['source_dataset_manifest'], read_json(self.data/'manifest.json'))
+        self.assertEqual(full['initial_checkpoint']['sha256'], pin)
+        self.assertEqual(file_hash(continued), pin)
+        exported = export(self.root/'kd-full/last.pt', self.parent_data, self.root/'kd-export', self.root/'teacher')
+        self.assertEqual(exported['initial_checkpoint'], full['initial_checkpoint'])
+
+    def test_continued_initialization_rejects_missing_wrong_or_unrelated_source(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            kd, continued = self.distillation_inputs()
+            common = dict(pools_path=self.root/'teacher', init_checkpoint=continued, check_only=True, threads=1)
+            with self.assertRaisesRegex(ValueError, '--init-data'):
+                train_parent(kd, self.parent_data, self.root/'missing-source', 'cpu', **common)
+            with self.assertRaisesRegex(ValueError, 'recorded continuation'):
+                train_parent(kd, self.parent_data, self.root/'wrong-source', 'cpu', init_data=self.parent_data, **common)
+            payload = torch.load(continued, weights_only=True)
+            payload['lineage_dataset_ids'] = [payload['dataset_id'], 'unrelated']
+            torch.save(payload, self.root/'unrelated.pt')
+            common['init_checkpoint'] = self.root/'unrelated.pt'
+            with self.assertRaisesRegex(ValueError, 'recorded continuation'):
+                train_parent(kd, self.parent_data, self.root/'unrelated', 'cpu', init_data=self.data, **common)
+            common['init_checkpoint'] = continued
+            tokenizer = self.data/'tokenizer.json'
+            tokenizer.write_bytes(tokenizer.read_bytes() + b'\n')
+            with self.assertRaisesRegex(ValueError, 'modified'):
+                train_parent(kd, self.parent_data, self.root/'changed-tokenizer', 'cpu', init_data=self.data, **common)
+            for name in ('missing-source', 'wrong-source', 'unrelated', 'changed-tokenizer'):
+                self.assertFalse((self.root/name).exists())
 
 
 if __name__ == '__main__':

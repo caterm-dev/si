@@ -8,6 +8,7 @@ final class AppLearningSampler {
     private let settings = AppLearningSettings.shared
     private var timer: Task<Void, Never>?
     private var stopping = false
+    private var lastSampleStarted: ContinuousClock.Instant?
 
     func start() {
         settings.onConfigurationChanged = { [weak self] in self?.restart() }
@@ -25,12 +26,17 @@ final class AppLearningSampler {
             if reset { await settings.store.resetSessions() }
             guard !Task.isCancelled, !stopping else { return }
             guard settings.enabled else { return }
-            var next = ContinuousClock.now.advanced(by: .seconds(30))
+            var activity = AppLearningActivityGate(now: .now)
             while !Task.isCancelled, !stopping, settings.enabled, settings.generation == generation {
-                do { try await ContinuousClock().sleep(until: next) } catch { return }
-                await sample(generation: generation)
-                next = next.advanced(by: .seconds(30))
-                if next < ContinuousClock.now { next = ContinuousClock.now.advanced(by: .seconds(30)) }
+                do { try await Task.sleep(for: AppLearningActivityGate.pollInterval) } catch { return }
+                guard !Task.isCancelled, !stopping, settings.enabled, settings.generation == generation else { return }
+                // kCGAnyInputEventType includes keyboard, mouse movement/dragging and scrolling.
+                // Read only HID idle time; no event tap, event payload or monitoring permission.
+                guard let anyInput = CGEventType(rawValue: UInt32.max) else { return }
+                let idle = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: anyInput)
+                if activity.shouldSample(at: .now, idleSeconds: idle, lastSampleStarted: lastSampleStarted) {
+                    await sample(generation: generation)
+                }
             }
         }
     }
@@ -62,6 +68,10 @@ final class AppLearningSampler {
         defer { settings.sampling(false) }
         do {
             let storageGeneration = await settings.store.generation()
+            guard valid(), !Task.isCancelled else { return }
+            // Start the global cooldown immediately before AX capture, after any storage wait.
+            // Keep it across restarts so Retry/off-on cannot bypass the interval.
+            lastSampleStarted = .now
             let snapshot = try await AppLearningCapture(pid: pid, validate: valid).capture()
             guard valid(), !Task.isCancelled else { return }
             let changed = try await settings.store.observe(bundle: bundle, paragraphs: snapshot.paragraphs,

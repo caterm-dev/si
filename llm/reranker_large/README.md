@@ -20,7 +20,15 @@ scoring, candidate-level distillation, strict resume, evaluation and export
 are implemented. Tiny CPU regressions use authored synthetic documents and a
 synthetic teacher. No formal corpus selection/preparation, bulk Qwen scoring,
 15.6M training, production-quality evidence or app replacement is supplied by
-these checks. The app continues to use `Data/RerankerSmall/`.
+these checks. The app defaults to Small and can select the FP16 weight edit in
+`Data/RerankerLarge/`. Reproduce that bundle from the verified local export
+using a fresh output directory:
+
+```sh
+llm/.venv/bin/python llm/reranker_large/scripts/package_large_fp16.py \
+  llm/reranker_large/exports/weight-edit-v1 /tmp/SI-RerankerLarge
+```
+
 A full-size random-initialization export/parity regression also checks the
 selected architecture without training it.
 
@@ -43,6 +51,9 @@ Smoke intentionally chains tiny synthetic stages in a temporary directory.
 | `scripts/teacher.sh` | Score train/validation pools with an existing local Qwen snapshot |
 | `scripts/pretrain.sh` | Start a new randomly initialized student LM run |
 | `scripts/distill.sh` | Initialize a separate distillation run from a compatible pretrained student |
+| `scripts/distill-pilot.sh` | Use the selected continued-step-019167 archive and existing Qwen pilot cache for 1,000 updates |
+| `scripts/prepare-app-teacher.sh` | Export native App statistical scores/model masks and supplement Qwen conditional/BOS likelihoods |
+| `scripts/distill-app.sh` | Retrain from continued-step-019167 with the matched App score/fusion protocol |
 | `scripts/resume.sh --stage pretrain` | Resume the unchanged pretraining run |
 | `scripts/resume.sh --stage distill` | Resume the unchanged distillation run |
 | `scripts/validation.sh`, `scripts/test.sh` | Explicit held-out LM token-loss evaluation |
@@ -499,6 +510,285 @@ eligible pools. The 64-token student window covers these deployed limits.
 
 ## Frozen local Qwen teacher
 
+### App-aligned replacement protocol
+
+The legacy `teacher.sh`/`distill-pilot.sh` cache uses Qwen conditional sums
+against student per-scalar means. Keep it as a historical baseline. New training
+uses `configs/distill-app-v4.json` and protocol `si-app-model-adjustment-v4`:
+
+- With effective context, teacher and student both use summed conditional log
+  probability in bits. Subtract the highest conditional score in the model pool
+  and clip to `[-8, 0]` before applying model weight 0.8. Do not subtract a BOS
+  baseline or add a lift reward.
+- Without context, both use summed BOS log probability in bits without output
+  length normalization. Subtract the highest pool score and clip to `[-8, 0]`
+  before applying weight 0.8; adjustments range from -6.4 to zero bits.
+- Add adjustments to native statistical scores before listwise KL. Ordinary
+  whole candidates outside the inference pool use the lowest pool adjustment;
+  identical scored text reuses its actual value. Explicitly exempt paths keep
+  zero adjustment. With no valid pool, all statistical scores remain unchanged.
+
+The v4 mapping rejects v1/v2/v3 caches that used BOS per-scalar rewards,
+contextual lift or zero adjustments outside the model pool. Regenerate matching
+teacher caches explicitly; existing trained runs and artifacts are not rewritten
+or resumed under the new mapping. The v3 configuration and artifacts remain
+separate from the new v4 preset and output paths.
+
+The App configuration and this preset both use 16 candidate tokens, 16 context
+tokens and 12 selected model rows. The App embeds `config/si.conf` at build time;
+an existing installation needs rebuilding/reinstalling for changed bounds.
+These offline commands do not install the app:
+
+```sh
+cargo build --release --locked -p si-cli -p si-neural
+./llm/reranker_large/scripts/prepare-app-teacher.sh \
+  --likelihood-cache llm/reranker_large/data/prepared/student-15m-v1/teacher-app-v1
+./llm/reranker_large/scripts/distill-app.sh --check-only
+./llm/reranker_large/scripts/distill-app.sh
+```
+
+Preparation writes `data/prepared/student-15m-v1/teacher-app-v4` and keeps
+`teacher-pilot` unchanged. It re-queries source spellings/field contexts through
+Rust with an empty private profile, no phrases and no transient preferences.
+Rust exports full-precision statistical scores, punctuation fragments and the
+same inference and adjustment masks as App conversion. The native `model-tsv`
+rows contain inference flag, adjustment flag, statistical score, language, source
+bytes, kind, lexical score and escaped output text. Completions and corrections
+receive the worst-pool fallback; verbatim outputs remain exempt. Model bounds and the two-distinct-
+output guard match conversion. Whole pools that cannot receive a model adjustment
+still provide the auxiliary natural-text LM loss. This does not reproduce host
+presentation or private personalization.
+
+The producer reuses verified Qwen text/context likelihoods when the frozen
+model/runtime match, then computes missing conditional/BOS values. The optional
+`--likelihood-cache` imports only raw likelihoods from a verified App cache with
+the same original parent, Qwen files/runtime, tokenizer and target limits. Old
+fused logits are recomputed under the selected protocol. Omit this option when
+no previous App cache exists. Both vectors
+and final fused bit-valued logits are retained. Test rows are re-exported without
+teacher scoring. Equivalent native queries are deduplicated across splits with
+held-out priority. Logs contain progress/counts rather than source text. Its
+SQLite work directory snapshots the native binary/resources/config and retains
+completed rows; use `--resume` with identical inputs/code after interruption.
+`metadata/app-alignment/report.json` records actual counts and exclusions.
+
+The new independent run is `runs/student-15m-extra-v1/distill-app-v4`, starting
+from the preserved 19,167-step continuation with fresh AdamW and schedule. The
+initial experiment keeps the previous 1,000 updates, learning rate, temperature
+and LM weight; these are not claimed optimal. Caches are bound to their exact
+score protocol/parameters. Python evaluation uses fused scores and native
+language/text tie order. `si-cli model-adjustments` checks the actual Rust App
+component; `si-cli candidates --model <bundle>` runs full native conversion.
+`si-neural rank` rejects App-tagged bundles to prevent silent evaluation with
+the old per-scalar conditional protocol.
+
+Resume an interrupted v4 training run with `scripts/distill-app.sh --resume`.
+The checkpoint, cache, configuration and implementation identities must still
+match. Historical runs are not resumed under a different objective or mapping.
+
+### Sequence KL with unchanged App v4 inference
+
+The `configs/distill-app-v4-sequence-kd.json` experiment keeps the same App v4
+inference policy and 16-token context/candidate bounds, but uses
+`candidate-sequence-kl-v1` for training. Teacher and student logits are summed
+candidate log probabilities converted to bits and multiplied by 0.8. Subtract
+their respective pool maxima for numerical stability. Do not divide by length,
+hard-clip the training logits, subtract a BOS baseline or include statistical
+scores in this candidate-only KL. Deduplicate identical output text across
+language identities for the loss; inference retains language-aware identities.
+The student still has the auxiliary observed-span LM loss with weight 0.2.
+Observed source text does not become an automatic ranking label.
+
+`scripts/prepare-sequence-kd.sh` verifies the existing `teacher-app-v4` cache,
+raw Qwen scores, fused App scores, native resource hashes and token bounds.
+It removes inactive model pools and writes the independent immutable
+`data/prepared/student-15m-v1/teacher-app-v4-sequence-kd-v1` derivative. The
+prepared split counts are 8,410 train, 431 validation and 428 test pools. Test
+rows remain teacher-unscored. Source documents, notices, raw likelihoods and
+split assignments are preserved; no new Qwen inference or training is needed.
+Existing App v4 teacher logits remain in the derivative for inference evaluation,
+while training reads the selected candidates' raw conditional/BOS likelihoods.
+
+The derivative also contains a hashed Python runtime and config snapshot under
+`metadata/sequence-kd/`. The training wrapper executes this snapshot and checks
+the selected archive SHA-256 and unchanged App config. Concurrent workspace
+code edits cannot silently change the objective. Do not edit this immutable
+bundle; prepare another version if the objective or App resources change.
+
+```sh
+# Already prepared locally; only run preparation again with a fresh --output.
+./llm/reranker_large/scripts/prepare-sequence-kd.sh
+
+# Read-only CPU compatibility check: no run directory or optimizer is created.
+./llm/reranker_large/scripts/distill-sequence-kd.sh --check-only
+
+# Explicit formal training, to be started by the operator.
+./llm/reranker_large/scripts/distill-sequence-kd.sh
+
+# Resume this same experiment after interruption.
+./llm/reranker_large/scripts/distill-sequence-kd.sh --resume
+```
+
+The run is `runs/student-15m-extra-v1/distill-app-v4-sequence-kd-v1`. Its initial
+weights are the archived continued-pretraining step 19,167, SHA-256
+`d8b62715b60064256cbb3c9c5fc5a9651e395ae3e1c73c22faab2f51ac8e74ba`.
+It starts a fresh AdamW optimizer and counters. The preset retains the previous
+1,000-step schedule, 100 warmup steps, learning rate 5e-5, batch 4 with four
+accumulations, temperature 2 and validation/save every 100 steps. This isolates
+the loss-path change and removal of inactive pools; it is not an optimized
+large-data recipe or a claim of improved ranking quality.
+
+Validation in the training log names the sequence-KL objective. It is not App
+ranking accuracy, and its scale must not be compared to the old fused-KL loss.
+After training, evaluate with exact App v4 fusion and the same frozen regression
+used for the archived pretraining baseline; also check generic LM retention.
+Do not promote a checkpoint solely because sequence KL decreased. For the
+held-out teacher-pool diagnostic, use the prepared derivative explicitly:
+
+```sh
+./llm/reranker_large/scripts/evaluate.sh \
+  --checkpoint llm/reranker_large/runs/student-15m-extra-v1/distill-app-v4-sequence-kd-v1/best.pt \
+  --data llm/reranker_large/data/prepared/student-15m-v1/lm \
+  --pools llm/reranker_large/data/prepared/student-15m-v1/teacher-app-v4-sequence-kd-v1 \
+  --split validation \
+  --output llm/reranker_large/reports/sequence-kd-v1-validation.json
+```
+
+### Targeted coverage and score-blind validation
+
+`scripts/prepare-coverage.sh` prepares an additional **unscored** contrast
+collection, without changing an existing teacher cache, training run or legacy
+regression fixture. It derives same-spelling edit patterns from the 45 native
+regressions and mines new natural source spans from the existing read-only pilot
+index. The 49 dictionary-verified contrast patterns all have new examples,
+representing the error types of all 45 original cases. Those original contexts,
+full references and queries are exclusions, not training rows.
+
+The local `data/prepared/student-15m-v1/coverage-v1` snapshot contains:
+
+| File | Count | Role |
+| --- | ---: | --- |
+| `train-cases.jsonl` | 5,844 | New source-linked same-spelling contrast pools |
+| `independent-validation.jsonl` | 233 | Newly authored, score-blind intended answers |
+| `validation-review.jsonl` | 233 | Pending text-only linguistic review, without model predictions |
+| `source-documents.jsonl` | 3,767 | Exact selected source documents and source groups |
+| `patterns.json` | 49 | Short-span sound contrasts, with diagnostic origin IDs |
+
+Training includes 4,407 contextual single-character/short-word cases and 1,437
+context-free natural phrase windows. Each pool contains two complete,
+pronunciation-compatible alternatives within the student's 16-token target
+limit. Contexts also fit 16 tokens. These are explicit contrast pools; forced
+alternatives must not be presented as native decoder recall. Source text is an
+auxiliary LM span, not automatically ranking gold. Alternate focus readings,
+such as polyphonic characters, must share a declared maintained-dictionary
+reading; known longer lexical readings are not overridden by character guesses.
+Some patterns are rare and have only one example; inspect per-pattern counts in
+`audit.json` before choosing mixture weights.
+
+The validation seeds in `data/coverage/independent-families-v1.json` were authored
+without consulting Qwen or student outputs. Sixteen distinct sound/word families
+are withheld from the new training cases, including their lexical surfaces.
+The cases comprise 128 contextual and 105 context-free examples. Twenty-three
+proposed full-phrase cases failed strict unambiguous-reading checks before any
+model scoring. Every contextual seed remains. The retained sequence is sealed
+by a manifest hash. Do not retire or relabel model failures after evaluation;
+record text-only review decisions as a new version with reviewer provenance.
+These are **AI-authored, unreviewed intentions**, not independent human gold.
+They are independent of the new mining families and model-error filtering;
+unseen pretraining language/semantics are not certified.
+
+The producer verifies old fixture hashes and excludes their exact queries,
+complete phrase references of at least four characters, similar same-spelling contexts and normalized character
+trigram near-duplicates. It also excludes prior pilot/App/sequence-KL query,
+document and source-group identities, scans only source `train` documents and
+caps each pattern at 160 and each document at two cases. Training and new
+validation have no overlapping query or held-out lexical family surface.
+These deterministic lexical checks do not prove absence of every semantic
+paraphrase; independent linguistic review remains necessary. Original source
+terms/notices and the read-only index identity are retained. Generated source
+text stays local under ignored prepared-data paths.
+
+The existing pilot source index is a prerequisite. To regenerate under the
+current code, use a fresh output directory; existing snapshots are immutable:
+
+```sh
+./llm/reranker_large/scripts/prepare-coverage.sh \
+  --output llm/reranker_large/data/prepared/student-15m-v1/coverage-v2
+```
+
+This command performs no model inference, teacher-score filtering or training.
+The case schema is `si-coverage-cases-v1`, not a scored `si-student-pools` cache;
+it cannot be passed directly to the trainer. Next, score only the training
+contrasts with the frozen local teacher and prepare a separately versioned
+training mixture. Keep `independent-validation.jsonl` outside teacher-derived
+training labels and optimization. Review its intended answers without model
+predictions, then evaluate all models against the sealed version. The legacy
+regression remains unchanged as a separate post-evaluation diagnostic suite.
+
+### Matched LM replay experiment
+
+`scripts/replay_experiment.py` freezes a separate no-replay / 25% old-LM-replay
+experiment. Both arms start from the same archived 19,167-step weights, use the
+existing sequence-KL teacher cache, and retain its learning rate, optimizer,
+temperature, candidate objective and 1,000-update ceiling. The new 5,844 coverage
+cases are deliberately not mixed into this comparison. Preparation freezes the
+runtime, source identities, native validation pools and selection policy before
+training; it performs no teacher scoring or training itself.
+
+```sh
+llm/.venv/bin/python llm/reranker_large/scripts/replay_experiment.py prepare \
+  --experiment .build/replay-experiment-20261128/frozen
+
+llm/.venv/bin/python \
+  .build/replay-experiment-20261128/frozen/runtime/llm/reranker_large/scripts/replay_experiment.py \
+  train --experiment .build/replay-experiment-20261128/frozen --arm control
+
+llm/.venv/bin/python \
+  .build/replay-experiment-20261128/frozen/runtime/llm/reranker_large/scripts/replay_experiment.py \
+  train --experiment .build/replay-experiment-20261128/frozen --arm replay
+```
+
+Use a fresh preparation directory for another experiment. Run the two arms
+sequentially on MPS. Their separate outputs are `distill-replay-control-v1` and
+`distill-replay25-v1` under `runs/student-15m-extra-v1/`. Append `--resume` to
+resume an interrupted, unfinished arm with its frozen runtime; completed runs
+cannot silently restart. Checkpoints preserve optimizer, pool position, replay
+sampler and CPU/accelerator RNG state.
+
+To test a lower learning rate after this comparison, prepare another snapshot
+with `--learning-rate 0.00001 --run-tag lr1e5` and a fresh `--experiment` path.
+These options apply only to preparation; training cannot override frozen
+settings. Its replay run becomes `distill-replay25-lr1e5-v1`. Compare it with
+the first replay arm to isolate the learning-rate change, and keep using the
+same sealed development cases without relabeling failures.
+
+The replay arm preserves the number/order of candidate pools per update. It
+adds about one old-LM target for every three candidate/observed-span target
+exposures, sampling only old `train` windows with replacement. The loss is
+`0.75 * mean_pool_loss + 0.25 * mean_replay_LM_loss`. The target-token quota
+and mean-loss weighting are distinct, recorded choices. Exact normalized
+validation/legacy-regression phrases of at least four characters are excluded
+from sampled replay windows. These lexical checks do not establish semantic
+novelty or remove shared short words from pretraining.
+
+Every 50 updates, selection requires a strict improvement in native fused
+top-one count on all 233 sealed synthetic intentions **and** old-LM validation
+loss less than 0.1 nat above its initial value, using a fixed 65,536-target
+validation budget. Ties retain the earlier checkpoint. Six consecutive checks
+without an eligible improvement stop training. Step zero is saved as the
+fallback `best.pt`; a completed run can therefore select the original weights
+and must not be described as successful distillation. Teacher-validation KL is
+logged separately and does not select best.
+
+The 233 answers remain AI-authored and unreviewed. Once used for selection,
+this split is a development validation set, not an independent final test.
+Evaluate the unchanged legacy regression only after checkpoint selection;
+its historical teacher-informed edits still limit interpretation. Neither a
+validation gain nor a small LM loss change guarantees real typing accuracy or
+closeness to Qwen. No command installs or promotes an app model.
+
+### Historical conditional-sum teacher
+
 ```sh
 ./llm/reranker_large/scripts/teacher.sh --model /path/to/local/Qwen2.5-0.5B
 ```
@@ -528,8 +818,42 @@ Final test pools are copied unchanged without being scored by the teacher.
 ```
 
 Pretraining begins from random weights. Distillation starts a new AdamW run
-from the compatible pretraining `best.pt`, with the exact same model,
-tokenizer and LM dataset. It never loads the teacher; it reads cached vectors.
+from compatible pretraining weights, with the exact same model and tokenizer.
+Ordinary initialization requires the same LM dataset. A continued checkpoint
+from another corpus also requires `--init-data`: the frozen source manifest
+must match that checkpoint and prove the candidate-pool LM dataset is a recorded
+ancestor, with frozen tokenizer bytes and ancestor exclusions intact. Merely
+sharing a vocabulary is insufficient. The source manifest, parent checkpoint
+hash and continuation lineage are retained in checkpoints and inference exports.
+Candidate pools keep their existing LM identity and teacher scores; no dataset
+or checkpoint identity is rewritten. Distillation never loads Qwen; it reads
+cached vectors. Resume retains the existing strict identity checks.
+
+For a scored 10K-training/500-validation pool pilot, use the separate
+`configs/distill-pilot.json`: 1,000 updates with effective batch 16, approximately
+1.6 passes over 10K pools. Its learning-rate schedule also ends at 1,000 updates;
+validation/checkpoints run every 100 updates. The default 10,000-update
+distillation config would expose a 10K pool dataset approximately 16 times.
+The selected pilot now starts from the separately preserved additional-corpus
+checkpoint at `runs/student-15m-extra-v1/snapshots/continued-step-019167/best.pt`,
+with `data/prepared/student-15m-extra-v1/lm` as initialization provenance. It
+continues to use `student-15m-v1/teacher-pilot` and its original LM bundle.
+Its distinct run is `runs/student-15m-extra-v1/distill-pilot`:
+
+```sh
+# Read-only CPU validation; does not create a run or optimizer:
+./llm/reranker_large/scripts/distill-pilot.sh --check-only
+# Explicitly start the selected 1,000-update experiment:
+./llm/reranker_large/scripts/distill-pilot.sh
+```
+
+The wrapper supplies `--config`, `--data`, `--pools`, `--run`, `--init-checkpoint`
+and `--init-data` explicitly; appended options can override those defaults.
+It does not replace the preserved 60K or continued archives. `--check-only`
+is also available on the general `distill.sh` command for initialization checks.
+
+This is a validation experiment, not a measured optimal training budget. Do not
+use final-test results to select checkpoints or change its source dataset.
 
 The default objective is `T² KL(softmax(teacher/T) || softmax(student/T))`
 plus `0.2 * observed-span LM loss`, initially `T=2`. Student scores use mean

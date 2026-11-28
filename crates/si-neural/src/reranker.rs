@@ -75,7 +75,11 @@ impl Reranker {
             return Err(invalid("unsupported context length"));
         }
         let tokenizer = Tokenizer::new(manifest.characters, c.vocab_size)?;
-        let mut w = Weights::open(&path.join("weights.f32"), manifest.tensors)?;
+        let mut w = Weights::open(
+            &path.join(manifest.weight_format.file_name()),
+            manifest.tensors,
+            manifest.weight_format,
+        )?;
         let embedding = w.matrix("embedding.weight", c.vocab_size, c.width)?;
         let positions = w.matrix("positions.weight", c.context, c.width)?;
         let blocks = (0..c.layers)

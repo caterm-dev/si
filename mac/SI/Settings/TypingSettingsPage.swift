@@ -31,6 +31,15 @@ struct TypingSettingsPage: View {
             }
             Divider()
             SettingsRow(
+                title: Text("Use large ranking model"),
+                detail: Text("Turn off to use the small model.")
+            ) {
+                Toggle("Use large ranking model", isOn: $settings.useLargeModel)
+                    .labelsHidden()
+            }
+            .disabled(!settings.localModelRankingEnabled)
+            Divider()
+            SettingsRow(
                 title: Text("Pinyin correction"),
                 detail: Text("Offer spelling suggestions. Press Space to accept a correction highlighted in first place.")
             ) {

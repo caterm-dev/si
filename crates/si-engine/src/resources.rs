@@ -8,6 +8,7 @@ mod paragraph;
 mod paragraph_review;
 mod paragraph_snapshot;
 mod progress;
+mod pruning;
 mod review;
 mod snapshot_csv;
 mod source;
@@ -30,6 +31,7 @@ pub use engine_config::{
 pub use learning_config::{AppLearningConfig, LearningConfig, SiConfig};
 pub use progress::CorpusProgress;
 use progress::ProgressReporter;
+pub use pruning::{ModelPruning, prune_model_to_bytes};
 
 /// The resources used by a conversion engine.
 pub struct EngineResources {

@@ -13,7 +13,7 @@ from llm.reranker_small.runtime import select_device
 from .data import PoolWriter, checked_file, load_pools
 from .prepare import finish_manifest
 from .scoring import validate_pool
-from .settings import file_hash, load_config
+from .settings import APP_PROTOCOL, file_hash, load_config
 
 PROTOCOL = 'qwen-bos-context-separate-candidate-sum-logp-no-eos-v1'
 
@@ -49,8 +49,12 @@ class QwenTeacher:
 
     @torch.inference_mode()
     def score(self, row):
-        prefix = [self.model.config.bos_token_id] + self.tokenizer.encode(row['context'], add_special_tokens=False)
-        sequences = [prefix + self.tokenizer.encode(c['text'], add_special_tokens=False) for c in row['candidates']]
+        return self.sequence_scores(row['context'], [c['text'] for c in row['candidates']])
+
+    @torch.inference_mode()
+    def sequence_scores(self, context, texts):
+        prefix = [self.model.config.bos_token_id] + self.tokenizer.encode(context, add_special_tokens=False)
+        sequences = [prefix + self.tokenizer.encode(text, add_special_tokens=False) for text in texts]
         length = max(map(len, sequences)) - 1
         if length > self.model.config.max_position_embeddings:
             raise ValueError('Teacher request exceeds its context; truncation is not allowed')
@@ -73,6 +77,8 @@ class QwenTeacher:
 
 def cache_teacher(config_path, lm_data, pools, output, teacher):
     config = load_config(config_path)
+    if config['scoring'].get('protocol') == APP_PROTOCOL:
+        raise ValueError('Use prepare-app-teacher.sh for native pools and conditional/BOS App scoring')
     lm_manifest, tokenizer, _ = load_bundle(lm_data, config, ('train',))
     manifest, datasets = load_pools(pools, config, lm_manifest, tokenizer, ('train', 'validation'), scored=False)
     with new_directory(output) as staged:
